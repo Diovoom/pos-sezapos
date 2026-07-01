@@ -63,6 +63,9 @@ function PosPage() {
   const [payOpen, setPayOpen] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [ageOpen, setAgeOpen] = useState(false);
+  const [ageVerification, setAgeVerification] = useState<SuccessfulVerification | null>(null);
+  const ageSettings = useMemo(() => loadAgeSettings(), []);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const { data: store } = useQuery({
