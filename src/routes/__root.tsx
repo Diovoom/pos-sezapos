@@ -13,6 +13,8 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
+import "@/i18n";
+import { applyLanguage } from "@/i18n";
 
 function NotFoundComponent() {
   return (
@@ -120,6 +122,11 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem("i18nextLng") : null;
+    if (saved) applyLanguage(saved);
+  }, []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {

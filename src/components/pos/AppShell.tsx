@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 const NAV = [
   { to: "/pos", label: "Checkout", icon: ScanBarcode },
@@ -107,6 +108,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+        <div className="hidden lg:block px-2 pt-2 pb-1 border-t">
+          <LanguageSwitcher compact />
+        </div>
         <div className="p-2 border-t">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

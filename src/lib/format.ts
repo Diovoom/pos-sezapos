@@ -1,5 +1,8 @@
-export const fmtCurrency = (n: number, currency = "USD") =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number.isFinite(n) ? n : 0);
+// Backward-compatible wrappers around the locale-aware formatters.
+// Prefer importing from "@/lib/i18n/formatters" + useLocaleContext() going forward.
+import { formatCurrency, formatNumber } from "@/lib/i18n/formatters";
 
-export const fmtNumber = (n: number) =>
-  new Intl.NumberFormat("en-US").format(Number.isFinite(n) ? n : 0);
+export const fmtCurrency = (n: number, currency = "USD") =>
+  formatCurrency(n, { locale: "en-US", currency });
+
+export const fmtNumber = (n: number) => formatNumber(n, { locale: "en-US" });

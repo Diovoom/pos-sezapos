@@ -1,0 +1,63 @@
+{
+  "app": { "name": "POS" },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "skip": "Skip",
+    "search": "Search",
+    "loading": "Loading...",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "nav": {
+    "checkout": "Checkout",
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "inventory": "Inventory",
+    "sales": "Sales",
+    "reports": "Reports",
+    "employees": "Employees",
+    "settings": "Settings",
+    "customers": "Customers",
+    "refunds": "Refunds",
+    "shifts": "Shifts",
+    "register": "Register",
+    "timeclock": "Time Clock",
+    "payroll": "Payroll"
+  },
+  "pos": {
+    "cart_empty": "Cart is empty",
+    "current_sale": "Current Sale",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "total": "Total",
+    "charge": "Charge",
+    "clear": "Clear",
+    "search_placeholder": "Search products or scan barcode...",
+    "favorites": "Favorites",
+    "all": "All",
+    "stock": "Stock"
+  },
+  "receipt": {
+    "receipt": "Receipt",
+    "thank_you": "Thank you for your business!",
+    "cashier": "Cashier",
+    "transaction": "Transaction",
+    "payment": "Payment",
+    "change": "Change"
+  },
+  "setup": {
+    "welcome": "Welcome",
+    "country": "Country",
+    "region": "State / Province / Region",
+    "timezone": "Time Zone",
+    "language": "Language",
+    "currency": "Currency"
+  }
+}

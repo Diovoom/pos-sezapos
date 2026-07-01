@@ -1,0 +1,8 @@
+{
+  "app": { "name": "קופה" },
+  "common": { "save": "שמור", "cancel": "בטל", "delete": "מחק", "edit": "ערוך", "close": "סגור", "back": "חזור", "next": "הבא", "skip": "דלג", "search": "חפש", "loading": "טוען...", "confirm": "אשר", "yes": "כן", "no": "לא" },
+  "nav": { "checkout": "קופה", "dashboard": "לוח בקרה", "products": "מוצרים", "inventory": "מלאי", "sales": "מכירות", "reports": "דוחות", "employees": "עובדים", "settings": "הגדרות", "customers": "לקוחות", "refunds": "החזרים", "shifts": "משמרות", "register": "קופה", "timeclock": "שעון נוכחות", "payroll": "שכר" },
+  "pos": { "cart_empty": "העגלה ריקה", "current_sale": "מכירה נוכחית", "subtotal": "סכום ביניים", "tax": "מס", "total": "סה\"כ", "charge": "חייב", "clear": "נקה", "search_placeholder": "חפש מוצרים או סרוק ברקוד...", "favorites": "מועדפים", "all": "הכל", "stock": "מלאי" },
+  "receipt": { "receipt": "קבלה", "thank_you": "תודה על הקנייה!", "cashier": "קופאי", "transaction": "עסקה", "payment": "תשלום", "change": "עודף" },
+  "setup": { "welcome": "ברוך הבא", "country": "מדינה", "region": "אזור", "timezone": "אזור זמן", "language": "שפה", "currency": "מטבע" }
+}

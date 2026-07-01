@@ -1,0 +1,8 @@
+{
+  "app": { "name": "POS" },
+  "common": { "save": "Salvar", "cancel": "Cancelar", "delete": "Excluir", "edit": "Editar", "close": "Fechar", "back": "Voltar", "next": "Próximo", "skip": "Pular", "search": "Buscar", "loading": "Carregando...", "confirm": "Confirmar", "yes": "Sim", "no": "Não" },
+  "nav": { "checkout": "Caixa", "dashboard": "Painel", "products": "Produtos", "inventory": "Estoque", "sales": "Vendas", "reports": "Relatórios", "employees": "Funcionários", "settings": "Configurações", "customers": "Clientes", "refunds": "Reembolsos", "shifts": "Turnos", "register": "Caixa", "timeclock": "Ponto", "payroll": "Folha" },
+  "pos": { "cart_empty": "Carrinho vazio", "current_sale": "Venda atual", "subtotal": "Subtotal", "tax": "Imposto", "total": "Total", "charge": "Cobrar", "clear": "Limpar", "search_placeholder": "Buscar produtos ou escanear...", "favorites": "Favoritos", "all": "Todos", "stock": "Estoque" },
+  "receipt": { "receipt": "Recibo", "thank_you": "Obrigado pela sua compra!", "cashier": "Operador", "transaction": "Transação", "payment": "Pagamento", "change": "Troco" },
+  "setup": { "welcome": "Bem-vindo", "country": "País", "region": "Estado / Província / Região", "timezone": "Fuso horário", "language": "Idioma", "currency": "Moeda" }
+}
