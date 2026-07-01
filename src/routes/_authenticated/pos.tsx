@@ -428,6 +428,17 @@ function PosPage() {
       />
 
       <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receipt} />
+
+      <BarcodeScanner
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onDetected={(code) => {
+          if (!tryAddByCode(code)) {
+            toast.error(`No product found for ${code}`);
+          }
+        }}
+      />
+
     </>
   );
 }
