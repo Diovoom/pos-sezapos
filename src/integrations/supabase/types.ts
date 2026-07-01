@@ -251,12 +251,16 @@ export type Database = {
           first_name: string | null
           full_name: string | null
           hire_date: string | null
+          hourly_wage: number | null
           id: string
           last_name: string | null
+          late_threshold_minutes: number
           must_change_password: boolean
           phone: string | null
           photo_url: string | null
           pin_hash: string | null
+          scheduled_end_time: string | null
+          scheduled_start_time: string | null
           status: string
           store_id: string | null
           updated_at: string
@@ -269,12 +273,16 @@ export type Database = {
           first_name?: string | null
           full_name?: string | null
           hire_date?: string | null
+          hourly_wage?: number | null
           id: string
           last_name?: string | null
+          late_threshold_minutes?: number
           must_change_password?: boolean
           phone?: string | null
           photo_url?: string | null
           pin_hash?: string | null
+          scheduled_end_time?: string | null
+          scheduled_start_time?: string | null
           status?: string
           store_id?: string | null
           updated_at?: string
@@ -287,12 +295,16 @@ export type Database = {
           first_name?: string | null
           full_name?: string | null
           hire_date?: string | null
+          hourly_wage?: number | null
           id?: string
           last_name?: string | null
+          late_threshold_minutes?: number
           must_change_password?: boolean
           phone?: string | null
           photo_url?: string | null
           pin_hash?: string | null
+          scheduled_end_time?: string | null
+          scheduled_start_time?: string | null
           status?: string
           store_id?: string | null
           updated_at?: string
@@ -657,35 +669,47 @@ export type Database = {
       }
       time_entries: {
         Row: {
+          approved_by: string | null
           break_minutes: number
           break_start: string | null
           clock_in: string
           clock_out: string | null
           created_at: string
           id: string
+          late: boolean
+          late_minutes: number
           notes: string | null
+          override_reason: string | null
           store_id: string | null
           user_id: string
         }
         Insert: {
+          approved_by?: string | null
           break_minutes?: number
           break_start?: string | null
           clock_in?: string
           clock_out?: string | null
           created_at?: string
           id?: string
+          late?: boolean
+          late_minutes?: number
           notes?: string | null
+          override_reason?: string | null
           store_id?: string | null
           user_id: string
         }
         Update: {
+          approved_by?: string | null
           break_minutes?: number
           break_start?: string | null
           clock_in?: string
           clock_out?: string | null
           created_at?: string
           id?: string
+          late?: boolean
+          late_minutes?: number
           notes?: string | null
+          override_reason?: string | null
           store_id?: string | null
           user_id?: string
         }
