@@ -259,28 +259,41 @@ function PosPage() {
       <div className="flex-1 flex overflow-hidden">
         <section className="flex-[7] flex flex-col border-r bg-surface/40 min-w-0">
           <div className="p-4 flex flex-col gap-3">
-            <div className="relative">
-              <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                ref={searchRef}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    if (tryAddByCode(search)) return;
-                    if (filtered.length === 1) {
-                      addToCart(filtered[0]);
-                      setSearch("");
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  ref={searchRef}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      if (tryAddByCode(search)) return;
+                      if (filtered.length === 1) {
+                        addToCart(filtered[0]);
+                        setSearch("");
+                      }
                     }
-                  }
-                }}
-                placeholder="Search products or scan barcode... (⌘K)"
-                className="h-12 pl-10 pr-20 bg-card text-sm"
-              />
-              <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 border rounded text-[10px] font-mono text-muted-foreground">
-                ⌘K
-              </kbd>
+                  }}
+                  placeholder="Search products or scan barcode... (⌘K)"
+                  className="h-12 pl-10 pr-14 bg-card text-sm"
+                />
+                <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 border rounded text-[10px] font-mono text-muted-foreground">
+                  ⌘K
+                </kbd>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setScannerOpen(true)}
+                className="h-12 w-12 shrink-0"
+                title="Scan barcode with camera"
+                aria-label="Scan barcode"
+              >
+                <Camera className="size-5" />
+              </Button>
             </div>
+
 
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
               <CategoryChip active={activeCategory === "fav"} onClick={() => setActiveCategory("fav")}>Favorites</CategoryChip>
