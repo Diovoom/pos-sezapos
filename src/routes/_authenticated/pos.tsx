@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/pos/AppShell";
 import { fmtCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Plus, Minus, Trash2, Search, X, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2 } from "lucide-react";
+import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { PaymentDialog, type CompletedPayment, type PaymentMethod } from "@/components/pos/PaymentDialog";
+import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
+import type { ReceiptData } from "@/components/pos/Receipt";
 
 export const Route = createFileRoute("/_authenticated/pos")({
   component: PosPage,
@@ -31,28 +34,37 @@ type Product = {
 type Category = { id: string; name: string };
 type CartLine = { product: Product; qty: number };
 
-const TENDER = [
+const TENDER: Array<{ id: PaymentMethod; label: string; icon: typeof Banknote }> = [
   { id: "cash", label: "Cash", icon: Banknote },
   { id: "card", label: "Card", icon: CreditCard },
   { id: "tap", label: "Tap", icon: Smartphone },
   { id: "apple_pay", label: "Apple", icon: Wallet },
   { id: "gift_card", label: "Gift", icon: Gift },
-  { id: "split", label: "Split", icon: SplitSquareHorizontal },
-] as const;
-type TenderId = (typeof TENDER)[number]["id"];
+  { id: "google_pay", label: "Google", icon: SplitSquareHorizontal },
+];
 
 function PosPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | "fav" | "all">("fav");
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [tender, setTender] = useState<TenderId>("card");
+  const [tender, setTender] = useState<PaymentMethod>("card");
+  const [payOpen, setPayOpen] = useState(false);
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const { data: store } = useQuery({
     queryKey: ["store"],
+    queryFn: async () => (await supabase.from("stores").select("*").limit(1).maybeSingle()).data,
+  });
+
+  const { data: profile } = useQuery({
+    queryKey: ["me-profile"],
     queryFn: async () => {
-      const { data } = await supabase.from("stores").select("*").limit(1).maybeSingle();
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return null;
+      const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
       return data;
     },
   });
@@ -62,10 +74,7 @@ function PosPage() {
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["categories"],
-    queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id,name").order("sort_order");
-      return data ?? [];
-    },
+    queryFn: async () => (await supabase.from("categories").select("id,name").order("sort_order")).data ?? [],
   });
 
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
@@ -94,7 +103,6 @@ function PosPage() {
     });
   }, [products, activeCategory, search]);
 
-  // Barcode shortcut: Enter while focused on search adds matching barcode/sku
   const tryAddByCode = (code: string) => {
     const norm = code.trim().toLowerCase();
     if (!norm) return false;
@@ -139,16 +147,20 @@ function PosPage() {
   const removeLine = (id: string) => setCart((cur) => cur.filter((l) => l.product.id !== id));
   const clearCart = () => setCart([]);
 
-  const subtotal = cart.reduce((s, l) => s + l.product.price * l.qty, 0);
+  const subtotal = Math.round(cart.reduce((s, l) => s + l.product.price * l.qty, 0) * 100) / 100;
   const taxable = cart.reduce((s, l) => s + (l.product.taxable ? l.product.price * l.qty : 0), 0);
   const tax = Math.round(taxable * taxRate * 100) / 100;
   const total = Math.round((subtotal + tax) * 100) / 100;
 
-  const charge = useMutation({
-    mutationFn: async () => {
-      if (cart.length === 0) throw new Error("Cart is empty");
+  // Sale is written ONLY after payment is confirmed.
+  const finalize = useMutation({
+    mutationFn: async (payment: CompletedPayment) => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
+
+      const terminalRef =
+        payment.reference ||
+        (payment.cardBrand && payment.last4 ? `${payment.cardBrand} ••${payment.last4}` : null);
 
       const { data: sale, error: saleErr } = await supabase
         .from("sales")
@@ -159,7 +171,10 @@ function PosPage() {
           tax,
           discount: 0,
           total,
-          payment_method: tender,
+          payment_method: payment.method,
+          amount_tendered: payment.amountTendered,
+          change_due: payment.changeDue,
+          terminal_ref: terminalRef,
           status: "completed",
         })
         .select()
@@ -176,16 +191,51 @@ function PosPage() {
       }));
       const { error: itemsErr } = await supabase.from("sale_items").insert(items);
       if (itemsErr) throw itemsErr;
-      return sale;
+      return { sale, payment };
     },
-    onSuccess: () => {
+    onSuccess: ({ sale, payment }) => {
+      const rd: ReceiptData = {
+        store: store ?? {},
+        receiptNumber: sale.receipt_number ?? sale.id.slice(0, 8),
+        transactionId: sale.id,
+        cashierName: profile?.full_name ?? profile?.email ?? null,
+        employeeId: null,
+        createdAt: sale.created_at,
+        lines: cart.map((l) => ({
+          name: l.product.name,
+          qty: l.qty,
+          unit_price: l.product.price,
+          line_total: Math.round(l.product.price * l.qty * 100) / 100,
+        })),
+        subtotal,
+        tax,
+        total,
+        paymentMethod: payment.method,
+        amountTendered: payment.amountTendered,
+        changeDue: payment.changeDue,
+        cardBrand: payment.cardBrand,
+        last4: payment.last4,
+        reference: payment.reference,
+      };
+      setReceipt(rd);
+      setReceiptOpen(true);
       toast.success(`Sale completed · ${fmtCurrency(total, currency)}`);
       clearCart();
+      setPayOpen(false);
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to charge"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to record sale"),
   });
+
+  const openPayment = () => {
+    if (cart.length === 0) {
+      toast.error("Cart is empty");
+      return;
+    }
+    setPayOpen(true);
+  };
 
   return (
     <>
@@ -200,7 +250,6 @@ function PosPage() {
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Left: product browser */}
         <section className="flex-[7] flex flex-col border-r bg-surface/40 min-w-0">
           <div className="p-4 flex flex-col gap-3">
             <div className="relative">
@@ -227,12 +276,8 @@ function PosPage() {
             </div>
 
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-              <CategoryChip active={activeCategory === "fav"} onClick={() => setActiveCategory("fav")}>
-                Favorites
-              </CategoryChip>
-              <CategoryChip active={activeCategory === "all"} onClick={() => setActiveCategory("all")}>
-                All
-              </CategoryChip>
+              <CategoryChip active={activeCategory === "fav"} onClick={() => setActiveCategory("fav")}>Favorites</CategoryChip>
+              <CategoryChip active={activeCategory === "all"} onClick={() => setActiveCategory("all")}>All</CategoryChip>
               {categories.map((c) => (
                 <CategoryChip key={c.id} active={activeCategory === c.id} onClick={() => setActiveCategory(c.id)}>
                   {c.name}
@@ -266,9 +311,7 @@ function PosPage() {
                     </div>
                     <div>
                       <div className="text-sm font-semibold leading-tight line-clamp-2">{p.name}</div>
-                      <div className="text-[10px] text-muted-foreground mt-1">
-                        Stock: {Number(p.stock)}
-                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-1">Stock: {Number(p.stock)}</div>
                     </div>
                   </button>
                 ))}
@@ -277,7 +320,6 @@ function PosPage() {
           </div>
         </section>
 
-        {/* Right: cart */}
         <section className="w-[420px] flex-none flex flex-col bg-card">
           <div className="p-6 pb-3 flex items-center justify-between">
             <h2 className="font-semibold">Current Sale</h2>
@@ -290,9 +332,7 @@ function PosPage() {
 
           <div className="flex-1 overflow-y-auto px-6 space-y-3">
             {cart.length === 0 ? (
-              <div className="h-full grid place-items-center text-sm text-muted-foreground">
-                Cart is empty
-              </div>
+              <div className="h-full grid place-items-center text-sm text-muted-foreground">Cart is empty</div>
             ) : (
               cart.map((line) => (
                 <div key={line.product.id} className="flex items-start gap-3 group">
@@ -359,19 +399,26 @@ function PosPage() {
             </div>
 
             <Button
-              onClick={() => charge.mutate()}
-              disabled={cart.length === 0 || charge.isPending}
+              onClick={openPayment}
+              disabled={cart.length === 0 || finalize.isPending}
               className="w-full h-16 text-lg font-bold rounded-xl shadow-[var(--shadow-charge)]"
             >
-              {charge.isPending ? (
-                <Loader2 className="size-5 animate-spin" />
-              ) : (
-                <>Charge {fmtCurrency(total, currency)}</>
-              )}
+              {finalize.isPending ? <Loader2 className="size-5 animate-spin" /> : <>Charge {fmtCurrency(total, currency)}</>}
             </Button>
           </div>
         </section>
       </div>
+
+      <PaymentDialog
+        open={payOpen}
+        onOpenChange={setPayOpen}
+        method={tender}
+        total={total}
+        currency={currency}
+        onComplete={(p) => finalize.mutate(p)}
+      />
+
+      <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receipt} />
     </>
   );
 }
