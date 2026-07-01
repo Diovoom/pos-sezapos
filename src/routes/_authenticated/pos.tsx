@@ -159,7 +159,26 @@ function PosPage() {
     setCart((cur) => cur.map((l) => (l.product.id === id ? { ...l, qty } : l)));
   };
   const removeLine = (id: string) => setCart((cur) => cur.filter((l) => l.product.id !== id));
-  const clearCart = () => setCart([]);
+  const clearCart = () => { setCart([]); setAgeVerification(null); };
+
+  const restrictedItems: RestrictedItem[] = useMemo(
+    () =>
+      cart
+        .filter((l) => l.product.age_restricted)
+        .map((l) => ({
+          product_id: l.product.id,
+          name: l.product.name,
+          min_age: Number(l.product.min_age ?? 21) || 21,
+          category: l.product.age_category ?? null,
+        })),
+    [cart],
+  );
+  const needsAgeVerification =
+    ageSettings.enabled && restrictedItems.length > 0 && !ageVerification;
+
+  const removeAllRestricted = () => {
+    setCart((cur) => cur.filter((l) => !l.product.age_restricted));
+  };
 
   const subtotal = Math.round(cart.reduce((s, l) => s + l.product.price * l.qty, 0) * 100) / 100;
   const taxable = cart.reduce((s, l) => s + (l.product.taxable ? l.product.price * l.qty : 0), 0);
