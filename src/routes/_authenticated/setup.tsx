@@ -144,7 +144,8 @@ function SetupWizardPage() {
         business_hours: { text: next.store.hours } as unknown as Record<string, unknown>,
       });
       if (opts?.complete) patch.setup_completed_at = new Date().toISOString();
-      const { error } = await (supabase.from("stores").update as (p: unknown) => ReturnType<typeof supabase.from>["update"] extends (...a: unknown[]) => infer R ? R : never)(patch).eq("id", store.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from("stores") as any).update(patch).eq("id", store.id);
       if (error) throw error;
       // Owner profile
       if (me.data?.user.id) {
