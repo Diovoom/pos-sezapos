@@ -141,8 +141,24 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
 
 function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: () => void }) {
   const { data: me } = useMe();
+  const navigate = useNavigate();
   const [closingCash, setClosingCash] = useState("");
   const [notes, setNotes] = useState(session.notes ?? "");
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [approver, setApprover] = useState<ManagerOverrideResult | null>(null);
+
+  // Threshold from Settings → Register preferences, default $5.
+  const threshold = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("pos:prefs:register");
+      if (raw) {
+        const p = JSON.parse(raw) as { over_short_alert?: string };
+        const n = Number(p?.over_short_alert);
+        if (Number.isFinite(n) && n >= 0) return n;
+      }
+    } catch { /* ignore */ }
+    return 5;
+  }, []);
 
   const totals = useQuery({
     queryKey: ["register", "totals", session.id],
@@ -168,33 +184,53 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
   }, [session.opening_cash, totals.data]);
 
   const variance = closingCash !== "" ? Number(closingCash) - expected : null;
+  const needsOverride = variance !== null && Math.abs(variance) > threshold;
 
   const close = useMutation({
     mutationFn: async () => {
       const cc = Number(closingCash);
       if (!Number.isFinite(cc) || cc < 0) throw new Error("Enter the counted cash");
-      const { error } = await sb.from("register_sessions").update({
+      const v = cc - expected;
+      if (Math.abs(v) > threshold && !approver) throw new Error("Manager override required");
+      const { data: closed, error } = await sb.from("register_sessions").update({
         status: "closed",
         closed_at: new Date().toISOString(),
         closed_by: me?.user?.id,
         closing_cash: cc,
         expected_cash: expected,
-        variance: cc - expected,
+        variance: v,
         cash_sales: totals.data?.cashSales ?? 0,
         cash_refunds: totals.data?.cashRefunds ?? 0,
         notes: notes || null,
-      }).eq("id", session.id);
+      }).eq("id", session.id).select().single();
       if (error) throw error;
       void logAudit({
         action: "register.close",
         entity: "register_session",
         entity_id: session.id,
-        details: { closing_cash: cc, expected, variance: cc - expected },
+        details: {
+          closing_cash: cc,
+          expected,
+          variance: v,
+          approved_by: approver?.manager_id ?? null,
+          approver_name: approver?.manager_name ?? null,
+        },
       });
+      return closed;
     },
-    onSuccess: () => { toast.success("Register closed"); onChanged(); },
+    onSuccess: (closed) => {
+      toast.success("Register closed");
+      onChanged();
+      navigate({ to: "/shifts", search: { id: closed.id } });
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to close"),
   });
+
+  const attemptClose = () => {
+    if (closingCash === "") return toast.error("Enter counted cash");
+    if (needsOverride && !approver) { setOverrideOpen(true); return; }
+    close.mutate();
+  };
 
   return (
     <Card className="max-w-2xl">
@@ -228,6 +264,18 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
             </div>
           )}
         </div>
+        {needsOverride && (
+          <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-sm flex items-start gap-2">
+            <AlertTriangle className="size-4 mt-0.5 text-warning" />
+            <div>
+              <div className="font-medium">Manager override required</div>
+              <div className="text-muted-foreground">
+                Variance exceeds the ${threshold.toFixed(2)} threshold.
+                {approver ? ` Approved by ${approver.manager_name}.` : " A manager must approve this close."}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Counted cash ($)</Label>
@@ -238,11 +286,20 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
         </div>
-        <Button onClick={() => close.mutate()} disabled={close.isPending} className="w-full" variant="destructive">
+        <Button onClick={attemptClose} disabled={close.isPending} className="w-full" variant="destructive">
           {close.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : <Lock className="size-4 mr-2" />}
-          Close Register
+          {needsOverride && !approver ? "Request Manager Approval" : "Close Register & View Report"}
         </Button>
       </CardContent>
+
+      <ManagerOverrideDialog
+        open={overrideOpen}
+        onOpenChange={setOverrideOpen}
+        action="register.close.override"
+        description={`Cash variance ${variance != null && variance > 0 ? "+" : ""}${fmt(variance ?? 0)} exceeds the $${threshold.toFixed(2)} threshold.`}
+        details={{ variance, expected, counted: Number(closingCash) }}
+        onApprove={(r) => { setApprover(r); setTimeout(() => close.mutate(), 0); }}
+      />
     </Card>
   );
 }
