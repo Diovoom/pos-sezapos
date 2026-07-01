@@ -148,12 +148,12 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
     queryFn: async () => {
       const [salesRes, refundRes] = await Promise.all([
         sb.from("sales").select("total, payment_method").eq("register_session_id", session.id),
-        sb.from("refunds").select("total, method, sale_id, sales!inner(register_session_id)").eq("sales.register_session_id", session.id),
+        sb.from("refunds").select("total, payment_method, sale_id, sales!inner(register_session_id)").eq("sales.register_session_id", session.id),
       ]);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cashSales = (salesRes.data ?? []).filter((s: any) => s.payment_method === "cash").reduce((a: number, s: any) => a + Number(s.total || 0), 0);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cashRefunds = (refundRes.data ?? []).filter((r: any) => r.method === "cash").reduce((a: number, r: any) => a + Number(r.total || 0), 0);
+      const cashRefunds = (refundRes.data ?? []).filter((r: any) => r.payment_method === "cash").reduce((a: number, r: any) => a + Number(r.total || 0), 0);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cardSales = (salesRes.data ?? []).filter((s: any) => s.payment_method !== "cash").reduce((a: number, s: any) => a + Number(s.total || 0), 0);
       return { cashSales, cashRefunds, cardSales };
