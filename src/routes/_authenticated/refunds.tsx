@@ -437,9 +437,7 @@ function RefundDialog({
         details={{ sale_id: sale?.id, amount: refundTotal, type }}
         onApprove={(r) => { setOverride(r); setNotes((n) => n ? `${n}\nApproved by ${r.manager_name}` : `Approved by ${r.manager_name}`); }}
       />
-
-        
-      </DialogContent>
     </Dialog>
   );
 }
+
