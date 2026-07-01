@@ -221,7 +221,7 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
     onSuccess: (closed) => {
       toast.success("Register closed");
       onChanged();
-      navigate({ to: "/shifts", search: { id: closed.id } });
+      navigate({ to: "/shifts", search: { session: closed.id } });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to close"),
   });
@@ -349,7 +349,7 @@ function HistoryCard({ sessions }: { sessions: Session[] }) {
                     </td>
                     <td className="text-right">
                       <Button asChild variant="ghost" size="sm">
-                        <a href={`/shifts?id=${s.id}`}>Report</a>
+                        <a href={`/shifts?session=${s.id}`}>Report</a>
                       </Button>
                     </td>
                   </tr>
