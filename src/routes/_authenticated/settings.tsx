@@ -562,3 +562,165 @@ function ComingSoon({ title, desc }: { title: string; desc: string }) {
     </Card>
   );
 }
+
+/* ================= Age Verification ================= */
+
+function AgeVerificationPanel() {
+  const [s, setS] = useState<AgeVerificationSettings>(() => loadAgeSettings());
+  const update = <K extends keyof AgeVerificationSettings>(k: K, v: AgeVerificationSettings[K]) =>
+    setS((cur) => ({ ...cur, [k]: v }));
+  const setMinAge = (cat: string, v: number) =>
+    setS((cur) => ({ ...cur, categoryMinAges: { ...cur.categoryMinAges, [cat]: v } }));
+
+  const save = () => {
+    saveAgeSettings(s);
+    void logAudit({ action: "settings.update", entity: "age_verification", details: { enabled: s.enabled } });
+    toast.success("Age verification settings saved");
+  };
+  const reset = () => setS(DEFAULT_AGE_SETTINGS);
+
+  const idTypes = ["Driver's License", "State ID", "Passport", "Military ID", "Tribal ID", "Foreign Passport"];
+  const toggleIdType = (label: string) => {
+    const has = s.acceptedIdTypes.includes(label);
+    update("acceptedIdTypes", has ? s.acceptedIdTypes.filter((x) => x !== label) : [...s.acceptedIdTypes, label]);
+  };
+
+  return (
+    <div className="space-y-4 max-w-3xl">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">Age Verification</CardTitle>
+          <CardDescription>
+            Configure ID verification for age-restricted products. Rules apply globally at checkout; per-product age
+            limits live on each product.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ToggleRow
+            label="Enable age verification"
+            desc="Pauses checkout when age-restricted products are in the cart until an ID is verified."
+            checked={s.enabled}
+            onChange={(v) => update("enabled", v)}
+          />
+          <ToggleRow
+            label="Require ID scan for every restricted transaction"
+            desc="If disabled, verification carries over within the same shift for the same customer profile."
+            checked={s.requireIdEveryTime}
+            onChange={(v) => update("requireIdEveryTime", v)}
+          />
+          <ToggleRow
+            label="Allow manual date-of-birth entry"
+            desc="Cashiers can type a DOB when a customer's ID cannot be scanned."
+            checked={s.allowManualEntry}
+            onChange={(v) => update("allowManualEntry", v)}
+          />
+          <ToggleRow
+            label="Require manager approval for manual entry"
+            desc="Manual DOB entry requires a manager PIN and is recorded in the audit log."
+            checked={s.requireManagerForManual}
+            onChange={(v) => update("requireManagerForManual", v)}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Minimum age by category</CardTitle>
+          <CardDescription>
+            Local law prevails. Set the minimum legal age for each restricted category sold at this store.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            {AGE_CATEGORIES.map((c) => (
+              <div key={c.id} className="flex items-center justify-between gap-3 border rounded-md p-3">
+                <Label className="flex-1">{c.label}</Label>
+                <Input
+                  type="number"
+                  min={13}
+                  max={99}
+                  className="w-20"
+                  value={s.categoryMinAges[c.id] ?? 21}
+                  onChange={(e) => setMinAge(c.id, Number(e.target.value) || 21)}
+                />
+                <span className="text-xs text-muted-foreground w-6 text-right">+</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Accepted ID types</CardTitle>
+          <CardDescription>Only these documents may be used for verification at this location.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          {idTypes.map((t) => (
+            <button
+              key={t}
+              onClick={() => toggleIdType(t)}
+              className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                s.acceptedIdTypes.includes(t)
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card hover:bg-accent"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Privacy & retention</CardTitle>
+          <CardDescription>
+            Only masked identifiers (name initial, last 4 of the document number, DOB) are stored. Full ID numbers and
+            addresses are never persisted.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <Label className="flex-1">Audit log retention (days)</Label>
+            <Input
+              type="number"
+              min={30}
+              max={3650}
+              className="w-28"
+              value={s.retentionDays}
+              onChange={(e) => update("retentionDays", Number(e.target.value) || 365)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-2">
+        <Button onClick={save}>Save age verification settings</Button>
+        <Button variant="outline" onClick={reset}>Reset to defaults</Button>
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  desc,
+  checked,
+  onChange,
+}: {
+  label: string;
+  desc: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-2 border-b last:border-b-0">
+      <div className="flex-1">
+        <Label className="font-medium">{label}</Label>
+        <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+}
