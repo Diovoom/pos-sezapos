@@ -462,12 +462,37 @@ function PosPage() {
               })}
             </div>
 
+            {restrictedItems.length > 0 && (
+              <div
+                className={cn(
+                  "mb-2 px-3 py-2 rounded-md text-xs font-medium flex items-center justify-between border",
+                  ageVerification
+                    ? "bg-success/10 border-success/30 text-success"
+                    : "bg-warning/10 border-warning/40 text-warning",
+                )}
+              >
+                <span>
+                  {ageVerification
+                    ? `Age verified (${ageVerification.ageYears}+ · ${ageVerification.method === "override" ? "manager override" : ageVerification.method === "manual" ? "manual" : "ID scan"})`
+                    : `${restrictedItems.length} age-restricted item${restrictedItems.length > 1 ? "s" : ""} — ID required`}
+                </span>
+                {!ageVerification && (
+                  <button className="underline" onClick={() => setAgeOpen(true)}>
+                    Verify now
+                  </button>
+                )}
+              </div>
+            )}
             <Button
               onClick={openPayment}
               disabled={cart.length === 0 || finalize.isPending}
               className="w-full h-16 text-lg font-bold rounded-xl shadow-[var(--shadow-charge)]"
             >
-              {finalize.isPending ? <Loader2 className="size-5 animate-spin" /> : <>Charge {fmtCurrency(total, currency)}</>}
+              {finalize.isPending
+                ? <Loader2 className="size-5 animate-spin" />
+                : needsAgeVerification
+                  ? <>Verify Age to Charge {fmtCurrency(total, currency)}</>
+                  : <>Charge {fmtCurrency(total, currency)}</>}
             </Button>
           </div>
         </section>
@@ -483,6 +508,27 @@ function PosPage() {
       />
 
       <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receipt} />
+
+      <AgeVerificationDialog
+        open={ageOpen}
+        onOpenChange={setAgeOpen}
+        items={restrictedItems}
+        settings={ageSettings}
+        storeId={store?.id ?? null}
+        onVerified={(v) => {
+          setAgeVerification(v);
+          toast.success("Age verified — checkout may continue");
+        }}
+        onRemoveRestricted={() => {
+          removeAllRestricted();
+          toast.info("Age-restricted items removed from cart");
+        }}
+        onCancelSale={() => {
+          clearCart();
+          setAgeOpen(false);
+          toast.info("Sale canceled");
+        }}
+      />
 
       <BarcodeScanner
         open={scannerOpen}
