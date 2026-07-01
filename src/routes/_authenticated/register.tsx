@@ -347,6 +347,11 @@ function HistoryCard({ sessions }: { sessions: Session[] }) {
                         {s.status}
                       </Badge>
                     </td>
+                    <td className="text-right">
+                      <Button asChild variant="ghost" size="sm">
+                        <a href={`/shifts?id=${s.id}`}>Report</a>
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
