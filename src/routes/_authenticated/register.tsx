@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
@@ -11,8 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { useMe } from "@/hooks/useMe";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Loader2, Wallet, LockOpen, Lock } from "lucide-react";
+import { Loader2, Wallet, LockOpen, Lock, AlertTriangle } from "lucide-react";
 import { logAudit } from "@/lib/audit-log";
+import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
 
 export const Route = createFileRoute("/_authenticated/register")({
   component: RegisterPage,
