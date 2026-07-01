@@ -33,12 +33,26 @@ type ProductRow = {
   stock: number;
   taxable: boolean;
   is_favorite: boolean;
+  image_url: string | null;
 };
+
+function ProductThumb({ path }: { path: string | null }) {
+  const url = useProductImageUrl(path);
+  if (!url) {
+    return (
+      <div className="size-9 rounded bg-muted grid place-items-center text-muted-foreground">
+        <ImageIcon className="size-4" />
+      </div>
+    );
+  }
+  return <img src={url} alt="" className="size-9 rounded object-cover" />;
+}
 
 function ProductsPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+
 
   const { data: store } = useQuery({
     queryKey: ["store"],
