@@ -49,6 +49,56 @@ export type Database = {
           },
         ]
       }
+      payment_attempts: {
+        Row: {
+          amount: number
+          attempted_by: string | null
+          created_at: string
+          currency: string
+          id: string
+          message: string | null
+          method: string
+          provider: string | null
+          reference: string | null
+          status: string
+          store_id: string | null
+        }
+        Insert: {
+          amount: number
+          attempted_by?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          message?: string | null
+          method: string
+          provider?: string | null
+          reference?: string | null
+          status: string
+          store_id?: string | null
+        }
+        Update: {
+          amount?: number
+          attempted_by?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          message?: string | null
+          method?: string
+          provider?: string | null
+          reference?: string | null
+          status?: string
+          store_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_attempts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           barcode: string | null
