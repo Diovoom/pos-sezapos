@@ -124,6 +124,11 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem("i18nextLng") : null;
+    if (saved) applyLanguage(saved);
+  }, []);
+
+  useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
