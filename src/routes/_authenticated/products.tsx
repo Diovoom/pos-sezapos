@@ -34,6 +34,9 @@ type ProductRow = {
   taxable: boolean;
   is_favorite: boolean;
   image_url: string | null;
+  age_restricted?: boolean | null;
+  min_age?: number | null;
+  age_category?: string | null;
 };
 
 function ProductThumb({ path }: { path: string | null }) {
