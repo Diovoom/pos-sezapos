@@ -24,6 +24,10 @@ import { HardwareCard } from "@/components/settings/HardwareCard";
 import { logAudit } from "@/lib/audit-log";
 import { getActiveProvider } from "@/lib/pos/payment-terminal";
 import { PaymentTerminalsPanel } from "@/components/settings/PaymentTerminalsPanel";
+import {
+  loadAgeSettings, saveAgeSettings, AGE_CATEGORIES, DEFAULT_AGE_SETTINGS,
+  type AgeVerificationSettings,
+} from "@/lib/age-verification";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
