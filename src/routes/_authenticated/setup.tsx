@@ -21,6 +21,23 @@ import {
   ShoppingCart, ClipboardCheck, LogOut, ExternalLink, Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCountryList } from "@/hooks/useLocale";
+
+function CountrySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { data: countries = [] } = useCountryList();
+  return (
+    <Select value={value || undefined} onValueChange={onChange}>
+      <SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger>
+      <SelectContent className="max-h-[320px]">
+        {countries.map((c) => (
+          <SelectItem key={c.country_code} value={c.country_code}>
+            {c.country_name} ({c.country_code})
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 export const Route = createFileRoute("/_authenticated/setup")({
   component: SetupWizardPage,
