@@ -63,7 +63,7 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
               </thead>
               <tbody>
                 {groups.map((group) => (
-                  <>
+                  <Fragment key={group}>
                     <tr key={`g-${group}`} className="bg-muted/30">
                       <td colSpan={ROLES.length + 1} className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">{group}</td>
                     </tr>
@@ -89,7 +89,7 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
                         })}
                       </tr>
                     ))}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
