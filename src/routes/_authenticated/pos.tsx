@@ -53,6 +53,8 @@ function PosPage() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | "fav" | "all">("fav");
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [scannerOpen, setScannerOpen] = useState(false);
+
   const [tender, setTender] = useState<PaymentMethod>("card");
   const [payOpen, setPayOpen] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
