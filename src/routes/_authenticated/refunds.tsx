@@ -201,12 +201,6 @@ function RefundDialog({
   const [restock, setRestock] = useState(true);
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
 
-  // reset state when sale changes
-  const saleId = sale?.id;
-  if (sale && Object.keys(qtyMap).length === 0) {
-    // no-op, initialization handled by button clicks
-  }
-
   const itemsToRefund = sale
     ? sale.sale_items.map((i) => ({
         item: i,
