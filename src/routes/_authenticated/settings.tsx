@@ -304,6 +304,8 @@ function TerminalPanel() {
         </CardContent>
       </Card>
 
+      <PaymentTerminalsPanel canEdit={true} />
+
       <HardwareCard
         kind="terminal"
         title="Hardware transport"
