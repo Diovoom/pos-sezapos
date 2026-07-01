@@ -221,7 +221,7 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
     onSuccess: (closed) => {
       toast.success("Register closed");
       onChanged();
-      navigate({ to: "/shifts", search: { id: closed.id } });
+      navigate({ to: "/shifts", search: { session: closed.id } });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to close"),
   });
