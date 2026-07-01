@@ -1,13 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { fmtCurrency } from "@/lib/format";
-import { ArrowLeft, Clock, DollarSign, RotateCcw } from "lucide-react";
+import { ArrowLeft, Clock, DollarSign, RotateCcw, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_authenticated/employees/$id")({
   component: EmployeeProfile,
@@ -168,12 +173,85 @@ function EmployeeProfile() {
                 </div>
               </CardContent>
             </Card>
+
+            <PayScheduleCard userId={profile.id} />
           </div>
         </div>
       </div>
     </>
   );
 }
+
+function PayScheduleCard({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["employee-pay", userId],
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase.from as any)("profiles")
+        .select("hourly_wage, scheduled_start_time, scheduled_end_time, late_threshold_minutes")
+        .eq("id", userId).maybeSingle();
+      return data as {
+        hourly_wage: number | null; scheduled_start_time: string | null;
+        scheduled_end_time: string | null; late_threshold_minutes: number | null;
+      } | null;
+    },
+  });
+  const [wage, setWage] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [threshold, setThreshold] = useState("5");
+  useEffect(() => {
+    if (!data) return;
+    setWage(data.hourly_wage != null ? String(data.hourly_wage) : "");
+    setStart(data.scheduled_start_time ?? "");
+    setEnd(data.scheduled_end_time ?? "");
+    setThreshold(String(data.late_threshold_minutes ?? 5));
+  }, [data]);
+  const save = useMutation({
+    mutationFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from as any)("profiles").update({
+        hourly_wage: wage === "" ? null : Number(wage),
+        scheduled_start_time: start || null,
+        scheduled_end_time: end || null,
+        late_threshold_minutes: Number(threshold) || 5,
+      }).eq("id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Pay & schedule saved");
+      qc.invalidateQueries({ queryKey: ["employee-pay", userId] });
+      qc.invalidateQueries({ queryKey: ["payroll-profiles"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+  return (
+    <Card className="col-span-3">
+      <CardHeader className="pb-2"><CardTitle className="text-sm">Pay & schedule</CardTitle></CardHeader>
+      <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+        <div className="space-y-1"><Label>Hourly wage</Label>
+          <Input type="number" step="0.01" min="0" value={wage} onChange={(e) => setWage(e.target.value)} placeholder="0.00" />
+        </div>
+        <div className="space-y-1"><Label>Scheduled start</Label>
+          <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+        </div>
+        <div className="space-y-1"><Label>Scheduled end</Label>
+          <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+        </div>
+        <div className="space-y-1"><Label>Late grace (min)</Label>
+          <Input type="number" min="0" value={threshold} onChange={(e) => setThreshold(e.target.value)} />
+        </div>
+        <div className="col-span-2 md:col-span-4">
+          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            {save.isPending && <Loader2 className="size-4 animate-spin mr-2" />}Save
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function Row({ label, value }: { label: string; value: string }) {
   return <div className="flex justify-between"><dt className="text-muted-foreground">{label}</dt><dd className="font-mono">{value}</dd></div>;
