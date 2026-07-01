@@ -125,3 +125,13 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
+
+@media print {
+  aside, header, nav, [data-slot="dialog-overlay"] { display: none !important; }
+  body, .bg-background, .bg-surface\/40, .bg-surface\/60 { background: white !important; color: black !important; }
+  #shift-report, #shift-report * { color: black !important; }
+  #shift-report .border { border-color: #ddd !important; }
+  .print\:hidden { display: none !important; }
+  .print\:break-before-page { break-before: page; }
+  @page { margin: 0.5in; }
+}
