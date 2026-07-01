@@ -17,6 +17,8 @@ import { toast } from "sonner";
 import { RotateCcw, Search, Loader2 } from "lucide-react";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
+import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export const Route = createFileRoute("/_authenticated/refunds")({
   component: RefundsPage,
@@ -200,6 +202,21 @@ function RefundDialog({
   const [notes, setNotes] = useState("");
   const [restock, setRestock] = useState(true);
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [override, setOverride] = useState<ManagerOverrideResult | null>(null);
+  const { has, isSuper } = usePermissions();
+  const canApprove = isSuper || has("refunds.approve");
+  const requireApproval =
+    (() => {
+      try {
+        const raw = localStorage.getItem("pos.pref.refunds");
+        if (!raw) return true;
+        const p = JSON.parse(raw) as Record<string, string>;
+        return p.manager_approval !== "false";
+      } catch { return true; }
+    })();
+  const needsOverride = requireApproval && !canApprove && !override;
+
 
   const itemsToRefund = sale
     ? sale.sale_items.map((i) => ({
@@ -377,6 +394,12 @@ function RefundDialog({
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Manager approval, additional context..." />
             </div>
 
+            {override && (
+              <div className="text-xs rounded-md border border-success/40 bg-success/10 text-success px-3 py-2">
+                Approved by {override.manager_name}
+              </div>
+            )}
+
             <div className="flex justify-between items-center border-t pt-3">
               <div>
                 <div className="text-xs text-muted-foreground uppercase tracking-wider">Refund total</div>
@@ -386,20 +409,35 @@ function RefundDialog({
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={onClose}>Cancel</Button>
-                <Button
-                  variant="destructive"
-                  disabled={submit.isPending || refundTotal <= 0}
-                  onClick={() => submit.mutate()}
-                >
-                  {submit.isPending && <Loader2 className="size-4 animate-spin" />}
-                  Issue refund
-                </Button>
+                {needsOverride ? (
+                  <Button variant="destructive" onClick={() => setOverrideOpen(true)}>
+                    Get manager approval
+                  </Button>
+                ) : (
+                  <Button
+                    variant="destructive"
+                    disabled={submit.isPending || refundTotal <= 0}
+                    onClick={() => submit.mutate()}
+                  >
+                    {submit.isPending && <Loader2 className="size-4 animate-spin" />}
+                    Issue refund
+                  </Button>
+                )}
               </div>
             </div>
           </div>
         )}
-        
+
       </DialogContent>
+      <ManagerOverrideDialog
+        open={overrideOpen}
+        onOpenChange={setOverrideOpen}
+        action={type === "void" ? "sales.void" : "refunds.approve"}
+        description={`Approve ${type} refund of ${fmtCurrency(refundTotal, currency)} on receipt #${sale?.receipt_number ?? ""}`}
+        details={{ sale_id: sale?.id, amount: refundTotal, type }}
+        onApprove={(r) => { setOverride(r); setNotes((n) => n ? `${n}\nApproved by ${r.manager_name}` : `Approved by ${r.manager_name}`); }}
+      />
     </Dialog>
   );
 }
+
