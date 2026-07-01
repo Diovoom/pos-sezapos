@@ -245,7 +245,14 @@ function TimeclockPage() {
               return (
                 <div key={e.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 text-xs">
                   <div>
-                    <div className="font-medium">{format(inD, "EEE, MMM d")}</div>
+                    <div className="font-medium flex items-center gap-2">
+                      {format(inD, "EEE, MMM d")}
+                      {e.late && (
+                        <Badge variant="outline" className="border-warning text-warning">
+                          Late {e.late_minutes ?? 0}m
+                        </Badge>
+                      )}
+                    </div>
                     <div className="text-muted-foreground">{format(inD, "p")} – {outD ? format(outD, "p") : "…"}</div>
                   </div>
                   <div className="text-right">
