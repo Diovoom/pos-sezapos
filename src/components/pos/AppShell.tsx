@@ -13,6 +13,7 @@ import {
   Boxes,
   LogOut,
   CircleUser,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -29,6 +30,7 @@ const NAV = [
   { to: "/pos", label: "Checkout", icon: ScanBarcode },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/sales", label: "Sales", icon: Receipt },
+  { to: "/refunds", label: "Refunds", icon: RotateCcw },
   { to: "/products", label: "Products", icon: Package },
   { to: "/inventory", label: "Inventory", icon: Boxes },
   { to: "/customers", label: "Customers", icon: Users },
