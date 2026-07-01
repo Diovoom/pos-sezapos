@@ -117,10 +117,25 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>{me?.user?.email}</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                <div className="text-xs font-normal text-muted-foreground">Signed in as</div>
+                <div>{me?.user?.email}</div>
+                {me?.profile?.employee_id && (
+                  <div className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                    ID {me.profile.employee_id}
+                  </div>
+                )}
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate({ to: "/timeclock" })}>
+                <Clock className="size-4 mr-2" /> Time clock
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
                 <Settings className="size-4 mr-2" /> Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSwitchEmployee}>
+                <ArrowLeftRight className="size-4 mr-2" /> Switch employee
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                 <LogOut className="size-4 mr-2" /> Sign out
