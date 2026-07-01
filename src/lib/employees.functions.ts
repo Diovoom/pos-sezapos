@@ -237,14 +237,17 @@ export const signInWithEmployeePin = createServerFn({ method: "POST" })
       .eq("employee_id", data.employee_id)
       .maybeSingle();
 
-    if (error || !profile || !profile.email || !profile.pin_hash) {
-      throw new Error("Invalid employee ID or PIN");
-    }
+    if (error) throw new Error(`Lookup failed: ${error.message}`);
+    if (!profile) throw new Error("No employee found with that ID");
+    if (!profile.email) throw new Error("Employee has no email on file");
     if (profile.status !== "active") throw new Error("Account is disabled");
+    if (!profile.pin_hash) {
+      throw new Error("No PIN set. Sign in with email/password first, then set a PIN in your profile.");
+    }
 
     const { verifyPin } = await import("./pin.server");
     if (!verifyPin(data.pin, profile.pin_hash as string)) {
-      throw new Error("Invalid employee ID or PIN");
+      throw new Error("Incorrect PIN");
     }
 
     const { data: link, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
