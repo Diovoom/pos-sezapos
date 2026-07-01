@@ -349,7 +349,7 @@ function HistoryCard({ sessions }: { sessions: Session[] }) {
                     </td>
                     <td className="text-right">
                       <Button asChild variant="ghost" size="sm">
-                        <a href={`/shifts?id=${s.id}`}>Report</a>
+                        <a href={`/shifts?session=${s.id}`}>Report</a>
                       </Button>
                     </td>
                   </tr>
