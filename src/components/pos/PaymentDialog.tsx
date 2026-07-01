@@ -19,9 +19,12 @@ import {
   XCircle,
   AlertTriangle,
   Wifi,
+  WifiOff,
 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import {
-  getProvider,
+  getActiveProvider,
+  logPaymentAttempt,
   type PaymentEvent,
   type PaymentResult,
   type PaymentStatus,
@@ -164,9 +167,17 @@ function CashPanel({
         <Button
           className="flex-1"
           disabled={!ok}
-          onClick={() =>
-            onComplete({ method: "cash", amountTendered: tendered, changeDue: change })
-          }
+          onClick={() => {
+            void logPaymentAttempt({
+              provider: null,
+              method: "cash",
+              amount: total,
+              currency,
+              status: "completed",
+              message: `Tendered ${tendered.toFixed(2)}, change ${change.toFixed(2)}`,
+            });
+            onComplete({ method: "cash", amountTendered: tendered, changeDue: change });
+          }}
         >
           Complete sale
         </Button>
@@ -190,34 +201,104 @@ function TerminalPanel({
   onComplete: (p: CompletedPayment) => void;
   onCancel: () => void;
 }) {
+  const provider = getActiveProvider();
   const [event, setEvent] = useState<PaymentEvent>({ status: "idle", message: "Ready" });
   const [result, setResult] = useState<PaymentResult | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const start = () => {
+    if (!provider) return;
     setResult(null);
     const ac = new AbortController();
     abortRef.current = ac;
-    const provider = getProvider("simulated");
+
+    void logPaymentAttempt({
+      provider: provider.id,
+      method: method as Exclude<PaymentMethod, "cash">,
+      amount: total,
+      currency,
+      status: "initiated",
+      message: "Payment requested",
+    });
+
     void provider
       .charge(
         {
           amount: total,
           currency,
-          method: method === "cash" ? "card" : (method as Exclude<PaymentMethod, "cash">),
+          method: method as Exclude<PaymentMethod, "cash">,
         },
-        setEvent,
+        (e) => {
+          setEvent(e);
+          void logPaymentAttempt({
+            provider: provider.id,
+            method: method as Exclude<PaymentMethod, "cash">,
+            amount: total,
+            currency,
+            status: e.status,
+            message: e.message,
+            reference: e.reference ?? null,
+          });
+        },
         ac.signal,
       )
-      .then(setResult);
+      .then((r) => {
+        setResult(r);
+        void logPaymentAttempt({
+          provider: provider.id,
+          method: method as Exclude<PaymentMethod, "cash">,
+          amount: total,
+          currency,
+          status: r.finalStatus,
+          message: r.message,
+          reference: r.reference ?? null,
+        });
+      });
   };
 
   useEffect(() => {
-    start();
+    if (provider) start();
     return () => abortRef.current?.abort();
-    // run once per dialog open
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ---- No provider connected: block card payments entirely. ----
+  if (!provider) {
+    return (
+      <div>
+        <DialogHeader className="p-6 pb-4 border-b">
+          <DialogTitle className="flex items-center gap-2">
+            <WifiOff className="size-5 text-destructive" /> No payment terminal
+          </DialogTitle>
+          <DialogDescription>
+            Card, tap, and mobile-wallet payments are unavailable.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="p-8 flex flex-col items-center justify-center gap-4 min-h-[240px] text-center">
+          <div className="size-16 rounded-full grid place-items-center bg-destructive/10 text-destructive">
+            <WifiOff className="size-10" />
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+              Terminal not connected
+            </div>
+            <p className="text-base font-semibold max-w-xs">
+              No payment terminal is connected. Please connect a payment terminal
+              in Settings before accepting card payments.
+            </p>
+          </div>
+        </div>
+        <div className="p-4 border-t bg-surface/40 flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={onCancel}>
+            Back to cart
+          </Button>
+          <Button asChild className="flex-1">
+            <Link to="/settings">Open Settings</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const status: PaymentStatus = result?.finalStatus ?? event.status;
   const isTerminal =
@@ -225,7 +306,8 @@ function TerminalPanel({
     status === "declined" ||
     status === "timeout" ||
     status === "cancelled" ||
-    status === "error";
+    status === "error" ||
+    status === "network_error";
 
   return (
     <div>
@@ -245,6 +327,11 @@ function TerminalPanel({
             {statusLabel(status)}
           </div>
           <div className="text-lg font-semibold">{event.message}</div>
+          {status === "waiting_for_customer" && (
+            <p className="text-sm text-muted-foreground mt-2 max-w-xs">
+              Please tap, insert, or swipe your card on the payment terminal.
+            </p>
+          )}
           {event.reference && (
             <div className="mt-2 text-[11px] font-mono text-muted-foreground">
               Ref: {event.reference}
@@ -255,20 +342,28 @@ function TerminalPanel({
 
       <div className="p-4 border-t bg-surface/40 flex gap-2">
         {!isTerminal && (
-          <Button variant="outline" className="flex-1" onClick={() => abortRef.current?.abort()}>
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              provider.cancel?.();
+              abortRef.current?.abort();
+            }}
+          >
             Cancel payment
           </Button>
         )}
         {isTerminal && status !== "approved" && (
           <>
             <Button variant="outline" className="flex-1" onClick={onCancel}>
-              Close
+              Back to cart
             </Button>
             <Button className="flex-1" onClick={start}>
               Retry
             </Button>
           </>
         )}
+        {/* Complete Sale is disabled until a real Approved response arrives. */}
         {status === "approved" && result && (
           <Button
             className="flex-1"
@@ -286,6 +381,11 @@ function TerminalPanel({
             Complete sale
           </Button>
         )}
+        {!isTerminal && (
+          <Button className="flex-1" disabled>
+            Waiting for payment…
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -293,13 +393,16 @@ function TerminalPanel({
 
 function statusLabel(s: PaymentStatus) {
   switch (s) {
-    case "connecting": return "Connecting";
-    case "waiting_for_card": return "Waiting for card";
-    case "authorizing": return "Authorizing";
+    case "payment_requested": return "Payment requested";
+    case "connecting": return "Connecting to terminal";
+    case "waiting_for_customer": return "Waiting for customer";
+    case "card_presented": return "Card presented";
+    case "processing": return "Processing payment";
     case "approved": return "Approved";
     case "declined": return "Declined";
     case "timeout": return "Timeout";
     case "cancelled": return "Cancelled";
+    case "network_error": return "Network error";
     case "error": return "Error";
     default: return "Ready";
   }
@@ -316,6 +419,7 @@ function StatusIcon({ status }: { status: PaymentStatus }) {
       );
     case "declined":
     case "error":
+    case "network_error":
       return (
         <div className={cn(base, "bg-destructive/10 text-destructive")}>
           <XCircle className="size-10" />
@@ -328,7 +432,8 @@ function StatusIcon({ status }: { status: PaymentStatus }) {
           <AlertTriangle className="size-10" />
         </div>
       );
-    case "waiting_for_card":
+    case "waiting_for_customer":
+    case "card_presented":
       return (
         <div className={cn(base, "bg-primary/10 text-primary animate-pulse")}>
           <CreditCard className="size-10" />
