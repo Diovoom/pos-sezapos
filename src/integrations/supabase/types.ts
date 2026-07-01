@@ -149,6 +149,56 @@ export type Database = {
           },
         ]
       }
+      payment_terminals: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          label: string
+          last_seen_at: string | null
+          location: string | null
+          provider: string
+          serial: string | null
+          status: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          label: string
+          last_seen_at?: string | null
+          location?: string | null
+          provider?: string
+          serial?: string | null
+          status?: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          label?: string
+          last_seen_at?: string | null
+          location?: string | null
+          provider?: string
+          serial?: string | null
+          status?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_terminals_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           barcode: string | null
@@ -446,6 +496,74 @@ export type Database = {
           },
         ]
       }
+      register_sessions: {
+        Row: {
+          cash_refunds: number
+          cash_sales: number
+          closed_at: string | null
+          closed_by: string | null
+          closing_cash: number | null
+          created_at: string
+          expected_cash: number | null
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by: string
+          opening_cash: number
+          status: string
+          store_id: string
+          terminal_id: string | null
+          updated_at: string
+          variance: number | null
+        }
+        Insert: {
+          cash_refunds?: number
+          cash_sales?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          closing_cash?: number | null
+          created_at?: string
+          expected_cash?: number | null
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by: string
+          opening_cash?: number
+          status?: string
+          store_id: string
+          terminal_id?: string | null
+          updated_at?: string
+          variance?: number | null
+        }
+        Update: {
+          cash_refunds?: number
+          cash_sales?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          closing_cash?: number | null
+          created_at?: string
+          expected_cash?: number | null
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by?: string
+          opening_cash?: number
+          status?: string
+          store_id?: string
+          terminal_id?: string | null
+          updated_at?: string
+          variance?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "register_sessions_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           created_at: string
@@ -529,6 +647,7 @@ export type Database = {
           receipt_number: number | null
           refund_status: string
           refunded_amount: number
+          register_session_id: string | null
           status: string
           store_id: string | null
           subtotal: number
@@ -549,6 +668,7 @@ export type Database = {
           receipt_number?: number | null
           refund_status?: string
           refunded_amount?: number
+          register_session_id?: string | null
           status?: string
           store_id?: string | null
           subtotal?: number
@@ -569,6 +689,7 @@ export type Database = {
           receipt_number?: number | null
           refund_status?: string
           refunded_amount?: number
+          register_session_id?: string | null
           status?: string
           store_id?: string | null
           subtotal?: number
@@ -577,6 +698,13 @@ export type Database = {
           total?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_register_session_id_fkey"
+            columns: ["register_session_id"]
+            isOneToOne: false
+            referencedRelation: "register_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_store_id_fkey"
             columns: ["store_id"]
