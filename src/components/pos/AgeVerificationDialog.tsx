@@ -13,7 +13,6 @@ import {
   evaluateManualDob,
   maskDocumentNumber,
   maskFullName,
-  ageAt,
   type AgeVerificationSettings,
   type ParsedID,
   type VerificationOutcome,
