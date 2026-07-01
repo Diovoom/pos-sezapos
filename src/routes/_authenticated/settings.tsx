@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -548,7 +548,3 @@ function ComingSoon({ title, desc }: { title: string; desc: string }) {
     </Card>
   );
 }
-
-/* ---- Local Textarea shim to avoid extra import if not used ---- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _T = Textarea;
