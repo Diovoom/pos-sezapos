@@ -1,0 +1,8 @@
+{
+  "app": { "name": "نقطة البيع" },
+  "common": { "save": "حفظ", "cancel": "إلغاء", "delete": "حذف", "edit": "تعديل", "close": "إغلاق", "back": "رجوع", "next": "التالي", "skip": "تخطي", "search": "بحث", "loading": "جارٍ التحميل...", "confirm": "تأكيد", "yes": "نعم", "no": "لا" },
+  "nav": { "checkout": "الدفع", "dashboard": "لوحة التحكم", "products": "المنتجات", "inventory": "المخزون", "sales": "المبيعات", "reports": "التقارير", "employees": "الموظفون", "settings": "الإعدادات", "customers": "العملاء", "refunds": "المرتجعات", "shifts": "الورديات", "register": "الصندوق", "timeclock": "الحضور", "payroll": "الرواتب" },
+  "pos": { "cart_empty": "السلة فارغة", "current_sale": "البيع الحالي", "subtotal": "المجموع الفرعي", "tax": "الضريبة", "total": "الإجمالي", "charge": "تحصيل", "clear": "مسح", "search_placeholder": "ابحث عن منتجات أو امسح الباركود...", "favorites": "المفضلة", "all": "الكل", "stock": "المخزون" },
+  "receipt": { "receipt": "إيصال", "thank_you": "شكرًا لتعاملكم معنا!", "cashier": "الكاشير", "transaction": "المعاملة", "payment": "الدفع", "change": "الباقي" },
+  "setup": { "welcome": "أهلاً بك", "country": "الدولة", "region": "المنطقة", "timezone": "المنطقة الزمنية", "language": "اللغة", "currency": "العملة" }
+}

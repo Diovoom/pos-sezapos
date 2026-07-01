@@ -1,0 +1,8 @@
+{
+  "app": { "name": "POS" },
+  "common": { "save": "Anrejistre", "cancel": "Anile", "delete": "Efase", "edit": "Modifye", "close": "Fèmen", "back": "Tounen", "next": "Pwochen", "skip": "Sote", "search": "Chèche", "loading": "Ap chaje...", "confirm": "Konfime", "yes": "Wi", "no": "Non" },
+  "nav": { "checkout": "Kès", "dashboard": "Tablo", "products": "Pwodwi", "inventory": "Envantè", "sales": "Vant", "reports": "Rapò", "employees": "Anplwaye", "settings": "Paramèt", "customers": "Kliyan", "refunds": "Ranbousman", "shifts": "Chif", "register": "Kès", "timeclock": "Òlòj", "payroll": "Peman" },
+  "pos": { "cart_empty": "Panye a vid", "current_sale": "Vant kounye a", "subtotal": "Sou-total", "tax": "Taks", "total": "Total", "charge": "Chaje", "clear": "Efase", "search_placeholder": "Chèche pwodwi oswa eskane kòd...", "favorites": "Favori", "all": "Tout", "stock": "Stòk" },
+  "receipt": { "receipt": "Resi", "thank_you": "Mèsi pou biznis ou!", "cashier": "Kesye", "transaction": "Tranzaksyon", "payment": "Peman", "change": "Monnen" },
+  "setup": { "welcome": "Byenveni", "country": "Peyi", "region": "Eta / Pwovens / Rejyon", "timezone": "Zòn Tan", "language": "Lang", "currency": "Lajan" }
+}
