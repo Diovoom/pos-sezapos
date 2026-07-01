@@ -23,6 +23,7 @@ import { AuditLogPanel } from "@/components/settings/AuditLogPanel";
 import { HardwareCard } from "@/components/settings/HardwareCard";
 import { logAudit } from "@/lib/audit-log";
 import { getActiveProvider } from "@/lib/pos/payment-terminal";
+import { PaymentTerminalsPanel } from "@/components/settings/PaymentTerminalsPanel";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -302,6 +303,8 @@ function TerminalPanel() {
           </div>
         </CardContent>
       </Card>
+
+      <PaymentTerminalsPanel canEdit={true} />
 
       <HardwareCard
         kind="terminal"

@@ -16,6 +16,7 @@ import { Route as AuthenticatedTimeclockRouteImport } from './routes/_authentica
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/sales'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedRegisterRouteImport } from './routes/_authenticated/register'
 import { Route as AuthenticatedRefundsRouteImport } from './routes/_authenticated/refunds'
 import { Route as AuthenticatedProductsRouteImport } from './routes/_authenticated/products'
 import { Route as AuthenticatedPosRouteImport } from './routes/_authenticated/pos'
@@ -59,6 +60,11 @@ const AuthenticatedSalesRoute = AuthenticatedSalesRouteImport.update({
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRegisterRoute = AuthenticatedRegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedRefundsRoute = AuthenticatedRefundsRouteImport.update({
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/pos': typeof AuthenticatedPosRoute
   '/products': typeof AuthenticatedProductsRoute
   '/refunds': typeof AuthenticatedRefundsRoute
+  '/register': typeof AuthenticatedRegisterRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/sales': typeof AuthenticatedSalesRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   '/pos': typeof AuthenticatedPosRoute
   '/products': typeof AuthenticatedProductsRoute
   '/refunds': typeof AuthenticatedRefundsRoute
+  '/register': typeof AuthenticatedRegisterRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/sales': typeof AuthenticatedSalesRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -163,6 +171,7 @@ export interface FileRoutesById {
   '/_authenticated/pos': typeof AuthenticatedPosRoute
   '/_authenticated/products': typeof AuthenticatedProductsRoute
   '/_authenticated/refunds': typeof AuthenticatedRefundsRoute
+  '/_authenticated/register': typeof AuthenticatedRegisterRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/sales': typeof AuthenticatedSalesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
     | '/pos'
     | '/products'
     | '/refunds'
+    | '/register'
     | '/reports'
     | '/sales'
     | '/settings'
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
     | '/pos'
     | '/products'
     | '/refunds'
+    | '/register'
     | '/reports'
     | '/sales'
     | '/settings'
@@ -220,6 +231,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pos'
     | '/_authenticated/products'
     | '/_authenticated/refunds'
+    | '/_authenticated/register'
     | '/_authenticated/reports'
     | '/_authenticated/sales'
     | '/_authenticated/settings'
@@ -282,6 +294,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/register': {
+      id: '/_authenticated/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof AuthenticatedRegisterRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/refunds': {
@@ -381,6 +400,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPosRoute: typeof AuthenticatedPosRoute
   AuthenticatedProductsRoute: typeof AuthenticatedProductsRoute
   AuthenticatedRefundsRoute: typeof AuthenticatedRefundsRoute
+  AuthenticatedRegisterRoute: typeof AuthenticatedRegisterRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSalesRoute: typeof AuthenticatedSalesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -397,6 +417,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPosRoute: AuthenticatedPosRoute,
   AuthenticatedProductsRoute: AuthenticatedProductsRoute,
   AuthenticatedRefundsRoute: AuthenticatedRefundsRoute,
+  AuthenticatedRegisterRoute: AuthenticatedRegisterRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSalesRoute: AuthenticatedSalesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
