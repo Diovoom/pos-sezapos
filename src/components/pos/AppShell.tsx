@@ -19,6 +19,7 @@ import {
   UserPlus,
   ArrowLeftRight,
   Wallet,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
