@@ -7,11 +7,14 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/pos/AppShell";
 import { fmtCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2 } from "lucide-react";
+import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { PaymentDialog, type CompletedPayment, type PaymentMethod } from "@/components/pos/PaymentDialog";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
+import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
+import { useProductImageUrl } from "@/lib/pos/product-images";
 import type { ReceiptData } from "@/components/pos/Receipt";
+
 
 export const Route = createFileRoute("/_authenticated/pos")({
   component: PosPage,
