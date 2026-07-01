@@ -35,7 +35,9 @@ type Product = {
   is_favorite: boolean;
   store_id: string | null;
   image_url: string | null;
-
+  age_restricted?: boolean | null;
+  min_age?: number | null;
+  age_category?: string | null;
 };
 
 type Category = { id: string; name: string };
