@@ -18,7 +18,7 @@ import {
   Clock,
   UserPlus,
   ArrowLeftRight,
-} from "lucide-react";
+  Wallet,
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
