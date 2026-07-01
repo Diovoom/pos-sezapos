@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import {
   Loader2, Store, Users, Shield, CreditCard, Printer, Scan, Camera,
   DollarSign, Monitor, Package, Truck, Heart, Percent, RotateCcw,
-  Wallet, BarChart3, Bell, Lock, HardDrive, Plug, Palette, Info, ScrollText,
+  Wallet, BarChart3, Bell, Lock, HardDrive, Plug, Palette, Info, ScrollText, ShieldAlert,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { RolePermissionsPanel } from "@/components/settings/RolePermissionsPanel";
