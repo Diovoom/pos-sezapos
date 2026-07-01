@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { PaymentDialog, type CompletedPayment, type PaymentMethod } from "@/components/pos/PaymentDialog";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
+import { AgeVerificationDialog, type RestrictedItem, type SuccessfulVerification } from "@/components/pos/AgeVerificationDialog";
+import { loadAgeSettings } from "@/lib/age-verification";
 import { useProductImageUrl } from "@/lib/pos/product-images";
 import type { ReceiptData } from "@/components/pos/Receipt";
 
