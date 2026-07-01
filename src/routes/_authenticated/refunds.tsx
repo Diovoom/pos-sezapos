@@ -17,6 +17,8 @@ import { toast } from "sonner";
 import { RotateCcw, Search, Loader2 } from "lucide-react";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
+import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export const Route = createFileRoute("/_authenticated/refunds")({
   component: RefundsPage,
@@ -200,6 +202,21 @@ function RefundDialog({
   const [notes, setNotes] = useState("");
   const [restock, setRestock] = useState(true);
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [override, setOverride] = useState<ManagerOverrideResult | null>(null);
+  const { has, isSuper } = usePermissions();
+  const canApprove = isSuper || has("refunds.approve");
+  const requireApproval =
+    (() => {
+      try {
+        const raw = localStorage.getItem("pos.pref.refunds");
+        if (!raw) return true;
+        const p = JSON.parse(raw) as Record<string, string>;
+        return p.manager_approval !== "false";
+      } catch { return true; }
+    })();
+  const needsOverride = requireApproval && !canApprove && !override;
+
 
   const itemsToRefund = sale
     ? sale.sale_items.map((i) => ({
