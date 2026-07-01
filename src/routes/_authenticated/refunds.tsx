@@ -394,6 +394,12 @@ function RefundDialog({
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Manager approval, additional context..." />
             </div>
 
+            {override && (
+              <div className="text-xs rounded-md border border-success/40 bg-success/10 text-success px-3 py-2">
+                Approved by {override.manager_name}
+              </div>
+            )}
+
             <div className="flex justify-between items-center border-t pt-3">
               <div>
                 <div className="text-xs text-muted-foreground uppercase tracking-wider">Refund total</div>
@@ -403,18 +409,35 @@ function RefundDialog({
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={onClose}>Cancel</Button>
-                <Button
-                  variant="destructive"
-                  disabled={submit.isPending || refundTotal <= 0}
-                  onClick={() => submit.mutate()}
-                >
-                  {submit.isPending && <Loader2 className="size-4 animate-spin" />}
-                  Issue refund
-                </Button>
+                {needsOverride ? (
+                  <Button variant="destructive" onClick={() => setOverrideOpen(true)}>
+                    Get manager approval
+                  </Button>
+                ) : (
+                  <Button
+                    variant="destructive"
+                    disabled={submit.isPending || refundTotal <= 0}
+                    onClick={() => submit.mutate()}
+                  >
+                    {submit.isPending && <Loader2 className="size-4 animate-spin" />}
+                    Issue refund
+                  </Button>
+                )}
               </div>
             </div>
           </div>
         )}
+
+      </DialogContent>
+      <ManagerOverrideDialog
+        open={overrideOpen}
+        onOpenChange={setOverrideOpen}
+        action={type === "void" ? "sales.void" : "refunds.approve"}
+        description={`Approve ${type} refund of ${fmtCurrency(refundTotal, currency)} on receipt #${sale?.receipt_number ?? ""}`}
+        details={{ sale_id: sale?.id, amount: refundTotal, type }}
+        onApprove={(r) => { setOverride(r); setNotes((n) => n ? `${n}\nApproved by ${r.manager_name}` : `Approved by ${r.manager_name}`); }}
+      />
+
         
       </DialogContent>
     </Dialog>
