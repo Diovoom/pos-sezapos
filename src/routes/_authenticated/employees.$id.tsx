@@ -79,7 +79,7 @@ function EmployeeProfile() {
       const { data } = await supabase
         .from("refunds")
         .select("id,total,created_at,reason")
-        .eq("issued_by", id)
+        .eq("cashier_id", id)
         .order("created_at", { ascending: false })
         .limit(20);
       return data ?? [];
