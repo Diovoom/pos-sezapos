@@ -23,6 +23,8 @@ type TimeEntry = {
   break_start: string | null;
   break_minutes: number;
   notes: string | null;
+  late?: boolean;
+  late_minutes?: number;
 };
 
 function TimeclockPage() {
