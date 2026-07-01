@@ -48,6 +48,7 @@ const SECTIONS = [
   { id: "reports", label: "Reports", icon: BarChart3 },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "security", label: "Security", icon: Lock },
+  { id: "age", label: "Age Verification", icon: ShieldAlert },
   { id: "audit", label: "Audit Log", icon: ScrollText },
   { id: "backup", label: "Backup", icon: HardDrive },
   { id: "integrations", label: "Integrations", icon: Plug },
