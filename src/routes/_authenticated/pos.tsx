@@ -443,6 +443,33 @@ function PosPage() {
   );
 }
 
+function ProductTile({ product, currency, onAdd }: { product: Product; currency: string; onAdd: (p: Product) => void }) {
+  const url = useProductImageUrl(product.image_url);
+  return (
+    <button
+      onClick={() => onAdd(product)}
+      className="aspect-square bg-card border rounded-xl p-3 flex flex-col justify-between text-left hover:border-primary/60 hover:shadow-md transition-all active:scale-[0.97] group relative overflow-hidden"
+    >
+      {url && (
+        <img
+          src={url}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+        />
+      )}
+      {url && <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />}
+      <div className={cn("text-[10px] font-mono relative", url ? "text-white/90" : "text-muted-foreground group-hover:text-primary")}>
+        {fmtCurrency(Number(product.price), currency)}
+      </div>
+      <div className="relative">
+        <div className={cn("text-sm font-semibold leading-tight line-clamp-2", url && "text-white")}>{product.name}</div>
+        <div className={cn("text-[10px] mt-1", url ? "text-white/70" : "text-muted-foreground")}>Stock: {Number(product.stock)}</div>
+      </div>
+    </button>
+  );
+}
+
+
 function CategoryChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
