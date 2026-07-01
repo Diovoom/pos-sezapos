@@ -321,21 +321,10 @@ function PosPage() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {filtered.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => addToCart(p)}
-                    className="aspect-square bg-card border rounded-xl p-3 flex flex-col justify-between text-left hover:border-primary/60 hover:shadow-md transition-all active:scale-[0.97] group"
-                  >
-                    <div className="text-[10px] font-mono text-muted-foreground group-hover:text-primary">
-                      {fmtCurrency(Number(p.price), currency)}
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold leading-tight line-clamp-2">{p.name}</div>
-                      <div className="text-[10px] text-muted-foreground mt-1">Stock: {Number(p.stock)}</div>
-                    </div>
-                  </button>
+                  <ProductTile key={p.id} product={p} currency={currency} onAdd={addToCart} />
                 ))}
               </div>
+
             )}
           </div>
         </section>
