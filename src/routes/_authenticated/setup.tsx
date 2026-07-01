@@ -386,7 +386,7 @@ function StepStore({ state, patch, onLogo }: { state: WizardState; patch: (p: Pa
         <Field label="City"><Input value={s.city} onChange={(e) => patch({ city: e.target.value })} /></Field>
         <Field label="State / Province"><Input value={s.state} onChange={(e) => patch({ state: e.target.value })} /></Field>
         <Field label="Postal code"><Input value={s.zip} onChange={(e) => patch({ zip: e.target.value })} /></Field>
-        <Field label="Country"><Input value={s.country} onChange={(e) => patch({ country: e.target.value })} /></Field>
+        <Field label="Country"><CountrySelect value={s.country} onChange={(v) => patch({ country: v })} /></Field>
         <Field label="Business hours" className="md:col-span-2"><Input value={s.hours} onChange={(e) => patch({ hours: e.target.value })} /></Field>
       </div>
     </div>
