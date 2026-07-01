@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
 import { Button } from "@/components/ui/button";
@@ -10,13 +11,17 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Star, Loader2 } from "lucide-react";
+import { Plus, Search, Star, Loader2, Camera, Wand2, Upload, X, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { fmtCurrency } from "@/lib/format";
+import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
+import { lookupBarcode } from "@/lib/barcode-lookup.functions";
+import { uploadProductImage, importRemoteProductImage, useProductImageUrl } from "@/lib/pos/product-images";
 
 export const Route = createFileRoute("/_authenticated/products")({
   component: ProductsPage,
 });
+
 
 type ProductRow = {
   id: string;
