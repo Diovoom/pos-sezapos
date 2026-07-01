@@ -149,6 +149,7 @@ function SettingsPage() {
               { k: "failed_login_lockout", label: "Lockout after N failed logins", type: "number", default: "5" },
               { k: "require_2fa_managers", label: "Require 2FA for managers/owners", type: "switch", default: "false" },
             ]} /></TabsContent>
+            <TabsContent value="age" className="mt-0"><AgeVerificationPanel /></TabsContent>
             <TabsContent value="audit" className="mt-0"><AuditLogPanel /></TabsContent>
             <TabsContent value="backup" className="mt-0"><BackupPanel /></TabsContent>
             <TabsContent value="integrations" className="mt-0"><IntegrationsPanel /></TabsContent>
