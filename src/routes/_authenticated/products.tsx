@@ -68,7 +68,7 @@ function ProductsPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id,name,sku,barcode,price,cost,stock,taxable,is_favorite,image_url")
+        .select("id,name,sku,barcode,price,cost,stock,taxable,is_favorite,image_url,age_restricted,min_age,age_category")
         .order("created_at", { ascending: false });
       return (data as ProductRow[]) ?? [];
     },
