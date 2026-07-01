@@ -168,6 +168,7 @@ function ProductsPage() {
 function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; storeId?: string }) {
   const [form, setForm] = useState({
     name: "", sku: "", barcode: "", price: "", cost: "", stock: "0", taxable: true, is_favorite: false,
+    age_restricted: false, min_age: "21", age_category: "alcohol",
   });
   const [imagePath, setImagePath] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
