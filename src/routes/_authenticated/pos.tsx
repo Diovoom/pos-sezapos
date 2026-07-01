@@ -286,8 +286,18 @@ function PosPage() {
       toast.error("Cart is empty");
       return;
     }
+    if (needsAgeVerification) {
+      setAgeOpen(true);
+      return;
+    }
     setPayOpen(true);
   };
+
+  // Auto-open verification whenever restricted items enter an unverified cart
+  useEffect(() => {
+    if (needsAgeVerification && !ageOpen) setAgeOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restrictedItems.length]);
 
   return (
     <>
