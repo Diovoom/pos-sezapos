@@ -138,9 +138,8 @@ export function parseIdBarcode(raw: string): ParsedID {
   const middle = field("DAD");
   const doc = field("DAQ") ?? field("DBJ");
   const fullFromDaa = field("DAA");
-  const fullName =
-    fullFromDaa ??
-    [first, middle, last].filter(Boolean).join(" ").trim() || undefined;
+  const composed = [first, middle, last].filter(Boolean).join(" ").trim();
+  const fullName = fullFromDaa ?? (composed || undefined);
 
   return {
     format: "aamva",
