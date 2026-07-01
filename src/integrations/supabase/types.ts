@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          details: Json | null
+          entity: string | null
+          entity_id: string | null
+          id: string
+          ip: string | null
+          store_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          details?: Json | null
+          entity?: string | null
+          entity_id?: string | null
+          id?: string
+          ip?: string | null
+          store_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          details?: Json | null
+          entity?: string | null
+          entity_id?: string | null
+          id?: string
+          ip?: string | null
+          store_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           color: string | null
@@ -384,6 +434,27 @@ export type Database = {
           },
         ]
       }
+      role_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          permission: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          permission: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permission?: string
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: []
+      }
       sale_items: {
         Row: {
           created_at: string
@@ -506,48 +577,81 @@ export type Database = {
       stores: {
         Row: {
           address: string | null
+          business_hours: Json | null
+          business_type: string | null
+          city: string | null
+          country: string | null
           created_at: string
           currency: string
+          date_format: string | null
           email: string | null
           id: string
+          language: string | null
           logo_url: string | null
           name: string
           phone: string | null
           receipt_footer: string | null
           receipt_header: string | null
           return_policy: string | null
+          state: string | null
+          tax_id: string | null
           tax_rate: number
+          time_zone: string | null
           updated_at: string
+          website: string | null
+          zip: string | null
         }
         Insert: {
           address?: string | null
+          business_hours?: Json | null
+          business_type?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string
           currency?: string
+          date_format?: string | null
           email?: string | null
           id?: string
+          language?: string | null
           logo_url?: string | null
           name: string
           phone?: string | null
           receipt_footer?: string | null
           receipt_header?: string | null
           return_policy?: string | null
+          state?: string | null
+          tax_id?: string | null
           tax_rate?: number
+          time_zone?: string | null
           updated_at?: string
+          website?: string | null
+          zip?: string | null
         }
         Update: {
           address?: string | null
+          business_hours?: Json | null
+          business_type?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string
           currency?: string
+          date_format?: string | null
           email?: string | null
           id?: string
+          language?: string | null
           logo_url?: string | null
           name?: string
           phone?: string | null
           receipt_footer?: string | null
           receipt_header?: string | null
           return_policy?: string | null
+          state?: string | null
+          tax_id?: string | null
           tax_rate?: number
+          time_zone?: string | null
           updated_at?: string
+          website?: string | null
+          zip?: string | null
         }
         Relationships: []
       }
@@ -642,6 +746,10 @@ export type Database = {
           _roles: Database["public"]["Enums"]["app_role"][]
           _user_id: string
         }
+        Returns: boolean
+      }
+      has_permission: {
+        Args: { _permission: string; _user_id: string }
         Returns: boolean
       }
       has_role: {
