@@ -394,7 +394,7 @@ function RefundDialog({
             </div>
           </div>
         )}
-        {saleId && null /* silence unused */}
+        
       </DialogContent>
     </Dialog>
   );
