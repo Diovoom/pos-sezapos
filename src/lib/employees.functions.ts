@@ -23,6 +23,23 @@ async function assertOwner(context: { supabase: SupabaseCtx; userId: string }) {
   if (error || !data) throw new Error("Forbidden: owner role required");
 }
 
+async function assertOwnerOrAdmin(context: { supabase: SupabaseCtx; userId: string }) {
+  const { data, error } = await context.supabase.rpc("has_any_role", {
+    _user_id: context.userId,
+    _roles: ["owner", "admin"],
+  });
+  if (error || !data) throw new Error("Forbidden: owner or admin role required");
+}
+
+function generateSixDigitId(): string {
+  const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000;
+  return String(n).padStart(6, "0");
+}
+
+function generatePin(): string {
+  return generateSixDigitId();
+}
+
 // Minimal typing so we don't need the generated Database type here.
 type SupabaseCtx = {
   rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
@@ -262,3 +279,142 @@ export const signInWithEmployeePin = createServerFn({ method: "POST" })
       token_hash: (link.properties as { hashed_token: string }).hashed_token,
     };
   });
+
+/* ---------------------- update employee (admin edit) ------------------- */
+
+export const updateEmployee = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      user_id: string;
+      first_name?: string | null;
+      last_name?: string | null;
+      phone?: string | null;
+      email?: string | null;
+      hire_date?: string | null;
+      photo_url?: string | null;
+      role?: "owner" | "manager" | "cashier" | "admin";
+    }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    await assertOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+
+    const patch: Record<string, unknown> = {};
+    for (const k of ["first_name", "last_name", "phone", "hire_date", "photo_url"] as const) {
+      if (data[k] !== undefined) patch[k] = data[k];
+    }
+    if (data.first_name !== undefined || data.last_name !== undefined) {
+      const { data: cur } = await admin.from("profiles").select("first_name,last_name").eq("id", data.user_id).maybeSingle();
+      const first = data.first_name ?? cur?.first_name ?? "";
+      const last = data.last_name ?? cur?.last_name ?? "";
+      patch.full_name = `${first} ${last}`.trim() || null;
+    }
+    if (data.email !== undefined && data.email !== null) {
+      const email = data.email.trim().toLowerCase();
+      const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, { email });
+      if (authErr) throw new Error(authErr.message);
+      patch.email = email;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      const { error } = await admin.from("profiles").update(patch).eq("id", data.user_id);
+      if (error) throw new Error(error.message);
+    }
+
+    if (data.role) {
+      const { data: existing } = await admin.from("user_roles").select("id").eq("user_id", data.user_id).limit(1).maybeSingle();
+      if (existing) {
+        await admin.from("user_roles").update({ role: data.role }).eq("user_id", data.user_id);
+      } else {
+        await admin.from("user_roles").insert({ user_id: data.user_id, role: data.role });
+      }
+    }
+    return { ok: true };
+  });
+
+/* -------------------------- employee ID mgmt --------------------------- */
+
+export const setEmployeeCode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { user_id: string; employee_id: string }) => data)
+  .handler(async ({ data, context }) => {
+    await assertOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    if (!/^\d{6}$/.test(data.employee_id)) throw new Error("Employee ID must be 6 digits");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+    const { data: dup } = await admin.from("profiles").select("id").eq("employee_id", data.employee_id).neq("id", data.user_id).maybeSingle();
+    if (dup) throw new Error("That Employee ID is already taken");
+    const { error } = await admin.from("profiles").update({ employee_id: data.employee_id }).eq("id", data.user_id);
+    if (error) throw new Error(error.message);
+    return { employee_id: data.employee_id };
+  });
+
+export const regenerateEmployeeCode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { user_id: string }) => data)
+  .handler(async ({ data, context }) => {
+    await assertOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+    for (let i = 0; i < 20; i++) {
+      const candidate = generateSixDigitId();
+      const { data: dup } = await admin.from("profiles").select("id").eq("employee_id", candidate).maybeSingle();
+      if (!dup) {
+        const { error } = await admin.from("profiles").update({ employee_id: candidate }).eq("id", data.user_id);
+        if (error) throw new Error(error.message);
+        return { employee_id: candidate };
+      }
+    }
+    throw new Error("Could not generate a unique Employee ID");
+  });
+
+/* ------------------------------ PIN admin ------------------------------ */
+
+// Set a specific PIN OR generate a random one. If `force_change` is true the
+// employee will be required to pick a new PIN at next sign-in.
+export const adminResetPin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: { user_id: string; pin?: string | null; force_change?: boolean; clear?: boolean }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    await assertOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+
+    if (data.clear) {
+      await admin.from("profiles").update({ pin_hash: null, must_change_pin: !!data.force_change }).eq("id", data.user_id);
+      return { pin: null };
+    }
+
+    const pin = data.pin && /^\d{6}$/.test(data.pin) ? data.pin : generatePin();
+    const { hashPin } = await import("./pin.server");
+    const { error } = await admin
+      .from("profiles")
+      .update({ pin_hash: hashPin(pin), must_change_pin: !!data.force_change })
+      .eq("id", data.user_id);
+    if (error) throw new Error(error.message);
+    return { pin };
+  });
+
+/* --------------------------- delete employee --------------------------- */
+
+export const deleteEmployee = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { user_id: string }) => data)
+  .handler(async ({ data, context }) => {
+    const ctx = context as { userId: string };
+    await assertOwner(context as unknown as { supabase: SupabaseCtx; userId: string });
+    if (data.user_id === ctx.userId) throw new Error("You cannot delete your own account");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+

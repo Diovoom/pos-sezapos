@@ -306,6 +306,7 @@ export type Database = {
           last_name: string | null
           late_threshold_minutes: number
           must_change_password: boolean
+          must_change_pin: boolean
           phone: string | null
           photo_url: string | null
           pin_hash: string | null
@@ -328,6 +329,7 @@ export type Database = {
           last_name?: string | null
           late_threshold_minutes?: number
           must_change_password?: boolean
+          must_change_pin?: boolean
           phone?: string | null
           photo_url?: string | null
           pin_hash?: string | null
@@ -350,6 +352,7 @@ export type Database = {
           last_name?: string | null
           late_threshold_minutes?: number
           must_change_password?: boolean
+          must_change_pin?: boolean
           phone?: string | null
           photo_url?: string | null
           pin_hash?: string | null
