@@ -177,6 +177,133 @@ export type Database = {
           },
         ]
       }
+      refund_items: {
+        Row: {
+          created_at: string
+          id: string
+          line_total: number
+          product_id: string | null
+          product_name: string
+          quantity: number
+          refund_id: string
+          restock: boolean
+          sale_item_id: string | null
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          line_total?: number
+          product_id?: string | null
+          product_name: string
+          quantity?: number
+          refund_id: string
+          restock?: boolean
+          sale_item_id?: string | null
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          line_total?: number
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          refund_id?: string
+          restock?: boolean
+          sale_item_id?: string | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "refund_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refund_items_refund_id_fkey"
+            columns: ["refund_id"]
+            isOneToOne: false
+            referencedRelation: "refunds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refund_items_sale_item_id_fkey"
+            columns: ["sale_item_id"]
+            isOneToOne: false
+            referencedRelation: "sale_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      refunds: {
+        Row: {
+          approver_id: string | null
+          cashier_id: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          reason: string
+          refund_type: string
+          sale_id: string
+          status: string
+          store_id: string | null
+          subtotal: number
+          tax: number
+          total: number
+        }
+        Insert: {
+          approver_id?: string | null
+          cashier_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          reason?: string
+          refund_type?: string
+          sale_id: string
+          status?: string
+          store_id?: string | null
+          subtotal?: number
+          tax?: number
+          total?: number
+        }
+        Update: {
+          approver_id?: string | null
+          cashier_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          reason?: string
+          refund_type?: string
+          sale_id?: string
+          status?: string
+          store_id?: string | null
+          subtotal?: number
+          tax?: number
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "refunds_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_items: {
         Row: {
           created_at: string
@@ -231,14 +358,19 @@ export type Database = {
           cashier_id: string | null
           change_due: number | null
           created_at: string
+          customer_name: string | null
           discount: number
           id: string
           notes: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
+          receipt_number: number | null
+          refund_status: string
+          refunded_amount: number
           status: string
           store_id: string | null
           subtotal: number
           tax: number
+          terminal_ref: string | null
           total: number
         }
         Insert: {
@@ -246,14 +378,19 @@ export type Database = {
           cashier_id?: string | null
           change_due?: number | null
           created_at?: string
+          customer_name?: string | null
           discount?: number
           id?: string
           notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          receipt_number?: number | null
+          refund_status?: string
+          refunded_amount?: number
           status?: string
           store_id?: string | null
           subtotal?: number
           tax?: number
+          terminal_ref?: string | null
           total?: number
         }
         Update: {
@@ -261,14 +398,19 @@ export type Database = {
           cashier_id?: string | null
           change_due?: number | null
           created_at?: string
+          customer_name?: string | null
           discount?: number
           id?: string
           notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          receipt_number?: number | null
+          refund_status?: string
+          refunded_amount?: number
           status?: string
           store_id?: string | null
           subtotal?: number
           tax?: number
+          terminal_ref?: string | null
           total?: number
         }
         Relationships: [
@@ -286,10 +428,14 @@ export type Database = {
           address: string | null
           created_at: string
           currency: string
+          email: string | null
           id: string
           logo_url: string | null
           name: string
           phone: string | null
+          receipt_footer: string | null
+          receipt_header: string | null
+          return_policy: string | null
           tax_rate: number
           updated_at: string
         }
@@ -297,10 +443,14 @@ export type Database = {
           address?: string | null
           created_at?: string
           currency?: string
+          email?: string | null
           id?: string
           logo_url?: string | null
           name: string
           phone?: string | null
+          receipt_footer?: string | null
+          receipt_header?: string | null
+          return_policy?: string | null
           tax_rate?: number
           updated_at?: string
         }
@@ -308,10 +458,14 @@ export type Database = {
           address?: string | null
           created_at?: string
           currency?: string
+          email?: string | null
           id?: string
           logo_url?: string | null
           name?: string
           phone?: string | null
+          receipt_footer?: string | null
+          receipt_header?: string | null
+          return_policy?: string | null
           tax_rate?: number
           updated_at?: string
         }
