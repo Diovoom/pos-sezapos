@@ -229,7 +229,11 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
       taxable: form.taxable,
       is_favorite: form.is_favorite,
       image_url: imagePath,
-    });
+      age_restricted: form.age_restricted,
+      min_age: form.age_restricted ? Number(form.min_age) || 21 : null,
+      age_category: form.age_restricted ? form.age_category : null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Product created");
