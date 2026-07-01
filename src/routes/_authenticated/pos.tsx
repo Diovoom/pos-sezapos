@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { PaymentDialog, type CompletedPayment, type PaymentMethod } from "@/components/pos/PaymentDialog";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
+import { AgeVerificationDialog, type RestrictedItem, type SuccessfulVerification } from "@/components/pos/AgeVerificationDialog";
+import { loadAgeSettings } from "@/lib/age-verification";
 import { useProductImageUrl } from "@/lib/pos/product-images";
 import type { ReceiptData } from "@/components/pos/Receipt";
 
@@ -33,7 +35,9 @@ type Product = {
   is_favorite: boolean;
   store_id: string | null;
   image_url: string | null;
-
+  age_restricted?: boolean | null;
+  min_age?: number | null;
+  age_category?: string | null;
 };
 
 type Category = { id: string; name: string };
@@ -59,6 +63,9 @@ function PosPage() {
   const [payOpen, setPayOpen] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [ageOpen, setAgeOpen] = useState(false);
+  const [ageVerification, setAgeVerification] = useState<SuccessfulVerification | null>(null);
+  const ageSettings = useMemo(() => loadAgeSettings(), []);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const { data: store } = useQuery({
@@ -89,7 +96,7 @@ function PosPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url")
+        .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category")
         .eq("status", "active")
         .order("name");
       return (data as Product[]) ?? [];
@@ -152,7 +159,26 @@ function PosPage() {
     setCart((cur) => cur.map((l) => (l.product.id === id ? { ...l, qty } : l)));
   };
   const removeLine = (id: string) => setCart((cur) => cur.filter((l) => l.product.id !== id));
-  const clearCart = () => setCart([]);
+  const clearCart = () => { setCart([]); setAgeVerification(null); };
+
+  const restrictedItems: RestrictedItem[] = useMemo(
+    () =>
+      cart
+        .filter((l) => l.product.age_restricted)
+        .map((l) => ({
+          product_id: l.product.id,
+          name: l.product.name,
+          min_age: Number(l.product.min_age ?? 21) || 21,
+          category: l.product.age_category ?? null,
+        })),
+    [cart],
+  );
+  const needsAgeVerification =
+    ageSettings.enabled && restrictedItems.length > 0 && !ageVerification;
+
+  const removeAllRestricted = () => {
+    setCart((cur) => cur.filter((l) => !l.product.age_restricted));
+  };
 
   const subtotal = Math.round(cart.reduce((s, l) => s + l.product.price * l.qty, 0) * 100) / 100;
   const taxable = cart.reduce((s, l) => s + (l.product.taxable ? l.product.price * l.qty : 0), 0);
@@ -260,8 +286,18 @@ function PosPage() {
       toast.error("Cart is empty");
       return;
     }
+    if (needsAgeVerification) {
+      setAgeOpen(true);
+      return;
+    }
     setPayOpen(true);
   };
+
+  // Auto-open verification whenever restricted items enter an unverified cart
+  useEffect(() => {
+    if (needsAgeVerification && !ageOpen) setAgeOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restrictedItems.length]);
 
   return (
     <>
@@ -426,12 +462,37 @@ function PosPage() {
               })}
             </div>
 
+            {restrictedItems.length > 0 && (
+              <div
+                className={cn(
+                  "mb-2 px-3 py-2 rounded-md text-xs font-medium flex items-center justify-between border",
+                  ageVerification
+                    ? "bg-success/10 border-success/30 text-success"
+                    : "bg-warning/10 border-warning/40 text-warning",
+                )}
+              >
+                <span>
+                  {ageVerification
+                    ? `Age verified (${ageVerification.ageYears}+ · ${ageVerification.method === "override" ? "manager override" : ageVerification.method === "manual" ? "manual" : "ID scan"})`
+                    : `${restrictedItems.length} age-restricted item${restrictedItems.length > 1 ? "s" : ""} — ID required`}
+                </span>
+                {!ageVerification && (
+                  <button className="underline" onClick={() => setAgeOpen(true)}>
+                    Verify now
+                  </button>
+                )}
+              </div>
+            )}
             <Button
               onClick={openPayment}
               disabled={cart.length === 0 || finalize.isPending}
               className="w-full h-16 text-lg font-bold rounded-xl shadow-[var(--shadow-charge)]"
             >
-              {finalize.isPending ? <Loader2 className="size-5 animate-spin" /> : <>Charge {fmtCurrency(total, currency)}</>}
+              {finalize.isPending
+                ? <Loader2 className="size-5 animate-spin" />
+                : needsAgeVerification
+                  ? <>Verify Age to Charge {fmtCurrency(total, currency)}</>
+                  : <>Charge {fmtCurrency(total, currency)}</>}
             </Button>
           </div>
         </section>
@@ -447,6 +508,27 @@ function PosPage() {
       />
 
       <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receipt} />
+
+      <AgeVerificationDialog
+        open={ageOpen}
+        onOpenChange={setAgeOpen}
+        items={restrictedItems}
+        settings={ageSettings}
+        storeId={store?.id ?? null}
+        onVerified={(v) => {
+          setAgeVerification(v);
+          toast.success("Age verified — checkout may continue");
+        }}
+        onRemoveRestricted={() => {
+          removeAllRestricted();
+          toast.info("Age-restricted items removed from cart");
+        }}
+        onCancelSale={() => {
+          clearCart();
+          setAgeOpen(false);
+          toast.info("Sale canceled");
+        }}
+      />
 
       <BarcodeScanner
         open={scannerOpen}

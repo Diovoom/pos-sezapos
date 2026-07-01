@@ -14,6 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
+      age_verifications: {
+        Row: {
+          cashier_email: string | null
+          cashier_id: string | null
+          created_at: string
+          customer_dob: string | null
+          id: string
+          id_document_last4: string | null
+          id_expires_on: string | null
+          id_full_name_masked: string | null
+          manager_override_id: string | null
+          method: string
+          min_age: number
+          override_reason: string | null
+          product_ids: string[]
+          raw_meta: Json
+          result: string
+          sale_id: string | null
+          store_id: string | null
+        }
+        Insert: {
+          cashier_email?: string | null
+          cashier_id?: string | null
+          created_at?: string
+          customer_dob?: string | null
+          id?: string
+          id_document_last4?: string | null
+          id_expires_on?: string | null
+          id_full_name_masked?: string | null
+          manager_override_id?: string | null
+          method: string
+          min_age: number
+          override_reason?: string | null
+          product_ids?: string[]
+          raw_meta?: Json
+          result: string
+          sale_id?: string | null
+          store_id?: string | null
+        }
+        Update: {
+          cashier_email?: string | null
+          cashier_id?: string | null
+          created_at?: string
+          customer_dob?: string | null
+          id?: string
+          id_document_last4?: string | null
+          id_expires_on?: string | null
+          id_full_name_masked?: string | null
+          manager_override_id?: string | null
+          method?: string
+          min_age?: number
+          override_reason?: string | null
+          product_ids?: string[]
+          raw_meta?: Json
+          result?: string
+          sale_id?: string | null
+          store_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "age_verifications_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_verifications_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -201,6 +276,8 @@ export type Database = {
       }
       products: {
         Row: {
+          age_category: string | null
+          age_restricted: boolean
           barcode: string | null
           brand: string | null
           category_id: string | null
@@ -212,6 +289,7 @@ export type Database = {
           images: string[]
           is_favorite: boolean
           max_stock: number | null
+          min_age: number | null
           min_stock: number
           name: string
           price: number
@@ -226,6 +304,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          age_category?: string | null
+          age_restricted?: boolean
           barcode?: string | null
           brand?: string | null
           category_id?: string | null
@@ -237,6 +317,7 @@ export type Database = {
           images?: string[]
           is_favorite?: boolean
           max_stock?: number | null
+          min_age?: number | null
           min_stock?: number
           name: string
           price?: number
@@ -251,6 +332,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          age_category?: string | null
+          age_restricted?: boolean
           barcode?: string | null
           brand?: string | null
           category_id?: string | null
@@ -262,6 +345,7 @@ export type Database = {
           images?: string[]
           is_favorite?: boolean
           max_stock?: number | null
+          min_age?: number | null
           min_stock?: number
           name?: string
           price?: number
@@ -720,6 +804,7 @@ export type Database = {
       stores: {
         Row: {
           address: string | null
+          age_verification_settings: Json
           business_hours: Json | null
           business_type: string | null
           city: string | null
@@ -753,6 +838,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          age_verification_settings?: Json
           business_hours?: Json | null
           business_type?: string | null
           city?: string | null
@@ -786,6 +872,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          age_verification_settings?: Json
           business_hours?: Json | null
           business_type?: string | null
           city?: string | null
