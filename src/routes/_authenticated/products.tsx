@@ -145,7 +145,16 @@ function ProductsPage() {
                         </button>
                       </TableCell>
                       <TableCell><ProductThumb path={p.image_url} /></TableCell>
-                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>{p.name}</span>
+                          {p.age_restricted && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-warning/15 text-warning border border-warning/30">
+                              {p.min_age ?? 21}+
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">{p.sku ?? "—"}</TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">{p.barcode ?? "—"}</TableCell>
                       <TableCell className="text-right font-mono">{fmtCurrency(Number(p.cost), cur)}</TableCell>
