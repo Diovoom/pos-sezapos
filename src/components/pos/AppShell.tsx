@@ -1,7 +1,8 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useMe } from "@/hooks/useMe";
 import {
   LayoutDashboard,
   ScanBarcode,
@@ -14,6 +15,9 @@ import {
   LogOut,
   CircleUser,
   RotateCcw,
+  Clock,
+  UserPlus,
+  ArrowLeftRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -34,6 +38,8 @@ const NAV = [
   { to: "/products", label: "Products", icon: Package },
   { to: "/inventory", label: "Inventory", icon: Boxes },
   { to: "/customers", label: "Customers", icon: Users },
+  { to: "/employees", label: "Employees", icon: UserPlus },
+  { to: "/timeclock", label: "Time Clock", icon: Clock },
   { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
@@ -41,24 +47,29 @@ const NAV = [
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { data: me } = useMe();
 
-  const { data: me } = useQuery({
-    queryKey: ["me"],
-    queryFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return null;
-      const [{ data: profile }, { data: roles }, { data: store }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", u.user.id),
-        supabase.from("stores").select("*").limit(1).maybeSingle(),
-      ]);
-      return { user: u.user, profile, roles: roles?.map((r) => r.role) ?? [], store };
-    },
-  });
+  // Force first-login employees through onboarding.
+  useEffect(() => {
+    if (!me?.profile) return;
+    if (me.profile.must_change_password && pathname !== "/onboarding") {
+      navigate({ to: "/onboarding", replace: true });
+    }
+  }, [me, pathname, navigate]);
 
   const handleSignOut = async () => {
+    await qc.cancelQueries();
+    qc.clear();
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
+  };
+
+  const handleSwitchEmployee = async () => {
+    // Keep cache; go straight to keypad login.
+    await supabase.auth.signOut();
+    qc.clear();
+    navigate({ to: "/auth", search: { mode: "keypad" }, replace: true });
   };
 
   const role = me?.roles?.[0];
@@ -106,10 +117,25 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>{me?.user?.email}</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                <div className="text-xs font-normal text-muted-foreground">Signed in as</div>
+                <div>{me?.user?.email}</div>
+                {me?.profile?.employee_id && (
+                  <div className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                    ID {me.profile.employee_id}
+                  </div>
+                )}
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate({ to: "/timeclock" })}>
+                <Clock className="size-4 mr-2" /> Time clock
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
                 <Settings className="size-4 mr-2" /> Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSwitchEmployee}>
+                <ArrowLeftRight className="size-4 mr-2" /> Switch employee
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                 <LogOut className="size-4 mr-2" /> Sign out

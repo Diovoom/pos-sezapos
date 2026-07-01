@@ -194,8 +194,17 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           email: string | null
+          employee_id: string | null
+          first_name: string | null
           full_name: string | null
+          hire_date: string | null
           id: string
+          last_name: string | null
+          must_change_password: boolean
+          phone: string | null
+          photo_url: string | null
+          pin_hash: string | null
+          status: string
           store_id: string | null
           updated_at: string
         }
@@ -203,8 +212,17 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          employee_id?: string | null
+          first_name?: string | null
           full_name?: string | null
+          hire_date?: string | null
           id: string
+          last_name?: string | null
+          must_change_password?: boolean
+          phone?: string | null
+          photo_url?: string | null
+          pin_hash?: string | null
+          status?: string
           store_id?: string | null
           updated_at?: string
         }
@@ -212,8 +230,17 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          employee_id?: string | null
+          first_name?: string | null
           full_name?: string | null
+          hire_date?: string | null
           id?: string
+          last_name?: string | null
+          must_change_password?: boolean
+          phone?: string | null
+          photo_url?: string | null
+          pin_hash?: string | null
+          status?: string
           store_id?: string | null
           updated_at?: string
         }
@@ -521,6 +548,50 @@ export type Database = {
         }
         Relationships: []
       }
+      time_entries: {
+        Row: {
+          break_minutes: number
+          break_start: string | null
+          clock_in: string
+          clock_out: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          store_id: string | null
+          user_id: string
+        }
+        Insert: {
+          break_minutes?: number
+          break_start?: string | null
+          clock_in?: string
+          clock_out?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          store_id?: string | null
+          user_id: string
+        }
+        Update: {
+          break_minutes?: number
+          break_start?: string | null
+          clock_in?: string
+          clock_out?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          store_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -558,6 +629,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      email_for_employee_id: {
+        Args: { p_employee_id: string }
+        Returns: string
+      }
+      generate_employee_id: { Args: never; Returns: string }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
