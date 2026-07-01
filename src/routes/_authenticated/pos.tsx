@@ -32,6 +32,8 @@ type Product = {
   category_id: string | null;
   is_favorite: boolean;
   store_id: string | null;
+  image_url: string | null;
+
 };
 
 type Category = { id: string; name: string };
