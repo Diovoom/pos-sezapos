@@ -23,6 +23,23 @@ async function assertOwner(context: { supabase: SupabaseCtx; userId: string }) {
   if (error || !data) throw new Error("Forbidden: owner role required");
 }
 
+async function assertOwnerOrAdmin(context: { supabase: SupabaseCtx; userId: string }) {
+  const { data, error } = await context.supabase.rpc("has_any_role", {
+    _user_id: context.userId,
+    _roles: ["owner", "admin"],
+  });
+  if (error || !data) throw new Error("Forbidden: owner or admin role required");
+}
+
+function generateSixDigitId(): string {
+  const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000;
+  return String(n).padStart(6, "0");
+}
+
+function generatePin(): string {
+  return generateSixDigitId();
+}
+
 // Minimal typing so we don't need the generated Database type here.
 type SupabaseCtx = {
   rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
