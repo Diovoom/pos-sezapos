@@ -89,7 +89,7 @@ function PosPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id")
+        .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url")
         .eq("status", "active")
         .order("name");
       return (data as Product[]) ?? [];
