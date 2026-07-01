@@ -327,6 +327,7 @@ function HistoryCard({ sessions }: { sessions: Session[] }) {
                   <th className="text-right">Counted</th>
                   <th className="text-right">Variance</th>
                   <th>Status</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
