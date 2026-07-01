@@ -304,6 +304,35 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
           <Label htmlFor="fav">Show on checkout favorites</Label>
           <Switch id="fav" checked={form.is_favorite} onCheckedChange={(v) => setForm({ ...form, is_favorite: v })} />
         </div>
+        <div className="rounded-md border p-3 space-y-3 bg-surface/40">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="age_restricted" className="font-medium">Age restricted</Label>
+              <p className="text-xs text-muted-foreground">Requires ID verification at checkout.</p>
+            </div>
+            <Switch id="age_restricted" checked={form.age_restricted} onCheckedChange={(v) => setForm({ ...form, age_restricted: v })} />
+          </div>
+          {form.age_restricted && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Minimum age</Label>
+                <Input type="number" min={13} max={99} value={form.min_age} onChange={(e) => setForm({ ...form, min_age: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Category</Label>
+                <select
+                  className="w-full h-10 rounded-md border bg-background px-3 text-sm"
+                  value={form.age_category}
+                  onChange={(e) => setForm({ ...form, age_category: e.target.value })}
+                >
+                  {["alcohol","beer","wine","spirits","tobacco","cigarettes","cigars","vape","nicotine","lottery","other"].map((c) => (
+                    <option key={c} value={c}>{c[0].toUpperCase() + c.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
         <DialogFooter>
           <Button type="submit" disabled={busy}>{busy && <Loader2 className="size-4 animate-spin mr-2" />}Create</Button>
         </DialogFooter>
