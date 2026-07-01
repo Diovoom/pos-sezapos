@@ -169,8 +169,22 @@ function PosPage() {
         payment.reference ||
         (payment.cardBrand && payment.last4 ? `${payment.cardBrand} ••${payment.last4}` : null);
 
-      const { data: sale, error: saleErr } = await supabase
-        .from("sales")
+      // Attach to the currently-open register session for this store, if any.
+      let registerSessionId: string | null = null;
+      if (store?.id) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: rs } = await (supabase.from as any)("register_sessions")
+          .select("id")
+          .eq("store_id", store.id)
+          .eq("status", "open")
+          .order("opened_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        registerSessionId = rs?.id ?? null;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: sale, error: saleErr } = await (supabase.from as any)("sales")
         .insert({
           store_id: store?.id ?? null,
           cashier_id: u.user.id,
@@ -182,6 +196,7 @@ function PosPage() {
           amount_tendered: payment.amountTendered,
           change_due: payment.changeDue,
           terminal_ref: terminalRef,
+          register_session_id: registerSessionId,
           status: "completed",
         })
         .select()
