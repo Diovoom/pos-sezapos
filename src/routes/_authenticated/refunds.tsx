@@ -273,6 +273,10 @@ function RefundDialog({
     onSuccess: (payload) => {
       if (!payload || !sale) return;
       toast.success(`Refund issued · ${fmtCurrency(refundTotal, currency)}`);
+      void import("@/lib/audit-log").then((m) => m.logAudit({
+        action: "refund.create", entity: "refund", entity_id: payload.refund.id,
+        details: { amount: refundTotal, sale_id: sale?.id },
+      }));
       qc.invalidateQueries({ queryKey: ["refund-sales"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["products"] });

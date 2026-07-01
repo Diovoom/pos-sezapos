@@ -227,6 +227,10 @@ function PosPage() {
       setReceipt(rd);
       setReceiptOpen(true);
       toast.success(`Sale completed · ${fmtCurrency(total, currency)}`);
+      void import("@/lib/audit-log").then((m) => m.logAudit({
+        action: "sale.create", entity: "sale", entity_id: rd.transactionId,
+        details: { total, method: payment.method, items: cart.length },
+      }));
       clearCart();
       setPayOpen(false);
       qc.invalidateQueries({ queryKey: ["sales"] });

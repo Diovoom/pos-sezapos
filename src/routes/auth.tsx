@@ -219,6 +219,7 @@ function EmailLogin() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      void import("@/lib/audit-log").then((m) => m.logAudit({ action: "login", details: { method: "password" } }));
       navigate({ to: "/pos", replace: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sign in failed");
