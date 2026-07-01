@@ -7,11 +7,14 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/pos/AppShell";
 import { fmtCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2 } from "lucide-react";
+import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { PaymentDialog, type CompletedPayment, type PaymentMethod } from "@/components/pos/PaymentDialog";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
+import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
+import { useProductImageUrl } from "@/lib/pos/product-images";
 import type { ReceiptData } from "@/components/pos/Receipt";
+
 
 export const Route = createFileRoute("/_authenticated/pos")({
   component: PosPage,
@@ -29,6 +32,8 @@ type Product = {
   category_id: string | null;
   is_favorite: boolean;
   store_id: string | null;
+  image_url: string | null;
+
 };
 
 type Category = { id: string; name: string };
@@ -48,6 +53,8 @@ function PosPage() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | "fav" | "all">("fav");
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [scannerOpen, setScannerOpen] = useState(false);
+
   const [tender, setTender] = useState<PaymentMethod>("card");
   const [payOpen, setPayOpen] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -82,7 +89,7 @@ function PosPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id")
+        .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url")
         .eq("status", "active")
         .order("name");
       return (data as Product[]) ?? [];
@@ -252,28 +259,41 @@ function PosPage() {
       <div className="flex-1 flex overflow-hidden">
         <section className="flex-[7] flex flex-col border-r bg-surface/40 min-w-0">
           <div className="p-4 flex flex-col gap-3">
-            <div className="relative">
-              <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                ref={searchRef}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    if (tryAddByCode(search)) return;
-                    if (filtered.length === 1) {
-                      addToCart(filtered[0]);
-                      setSearch("");
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  ref={searchRef}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      if (tryAddByCode(search)) return;
+                      if (filtered.length === 1) {
+                        addToCart(filtered[0]);
+                        setSearch("");
+                      }
                     }
-                  }
-                }}
-                placeholder="Search products or scan barcode... (⌘K)"
-                className="h-12 pl-10 pr-20 bg-card text-sm"
-              />
-              <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 border rounded text-[10px] font-mono text-muted-foreground">
-                ⌘K
-              </kbd>
+                  }}
+                  placeholder="Search products or scan barcode... (⌘K)"
+                  className="h-12 pl-10 pr-14 bg-card text-sm"
+                />
+                <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 border rounded text-[10px] font-mono text-muted-foreground">
+                  ⌘K
+                </kbd>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setScannerOpen(true)}
+                className="h-12 w-12 shrink-0"
+                title="Scan barcode with camera"
+                aria-label="Scan barcode"
+              >
+                <Camera className="size-5" />
+              </Button>
             </div>
+
 
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
               <CategoryChip active={activeCategory === "fav"} onClick={() => setActiveCategory("fav")}>Favorites</CategoryChip>
@@ -301,21 +321,10 @@ function PosPage() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {filtered.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => addToCart(p)}
-                    className="aspect-square bg-card border rounded-xl p-3 flex flex-col justify-between text-left hover:border-primary/60 hover:shadow-md transition-all active:scale-[0.97] group"
-                  >
-                    <div className="text-[10px] font-mono text-muted-foreground group-hover:text-primary">
-                      {fmtCurrency(Number(p.price), currency)}
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold leading-tight line-clamp-2">{p.name}</div>
-                      <div className="text-[10px] text-muted-foreground mt-1">Stock: {Number(p.stock)}</div>
-                    </div>
-                  </button>
+                  <ProductTile key={p.id} product={p} currency={currency} onAdd={addToCart} />
                 ))}
               </div>
+
             )}
           </div>
         </section>
@@ -419,9 +428,47 @@ function PosPage() {
       />
 
       <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receipt} />
+
+      <BarcodeScanner
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onDetected={(code) => {
+          if (!tryAddByCode(code)) {
+            toast.error(`No product found for ${code}`);
+          }
+        }}
+      />
+
     </>
   );
 }
+
+function ProductTile({ product, currency, onAdd }: { product: Product; currency: string; onAdd: (p: Product) => void }) {
+  const url = useProductImageUrl(product.image_url);
+  return (
+    <button
+      onClick={() => onAdd(product)}
+      className="aspect-square bg-card border rounded-xl p-3 flex flex-col justify-between text-left hover:border-primary/60 hover:shadow-md transition-all active:scale-[0.97] group relative overflow-hidden"
+    >
+      {url && (
+        <img
+          src={url}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+        />
+      )}
+      {url && <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />}
+      <div className={cn("text-[10px] font-mono relative", url ? "text-white/90" : "text-muted-foreground group-hover:text-primary")}>
+        {fmtCurrency(Number(product.price), currency)}
+      </div>
+      <div className="relative">
+        <div className={cn("text-sm font-semibold leading-tight line-clamp-2", url && "text-white")}>{product.name}</div>
+        <div className={cn("text-[10px] mt-1", url ? "text-white/70" : "text-muted-foreground")}>Stock: {Number(product.stock)}</div>
+      </div>
+    </button>
+  );
+}
+
 
 function CategoryChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (

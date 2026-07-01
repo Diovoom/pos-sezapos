@@ -109,6 +109,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          images: string[]
           is_favorite: boolean
           max_stock: number | null
           min_stock: number
@@ -133,6 +134,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          images?: string[]
           is_favorite?: boolean
           max_stock?: number | null
           min_stock?: number
@@ -157,6 +159,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          images?: string[]
           is_favorite?: boolean
           max_stock?: number | null
           min_stock?: number

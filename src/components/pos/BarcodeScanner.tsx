@@ -1,0 +1,113 @@
+import { useEffect, useRef, useState } from "react";
+import { BrowserMultiFormatReader } from "@zxing/browser";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Loader2, Camera, X } from "lucide-react";
+
+type Props = {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onDetected: (code: string) => void;
+  title?: string;
+};
+
+/**
+ * Live camera barcode scanner using @zxing/browser.
+ * Auto-closes on the first successful decode. Falls back gracefully
+ * when camera permission is denied.
+ */
+export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan barcode" }: Props) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const controlsRef = useRef<{ stop: () => void } | null>(null);
+  const [status, setStatus] = useState<"starting" | "scanning" | "error">("starting");
+  const [error, setError] = useState<string | null>(null);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [deviceId, setDeviceId] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const reader = new BrowserMultiFormatReader();
+
+    (async () => {
+      try {
+        setStatus("starting");
+        setError(null);
+        const list = await BrowserMultiFormatReader.listVideoInputDevices();
+        if (cancelled) return;
+        setDevices(list);
+        // Prefer back camera on mobile
+        const back = list.find((d) => /back|rear|environment/i.test(d.label));
+        const chosen = deviceId ?? back?.deviceId ?? list[0]?.deviceId;
+        setDeviceId(chosen);
+        if (!videoRef.current) return;
+
+        const controls = await reader.decodeFromVideoDevice(chosen, videoRef.current, (result) => {
+          if (result && !cancelled) {
+            onDetected(result.getText());
+            controls.stop();
+            onOpenChange(false);
+          }
+        });
+        controlsRef.current = controls;
+        setStatus("scanning");
+      } catch (e) {
+        if (cancelled) return;
+        setStatus("error");
+        setError(e instanceof Error ? e.message : "Camera unavailable");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controlsRef.current?.stop();
+      controlsRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, deviceId]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md p-0 overflow-hidden">
+        <DialogHeader className="p-4 pb-2">
+          <DialogTitle className="flex items-center gap-2"><Camera className="size-4" /> {title}</DialogTitle>
+        </DialogHeader>
+        <div className="relative bg-black aspect-[3/4]">
+          <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
+          <div className="absolute inset-0 pointer-events-none border-2 border-white/40 m-8 rounded-xl" />
+          {status === "starting" && (
+            <div className="absolute inset-0 grid place-items-center text-white text-sm gap-2">
+              <Loader2 className="size-6 animate-spin" /> Starting camera…
+            </div>
+          )}
+          {status === "error" && (
+            <div className="absolute inset-0 grid place-items-center p-6 text-center text-white text-sm">
+              <div>
+                <p className="font-semibold mb-2">Camera unavailable</p>
+                <p className="text-white/70 text-xs">{error}</p>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="p-3 flex items-center justify-between gap-2 bg-card border-t">
+          {devices.length > 1 ? (
+            <select
+              value={deviceId}
+              onChange={(e) => setDeviceId(e.target.value)}
+              className="text-xs bg-transparent border rounded px-2 py-1 max-w-[200px] truncate"
+            >
+              {devices.map((d) => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {d.label || `Camera ${d.deviceId.slice(0, 6)}`}
+                </option>
+              ))}
+            </select>
+          ) : <span className="text-xs text-muted-foreground">Point at a barcode</span>}
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            <X className="size-3.5 mr-1" /> Cancel
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

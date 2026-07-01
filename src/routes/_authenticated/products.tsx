@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
 import { Button } from "@/components/ui/button";
@@ -10,13 +11,17 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Star, Loader2 } from "lucide-react";
+import { Plus, Search, Star, Loader2, Camera, Wand2, Upload, X, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { fmtCurrency } from "@/lib/format";
+import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
+import { lookupBarcode } from "@/lib/barcode-lookup.functions";
+import { uploadProductImage, importRemoteProductImage, useProductImageUrl } from "@/lib/pos/product-images";
 
 export const Route = createFileRoute("/_authenticated/products")({
   component: ProductsPage,
 });
+
 
 type ProductRow = {
   id: string;
@@ -28,12 +33,26 @@ type ProductRow = {
   stock: number;
   taxable: boolean;
   is_favorite: boolean;
+  image_url: string | null;
 };
+
+function ProductThumb({ path }: { path: string | null }) {
+  const url = useProductImageUrl(path);
+  if (!url) {
+    return (
+      <div className="size-9 rounded bg-muted grid place-items-center text-muted-foreground">
+        <ImageIcon className="size-4" />
+      </div>
+    );
+  }
+  return <img src={url} alt="" className="size-9 rounded object-cover" />;
+}
 
 function ProductsPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+
 
   const { data: store } = useQuery({
     queryKey: ["store"],
@@ -46,7 +65,7 @@ function ProductsPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id,name,sku,barcode,price,cost,stock,taxable,is_favorite")
+        .select("id,name,sku,barcode,price,cost,stock,taxable,is_favorite,image_url")
         .order("created_at", { ascending: false });
       return (data as ProductRow[]) ?? [];
     },
@@ -97,6 +116,7 @@ function ProductsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10"></TableHead>
+                <TableHead className="w-12"></TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>Barcode</TableHead>
@@ -108,9 +128,9 @@ function ProductsPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-10"><Loader2 className="size-5 animate-spin inline" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-10"><Loader2 className="size-5 animate-spin inline" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">No products yet — click "New product" to add one.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">No products yet — click "New product" to add one.</TableCell></TableRow>
               ) : (
                 filtered.map((p) => {
                   const margin = Number(p.price) > 0 ? ((Number(p.price) - Number(p.cost)) / Number(p.price)) * 100 : 0;
@@ -121,6 +141,7 @@ function ProductsPage() {
                           <Star className={`size-4 ${p.is_favorite ? "fill-warning text-warning" : "text-muted-foreground"}`} />
                         </button>
                       </TableCell>
+                      <TableCell><ProductThumb path={p.image_url} /></TableCell>
                       <TableCell className="font-medium">{p.name}</TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">{p.sku ?? "—"}</TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">{p.barcode ?? "—"}</TableCell>
@@ -132,6 +153,7 @@ function ProductsPage() {
                   );
                 })
               )}
+
             </TableBody>
           </Table>
         </Card>
@@ -144,7 +166,50 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
   const [form, setForm] = useState({
     name: "", sku: "", barcode: "", price: "", cost: "", stock: "0", taxable: true, is_favorite: false,
   });
+  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [looking, setLooking] = useState(false);
   const [busy, setBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrl = useProductImageUrl(imagePath);
+  const lookup = useServerFn(lookupBarcode);
+
+  const runLookup = async (barcode: string) => {
+    if (!barcode.trim()) return toast.error("Enter a barcode first");
+    setLooking(true);
+    try {
+      const result = await lookup({ data: { barcode: barcode.trim() } });
+      if (!result.name) {
+        toast.error("No product found for that barcode");
+        return;
+      }
+      const name = result.brand ? `${result.brand} ${result.name}` : result.name;
+      setForm((f) => ({ ...f, name: f.name || name, barcode: result.barcode }));
+      if (result.image_url && !imagePath) {
+        const path = await importRemoteProductImage(result.image_url);
+        if (path) setImagePath(path);
+      }
+      toast.success(`Loaded from ${result.source === "openfoodfacts" ? "Open Food Facts" : "UPC database"}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lookup failed");
+    } finally {
+      setLooking(false);
+    }
+  };
+
+  const handleFile = async (file: File | null) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const path = await uploadProductImage(file);
+      setImagePath(path);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,6 +224,7 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
       stock: Number(form.stock) || 0,
       taxable: form.taxable,
       is_favorite: form.is_favorite,
+      image_url: imagePath,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -167,16 +233,55 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
   };
 
   return (
-    <DialogContent>
+    <DialogContent className="max-w-lg">
       <DialogHeader><DialogTitle>New product</DialogTitle></DialogHeader>
       <form onSubmit={submit} className="space-y-4">
+        <div className="flex gap-3">
+          <div className="size-20 rounded-lg border bg-muted overflow-hidden grid place-items-center shrink-0">
+            {previewUrl ? (
+              <img src={previewUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <ImageIcon className="size-6 text-muted-foreground" />
+            )}
+          </div>
+          <div className="flex-1 flex flex-col gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+            />
+            <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              {uploading ? <Loader2 className="size-3.5 animate-spin mr-1" /> : <Upload className="size-3.5 mr-1" />}
+              {imagePath ? "Replace image" : "Upload image"}
+            </Button>
+            {imagePath && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setImagePath(null)}>
+                <X className="size-3.5 mr-1" /> Remove
+              </Button>
+            )}
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
           <Input id="name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2"><Label>SKU</Label><Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} /></div>
-          <div className="space-y-2"><Label>Barcode</Label><Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} /></div>
+          <div className="space-y-2">
+            <Label>Barcode</Label>
+            <div className="flex gap-1">
+              <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
+              <Button type="button" size="icon" variant="outline" onClick={() => setScanning(true)} title="Scan with camera">
+                <Camera className="size-4" />
+              </Button>
+              <Button type="button" size="icon" variant="outline" onClick={() => runLookup(form.barcode)} disabled={looking} title="Auto-fill from barcode database">
+                {looking ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+              </Button>
+            </div>
+          </div>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-2"><Label>Cost</Label><Input type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} /></div>
@@ -195,6 +300,17 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
           <Button type="submit" disabled={busy}>{busy && <Loader2 className="size-4 animate-spin mr-2" />}Create</Button>
         </DialogFooter>
       </form>
+
+      <BarcodeScanner
+        open={scanning}
+        onOpenChange={setScanning}
+        onDetected={(code) => {
+          setForm((f) => ({ ...f, barcode: code }));
+          toast.success(`Scanned ${code}`);
+          void runLookup(code);
+        }}
+      />
     </DialogContent>
   );
 }
+
