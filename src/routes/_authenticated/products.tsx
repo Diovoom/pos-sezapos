@@ -116,6 +116,7 @@ function ProductsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10"></TableHead>
+                <TableHead className="w-12"></TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>Barcode</TableHead>
@@ -127,9 +128,9 @@ function ProductsPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-10"><Loader2 className="size-5 animate-spin inline" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-10"><Loader2 className="size-5 animate-spin inline" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">No products yet — click "New product" to add one.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">No products yet — click "New product" to add one.</TableCell></TableRow>
               ) : (
                 filtered.map((p) => {
                   const margin = Number(p.price) > 0 ? ((Number(p.price) - Number(p.cost)) / Number(p.price)) * 100 : 0;
@@ -140,6 +141,7 @@ function ProductsPage() {
                           <Star className={`size-4 ${p.is_favorite ? "fill-warning text-warning" : "text-muted-foreground"}`} />
                         </button>
                       </TableCell>
+                      <TableCell><ProductThumb path={p.image_url} /></TableCell>
                       <TableCell className="font-medium">{p.name}</TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">{p.sku ?? "—"}</TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">{p.barcode ?? "—"}</TableCell>
@@ -151,6 +153,7 @@ function ProductsPage() {
                   );
                 })
               )}
+
             </TableBody>
           </Table>
         </Card>
