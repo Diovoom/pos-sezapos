@@ -174,6 +174,90 @@ export type Database = {
           },
         ]
       }
+      country_profiles: {
+        Row: {
+          address_format: Json
+          age_defaults: Json
+          business_reg_fields: Json
+          country_code: string
+          country_name: string
+          created_at: string
+          currency_code: string
+          currency_symbol: string
+          date_format: string
+          decimal_precision: number
+          decimal_sep: string
+          default_language: string
+          default_locale: string
+          default_tax_rate: number
+          paper_size: string
+          phone_format: string | null
+          postal_regex: string | null
+          receipt_format: Json
+          regions: Json
+          rtl: boolean
+          symbol_position: string
+          tax_inclusive_default: boolean
+          thousands_sep: string
+          time_format: string
+          updated_at: string
+        }
+        Insert: {
+          address_format?: Json
+          age_defaults?: Json
+          business_reg_fields?: Json
+          country_code: string
+          country_name: string
+          created_at?: string
+          currency_code: string
+          currency_symbol: string
+          date_format?: string
+          decimal_precision?: number
+          decimal_sep?: string
+          default_language?: string
+          default_locale?: string
+          default_tax_rate?: number
+          paper_size?: string
+          phone_format?: string | null
+          postal_regex?: string | null
+          receipt_format?: Json
+          regions?: Json
+          rtl?: boolean
+          symbol_position?: string
+          tax_inclusive_default?: boolean
+          thousands_sep?: string
+          time_format?: string
+          updated_at?: string
+        }
+        Update: {
+          address_format?: Json
+          age_defaults?: Json
+          business_reg_fields?: Json
+          country_code?: string
+          country_name?: string
+          created_at?: string
+          currency_code?: string
+          currency_symbol?: string
+          date_format?: string
+          decimal_precision?: number
+          decimal_sep?: string
+          default_language?: string
+          default_locale?: string
+          default_tax_rate?: number
+          paper_size?: string
+          phone_format?: string | null
+          postal_regex?: string | null
+          receipt_format?: Json
+          regions?: Json
+          rtl?: boolean
+          symbol_position?: string
+          tax_inclusive_default?: boolean
+          thousands_sep?: string
+          time_format?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payment_attempts: {
         Row: {
           amount: number
@@ -394,6 +478,8 @@ export type Database = {
           phone: string | null
           photo_url: string | null
           pin_hash: string | null
+          preferred_language: string | null
+          preferred_locale: string | null
           scheduled_end_time: string | null
           scheduled_start_time: string | null
           status: string
@@ -417,6 +503,8 @@ export type Database = {
           phone?: string | null
           photo_url?: string | null
           pin_hash?: string | null
+          preferred_language?: string | null
+          preferred_locale?: string | null
           scheduled_end_time?: string | null
           scheduled_start_time?: string | null
           status?: string
@@ -440,6 +528,8 @@ export type Database = {
           phone?: string | null
           photo_url?: string | null
           pin_hash?: string | null
+          preferred_language?: string | null
+          preferred_locale?: string | null
           scheduled_end_time?: string | null
           scheduled_start_time?: string | null
           status?: string
@@ -804,11 +894,13 @@ export type Database = {
       stores: {
         Row: {
           address: string | null
+          address_format_override: Json | null
           age_verification_settings: Json
           business_hours: Json | null
           business_type: string | null
           city: string | null
           country: string | null
+          country_code: string | null
           created_at: string
           currency: string
           currency_symbol: string | null
@@ -816,12 +908,16 @@ export type Database = {
           email: string | null
           id: string
           language: string | null
+          locale: string | null
           logo_url: string | null
           name: string
+          paper_size: string | null
           phone: string | null
+          phone_format_override: string | null
           receipt_footer: string | null
           receipt_header: string | null
           receipt_logo_url: string | null
+          region_code: string | null
           return_policy: string | null
           setup_completed_at: string | null
           setup_state: Json
@@ -838,11 +934,13 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          address_format_override?: Json | null
           age_verification_settings?: Json
           business_hours?: Json | null
           business_type?: string | null
           city?: string | null
           country?: string | null
+          country_code?: string | null
           created_at?: string
           currency?: string
           currency_symbol?: string | null
@@ -850,12 +948,16 @@ export type Database = {
           email?: string | null
           id?: string
           language?: string | null
+          locale?: string | null
           logo_url?: string | null
           name: string
+          paper_size?: string | null
           phone?: string | null
+          phone_format_override?: string | null
           receipt_footer?: string | null
           receipt_header?: string | null
           receipt_logo_url?: string | null
+          region_code?: string | null
           return_policy?: string | null
           setup_completed_at?: string | null
           setup_state?: Json
@@ -872,11 +974,13 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          address_format_override?: Json | null
           age_verification_settings?: Json
           business_hours?: Json | null
           business_type?: string | null
           city?: string | null
           country?: string | null
+          country_code?: string | null
           created_at?: string
           currency?: string
           currency_symbol?: string | null
@@ -884,12 +988,16 @@ export type Database = {
           email?: string | null
           id?: string
           language?: string | null
+          locale?: string | null
           logo_url?: string | null
           name?: string
+          paper_size?: string | null
           phone?: string | null
+          phone_format_override?: string | null
           receipt_footer?: string | null
           receipt_header?: string | null
           receipt_logo_url?: string | null
+          region_code?: string | null
           return_policy?: string | null
           setup_completed_at?: string | null
           setup_state?: Json
@@ -904,7 +1012,15 @@ export type Database = {
           website?: string | null
           zip?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stores_country_code_fkey"
+            columns: ["country_code"]
+            isOneToOne: false
+            referencedRelation: "country_profiles"
+            referencedColumns: ["country_code"]
+          },
+        ]
       }
       time_entries: {
         Row: {
