@@ -240,9 +240,14 @@ function GeneralPanel({ canEdit }: { canEdit: boolean }) {
           <F k="date_format" label="Date format" />
           <F k="logo_url" label="Store logo URL" cols={2} />
         </div>
-        <Button onClick={() => save.mutate()} disabled={!canEdit || save.isPending}>
-          {save.isPending && <Loader2 className="size-4 animate-spin mr-2" />}Save general settings
-        </Button>
+        <div className="flex items-center gap-2 pt-2 border-t">
+          <Button onClick={() => save.mutate()} disabled={!canEdit || save.isPending}>
+            {save.isPending && <Loader2 className="size-4 animate-spin mr-2" />}Save general settings
+          </Button>
+          <Button variant="outline" asChild disabled={!canEdit}>
+            <a href="/setup">Run Setup Wizard Again</a>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

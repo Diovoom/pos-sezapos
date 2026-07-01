@@ -726,6 +726,7 @@ export type Database = {
           country: string | null
           created_at: string
           currency: string
+          currency_symbol: string | null
           date_format: string | null
           email: string | null
           id: string
@@ -735,10 +736,16 @@ export type Database = {
           phone: string | null
           receipt_footer: string | null
           receipt_header: string | null
+          receipt_logo_url: string | null
           return_policy: string | null
+          setup_completed_at: string | null
+          setup_state: Json
+          social_links: Json
           state: string | null
           tax_id: string | null
+          tax_inclusive: boolean
           tax_rate: number
+          thank_you_message: string | null
           time_zone: string | null
           updated_at: string
           website: string | null
@@ -752,6 +759,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           currency?: string
+          currency_symbol?: string | null
           date_format?: string | null
           email?: string | null
           id?: string
@@ -761,10 +769,16 @@ export type Database = {
           phone?: string | null
           receipt_footer?: string | null
           receipt_header?: string | null
+          receipt_logo_url?: string | null
           return_policy?: string | null
+          setup_completed_at?: string | null
+          setup_state?: Json
+          social_links?: Json
           state?: string | null
           tax_id?: string | null
+          tax_inclusive?: boolean
           tax_rate?: number
+          thank_you_message?: string | null
           time_zone?: string | null
           updated_at?: string
           website?: string | null
@@ -778,6 +792,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           currency?: string
+          currency_symbol?: string | null
           date_format?: string | null
           email?: string | null
           id?: string
@@ -787,10 +802,16 @@ export type Database = {
           phone?: string | null
           receipt_footer?: string | null
           receipt_header?: string | null
+          receipt_logo_url?: string | null
           return_policy?: string | null
+          setup_completed_at?: string | null
+          setup_state?: Json
+          social_links?: Json
           state?: string | null
           tax_id?: string | null
+          tax_inclusive?: boolean
           tax_rate?: number
+          thank_you_message?: string | null
           time_zone?: string | null
           updated_at?: string
           website?: string | null
