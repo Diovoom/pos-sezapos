@@ -136,37 +136,7 @@ function SignupPage() {
   };
 
   if (sent) {
-    return (
-      <div className="min-h-screen bg-surface flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto size-12 rounded-full bg-primary/10 grid place-items-center mb-2">
-              <Mail className="size-6 text-primary" />
-            </div>
-            <CardTitle>Check your email</CardTitle>
-            <CardDescription>
-              We sent a verification link to <strong>{sent}</strong>. Click it to
-              activate your account and start your 14-day free trial.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center space-y-3">
-            <p className="text-xs text-muted-foreground">
-              Didn't get it? Check your spam folder, or{" "}
-              <button
-                type="button"
-                className="text-primary hover:underline"
-                onClick={() => setSent(null)}
-              >
-                try again
-              </button>.
-            </p>
-            <Button asChild variant="outline" className="w-full">
-              <Link to="/">Back to home</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <SentPanel email={sent} onReset={() => setSent(null)} />;
   }
 
   return (
