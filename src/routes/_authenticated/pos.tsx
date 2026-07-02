@@ -164,7 +164,30 @@ function PosPage() {
     setCart((cur) => cur.map((l) => (l.product.id === id ? { ...l, qty } : l)));
   };
   const removeLine = (id: string) => setCart((cur) => cur.filter((l) => l.product.id !== id));
-  const clearCart = () => { setCart([]); setAgeVerification(null); };
+  const clearCart = () => { setCart([]); setAgeVerification(null); setDiscount(null); };
+
+  const addCustomItem = (item: { name: string; price: number; taxable: boolean }) => {
+    const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const p: Product = {
+      id,
+      name: item.name,
+      price: item.price,
+      cost: 0,
+      sku: null,
+      barcode: null,
+      stock: 0,
+      taxable: item.taxable,
+      category_id: null,
+      is_favorite: false,
+      store_id: store?.id ?? null,
+      image_url: null,
+      age_restricted: false,
+      min_age: null,
+      age_category: null,
+    };
+    setCart((cur) => [...cur, { product: p, qty: 1 }]);
+    toast.success(`Added ${item.name} · ${fmtCurrency(item.price, currency)}`);
+  };
 
   const restrictedItems: RestrictedItem[] = useMemo(
     () =>
@@ -186,9 +209,16 @@ function PosPage() {
   };
 
   const subtotal = Math.round(cart.reduce((s, l) => s + l.product.price * l.qty, 0) * 100) / 100;
-  const taxable = cart.reduce((s, l) => s + (l.product.taxable ? l.product.price * l.qty : 0), 0);
-  const tax = Math.round(taxable * taxRate * 100) / 100;
-  const total = Math.round((subtotal + tax) * 100) / 100;
+  const discountAmount = !discount
+    ? 0
+    : discount.mode === "percent"
+      ? Math.min(subtotal, Math.round(subtotal * discount.value) / 100)
+      : Math.min(subtotal, Math.round(discount.value * 100) / 100);
+  const discountRatio = subtotal > 0 ? discountAmount / subtotal : 0;
+  const taxableBase = cart.reduce((s, l) => s + (l.product.taxable ? l.product.price * l.qty : 0), 0);
+  const taxableAfterDiscount = Math.max(0, taxableBase * (1 - discountRatio));
+  const tax = Math.round(taxableAfterDiscount * taxRate * 100) / 100;
+  const total = Math.max(0, Math.round((subtotal - discountAmount + tax) * 100) / 100);
 
   // Sale is written ONLY after payment is confirmed.
   const finalize = useMutation({
