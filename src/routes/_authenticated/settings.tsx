@@ -15,8 +15,9 @@ import { toast } from "sonner";
 import {
   Loader2, Store, Users, Shield, CreditCard, Printer, Scan, Camera,
   DollarSign, Monitor, Package, Truck, Heart, Percent, RotateCcw,
-  Wallet, BarChart3, Bell, Lock, HardDrive, Plug, Palette, Info, ScrollText, ShieldAlert,
+  Wallet, BarChart3, Bell, Lock, HardDrive, Plug, Palette, Info, ScrollText, ShieldAlert, Receipt as ReceiptIcon,
 } from "lucide-react";
+import { BillingPanel } from "@/components/settings/BillingPanel";
 import { usePermissions } from "@/hooks/usePermissions";
 import { RolePermissionsPanel } from "@/components/settings/RolePermissionsPanel";
 import { AuditLogPanel } from "@/components/settings/AuditLogPanel";
@@ -30,11 +31,16 @@ import {
 } from "@/lib/age-verification";
 
 export const Route = createFileRoute("/_authenticated/settings")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    section: typeof search.section === "string" ? search.section : undefined,
+    checkout: typeof search.checkout === "string" ? search.checkout : undefined,
+  }),
   component: SettingsPage,
 });
 
 const SECTIONS = [
   { id: "general", label: "General", icon: Store },
+  { id: "billing", label: "Billing", icon: ReceiptIcon },
   { id: "employees", label: "Employees", icon: Users },
   { id: "roles", label: "Roles & Permissions", icon: Shield },
   { id: "terminal", label: "Payment Terminal", icon: CreditCard },
@@ -61,7 +67,15 @@ const SECTIONS = [
 ];
 
 function SettingsPage() {
-  const [tab, setTab] = useState("general");
+  const search = Route.useSearch();
+  const [tab, setTab] = useState(search.section ?? "general");
+  useEffect(() => {
+    if (search.section && search.section !== tab) setTab(search.section);
+    if (search.checkout === "success") {
+      toast.success("Subscription updated — welcome aboard!");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.section, search.checkout]);
   const { has, isSuper } = usePermissions();
   const canEditSettings = isSuper || has("settings.edit");
   const canEditRoles = isSuper;
@@ -88,6 +102,7 @@ function SettingsPage() {
 
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             <TabsContent value="general" className="mt-0"><GeneralPanel canEdit={canEditSettings} /></TabsContent>
+            <TabsContent value="billing" className="mt-0"><BillingPanel /></TabsContent>
             <TabsContent value="employees" className="mt-0"><EmployeesPanel /></TabsContent>
             <TabsContent value="roles" className="mt-0"><RolePermissionsPanel canEdit={canEditRoles} /></TabsContent>
             <TabsContent value="terminal" className="mt-0"><TerminalPanel /></TabsContent>

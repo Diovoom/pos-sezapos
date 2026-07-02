@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
+import { TrialCountdown } from "@/components/TrialCountdown";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fmtCurrency, fmtNumber } from "@/lib/format";
 import { TrendingUp, Receipt, Package, AlertTriangle, Users, Percent, RotateCcw, Trophy, Clock, Wallet } from "lucide-react";
@@ -117,6 +118,7 @@ function DashboardPage() {
     <>
       <PageHeader title="Daily Summary" subtitle="Live overview of today's business · updates every 30s" />
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <TrialCountdown />
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           <Kpi icon={TrendingUp} label="Today's sales" value={fmtCurrency(data?.todayTotal ?? 0, cur)} />
           <Kpi icon={Receipt} label="Transactions" value={fmtNumber(data?.txCount ?? 0)} />
