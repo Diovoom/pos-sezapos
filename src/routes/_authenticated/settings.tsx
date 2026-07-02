@@ -90,6 +90,7 @@ function SettingsPage() {
 
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             <TabsContent value="general" className="mt-0"><GeneralPanel canEdit={canEditSettings} /></TabsContent>
+            <TabsContent value="billing" className="mt-0"><BillingPanel /></TabsContent>
             <TabsContent value="employees" className="mt-0"><EmployeesPanel /></TabsContent>
             <TabsContent value="roles" className="mt-0"><RolePermissionsPanel canEdit={canEditRoles} /></TabsContent>
             <TabsContent value="terminal" className="mt-0"><TerminalPanel /></TabsContent>
