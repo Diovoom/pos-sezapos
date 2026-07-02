@@ -23,7 +23,7 @@ type Props = {
  * Auto-closes on the first successful decode. Falls back gracefully
  * when camera permission is denied.
  */
-export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan barcode", formats, hint }: Props) {
+export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan barcode", formats, hint, note }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
   const [status, setStatus] = useState<"starting" | "scanning" | "error">("starting");
