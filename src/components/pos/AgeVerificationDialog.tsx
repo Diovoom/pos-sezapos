@@ -404,7 +404,15 @@ export function AgeVerificationDialog({
       <BarcodeScanner
         open={scannerOpen}
         onOpenChange={setScannerOpen}
+        title="Scan ID barcode (PDF417)"
+        formats={[BarcodeFormat.PDF_417]}
+        hint="Hold the back of the ID 4–6 inches from the camera. Ensure the PDF417 barcode is centered, flat, and well-lit."
         onDetected={(code) => {
+          const p = parseIdBarcode(code);
+          if (p.format === "unknown") {
+            toast.error("Not a recognized ID barcode. Keep scanning or use manual entry.");
+            return; // keep camera open
+          }
           setScannerOpen(false);
           handleParsed(code);
         }}
