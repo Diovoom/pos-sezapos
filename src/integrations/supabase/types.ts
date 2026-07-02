@@ -1001,6 +1001,10 @@ export type Database = {
           paper_size: string | null
           phone: string | null
           phone_format_override: string | null
+          plan_cancel_at_period_end: boolean | null
+          plan_period_end: string | null
+          plan_status: string
+          plan_tier: string
           receipt_footer: string | null
           receipt_header: string | null
           receipt_logo_url: string | null
@@ -1015,6 +1019,7 @@ export type Database = {
           tax_rate: number
           thank_you_message: string | null
           time_zone: string | null
+          trial_ends_at: string | null
           updated_at: string
           website: string | null
           zip: string | null
@@ -1041,6 +1046,10 @@ export type Database = {
           paper_size?: string | null
           phone?: string | null
           phone_format_override?: string | null
+          plan_cancel_at_period_end?: boolean | null
+          plan_period_end?: string | null
+          plan_status?: string
+          plan_tier?: string
           receipt_footer?: string | null
           receipt_header?: string | null
           receipt_logo_url?: string | null
@@ -1055,6 +1064,7 @@ export type Database = {
           tax_rate?: number
           thank_you_message?: string | null
           time_zone?: string | null
+          trial_ends_at?: string | null
           updated_at?: string
           website?: string | null
           zip?: string | null
@@ -1081,6 +1091,10 @@ export type Database = {
           paper_size?: string | null
           phone?: string | null
           phone_format_override?: string | null
+          plan_cancel_at_period_end?: boolean | null
+          plan_period_end?: string | null
+          plan_status?: string
+          plan_tier?: string
           receipt_footer?: string | null
           receipt_header?: string | null
           receipt_logo_url?: string | null
@@ -1095,6 +1109,7 @@ export type Database = {
           tax_rate?: number
           thank_you_message?: string | null
           time_zone?: string | null
+          trial_ends_at?: string | null
           updated_at?: string
           website?: string | null
           zip?: string | null
@@ -1106,6 +1121,65 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "country_profiles"
             referencedColumns: ["country_code"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          environment: string
+          id: string
+          paddle_customer_id: string
+          paddle_subscription_id: string
+          price_id: string
+          product_id: string
+          status: string
+          store_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          environment?: string
+          id?: string
+          paddle_customer_id: string
+          paddle_subscription_id: string
+          price_id: string
+          product_id: string
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          environment?: string
+          id?: string
+          paddle_customer_id?: string
+          paddle_subscription_id?: string
+          price_id?: string
+          product_id?: string
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1240,6 +1314,10 @@ export type Database = {
         Returns: number
       }
       generate_employee_id: { Args: never; Returns: string }
+      has_active_plan: {
+        Args: { _min_tier?: string; _store_id: string }
+        Returns: boolean
+      }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
@@ -1258,6 +1336,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_read_only: { Args: { _store_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -1267,6 +1346,7 @@ export type Database = {
         }
         Returns: number
       }
+      plan_tier_for_product: { Args: { _product_id: string }; Returns: string }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -1275,8 +1355,11 @@ export type Database = {
           read_ct: number
         }[]
       }
+      recompute_store_plan: { Args: { _store_id: string }; Returns: undefined }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      simulate_trial_expiry: { Args: { _store_id: string }; Returns: undefined }
+      tier_rank: { Args: { _tier: string }; Returns: number }
     }
     Enums: {
       app_role: "owner" | "manager" | "cashier" | "admin"
