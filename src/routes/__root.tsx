@@ -82,10 +82,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Velocity POS — Modern Point of Sale" },
+      { title: "SEZA POS — Modern Point of Sale" },
       { name: "description", content: "Cloud-based POS for convenience stores, mini marts, liquor and retail. Fast checkout, inventory, reports." },
-      { name: "author", content: "Velocity POS" },
-      { property: "og:title", content: "Velocity POS" },
+      { name: "author", content: "SEZA POS" },
+      { property: "og:title", content: "SEZA POS" },
       { property: "og:description", content: "Modern cloud POS for retail." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

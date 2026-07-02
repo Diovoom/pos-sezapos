@@ -334,7 +334,7 @@ function StepWelcome({ onStart, onExit }: { onStart: () => void; onExit: () => v
     <div className="text-center py-10 space-y-6">
       <div className="size-16 rounded-2xl bg-primary/10 text-primary grid place-items-center mx-auto"><Rocket className="size-8" /></div>
       <div className="space-y-2">
-        <h2 className="text-3xl font-bold">Welcome to Velocity POS</h2>
+        <h2 className="text-3xl font-bold">Welcome to SEZA POS</h2>
         <p className="text-muted-foreground max-w-xl mx-auto">
           Let's get your business up and running. This wizard walks you through everything you need — owner account,
           store details, taxes, receipts, employees, products, hardware, and payments. It takes about 5 minutes.

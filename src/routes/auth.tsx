@@ -18,8 +18,8 @@ type Search = { mode?: "email" | "keypad" };
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Velocity POS" },
-      { name: "description", content: "Sign in to your Velocity POS terminal." },
+      { title: "Sign in — SEZA POS" },
+      { name: "description", content: "Sign in to your SEZA POS terminal." },
     ],
   }),
   validateSearch: (s: Record<string, unknown>): Search => ({
@@ -43,7 +43,7 @@ function AuthPage() {
       <div className="w-full max-w-md">
         <Link to="/" className="flex items-center justify-center gap-2 mb-6">
           <div className="size-9 rounded-lg bg-primary grid place-items-center text-primary-foreground font-bold">V</div>
-          <span className="font-semibold tracking-tight text-lg">Velocity POS</span>
+          <span className="font-semibold tracking-tight text-lg">SEZA POS</span>
         </Link>
 
         <Card>
