@@ -266,7 +266,7 @@ function PosPage() {
 
       const items = cart.map((l) => ({
         sale_id: sale.id,
-        product_id: l.product.id,
+        product_id: l.product.id.startsWith("custom-") ? null : l.product.id,
         product_name: l.product.name,
         quantity: l.qty,
         unit_price: l.product.price,
