@@ -31,6 +31,10 @@ import {
 } from "@/lib/age-verification";
 
 export const Route = createFileRoute("/_authenticated/settings")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    section: typeof search.section === "string" ? search.section : undefined,
+    checkout: typeof search.checkout === "string" ? search.checkout : undefined,
+  }),
   component: SettingsPage,
 });
 
