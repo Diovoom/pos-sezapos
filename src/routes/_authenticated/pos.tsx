@@ -395,6 +395,16 @@ function PosPage() {
                 </CategoryChip>
               ))}
             </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="h-10 flex-1" onClick={() => setCustomOpen(true)}>
+                <Calculator className="size-4 mr-2" />Add Custom Item
+              </Button>
+              <Button variant="outline" className="h-10 flex-1" onClick={() => setDiscountOpen(true)}>
+                <Percent className="size-4 mr-2" />
+                {discount ? "Edit discount" : "Add discount"}
+              </Button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 pt-0">
