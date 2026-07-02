@@ -157,19 +157,24 @@ function EmployeeProfile() {
                 ) : (
                   <ReadOnlyDetails profile={profile} role={currentRole} />
                 )}
-                {canManage && (
+                {isOwner && (
                   <>
                     <EmployeeIdCard profile={profile} onChanged={invalidateAll} />
                     <PinCard profile={profile} onChanged={invalidateAll} />
                     <PayScheduleCard userId={profile.id} />
-                    <DangerZoneCard
-                      profile={profile}
-                      isSelf={!!isSelf}
-                      isOwner={!!isOwner}
-                      onChanged={invalidateAll}
-                      onDeleted={() => navigate({ to: "/employees" })}
-                    />
                   </>
+                )}
+                {canManage && (
+                  <DangerZoneCard
+                    profile={profile}
+                    isSelf={!!isSelf}
+                    isOwner={!!isOwner}
+                    onChanged={invalidateAll}
+                    onDeleted={() => navigate({ to: "/employees" })}
+                  />
+                )}
+                {!canManage && !isSelf && (
+                  <Card><CardContent className="p-6 text-sm text-muted-foreground">You can only view basic information for other employees.</CardContent></Card>
                 )}
               </TabsContent>
 
