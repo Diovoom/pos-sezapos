@@ -36,6 +36,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
 
 const SECTIONS = [
   { id: "general", label: "General", icon: Store },
+  { id: "billing", label: "Billing", icon: ReceiptIcon },
   { id: "employees", label: "Employees", icon: Users },
   { id: "roles", label: "Roles & Permissions", icon: Shield },
   { id: "terminal", label: "Payment Terminal", icon: CreditCard },
