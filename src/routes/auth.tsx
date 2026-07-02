@@ -51,6 +51,8 @@ function AuthPage() {
           <span className="font-semibold tracking-tight text-lg">SEZA POS</span>
         </Link>
 
+        <h1 className="sr-only">Sign in to SEZA POS</h1>
+
         <Card>
           <Tabs defaultValue={search.mode ?? "keypad"}>
             <CardHeader className="pb-2">
