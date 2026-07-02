@@ -85,14 +85,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "SEZA POS — Modern Point of Sale" },
       { name: "description", content: "Cloud-based POS for convenience stores, mini marts, liquor and retail. Fast checkout, inventory, reports." },
       { name: "author", content: "SEZA POS" },
+      { property: "og:site_name", content: "SEZA POS" },
       { property: "og:title", content: "SEZA POS — Modern Point of Sale" },
       { property: "og:description", content: "Cloud-based POS for convenience stores, mini marts, liquor and retail. Fast checkout, inventory, reports." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "SEZA POS — Modern Point of Sale" },
       { name: "twitter:description", content: "Cloud-based POS for convenience stores, mini marts, liquor and retail. Fast checkout, inventory, reports." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/GJ7ddiIDfQg887aN1tpv4lGihXI3/social-images/social-1782978697575-ChatGPT_Image_Jul_2,_2026,_03_36_28_AM.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/GJ7ddiIDfQg887aN1tpv4lGihXI3/social-images/social-1782978697575-ChatGPT_Image_Jul_2,_2026,_03_36_28_AM.webp" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -101,6 +100,29 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap",
+      },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "SEZA POS",
+          legalName: "SEZA TECHNOLOGIES",
+          url: "https://sezapos.com",
+          description: "Modern cloud point-of-sale platform for convenience stores, mini marts, liquor, and retail.",
+          sameAs: ["https://sezapos.com"],
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "SEZA POS",
+          url: "https://sezapos.com",
+        }),
       },
     ],
   }),
