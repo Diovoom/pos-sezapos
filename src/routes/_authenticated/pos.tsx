@@ -251,7 +251,7 @@ function PosPage() {
           cashier_id: u.user.id,
           subtotal,
           tax,
-          discount: 0,
+          discount: discountAmount,
           total,
           payment_method: payment.method,
           amount_tendered: payment.amountTendered,
