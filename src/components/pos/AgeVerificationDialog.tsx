@@ -84,6 +84,8 @@ export function AgeVerificationDialog({
       setManualDob("");
       setManualManagerOk(null);
       setWedge("");
+      setScanNote(null);
+      seenCodesRef.current = new Set();
     }
   }, [open]);
 
