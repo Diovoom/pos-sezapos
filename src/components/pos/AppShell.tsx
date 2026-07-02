@@ -85,7 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="h-16 px-4 border-b flex items-center gap-3">
           <div className="size-8 bg-primary rounded-lg grid place-items-center text-primary-foreground font-bold">V</div>
           <div className="hidden lg:flex flex-col leading-tight">
-            <span className="font-semibold tracking-tight text-sm">Velocity POS</span>
+            <span className="font-semibold tracking-tight text-sm">SEZA POS</span>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{me?.store?.name ?? "Store"}</span>
           </div>
         </div>

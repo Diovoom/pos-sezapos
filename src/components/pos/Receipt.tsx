@@ -129,7 +129,7 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
       )}
 
       <div className="text-center text-[10px] mt-2 opacity-70">
-        Powered by Velocity POS
+        © SEZA POS — All rights reserved.
       </div>
     </div>
   );
