@@ -19,6 +19,7 @@ import { lookupBarcode } from "@/lib/barcode-lookup.functions";
 import { uploadProductImage, importRemoteProductImage, useProductImageUrl } from "@/lib/pos/product-images";
 
 export const Route = createFileRoute("/_authenticated/products")({
+  head: () => ({ meta: [{ title: "Products — SEZA POS" }, { name: "description", content: "Manage your product catalog, categories, pricing, and barcodes." }] }),
   component: ProductsPage,
 });
 

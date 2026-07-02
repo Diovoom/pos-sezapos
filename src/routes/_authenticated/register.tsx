@@ -16,6 +16,7 @@ import { logAudit } from "@/lib/audit-log";
 import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
 
 export const Route = createFileRoute("/_authenticated/register")({
+  head: () => ({ meta: [{ title: "Register — SEZA POS" }, { name: "description", content: "Open and close the cash register for the current shift with cash reconciliation." }] }),
   component: RegisterPage,
 });
 

@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/employees")({
+  head: () => ({ meta: [{ title: "Employees — SEZA POS" }, { name: "description", content: "Manage store employees, roles, and 6-digit PIN sign-in credentials." }] }),
   component: EmployeesPage,
 });
 

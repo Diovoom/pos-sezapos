@@ -21,6 +21,7 @@ import type { ReceiptData } from "@/components/pos/Receipt";
 
 
 export const Route = createFileRoute("/_authenticated/pos")({
+  head: () => ({ meta: [{ title: "Checkout — SEZA POS" }, { name: "description", content: "Fast POS checkout with barcode scanning, custom items, discounts, and card + cash." }] }),
   component: PosPage,
 });
 

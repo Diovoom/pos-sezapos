@@ -11,6 +11,7 @@ import { LogIn, LogOut, Coffee, PlayCircle, Loader2 } from "lucide-react";
 import { format, formatDistanceStrict } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/timeclock")({
+  head: () => ({ meta: [{ title: "Time Clock — SEZA POS" }, { name: "description", content: "Clock in, take breaks, and clock out for the current shift." }] }),
   component: TimeclockPage,
 });
 
