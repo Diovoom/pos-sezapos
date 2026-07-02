@@ -93,7 +93,7 @@ function PricingPage() {
 
   const handleChoose = (planId: Plan["id"]) => {
     if (!session) {
-      window.location.href = `/auth?redirect=/pricing`;
+      window.location.href = `/signup`;
       return;
     }
     openCheckout(planId);
