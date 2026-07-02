@@ -291,11 +291,11 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
             <Label>Barcode</Label>
             <div className="flex gap-1">
               <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
-              <Button type="button" size="icon" variant="outline" onClick={() => setScanning(true)} title="Scan with camera">
-                <Camera className="size-4" />
+              <Button type="button" size="icon" variant="outline" onClick={() => setScanning(true)} title="Scan with camera" aria-label="Scan barcode with camera">
+                <Camera className="size-4" aria-hidden="true" />
               </Button>
-              <Button type="button" size="icon" variant="outline" onClick={() => runLookup(form.barcode)} disabled={looking} title="Auto-fill from barcode database">
-                {looking ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+              <Button type="button" size="icon" variant="outline" onClick={() => runLookup(form.barcode)} disabled={looking} title="Auto-fill from barcode database" aria-label="Look up product by barcode">
+                {looking ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" aria-hidden="true" />}
               </Button>
             </div>
           </div>
