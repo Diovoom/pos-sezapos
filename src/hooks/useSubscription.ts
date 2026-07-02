@@ -33,7 +33,7 @@ export function tierMeetsMin(tier: PlanTier, min: PlanTier): boolean {
 export function useSubscription() {
   const { session } = useSession();
   const { data: me } = useMe();
-  const storeId = me?.store_id ?? null;
+  const storeId = (me?.profile?.store_id as string | undefined) ?? me?.store?.id ?? null;
   const env = getPaddleEnvironment();
 
   return useQuery<PlanState | null>({
