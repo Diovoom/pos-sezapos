@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScanLine, CheckCircle2, XCircle, ShieldAlert, Calendar, Camera, KeyRound, Trash2, X, Loader2 } from "lucide-react";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
+import { BarcodeFormat } from "@zxing/library";
 import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
 import {
   parseIdBarcode,
@@ -314,9 +315,20 @@ export function AgeVerificationDialog({
                 </div>
 
                 {/* Hidden wedge target for USB HID scanners */}
-                <div className="mt-6 flex items-center gap-3 text-xs text-muted-foreground">
-                  <div className="size-2 rounded-full bg-primary animate-pulse" />
-                  Ready — scan an ID with your USB scanner now, or choose an option above.
+                <div className="mt-6 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-primary animate-pulse" />
+                    Ready — scan an ID with your USB scanner now, or choose an option above.
+                  </div>
+                  {settings.allowManualEntry && (
+                    <button
+                      type="button"
+                      className="underline hover:text-foreground"
+                      onClick={() => { setManualMode("manual"); setMode("manual"); }}
+                    >
+                      Camera scan isn't working?
+                    </button>
+                  )}
                 </div>
                 <Input
                   ref={wedgeRef}
@@ -403,7 +415,15 @@ export function AgeVerificationDialog({
       <BarcodeScanner
         open={scannerOpen}
         onOpenChange={setScannerOpen}
+        title="Scan ID barcode (PDF417)"
+        formats={[BarcodeFormat.PDF_417]}
+        hint="Hold the back of the ID 4–6 inches from the camera. Ensure the PDF417 barcode is centered, flat, and well-lit."
         onDetected={(code) => {
+          const p = parseIdBarcode(code);
+          if (p.format === "unknown") {
+            toast.error("Not a recognized ID barcode. Keep scanning or use manual entry.");
+            return; // keep camera open
+          }
           setScannerOpen(false);
           handleParsed(code);
         }}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
+import { BarcodeFormat, DecodeHintType, NotFoundException } from "@zxing/library";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Camera, X } from "lucide-react";
@@ -9,6 +10,10 @@ type Props = {
   onOpenChange: (v: boolean) => void;
   onDetected: (code: string) => void;
   title?: string;
+  /** Restrict decoding to a specific set of barcode formats (e.g. [PDF_417]). */
+  formats?: BarcodeFormat[];
+  /** Extra guidance shown under the video frame. */
+  hint?: string;
 };
 
 /**
@@ -16,18 +21,27 @@ type Props = {
  * Auto-closes on the first successful decode. Falls back gracefully
  * when camera permission is denied.
  */
-export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan barcode" }: Props) {
+export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan barcode", formats, hint }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
   const [status, setStatus] = useState<"starting" | "scanning" | "error">("starting");
   const [error, setError] = useState<string | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState<string | undefined>();
+  const [showTip, setShowTip] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    const reader = new BrowserMultiFormatReader();
+    setShowTip(false);
+    const tipTimer = window.setTimeout(() => setShowTip(true), 5000);
+
+    const hints = new Map<DecodeHintType, unknown>();
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    if (formats && formats.length > 0) {
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+    }
+    const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 200 });
 
     (async () => {
       try {
@@ -36,17 +50,34 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
         const list = await BrowserMultiFormatReader.listVideoInputDevices();
         if (cancelled) return;
         setDevices(list);
-        // Prefer back camera on mobile
         const back = list.find((d) => /back|rear|environment/i.test(d.label));
         const chosen = deviceId ?? back?.deviceId ?? list[0]?.deviceId;
         setDeviceId(chosen);
         if (!videoRef.current) return;
 
-        const controls = await reader.decodeFromVideoDevice(chosen, videoRef.current, (result) => {
+        const constraints: MediaStreamConstraints = {
+          video: {
+            ...(chosen ? { deviceId: { exact: chosen } } : { facingMode: { ideal: "environment" } }),
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            // best-effort; ignored by browsers that don't support it
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            advanced: [{ focusMode: "continuous" } as any],
+          },
+          audio: false,
+        };
+
+        const controls = await reader.decodeFromConstraints(constraints, videoRef.current, (result, err) => {
           if (result && !cancelled) {
             onDetected(result.getText());
             controls.stop();
             onOpenChange(false);
+            return;
+          }
+          // Silently ignore per-frame "no barcode found" — spams console otherwise.
+          if (err && !(err instanceof NotFoundException)) {
+            // eslint-disable-next-line no-console
+            // console.debug("[scanner]", err);
           }
         });
         controlsRef.current = controls;
@@ -60,6 +91,7 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
 
     return () => {
       cancelled = true;
+      window.clearTimeout(tipTimer);
       controlsRef.current?.stop();
       controlsRef.current = null;
     };
@@ -78,6 +110,11 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
           {status === "starting" && (
             <div className="absolute inset-0 grid place-items-center text-white text-sm gap-2">
               <Loader2 className="size-6 animate-spin" /> Starting camera…
+            </div>
+          )}
+          {status === "scanning" && showTip && (
+            <div className="absolute bottom-2 left-2 right-2 rounded-md bg-black/60 text-white text-xs px-3 py-2 text-center">
+              {hint ?? "Hold the back of the ID 4–6 inches from the camera, barcode centered and well-lit."}
             </div>
           )}
           {status === "error" && (
