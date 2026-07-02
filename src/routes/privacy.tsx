@@ -4,7 +4,7 @@ export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
       { title: "Privacy Notice — SEZA POS" },
-      { name: "description", content: "How SEZA POS LLC collects, uses, shares, and protects your personal data. Paddle is our Merchant of Record and processes payments." },
+      { name: "description", content: "How SEZA TECHNOLOGIES collects, uses, shares, and protects your personal data. Paddle is our Merchant of Record and processes payments." },
       { property: "og:title", content: "Privacy Notice — SEZA POS" },
       { property: "og:description", content: "How we handle your personal data." },
       { property: "og:type", content: "website" },
@@ -21,7 +21,7 @@ function PrivacyPage() {
       <p><em>Last updated: July 2026</em></p>
 
       <h2>1. Who we are</h2>
-      <p><strong>SEZA POS LLC</strong> ("SEZA POS", "we", "us") is the data controller for personal data collected through the SEZA POS software.</p>
+      <p><strong>SEZA TECHNOLOGIES</strong> ("SEZA POS", "we", "us") is the data controller for personal data collected through the SEZA POS software.</p>
 
       <h2>2. Personal data we collect</h2>
       <ul>
