@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/pos/AppShell";
 import { fmtCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2, Camera } from "lucide-react";
+import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2, Camera, Calculator, Percent } from "lucide-react";
 import { toast } from "sonner";
 import { PaymentDialog, type CompletedPayment, type PaymentMethod } from "@/components/pos/PaymentDialog";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
@@ -15,6 +15,8 @@ import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import { AgeVerificationDialog, type RestrictedItem, type SuccessfulVerification } from "@/components/pos/AgeVerificationDialog";
 import { loadAgeSettings } from "@/lib/age-verification";
 import { useProductImageUrl } from "@/lib/pos/product-images";
+import { CustomItemDialog } from "@/components/pos/CustomItemDialog";
+import { DiscountDialog, type DiscountValue } from "@/components/pos/DiscountDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
 
 
