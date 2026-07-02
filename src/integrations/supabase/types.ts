@@ -1014,6 +1014,7 @@ export type Database = {
           setup_state: Json
           social_links: Json
           state: string | null
+          store_code: string | null
           tax_id: string | null
           tax_inclusive: boolean
           tax_rate: number
@@ -1059,6 +1060,7 @@ export type Database = {
           setup_state?: Json
           social_links?: Json
           state?: string | null
+          store_code?: string | null
           tax_id?: string | null
           tax_inclusive?: boolean
           tax_rate?: number
@@ -1104,6 +1106,7 @@ export type Database = {
           setup_state?: Json
           social_links?: Json
           state?: string | null
+          store_code?: string | null
           tax_id?: string | null
           tax_inclusive?: boolean
           tax_rate?: number
@@ -1315,6 +1318,7 @@ export type Database = {
         Returns: number
       }
       generate_employee_id: { Args: never; Returns: string }
+      generate_store_code: { Args: never; Returns: string }
       has_active_plan: {
         Args: { _min_tier?: string; _store_id: string }
         Returns: boolean

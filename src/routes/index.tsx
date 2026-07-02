@@ -46,10 +46,10 @@ function LandingPage() {
             SEZA POS gives convenience stores, mini marts, liquor stores and specialty retailers a fast, reliable point of sale — with inventory, employees, and reports built in.
           </p>
           <div className="mt-8 flex flex-wrap gap-3 justify-center">
-            <Button asChild size="lg"><Link to="/pricing">Start free trial</Link></Button>
+            <Button asChild size="lg"><Link to="/signup">Start free trial</Link></Button>
             <Button asChild size="lg" variant="outline"><Link to="/pricing">View pricing</Link></Button>
           </div>
-          <p className="mt-4 text-xs text-muted-foreground">7-day free trial. No credit card required.</p>
+          <p className="mt-4 text-xs text-muted-foreground">14-day free trial. No credit card required.</p>
         </section>
 
         <section className="max-w-6xl mx-auto px-6 pb-20 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
