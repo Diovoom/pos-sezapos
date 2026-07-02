@@ -73,6 +73,8 @@ export function AgeVerificationDialog({
   const [saving, setSaving] = useState(false);
   const wedgeRef = useRef<HTMLInputElement>(null);
   const [wedge, setWedge] = useState("");
+  const seenCodesRef = useRef<Set<string>>(new Set());
+  const [scanNote, setScanNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
