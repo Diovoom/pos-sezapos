@@ -14,6 +14,8 @@ type Props = {
   formats?: BarcodeFormat[];
   /** Extra guidance shown under the video frame. */
   hint?: string;
+  /** Persistent inline note shown below the video (e.g. after a non-matching decode). */
+  note?: string | null;
 };
 
 /**
