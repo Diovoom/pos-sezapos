@@ -19,6 +19,7 @@ import { fmtCurrency } from "@/lib/format";
 const sb = supabase as any;
 
 export const Route = createFileRoute("/_authenticated/shifts")({
+  head: () => ({ meta: [{ title: "Shifts — SEZA POS" }, { name: "description", content: "Employee shifts from clock-in to clock-out, with register session reports." }] }),
   validateSearch: (s: Record<string, unknown>) => ({
     id: (s.id as string | undefined) ?? undefined,
     session: (s.session as string | undefined) ?? undefined,

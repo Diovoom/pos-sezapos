@@ -89,7 +89,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{me?.store?.name ?? "Store"}</span>
           </div>
         </div>
-        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+        <nav aria-label="Primary navigation" className="flex-1 p-2 space-y-0.5 overflow-y-auto">
           {NAV.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.to || (item.to !== "/pos" && pathname.startsWith(item.to));
@@ -97,12 +97,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={item.to}
                 to={item.to}
+                aria-label={item.label}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                   active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
-                <Icon className="size-4 shrink-0" />
+                <Icon className="size-4 shrink-0" aria-hidden="true" />
                 <span className="hidden lg:inline">{item.label}</span>
               </Link>
             );

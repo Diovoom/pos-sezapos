@@ -29,6 +29,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/employees/$id")({
+  head: () => ({ meta: [{ title: "Employee — SEZA POS" }, { name: "description", content: "Manage employee profile, role, PIN, hourly wage, and time clock activity." }] }),
   component: EmployeeProfile,
 });
 

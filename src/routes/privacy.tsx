@@ -6,9 +6,11 @@ export const Route = createFileRoute("/privacy")({
       { title: "Privacy Notice — SEZA POS" },
       { name: "description", content: "How SEZA TECHNOLOGIES collects, uses, shares, and protects your personal data. Paddle is our Merchant of Record and processes payments." },
       { property: "og:title", content: "Privacy Notice — SEZA POS" },
-      { property: "og:description", content: "How we handle your personal data." },
+      { property: "og:description", content: "How SEZA TECHNOLOGIES handles your personal data, cookies, retention, and data-subject rights." },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://sezapos.com/privacy" },
     ],
+    links: [{ rel: "canonical", href: "https://sezapos.com/privacy" }],
   }),
   component: PrivacyPage,
 });

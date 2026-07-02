@@ -8,12 +8,14 @@ export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
       { title: "Pricing — SEZA POS" },
-      { name: "description", content: "Simple, transparent pricing for SEZA POS. Starter $29, Pro $59, Business $89. 7-day free trial, no credit card required." },
+      { name: "description", content: "Simple, transparent pricing for SEZA POS. Starter $29, Pro $59, Business $89. 14-day free trial, no credit card required." },
       { property: "og:title", content: "Pricing — SEZA POS" },
-      { property: "og:description", content: "Three plans for retail businesses of every size. Start with a 7-day free trial." },
+      { property: "og:description", content: "Three plans for retail businesses of every size. Start with a 14-day free trial." },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://sezapos.com/pricing" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    links: [{ rel: "canonical", href: "https://sezapos.com/pricing" }],
   }),
   component: PricingPage,
 });

@@ -8,7 +8,9 @@ export const Route = createFileRoute("/refund")({
       { property: "og:title", content: "Refund Policy — SEZA POS" },
       { property: "og:description", content: "30-day money-back guarantee on SEZA POS subscriptions." },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://sezapos.com/refund" },
     ],
+    links: [{ rel: "canonical", href: "https://sezapos.com/refund" }],
   }),
   component: RefundPage,
 });

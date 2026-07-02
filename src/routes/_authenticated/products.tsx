@@ -19,6 +19,7 @@ import { lookupBarcode } from "@/lib/barcode-lookup.functions";
 import { uploadProductImage, importRemoteProductImage, useProductImageUrl } from "@/lib/pos/product-images";
 
 export const Route = createFileRoute("/_authenticated/products")({
+  head: () => ({ meta: [{ title: "Products — SEZA POS" }, { name: "description", content: "Manage your product catalog, categories, pricing, and barcodes." }] }),
   component: ProductsPage,
 });
 
@@ -110,8 +111,8 @@ function ProductsPage() {
       />
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         <div className="relative max-w-md">
-          <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, SKU, barcode" className="pl-9" />
+          <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search products by name, SKU, or barcode" placeholder="Search name, SKU, barcode" className="pl-9" />
         </div>
 
         <Card className="overflow-hidden">
@@ -291,11 +292,11 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
             <Label>Barcode</Label>
             <div className="flex gap-1">
               <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
-              <Button type="button" size="icon" variant="outline" onClick={() => setScanning(true)} title="Scan with camera">
-                <Camera className="size-4" />
+              <Button type="button" size="icon" variant="outline" onClick={() => setScanning(true)} title="Scan with camera" aria-label="Scan barcode with camera">
+                <Camera className="size-4" aria-hidden="true" />
               </Button>
-              <Button type="button" size="icon" variant="outline" onClick={() => runLookup(form.barcode)} disabled={looking} title="Auto-fill from barcode database">
-                {looking ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+              <Button type="button" size="icon" variant="outline" onClick={() => runLookup(form.barcode)} disabled={looking} title="Auto-fill from barcode database" aria-label="Look up product by barcode">
+                {looking ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" aria-hidden="true" />}
               </Button>
             </div>
           </div>

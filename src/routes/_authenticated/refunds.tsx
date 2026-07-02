@@ -21,6 +21,7 @@ import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/
 import { usePermissions } from "@/hooks/usePermissions";
 
 export const Route = createFileRoute("/_authenticated/refunds")({
+  head: () => ({ meta: [{ title: "Refunds — SEZA POS" }, { name: "description", content: "Search sales by receipt number to refund, exchange, or void a transaction." }] }),
   component: RefundsPage,
 });
 

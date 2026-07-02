@@ -12,6 +12,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, CartesianGrid, Ba
 const sb = supabase as any;
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
+  head: () => ({ meta: [{ title: "Dashboard — SEZA POS" }, { name: "description", content: "Live overview of today's sales, transactions, tax, refunds, best sellers, and busiest hour." }] }),
   component: DashboardPage,
 });
 

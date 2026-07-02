@@ -19,8 +19,13 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign in — SEZA POS" },
-      { name: "description", content: "Sign in to your SEZA POS terminal." },
+      { name: "description", content: "Sign in to your SEZA POS terminal with your 6-digit employee ID, or with email and password." },
+      { property: "og:title", content: "Sign in — SEZA POS" },
+      { property: "og:description", content: "Sign in to your SEZA POS terminal." },
+      { property: "og:url", content: "https://sezapos.com/auth" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
+    links: [{ rel: "canonical", href: "https://sezapos.com/auth" }],
   }),
   validateSearch: (s: Record<string, unknown>): Search => ({
     mode: s.mode === "email" ? "email" : "keypad",
@@ -45,6 +50,8 @@ function AuthPage() {
           <div className="size-9 rounded-lg bg-primary grid place-items-center text-primary-foreground font-bold">V</div>
           <span className="font-semibold tracking-tight text-lg">SEZA POS</span>
         </Link>
+
+        <h1 className="sr-only">Sign in to SEZA POS</h1>
 
         <Card>
           <Tabs defaultValue={search.mode ?? "keypad"}>
