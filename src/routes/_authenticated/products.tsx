@@ -110,8 +110,8 @@ function ProductsPage() {
       />
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         <div className="relative max-w-md">
-          <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, SKU, barcode" className="pl-9" />
+          <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search products by name, SKU, or barcode" placeholder="Search name, SKU, barcode" className="pl-9" />
         </div>
 
         <Card className="overflow-hidden">

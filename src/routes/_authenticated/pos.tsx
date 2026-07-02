@@ -357,6 +357,7 @@ function PosPage() {
                   ref={searchRef}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  aria-label="Search products or scan barcode"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       if (tryAddByCode(search)) return;
@@ -408,6 +409,7 @@ function PosPage() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 pt-0">
+            <h2 className="sr-only">Product catalog</h2>
             {productsLoading ? (
               <div className="grid place-items-center h-full text-muted-foreground">
                 <Loader2 className="size-5 animate-spin" />
