@@ -76,6 +76,12 @@ function AuthPage() {
               </TabsContent>
             </CardContent>
           </Tabs>
+          <div className="px-6 pb-6 -mt-2 text-center text-xs text-muted-foreground">
+            New merchant?{" "}
+            <Link to="/signup" className="text-primary hover:underline font-medium">
+              Create an account
+            </Link>
+          </div>
         </Card>
       </div>
     </div>
