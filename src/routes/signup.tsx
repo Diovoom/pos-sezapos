@@ -110,7 +110,7 @@ function SignupPage() {
         email: form.email,
         password: form.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/pos`,
+          emailRedirectTo: `${window.location.origin}/setup`,
           data: {
             business_name: form.businessName.trim(),
             full_name: form.fullName.trim(),

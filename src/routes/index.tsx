@@ -33,7 +33,10 @@ function LandingPage() {
             {session ? (
               <Button asChild size="sm"><Link to="/pos">Open app</Link></Button>
             ) : (
-              <Button asChild size="sm"><Link to="/auth">Sign in</Link></Button>
+              <div className="flex items-center gap-2">
+                <Button asChild size="sm" variant="ghost"><Link to="/auth">Sign in</Link></Button>
+                <Button asChild size="sm"><Link to="/signup">Sign up</Link></Button>
+              </div>
             )}
           </nav>
         </div>
@@ -49,7 +52,7 @@ function LandingPage() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3 justify-center">
             <Button asChild size="lg"><Link to="/signup">Start free trial</Link></Button>
-            <Button asChild size="lg" variant="outline"><Link to="/pricing">View pricing</Link></Button>
+            <Button asChild size="lg" variant="outline"><Link to="/auth">Sign in</Link></Button>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">14-day free trial. No credit card required.</p>
         </section>
