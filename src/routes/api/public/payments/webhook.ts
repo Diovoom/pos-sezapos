@@ -20,7 +20,7 @@ async function resolveStoreId(userId: string): Promise<string | null> {
     .select("store_id")
     .eq("id", userId)
     .maybeSingle();
-  return (data as any)?.store_id ?? null;
+  return data?.store_id ?? null;
 }
 
 async function handleSubscriptionCreated(data: any, env: PaddleEnv) {
