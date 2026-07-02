@@ -8,7 +8,9 @@ export const Route = createFileRoute("/terms")({
       { property: "og:title", content: "Terms & Conditions — SEZA POS" },
       { property: "og:description", content: "The terms of service that apply when using SEZA POS." },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://sezapos.com/terms" },
     ],
+    links: [{ rel: "canonical", href: "https://sezapos.com/terms" }],
   }),
   component: TermsPage,
 });

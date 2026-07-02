@@ -17,8 +17,12 @@ export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
       { title: "Start your free trial — SEZA POS" },
-      { name: "description", content: "Create your SEZA POS account. 14-day free trial. No credit card required." },
+      { name: "description", content: "Create your SEZA POS account and start a 14-day free trial. No credit card required. Cancel anytime." },
+      { property: "og:title", content: "Start your free trial — SEZA POS" },
+      { property: "og:description", content: "Create your SEZA POS account. 14-day free trial. No credit card required." },
+      { property: "og:url", content: "https://sezapos.com/signup" },
     ],
+    links: [{ rel: "canonical", href: "https://sezapos.com/signup" }],
   }),
   component: SignupPage,
 });
