@@ -67,7 +67,15 @@ const SECTIONS = [
 ];
 
 function SettingsPage() {
-  const [tab, setTab] = useState("general");
+  const search = Route.useSearch();
+  const [tab, setTab] = useState(search.section ?? "general");
+  useEffect(() => {
+    if (search.section && search.section !== tab) setTab(search.section);
+    if (search.checkout === "success") {
+      toast.success("Subscription updated — welcome aboard!");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.section, search.checkout]);
   const { has, isSuper } = usePermissions();
   const canEditSettings = isSuper || has("settings.edit");
   const canEditRoles = isSuper;
