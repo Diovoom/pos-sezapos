@@ -481,6 +481,14 @@ function PosPage() {
           <div className="p-6 border-t bg-surface/40">
             <div className="space-y-1.5 mb-4">
               <Row label="Subtotal" value={fmtCurrency(subtotal, currency)} />
+              {discount && (
+                <div className="flex justify-between text-sm text-success">
+                  <button className="underline underline-offset-2" onClick={() => setDiscountOpen(true)}>
+                    Discount ({discount.mode === "percent" ? `${discount.value}%` : fmtCurrency(discount.value, currency)})
+                  </button>
+                  <span className="font-mono">− {fmtCurrency(discountAmount, currency)}</span>
+                </div>
+              )}
               <Row label={`Tax (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(tax, currency)} />
               <div className="flex justify-between text-2xl font-bold pt-2 border-t border-dashed">
                 <span>Total</span>
