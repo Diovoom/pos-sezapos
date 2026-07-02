@@ -14,6 +14,8 @@ type Props = {
   formats?: BarcodeFormat[];
   /** Extra guidance shown under the video frame. */
   hint?: string;
+  /** Persistent inline note shown below the video (e.g. after a non-matching decode). */
+  note?: string | null;
 };
 
 /**
@@ -21,7 +23,7 @@ type Props = {
  * Auto-closes on the first successful decode. Falls back gracefully
  * when camera permission is denied.
  */
-export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan barcode", formats, hint }: Props) {
+export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan barcode", formats, hint, note }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
   const [status, setStatus] = useState<"starting" | "scanning" | "error">("starting");
@@ -107,6 +109,10 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
         <div className="relative bg-black aspect-[3/4]">
           <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
           <div className="absolute inset-0 pointer-events-none border-2 border-white/40 m-8 rounded-xl" />
+          {/* Red targeting line */}
+          <div className="absolute inset-x-10 top-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="h-[2px] w-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.9)] animate-pulse" />
+          </div>
           {status === "starting" && (
             <div className="absolute inset-0 grid place-items-center text-white text-sm gap-2">
               <Loader2 className="size-6 animate-spin" /> Starting camera…
@@ -126,6 +132,11 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
             </div>
           )}
         </div>
+        {note && (
+          <div className="px-3 py-2 text-xs text-warning bg-warning/10 border-t border-warning/30">
+            {note}
+          </div>
+        )}
         <div className="p-3 flex items-center justify-between gap-2 bg-card border-t">
           {devices.length > 1 ? (
             <select
