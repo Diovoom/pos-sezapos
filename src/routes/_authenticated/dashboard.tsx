@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
+import { TrialCountdown } from "@/components/TrialCountdown";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fmtCurrency, fmtNumber } from "@/lib/format";
 import { TrendingUp, Receipt, Package, AlertTriangle, Users, Percent, RotateCcw, Trophy, Clock, Wallet } from "lucide-react";
