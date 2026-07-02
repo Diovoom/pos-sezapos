@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/pos/AppShell";
 import { fmtCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2, Camera } from "lucide-react";
+import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2, Camera, Calculator, Percent } from "lucide-react";
 import { toast } from "sonner";
 import { PaymentDialog, type CompletedPayment, type PaymentMethod } from "@/components/pos/PaymentDialog";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
@@ -15,6 +15,8 @@ import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import { AgeVerificationDialog, type RestrictedItem, type SuccessfulVerification } from "@/components/pos/AgeVerificationDialog";
 import { loadAgeSettings } from "@/lib/age-verification";
 import { useProductImageUrl } from "@/lib/pos/product-images";
+import { CustomItemDialog } from "@/components/pos/CustomItemDialog";
+import { DiscountDialog, type DiscountValue } from "@/components/pos/DiscountDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
 
 
@@ -58,6 +60,9 @@ function PosPage() {
   const [activeCategory, setActiveCategory] = useState<string | "fav" | "all">("fav");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const [discount, setDiscount] = useState<DiscountValue | null>(null);
 
   const [tender, setTender] = useState<PaymentMethod>("card");
   const [payOpen, setPayOpen] = useState(false);
@@ -159,7 +164,30 @@ function PosPage() {
     setCart((cur) => cur.map((l) => (l.product.id === id ? { ...l, qty } : l)));
   };
   const removeLine = (id: string) => setCart((cur) => cur.filter((l) => l.product.id !== id));
-  const clearCart = () => { setCart([]); setAgeVerification(null); };
+  const clearCart = () => { setCart([]); setAgeVerification(null); setDiscount(null); };
+
+  const addCustomItem = (item: { name: string; price: number; taxable: boolean }) => {
+    const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const p: Product = {
+      id,
+      name: item.name,
+      price: item.price,
+      cost: 0,
+      sku: null,
+      barcode: null,
+      stock: 0,
+      taxable: item.taxable,
+      category_id: null,
+      is_favorite: false,
+      store_id: store?.id ?? null,
+      image_url: null,
+      age_restricted: false,
+      min_age: null,
+      age_category: null,
+    };
+    setCart((cur) => [...cur, { product: p, qty: 1 }]);
+    toast.success(`Added ${item.name} · ${fmtCurrency(item.price, currency)}`);
+  };
 
   const restrictedItems: RestrictedItem[] = useMemo(
     () =>
@@ -181,9 +209,16 @@ function PosPage() {
   };
 
   const subtotal = Math.round(cart.reduce((s, l) => s + l.product.price * l.qty, 0) * 100) / 100;
-  const taxable = cart.reduce((s, l) => s + (l.product.taxable ? l.product.price * l.qty : 0), 0);
-  const tax = Math.round(taxable * taxRate * 100) / 100;
-  const total = Math.round((subtotal + tax) * 100) / 100;
+  const discountAmount = !discount
+    ? 0
+    : discount.mode === "percent"
+      ? Math.min(subtotal, Math.round(subtotal * discount.value) / 100)
+      : Math.min(subtotal, Math.round(discount.value * 100) / 100);
+  const discountRatio = subtotal > 0 ? discountAmount / subtotal : 0;
+  const taxableBase = cart.reduce((s, l) => s + (l.product.taxable ? l.product.price * l.qty : 0), 0);
+  const taxableAfterDiscount = Math.max(0, taxableBase * (1 - discountRatio));
+  const tax = Math.round(taxableAfterDiscount * taxRate * 100) / 100;
+  const total = Math.max(0, Math.round((subtotal - discountAmount + tax) * 100) / 100);
 
   // Sale is written ONLY after payment is confirmed.
   const finalize = useMutation({
@@ -216,7 +251,7 @@ function PosPage() {
           cashier_id: u.user.id,
           subtotal,
           tax,
-          discount: 0,
+          discount: discountAmount,
           total,
           payment_method: payment.method,
           amount_tendered: payment.amountTendered,
@@ -231,7 +266,7 @@ function PosPage() {
 
       const items = cart.map((l) => ({
         sale_id: sale.id,
-        product_id: l.product.id,
+        product_id: l.product.id.startsWith("custom-") ? null : l.product.id,
         product_name: l.product.name,
         quantity: l.qty,
         unit_price: l.product.price,
@@ -257,6 +292,7 @@ function PosPage() {
         })),
         subtotal,
         tax,
+        discount: discountAmount,
         total,
         paymentMethod: payment.method,
         amountTendered: payment.amountTendered,
@@ -359,6 +395,16 @@ function PosPage() {
                 </CategoryChip>
               ))}
             </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="h-10 flex-1" onClick={() => setCustomOpen(true)}>
+                <Calculator className="size-4 mr-2" />Add Custom Item
+              </Button>
+              <Button variant="outline" className="h-10 flex-1" onClick={() => setDiscountOpen(true)}>
+                <Percent className="size-4 mr-2" />
+                {discount ? "Edit discount" : "Add discount"}
+              </Button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 pt-0">
@@ -435,6 +481,14 @@ function PosPage() {
           <div className="p-6 border-t bg-surface/40">
             <div className="space-y-1.5 mb-4">
               <Row label="Subtotal" value={fmtCurrency(subtotal, currency)} />
+              {discount && (
+                <div className="flex justify-between text-sm text-success">
+                  <button className="underline underline-offset-2" onClick={() => setDiscountOpen(true)}>
+                    Discount ({discount.mode === "percent" ? `${discount.value}%` : fmtCurrency(discount.value, currency)})
+                  </button>
+                  <span className="font-mono">− {fmtCurrency(discountAmount, currency)}</span>
+                </div>
+              )}
               <Row label={`Tax (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(tax, currency)} />
               <div className="flex justify-between text-2xl font-bold pt-2 border-t border-dashed">
                 <span>Total</span>
@@ -540,7 +594,23 @@ function PosPage() {
         }}
       />
 
+      <CustomItemDialog
+        open={customOpen}
+        onOpenChange={setCustomOpen}
+        currency={currency}
+        onAdd={addCustomItem}
+      />
+
+      <DiscountDialog
+        open={discountOpen}
+        onOpenChange={setDiscountOpen}
+        subtotal={subtotal}
+        currency={currency}
+        current={discount}
+        onApply={setDiscount}
+      />
     </>
+
   );
 }
 
