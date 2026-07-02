@@ -12,12 +12,12 @@ import { EmailChangeEmail } from '@/lib/email-templates/email-change'
 import { ReauthenticationEmail } from '@/lib/email-templates/reauthentication'
 
 const EMAIL_SUBJECTS: Record<string, string> = {
-  signup: 'Confirm your email',
-  invite: "You've been invited",
-  magiclink: 'Your login link',
-  recovery: 'Reset your password',
+  signup: 'Verify your SEZA POS account',
+  invite: "You've been invited to SEZA POS",
+  magiclink: 'Your SEZA POS login link',
+  recovery: 'Reset your SEZA POS password',
   email_change: 'Confirm your new email',
-  reauthentication: 'Your verification code',
+  reauthentication: 'Your SEZA POS verification code',
 }
 
 // Template mapping
@@ -31,7 +31,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "swift-shop-os"
+const SITE_NAME = "SEZA POS"
 const SENDER_DOMAIN = "notify.sezapos.com"
 const ROOT_DOMAIN = "sezapos.com"
 const FROM_DOMAIN = "sezapos.com"
