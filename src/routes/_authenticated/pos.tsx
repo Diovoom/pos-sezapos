@@ -292,6 +292,7 @@ function PosPage() {
         })),
         subtotal,
         tax,
+        discount: discountAmount,
         total,
         paymentMethod: payment.method,
         amountTendered: payment.amountTendered,
