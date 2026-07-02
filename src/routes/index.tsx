@@ -7,11 +7,13 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "SEZA POS — Modern Cloud Point of Sale for Retail" },
-      { name: "description", content: "SEZA POS is a modern cloud point-of-sale for convenience stores, mini marts, liquor and retail. Fast checkout, inventory, employees, and reports. 7-day free trial." },
+      { name: "description", content: "SEZA POS is a modern cloud point-of-sale for convenience stores, mini marts, liquor and retail. Fast checkout, inventory, employees, and reports. 14-day free trial." },
       { property: "og:title", content: "SEZA POS — Modern Cloud POS for Retail" },
-      { property: "og:description", content: "Fast checkout, inventory, employees, and reports. Start a 7-day free trial." },
+      { property: "og:description", content: "Fast checkout, inventory, employees, and reports. Start a 14-day free trial." },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://sezapos.com/" },
     ],
+    links: [{ rel: "canonical", href: "https://sezapos.com/" }],
   }),
   component: LandingPage,
 });
