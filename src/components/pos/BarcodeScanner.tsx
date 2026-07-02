@@ -129,7 +129,12 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
                 <p className="font-semibold mb-2">Camera unavailable</p>
                 <p className="text-white/70 text-xs">{error}</p>
               </div>
-            </div>
+        </div>
+        {note && (
+          <div className="px-3 py-2 text-xs text-warning bg-warning/10 border-t border-warning/30">
+            {note}
+          </div>
+        )}
           )}
         </div>
         <div className="p-3 flex items-center justify-between gap-2 bg-card border-t">
