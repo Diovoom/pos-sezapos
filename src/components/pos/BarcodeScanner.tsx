@@ -109,6 +109,10 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
         <div className="relative bg-black aspect-[3/4]">
           <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
           <div className="absolute inset-0 pointer-events-none border-2 border-white/40 m-8 rounded-xl" />
+          {/* Red targeting line */}
+          <div className="absolute inset-x-10 top-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="h-[2px] w-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.9)] animate-pulse" />
+          </div>
           {status === "starting" && (
             <div className="absolute inset-0 grid place-items-center text-white text-sm gap-2">
               <Loader2 className="size-6 animate-spin" /> Starting camera…
