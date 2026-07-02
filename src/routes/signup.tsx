@@ -252,3 +252,160 @@ function SignupPage() {
     </div>
   );
 }
+
+function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
+  const [cooldown, setCooldown] = useState(60);
+  const [resending, setResending] = useState(false);
+  const [devStatus, setDevStatus] = useState<null | {
+    status: string;
+    error_message?: string | null;
+    created_at?: string;
+  }>(null);
+  const checkFn = useServerFn(getLatestSignupEmailStatus);
+  const isDev = import.meta.env.DEV;
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    timerRef.current = window.setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, [cooldown]);
+
+  const refresh = async () => {
+    if (!isDev) return;
+    try {
+      const res = await checkFn({ data: { email } });
+      setDevStatus(res as any);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  useEffect(() => {
+    if (!isDev) return;
+    refresh();
+    const id = window.setInterval(refresh, 4000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
+
+  const resend = async () => {
+    setResending(true);
+    try {
+      const { error } = await supabase.auth.resend({ type: "signup", email });
+      if (error) throw error;
+      toast.success("Verification email sent again");
+      setCooldown(60);
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not resend email");
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const statusBadge = (s: string) => {
+    const map: Record<string, string> = {
+      sent: "bg-emerald-100 text-emerald-800",
+      pending: "bg-amber-100 text-amber-800",
+      failed: "bg-red-100 text-red-800",
+      dlq: "bg-red-100 text-red-800",
+      suppressed: "bg-orange-100 text-orange-800",
+      none: "bg-slate-100 text-slate-700",
+    };
+    return map[s] ?? "bg-slate-100 text-slate-700";
+  };
+
+  return (
+    <div className="min-h-screen bg-surface flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="mx-auto size-12 rounded-full bg-primary/10 grid place-items-center mb-2">
+            <Mail className="size-6 text-primary" />
+          </div>
+          <CardTitle>Check your inbox</CardTitle>
+          <CardDescription>
+            We sent a verification link to <strong>{email}</strong>. Click it to
+            activate your account and start your 14-day free trial. The link
+            expires in 24 hours.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={resend}
+            disabled={resending || cooldown > 0}
+          >
+            {resending ? (
+              <Loader2 className="size-4 animate-spin mr-2" />
+            ) : (
+              <RefreshCw className="size-4 mr-2" />
+            )}
+            {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend verification email"}
+          </Button>
+
+          <p className="text-xs text-muted-foreground text-center">
+            Didn't get it? Check spam, or{" "}
+            <button type="button" className="text-primary hover:underline" onClick={onReset}>
+              use a different email
+            </button>
+            .
+          </p>
+
+          {isDev && (
+            <div className="mt-4 rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-amber-900">Developer diagnostic</span>
+                <button
+                  type="button"
+                  onClick={refresh}
+                  className="text-amber-700 hover:underline"
+                >
+                  refresh
+                </button>
+              </div>
+              {devStatus ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600">Last signup email:</span>
+                    <span className={`px-2 py-0.5 rounded font-medium ${statusBadge(devStatus.status)}`}>
+                      {devStatus.status}
+                    </span>
+                  </div>
+                  {devStatus.created_at && (
+                    <div className="text-slate-500">
+                      logged {new Date(devStatus.created_at).toLocaleTimeString()}
+                    </div>
+                  )}
+                  {devStatus.error_message && (
+                    <div className="text-red-700">Error: {devStatus.error_message}</div>
+                  )}
+                  {devStatus.status === "none" && (
+                    <div className="text-slate-600">
+                      No send row yet — the queue processes every ~5s. Give it a
+                      moment or click resend.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-slate-600">Checking…</div>
+              )}
+              <div className="text-slate-500 pt-1 border-t border-amber-200">
+                Verification links are one-time tokens minted by auth and aren't
+                exposed here. Watch this panel and your inbox.
+              </div>
+            </div>
+          )}
+
+          <Button asChild variant="ghost" className="w-full">
+            <Link to="/">Back to home</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
