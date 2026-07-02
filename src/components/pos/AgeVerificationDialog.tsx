@@ -315,9 +315,20 @@ export function AgeVerificationDialog({
                 </div>
 
                 {/* Hidden wedge target for USB HID scanners */}
-                <div className="mt-6 flex items-center gap-3 text-xs text-muted-foreground">
-                  <div className="size-2 rounded-full bg-primary animate-pulse" />
-                  Ready — scan an ID with your USB scanner now, or choose an option above.
+                <div className="mt-6 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-primary animate-pulse" />
+                    Ready — scan an ID with your USB scanner now, or choose an option above.
+                  </div>
+                  {settings.allowManualEntry && (
+                    <button
+                      type="button"
+                      className="underline hover:text-foreground"
+                      onClick={() => { setManualMode("manual"); setMode("manual"); }}
+                    >
+                      Camera scan isn't working?
+                    </button>
+                  )}
                 </div>
                 <Input
                   ref={wedgeRef}
