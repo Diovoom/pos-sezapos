@@ -594,7 +594,23 @@ function PosPage() {
         }}
       />
 
+      <CustomItemDialog
+        open={customOpen}
+        onOpenChange={setCustomOpen}
+        currency={currency}
+        onAdd={addCustomItem}
+      />
+
+      <DiscountDialog
+        open={discountOpen}
+        onOpenChange={setDiscountOpen}
+        subtotal={subtotal}
+        currency={currency}
+        current={discount}
+        onApply={setDiscount}
+      />
     </>
+
   );
 }
 
