@@ -36,7 +36,7 @@ export function UpgradeModal({ open, onOpenChange, feature, requiredTier }: Prop
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Not now</Button>
           <Button asChild>
-            <Link to="/_authenticated/settings" search={{ section: "billing" } as any}>
+            <Link to="/settings" search={{ section: "billing" } as any}>
               See plans
             </Link>
           </Button>

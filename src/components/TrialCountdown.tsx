@@ -20,7 +20,7 @@ export function TrialCountdown() {
           </div>
         </div>
         <Button asChild size="sm">
-          <Link to="/_authenticated/settings" search={{ section: "billing" } as any}>
+          <Link to="/settings" search={{ section: "billing" } as any}>
             Choose plan
           </Link>
         </Button>
@@ -43,7 +43,7 @@ export function TrialCountdown() {
           </div>
         </div>
         <Button asChild size="sm" variant="outline">
-          <Link to="/_authenticated/settings" search={{ section: "billing" } as any}>
+          <Link to="/settings" search={{ section: "billing" } as any}>
             View plans
           </Link>
         </Button>
@@ -64,7 +64,7 @@ export function TrialCountdown() {
           </div>
         </div>
         <Button asChild size="sm" variant="outline">
-          <Link to="/_authenticated/settings" search={{ section: "billing" } as any}>
+          <Link to="/settings" search={{ section: "billing" } as any}>
             Manage
           </Link>
         </Button>
@@ -85,7 +85,7 @@ export function TrialCountdown() {
           </div>
         </div>
         <Button asChild size="sm" variant="destructive">
-          <Link to="/_authenticated/settings" search={{ section: "billing" } as any}>
+          <Link to="/settings" search={{ section: "billing" } as any}>
             Update card
           </Link>
         </Button>
