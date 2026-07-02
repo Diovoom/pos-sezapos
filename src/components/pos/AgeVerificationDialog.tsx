@@ -418,17 +418,23 @@ export function AgeVerificationDialog({
 
       <BarcodeScanner
         open={scannerOpen}
-        onOpenChange={setScannerOpen}
-        title="Scan ID barcode (PDF417)"
-        formats={[BarcodeFormat.PDF_417]}
-        hint="Hold the back of the ID 4–6 inches from the camera. Ensure the PDF417 barcode is centered, flat, and well-lit."
+        onOpenChange={(v) => { setScannerOpen(v); if (!v) setScanNote(null); }}
+        title="Scan ID barcode"
+        formats={[BarcodeFormat.PDF_417, BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX]}
+        hint="Align the barcode on the back of the ID with the red line. Hold steady 4–6 inches away."
+        note={scanNote}
         onDetected={(code) => {
           const p = parseIdBarcode(code);
           if (p.format === "unknown") {
-            toast.error("Not a recognized ID barcode. Keep scanning or use manual entry.");
+            if (!seenCodesRef.current.has(code)) {
+              seenCodesRef.current.add(code);
+              toast.error("Barcode read, but not a recognized government ID.");
+              setScanNote("Barcode read but not a recognized government ID — try the PDF417 on the back of a driver's license, or use manual entry.");
+            }
             return; // keep camera open
           }
           setScannerOpen(false);
+          setScanNote(null);
           handleParsed(code);
         }}
       />
