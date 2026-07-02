@@ -60,6 +60,9 @@ function PosPage() {
   const [activeCategory, setActiveCategory] = useState<string | "fav" | "all">("fav");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const [discount, setDiscount] = useState<DiscountValue | null>(null);
 
   const [tender, setTender] = useState<PaymentMethod>("card");
   const [payOpen, setPayOpen] = useState(false);
