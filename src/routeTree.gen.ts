@@ -29,6 +29,7 @@ import { Route as AuthenticatedEmployeesRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
 import { Route as AuthenticatedEmployeesIdRouteImport } from './routes/_authenticated/employees.$id'
+import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -130,6 +131,12 @@ const AuthenticatedEmployeesIdRoute =
     path: '/$id',
     getParentRoute: () => AuthenticatedEmployeesRoute,
   } as any)
+const LovableEmailQueueProcessRoute =
+  LovableEmailQueueProcessRouteImport.update({
+    id: '/lovable/email/queue/process',
+    path: '/lovable/email/queue/process',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/shifts': typeof AuthenticatedShiftsRoute
   '/timeclock': typeof AuthenticatedTimeclockRoute
   '/employees/$id': typeof AuthenticatedEmployeesIdRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -172,6 +180,7 @@ export interface FileRoutesByTo {
   '/shifts': typeof AuthenticatedShiftsRoute
   '/timeclock': typeof AuthenticatedTimeclockRoute
   '/employees/$id': typeof AuthenticatedEmployeesIdRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -195,6 +204,7 @@ export interface FileRoutesById {
   '/_authenticated/shifts': typeof AuthenticatedShiftsRoute
   '/_authenticated/timeclock': typeof AuthenticatedTimeclockRoute
   '/_authenticated/employees/$id': typeof AuthenticatedEmployeesIdRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/shifts'
     | '/timeclock'
     | '/employees/$id'
+    | '/lovable/email/queue/process'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/shifts'
     | '/timeclock'
     | '/employees/$id'
+    | '/lovable/email/queue/process'
   id:
     | '__root__'
     | '/'
@@ -261,12 +273,14 @@ export interface FileRouteTypes {
     | '/_authenticated/shifts'
     | '/_authenticated/timeclock'
     | '/_authenticated/employees/$id'
+    | '/lovable/email/queue/process'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -411,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedEmployeesIdRouteImport
       parentRoute: typeof AuthenticatedEmployeesRoute
     }
+    '/lovable/email/queue/process': {
+      id: '/lovable/email/queue/process'
+      path: '/lovable/email/queue/process'
+      fullPath: '/lovable/email/queue/process'
+      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -473,6 +494,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
