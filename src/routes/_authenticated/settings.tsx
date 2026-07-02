@@ -18,11 +18,6 @@ import {
   Wallet, BarChart3, Bell, Lock, HardDrive, Plug, Palette, Info, ScrollText, ShieldAlert, Receipt as ReceiptIcon,
 } from "lucide-react";
 import { BillingPanel } from "@/components/settings/BillingPanel";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const __billingImportMarker = 0;
-// dummy line replaced below
-type __unused = never;
-// re-close
 import { usePermissions } from "@/hooks/usePermissions";
 import { RolePermissionsPanel } from "@/components/settings/RolePermissionsPanel";
 import { AuditLogPanel } from "@/components/settings/AuditLogPanel";
