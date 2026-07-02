@@ -1,43 +1,21 @@
-## Problem
-
-The "Use camera" option in Age Verification opens the webcam but never decodes anything. Console shows continuous zxing decode errors coming from the PDF417 reader. Two root causes:
-
-1. `BarcodeScanner` uses `BrowserMultiFormatReader` with default hints and no video constraints. Driver's-license PDF417 barcodes are dense 2D symbols that require ~1080p video and a tight decode hint to be readable — the default 640×480 stream zxing negotiates cannot resolve the modules, so every frame fails.
-2. Every failed frame throws (not just `NotFoundException`), spamming the console and masking the real state. The scanner appears "stuck on starting…" to the user.
-
-Fixes are UI/frontend only — no schema or business-logic changes.
-
 ## Changes
 
-### 1. `src/components/pos/BarcodeScanner.tsx` — tune for PDF417 + suppress noise
-- Accept a new optional prop `formats?: BarcodeFormat[]` (default: all). When the age dialog opens the scanner it will pass `[PDF_417]` so zxing only runs the PDF417 reader (faster, far fewer false errors).
-- Build a `DecodeHintType` map with `TRY_HARDER=true` and `POSSIBLE_FORMATS=formats`, then pass it to `new BrowserMultiFormatReader(hints, 200)` (200 ms between attempts to reduce CPU).
-- Replace `decodeFromVideoDevice` with `decodeFromConstraints` so we can request a high-resolution rear camera:
-  ```
-  { video: { deviceId, facingMode: { ideal: "environment" },
-             width: { ideal: 1920 }, height: { ideal: 1080 },
-             focusMode: "continuous", advanced: [{ focusMode: "continuous" }] } }
-  ```
-- In the decode callback, ignore `NotFoundException` errors silently (they fire on every frame with no barcode); only surface real errors. This removes the console spam shown in logs.
-- Add an on-screen hint line ("Hold the back of the ID 4–6 inches from the camera, barcode centered in the frame") that appears once `status === "scanning"` and no result within 5 s.
-- Keep the existing device picker and cancel button unchanged.
+### 1. `src/components/pos/BarcodeScanner.tsx` — add red targeting line
+- Inside the video frame overlay, add an absolutely-positioned red horizontal line (`bg-red-500`, ~2px tall, ~80% width, centered vertically) with a subtle glow (`shadow-[0_0_8px_rgba(239,68,68,0.8)]`) and a slow pulse animation so the cashier can see exactly where to place the barcode.
+- Keep the existing white rounded targeting frame; the red line sits on top of it, centered.
 
-### 2. `src/components/pos/AgeVerificationDialog.tsx` — pass PDF417 hint + friendlier failure
-- When opening the camera scanner from the age dialog, pass `formats={[BarcodeFormat.PDF_417]}` and `title="Scan ID barcode (PDF417)"`.
-- If `parseIdBarcode` returns `format: "unknown"` from a camera scan (e.g. the user pointed at a QR code), keep the scanner open for another attempt instead of closing and toasting an error.
-- Add a small "Camera scan isn't working?" link under the camera card in the choose view that jumps directly to manual entry — makes the fallback obvious.
+### 2. `src/components/pos/AgeVerificationDialog.tsx` — stop silent "unknown" rejects
+The reason "it doesn't scan at all" after the first attempt: we restricted the camera to PDF417 only. If the first frame decoded as PDF417 but wasn't AAMVA-shaped, `parseIdBarcode` returned `format: "unknown"` and we kept the scanner open — but from then on the same barcode keeps re-decoding, we keep toasting, and the user thinks nothing happens.
 
-### 3. No changes elsewhere
-- Product-scanning callers of `BarcodeScanner` (if any) keep working because `formats` is optional and defaults to all formats.
-- No changes to `age-verification.ts` parser, POS flow, DB, or settings.
+- Broaden `formats` passed to `BarcodeScanner` from `[PDF_417]` to `[PDF_417, QR_CODE, DATA_MATRIX]` so European/Asian IDs (which sometimes use QR/DataMatrix) can be read too.
+- Throttle the "not a recognized ID barcode" toast: only fire once per unique decoded string (keep a `Set` in a ref), so repeated decodes of the same non-ID barcode don't spam.
+- After a first "unknown" decode, surface a persistent inline note in the scanner dialog via a new optional `note` prop on `BarcodeScanner` ("Barcode read but not a recognized government ID — try the front-side PDF417, or use manual entry"). This tells the user the camera IS working, the ID format just isn't AAMVA.
 
-## Technical notes
+### 3. Optional polish
+- Increase the scan-line's vertical position slightly if we want it to align with the barcode-in-frame convention; keep it dead-center for simplicity.
 
-- zxing-js exports: `import { BarcodeFormat, DecodeHintType } from "@zxing/library"` (already a transitive dep of `@zxing/browser`).
-- `focusMode: "continuous"` is best-effort; browsers that don't support it ignore the constraint, so no feature-detection is required.
-- Even with these tunings, webcam PDF417 decoding is inherently marginal on low-end laptop cameras. The USB HID scanner path (already implemented) remains the recommended production input; this change makes the camera path usable for good phone/tablet cameras and stops the console spam.
+## Files touched
+- `src/components/pos/BarcodeScanner.tsx` — add red line overlay, add optional `note` prop rendered under the video.
+- `src/components/pos/AgeVerificationDialog.tsx` — widen `formats`, dedupe toasts, pass `note` when a non-AAMVA barcode was seen.
 
-## Verification
-
-- Open POS with an age-restricted item, click "Use camera", confirm: no repeated zxing errors in console; scanner shows the higher-resolution feed; scanning a real ID or a printed PDF417 sample decodes and advances to the result view.
-- Fallback: with no scan for ~5 s, the on-screen hint appears; "Enter date of birth" still works.
+No DB / business-logic / other-file changes.
