@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScanLine, CheckCircle2, XCircle, ShieldAlert, Calendar, Camera, KeyRound, Trash2, X, Loader2 } from "lucide-react";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
+import { BarcodeFormat } from "@zxing/library";
 import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
 import {
   parseIdBarcode,
