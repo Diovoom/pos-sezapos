@@ -1,9 +1,14 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer, Mail, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Printer, Mail, X, MessageSquare, Loader2, CheckCircle2 } from "lucide-react";
 import { Receipt, type ReceiptData } from "./Receipt";
 import { toast } from "sonner";
+import { sendTransactionalEmail } from "@/lib/email/send";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ReceiptDialog({
   open,
@@ -15,6 +20,20 @@ export function ReceiptDialog({
   data: ReceiptData | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  // Reset panel state when dialog opens for a new receipt
+  useEffect(() => {
+    if (open) {
+      setEmailOpen(false);
+      setEmail("");
+      setSending(false);
+      setSent(false);
+    }
+  }, [open, data?.transactionId]);
 
   const handlePrint = () => {
     if (!ref.current) return;
@@ -37,8 +56,62 @@ export function ReceiptDialog({
     w.document.close();
   };
 
-  const handleEmail = () => {
-    toast.info("Email receipt will send via configured SMTP once connected.");
+  const handleEmailSend = async () => {
+    if (!data) return;
+    const trimmed = email.trim();
+    if (!EMAIL_RE.test(trimmed)) {
+      toast.error("Enter a valid email address");
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await sendTransactionalEmail({
+        templateName: "receipt",
+        recipientEmail: trimmed,
+        idempotencyKey: `receipt-${data.transactionId}-${trimmed.toLowerCase()}`,
+        templateData: {
+          storeName: data.store.name ?? undefined,
+          storeAddress: data.store.address ?? undefined,
+          storePhone: data.store.phone ?? undefined,
+          storeEmail: data.store.email ?? undefined,
+          currency: data.store.currency ?? "USD",
+          receiptNumber: data.receiptNumber,
+          transactionId: data.transactionId,
+          cashierName: data.cashierName,
+          customerName: data.customerName,
+          createdAt:
+            typeof data.createdAt === "string"
+              ? data.createdAt
+              : data.createdAt.toISOString(),
+          lines: data.lines,
+          subtotal: data.subtotal,
+          tax: data.tax,
+          discount: data.discount ?? 0,
+          total: data.total,
+          paymentMethod: data.paymentMethod,
+          cardBrand: data.cardBrand,
+          last4: data.last4,
+          amountTendered: data.amountTendered,
+          changeDue: data.changeDue,
+          returnPolicy: data.store.return_policy ?? undefined,
+          thankYou: data.store.receipt_footer ?? undefined,
+        },
+      });
+      if (!res.ok) {
+        toast.error(`Failed to send receipt: ${res.error}`);
+        return;
+      }
+      setSent(true);
+      toast.success("Receipt sent successfully");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSMS = () => {
+    toast.info(
+      "SMS delivery isn't connected yet. Connect an SMS provider in Settings → Notifications to enable this.",
+    );
   };
 
   return (
@@ -54,14 +127,58 @@ export function ReceiptDialog({
             <X className="size-4" />
           </button>
         </DialogHeader>
-        <div className="max-h-[60vh] overflow-y-auto bg-muted/40 py-4">
+        <div className="max-h-[50vh] overflow-y-auto bg-muted/40 py-4">
           {data && <Receipt ref={ref} data={data} />}
         </div>
-        <div className="p-4 border-t bg-surface/40 flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={handleEmail}>
+
+        {emailOpen && (
+          <div className="p-4 border-t bg-background space-y-3">
+            {sent ? (
+              <div className="flex items-center gap-2 text-emerald-600 text-sm">
+                <CheckCircle2 className="size-4" />
+                Sent to {email}
+              </div>
+            ) : (
+              <>
+                <Label htmlFor="receipt-email" className="text-xs">
+                  Customer email
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="receipt-email"
+                    type="email"
+                    autoFocus
+                    placeholder="customer@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleEmailSend();
+                    }}
+                    disabled={sending}
+                  />
+                  <Button onClick={handleEmailSend} disabled={sending || !email}>
+                    {sending ? <Loader2 className="size-4 animate-spin" /> : "Send"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        <div className="p-4 border-t bg-surface/40 grid grid-cols-3 gap-2">
+          <Button
+            variant={emailOpen ? "default" : "outline"}
+            onClick={() => {
+              setEmailOpen((v) => !v);
+              setSent(false);
+            }}
+          >
             <Mail className="size-4" /> Email
           </Button>
-          <Button className="flex-1" onClick={handlePrint}>
+          <Button variant="outline" onClick={handleSMS}>
+            <MessageSquare className="size-4" /> SMS
+          </Button>
+          <Button onClick={handlePrint}>
             <Printer className="size-4" /> Print
           </Button>
         </div>
