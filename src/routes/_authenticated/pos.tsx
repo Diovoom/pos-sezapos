@@ -19,6 +19,38 @@ import { CustomItemDialog } from "@/components/pos/CustomItemDialog";
 import { DiscountDialog, type DiscountValue } from "@/components/pos/DiscountDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
 
+type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
+class SaleError extends Error {
+  step: SaleStep;
+  cause?: unknown;
+  constructor(step: SaleStep, message: string, cause?: unknown) {
+    super(message);
+    this.name = "SaleError";
+    this.step = step;
+    this.cause = cause;
+  }
+}
+function friendlyDbMessage(err: unknown, fallback: string): string {
+  const e = err as { code?: string; message?: string } | null | undefined;
+  if (!e) return fallback;
+  switch (e.code) {
+    case "42501": return "You don't have permission to record sales. Contact your manager.";
+    case "23505": return "Duplicate sale detected. Please refresh and try again.";
+    case "23503": return "Referenced product or record was not found.";
+    case "23502": return "Sale is missing required information.";
+    case "23514": return "Sale contains invalid values.";
+    case "PGRST301":
+    case "PGRST302": return "Your session has expired. Please sign in again.";
+    default:
+      if (e.message && /network|fetch|failed to fetch/i.test(e.message)) {
+        return "Network error. Check your connection and try again.";
+      }
+      return fallback;
+  }
+}
+
+
+
 
 export const Route = createFileRoute("/_authenticated/pos")({
   head: () => ({ meta: [{ title: "Checkout — SEZA POS" }, { name: "description", content: "Fast POS checkout with barcode scanning, custom items, discounts, and card + cash." }] }),
