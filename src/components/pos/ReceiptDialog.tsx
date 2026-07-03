@@ -128,12 +128,6 @@ export function ReceiptDialog({
     }
   };
 
-  const handleSMS = () => {
-    toast.info(
-      "SMS delivery isn't connected yet. Connect an SMS provider in Settings → Notifications to enable this.",
-    );
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-0 overflow-hidden">
@@ -185,17 +179,30 @@ export function ReceiptDialog({
           </div>
         )}
 
+        {smsOpen && data && (
+          <div className="p-4 border-t bg-background">
+            <SmsReceiptPanel data={data} defaultCountry={defaultCountry} />
+          </div>
+        )}
+
         <div className="p-4 border-t bg-surface/40 grid grid-cols-3 gap-2">
           <Button
             variant={emailOpen ? "default" : "outline"}
             onClick={() => {
               setEmailOpen((v) => !v);
+              setSmsOpen(false);
               setSent(false);
             }}
           >
             <Mail className="size-4" /> Email
           </Button>
-          <Button variant="outline" onClick={handleSMS}>
+          <Button
+            variant={smsOpen ? "default" : "outline"}
+            onClick={() => {
+              setSmsOpen((v) => !v);
+              setEmailOpen(false);
+            }}
+          >
             <MessageSquare className="size-4" /> SMS
           </Button>
           <Button onClick={handlePrint}>
