@@ -62,6 +62,13 @@ const NAV: { to: string; label: string; icon: any; search?: Record<string, strin
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
+// Route locations that stringify to "path?key=value" for active-state matching.
+function locKey(to: string, search?: Record<string, string>) {
+  if (!search) return to;
+  const qs = new URLSearchParams(search).toString();
+  return qs ? `${to}?${qs}` : to;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
