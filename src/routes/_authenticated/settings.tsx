@@ -27,6 +27,7 @@ import { HardwareCard } from "@/components/settings/HardwareCard";
 import { logAudit } from "@/lib/audit-log";
 import { getActiveProvider } from "@/lib/pos/payment-terminal";
 import { PaymentTerminalsPanel } from "@/components/settings/PaymentTerminalsPanel";
+import { SmsSettingsPanel } from "@/components/settings/SmsSettingsPanel";
 import { useServerFn } from "@tanstack/react-start";
 import { setMyPin } from "@/lib/employees.functions";
 import {
