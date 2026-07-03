@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
@@ -19,7 +19,19 @@ import {
   UserPlus,
   ArrowLeftRight,
   Wallet,
+  MoreVertical,
+  Wifi,
+  CreditCard,
+  Printer,
+  ScanLine,
+  DollarSign,
+  Monitor,
+  Cloud,
+  Mail,
+  MessageSquare,
+  RefreshCw,
 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
