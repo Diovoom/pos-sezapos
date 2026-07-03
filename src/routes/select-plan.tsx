@@ -78,7 +78,7 @@ function SelectPlanPage() {
                   className="w-full"
                   variant={p.highlight ? "default" : "outline"}
                   disabled={loading}
-                  onClick={() => openCheckout(p.id)}
+                  onClick={() => openCheckout(p.id, { successUrl: `${window.location.origin}/dashboard?checkout=success` })}
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : `Choose ${p.name}`}
                 </Button>
