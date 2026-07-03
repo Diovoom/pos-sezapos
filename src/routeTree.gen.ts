@@ -25,6 +25,7 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LegalIndexRouteImport } from './routes/legal.index'
 import { Route as RIdRouteImport } from './routes/r.$id'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as AuthenticatedTimeclockRouteImport } from './routes/_authenticated/timeclock'
@@ -130,6 +131,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalIndexRoute = LegalIndexRouteImport.update({
+  id: '/legal/',
+  path: '/legal/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RIdRoute = RIdRouteImport.update({
@@ -307,6 +313,7 @@ export interface FileRoutesByFullPath {
   '/timeclock': typeof AuthenticatedTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/r/$id': typeof RIdRoute
+  '/legal/': typeof LegalIndexRoute
   '/employees/$id': typeof AuthenticatedEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
@@ -351,6 +358,7 @@ export interface FileRoutesByTo {
   '/timeclock': typeof AuthenticatedTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/r/$id': typeof RIdRoute
+  '/legal': typeof LegalIndexRoute
   '/employees/$id': typeof AuthenticatedEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
@@ -397,6 +405,7 @@ export interface FileRoutesById {
   '/_authenticated/timeclock': typeof AuthenticatedTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/r/$id': typeof RIdRoute
+  '/legal/': typeof LegalIndexRoute
   '/_authenticated/employees/$id': typeof AuthenticatedEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
@@ -443,6 +452,7 @@ export interface FileRouteTypes {
     | '/timeclock'
     | '/email/unsubscribe'
     | '/r/$id'
+    | '/legal/'
     | '/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
@@ -487,6 +497,7 @@ export interface FileRouteTypes {
     | '/timeclock'
     | '/email/unsubscribe'
     | '/r/$id'
+    | '/legal'
     | '/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
@@ -532,6 +543,7 @@ export interface FileRouteTypes {
     | '/_authenticated/timeclock'
     | '/email/unsubscribe'
     | '/r/$id'
+    | '/legal/'
     | '/_authenticated/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
@@ -562,6 +574,7 @@ export interface RootRouteChildren {
   UnsubscribeRoute: typeof UnsubscribeRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   RIdRoute: typeof RIdRoute
+  LegalIndexRoute: typeof LegalIndexRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   LovableSmsSendRoute: typeof LovableSmsSendRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
@@ -684,6 +697,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/': {
+      id: '/legal/'
+      path: '/legal'
+      fullPath: '/legal/'
+      preLoaderRoute: typeof LegalIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/r/$id': {
@@ -952,6 +972,7 @@ const rootRouteChildren: RootRouteChildren = {
   UnsubscribeRoute: UnsubscribeRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   RIdRoute: RIdRoute,
+  LegalIndexRoute: LegalIndexRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   LovableSmsSendRoute: LovableSmsSendRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
