@@ -44,7 +44,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
-const NAV = [
+const NAV: { to: string; label: string; icon: any; search?: Record<string, string> }[] = [
   { to: "/pos", label: "Checkout", icon: ScanBarcode },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/sales", label: "Sales", icon: Receipt },
@@ -58,8 +58,9 @@ const NAV = [
   { to: "/register", label: "Register", icon: Wallet },
   { to: "/shifts", label: "Shifts", icon: Receipt },
   { to: "/reports", label: "Reports", icon: BarChart3 },
+  { to: "/settings", label: "Billing", icon: CreditCard, search: { section: "billing" } },
   { to: "/settings", label: "Settings", icon: Settings },
-] as const;
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
