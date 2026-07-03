@@ -74,9 +74,12 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           <div>
             <div className="font-semibold mb-2">Legal</div>
             <ul className="space-y-1 text-muted-foreground">
-              <li><Link to="/terms" className="hover:text-foreground">Terms</Link></li>
-              <li><Link to="/privacy" className="hover:text-foreground">Privacy</Link></li>
-              <li><Link to="/refund" className="hover:text-foreground">Refunds</Link></li>
+              <li><Link to="/legal" className="hover:text-foreground font-medium text-foreground">Legal Center</Link></li>
+              <li><Link to="/legal/$slug" params={{ slug: "terms" }} className="hover:text-foreground">Terms of Service</Link></li>
+              <li><Link to="/legal/$slug" params={{ slug: "privacy" }} className="hover:text-foreground">Privacy Policy</Link></li>
+              <li><Link to="/legal/$slug" params={{ slug: "cookies" }} className="hover:text-foreground">Cookie Policy</Link></li>
+              <li><Link to="/legal/$slug" params={{ slug: "refund" }} className="hover:text-foreground">Refunds</Link></li>
+              <li><Link to="/legal/$slug" params={{ slug: "security-center" }} className="hover:text-foreground">Security</Link></li>
             </ul>
           </div>
         </div>
