@@ -1,12 +1,16 @@
 import { useRef, useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Printer, Mail, X, MessageSquare, Loader2, CheckCircle2 } from "lucide-react";
 import { Receipt, type ReceiptData } from "./Receipt";
+import { SmsReceiptPanel } from "./SmsReceiptPanel";
 import { toast } from "sonner";
 import { sendTransactionalEmail } from "@/lib/email/send";
+import { supabase } from "@/integrations/supabase/client";
+import type { CountryCode } from "libphonenumber-js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -21,14 +25,30 @@ export function ReceiptDialog({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [smsOpen, setSmsOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+
+  // Fetch SMS default country for the store when needed (owner/manager can read).
+  const { data: smsSettings } = useQuery({
+    queryKey: ["sms-settings-default-country"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("sms_settings")
+        .select("default_country, enabled")
+        .maybeSingle();
+      return data as { default_country: string; enabled: boolean } | null;
+    },
+    staleTime: 5 * 60_000,
+  });
+  const defaultCountry = ((smsSettings?.default_country as CountryCode) || "US") as CountryCode;
 
   // Reset panel state when dialog opens for a new receipt
   useEffect(() => {
     if (open) {
       setEmailOpen(false);
+      setSmsOpen(false);
       setEmail("");
       setSending(false);
       setSent(false);
@@ -108,12 +128,6 @@ export function ReceiptDialog({
     }
   };
 
-  const handleSMS = () => {
-    toast.info(
-      "SMS delivery isn't connected yet. Connect an SMS provider in Settings → Notifications to enable this.",
-    );
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-0 overflow-hidden">
@@ -165,17 +179,30 @@ export function ReceiptDialog({
           </div>
         )}
 
+        {smsOpen && data && (
+          <div className="p-4 border-t bg-background">
+            <SmsReceiptPanel data={data} defaultCountry={defaultCountry} />
+          </div>
+        )}
+
         <div className="p-4 border-t bg-surface/40 grid grid-cols-3 gap-2">
           <Button
             variant={emailOpen ? "default" : "outline"}
             onClick={() => {
               setEmailOpen((v) => !v);
+              setSmsOpen(false);
               setSent(false);
             }}
           >
             <Mail className="size-4" /> Email
           </Button>
-          <Button variant="outline" onClick={handleSMS}>
+          <Button
+            variant={smsOpen ? "default" : "outline"}
+            onClick={() => {
+              setSmsOpen((v) => !v);
+              setEmailOpen(false);
+            }}
+          >
             <MessageSquare className="size-4" /> SMS
           </Button>
           <Button onClick={handlePrint}>

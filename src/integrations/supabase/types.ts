@@ -903,7 +903,9 @@ export type Database = {
           cashier_id: string | null
           change_due: number | null
           created_at: string
+          customer_email: string | null
           customer_name: string | null
+          customer_phone: string | null
           discount: number
           id: string
           notes: string | null
@@ -924,7 +926,9 @@ export type Database = {
           cashier_id?: string | null
           change_due?: number | null
           created_at?: string
+          customer_email?: string | null
           customer_name?: string | null
+          customer_phone?: string | null
           discount?: number
           id?: string
           notes?: string | null
@@ -945,7 +949,9 @@ export type Database = {
           cashier_id?: string | null
           change_due?: number | null
           created_at?: string
+          customer_email?: string | null
           customer_name?: string | null
+          customer_phone?: string | null
           discount?: number
           id?: string
           notes?: string | null
@@ -973,6 +979,113 @@ export type Database = {
             foreignKeyName: "sales_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_send_log: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          idempotency_key: string | null
+          message_body: string | null
+          provider: string
+          provider_message_id: string | null
+          provider_response: Json | null
+          recipient_phone: string
+          sale_id: string | null
+          sent_by: string | null
+          status: string
+          store_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          idempotency_key?: string | null
+          message_body?: string | null
+          provider: string
+          provider_message_id?: string | null
+          provider_response?: Json | null
+          recipient_phone: string
+          sale_id?: string | null
+          sent_by?: string | null
+          status?: string
+          store_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          idempotency_key?: string | null
+          message_body?: string | null
+          provider?: string
+          provider_message_id?: string | null
+          provider_response?: Json | null
+          recipient_phone?: string
+          sale_id?: string | null
+          sent_by?: string | null
+          status?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_send_log_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_send_log_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_settings: {
+        Row: {
+          credentials: Json
+          default_country: string
+          enabled: boolean
+          last_checked_at: string | null
+          last_status: string | null
+          provider: string
+          sender_id: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          credentials?: Json
+          default_country?: string
+          enabled?: boolean
+          last_checked_at?: string | null
+          last_status?: string | null
+          provider?: string
+          sender_id?: string | null
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          credentials?: Json
+          default_country?: string
+          enabled?: boolean
+          last_checked_at?: string | null
+          last_status?: string | null
+          provider?: string
+          sender_id?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_settings_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: true
             referencedRelation: "stores"
             referencedColumns: ["id"]
           },
