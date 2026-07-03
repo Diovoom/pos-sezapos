@@ -186,10 +186,108 @@ export function PageHeader({
         <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
         {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      <div className="flex items-center gap-2">
+        {actions}
+        <DeviceStatusMenu />
+      </div>
     </header>
   );
 }
+
+type StatusLevel = "connected" | "warning" | "disconnected";
+type DeviceRow = { key: string; label: string; icon: React.ComponentType<{ className?: string }>; status: StatusLevel; hint?: string };
+
+function readDeviceStatuses(online: boolean): DeviceRow[] {
+  const read = (k: string, fallback: StatusLevel = "disconnected"): StatusLevel => {
+    try {
+      const raw = localStorage.getItem(`pos.hw.${k}.status`);
+      if (raw === "connected" || raw === "warning" || raw === "disconnected") return raw;
+    } catch { /* ignore */ }
+    return fallback;
+  };
+  return [
+    { key: "internet", label: "Internet Connection", icon: Wifi, status: online ? "connected" : "disconnected" },
+    { key: "terminal", label: "Payment Terminal", icon: CreditCard, status: read("terminal") },
+    { key: "printer", label: "Receipt Printer", icon: Printer, status: read("printer") },
+    { key: "scanner", label: "Barcode Scanner", icon: ScanLine, status: read("scanner") },
+    { key: "drawer", label: "Cash Drawer", icon: DollarSign, status: read("drawer") },
+    { key: "display", label: "Customer Display", icon: Monitor, status: read("display") },
+    { key: "cloud", label: "Cloud Sync", icon: Cloud, status: online ? "connected" : "warning" },
+    { key: "email", label: "Email Service", icon: Mail, status: "connected" },
+    { key: "sms", label: "SMS Service", icon: MessageSquare, status: read("sms", "disconnected") },
+  ];
+}
+
+function StatusDot({ status }: { status: StatusLevel }) {
+  const cls =
+    status === "connected" ? "bg-success" :
+    status === "warning" ? "bg-warning" : "bg-destructive";
+  const label =
+    status === "connected" ? "Connected" :
+    status === "warning" ? "Warning" : "Disconnected";
+  return (
+    <span className="flex items-center gap-1.5 text-xs">
+      <span className={cn("size-2.5 rounded-full", cls)} aria-hidden="true" />
+      <span className="text-muted-foreground">{label}</span>
+    </span>
+  );
+}
+
+function DeviceStatusMenu() {
+  const [open, setOpen] = useState(false);
+  const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [rows, setRows] = useState<DeviceRow[]>(() => readDeviceStatuses(online));
+
+  const refresh = () => {
+    const nextOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
+    setOnline(nextOnline);
+    setRows(readDeviceStatuses(nextOnline));
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    refresh();
+    const on = () => refresh();
+    window.addEventListener("online", on);
+    window.addEventListener("offline", on);
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", on); };
+  }, [open]);
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Device status menu">
+          <MoreVertical className="size-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuLabel className="flex items-center justify-between">
+          <span>Device Status</span>
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); refresh(); }}
+            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+          >
+            <RefreshCw className="size-3" /> Refresh
+          </button>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <div className="max-h-80 overflow-y-auto py-1">
+          {rows.map((r) => (
+            <div key={r.key} className="flex items-center justify-between px-2 py-2 text-sm">
+              <span className="flex items-center gap-2">
+                <r.icon className="size-4 text-muted-foreground" />
+                {r.label}
+              </span>
+              <StatusDot status={r.status} />
+            </div>
+          ))}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 
 export function PlaceholderPage({ title, description }: { title: string; description: string }) {
   return (
