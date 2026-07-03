@@ -3,23 +3,24 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useServerFn } from "@tanstack/react-start";
-import { signInWithEmployeePin } from "@/lib/employees.functions";
+import { signInWithPin, signInWithEmployeePin } from "@/lib/employees.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Delete, LogIn, Mail } from "lucide-react";
+import { Loader2, Delete, LogIn, Mail, KeyRound, ArrowLeft, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Search = { mode?: "email" | "keypad" };
+type Mode = "pin" | "email" | "pin_with_id";
+type Search = { mode?: Mode };
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign in — SEZA POS" },
-      { name: "description", content: "Sign in to your SEZA POS terminal with your 6-digit employee ID, or with email and password." },
+      { name: "description", content: "Sign in to your SEZA POS terminal with your 6-digit PIN." },
       { property: "og:title", content: "Sign in — SEZA POS" },
       { property: "og:description", content: "Sign in to your SEZA POS terminal." },
       { property: "og:url", content: "https://sezapos.com/auth" },
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/auth")({
     links: [{ rel: "canonical", href: "https://sezapos.com/auth" }],
   }),
   validateSearch: (s: Record<string, unknown>): Search => ({
-    mode: s.mode === "email" ? "email" : "keypad",
+    mode: s.mode === "email" ? "email" : s.mode === "pin_with_id" ? "pin_with_id" : "pin",
   }),
   component: AuthPage,
 });
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: "/auth" });
+  const [mode, setMode] = useState<Mode>(search.mode ?? "pin");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -43,8 +45,14 @@ function AuthPage() {
     });
   }, [navigate]);
 
+  const switchUser = async () => {
+    await supabase.auth.signOut();
+    setMode("pin");
+    toast.success("Ready for the next employee");
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface p-4">
+    <div className="min-h-screen relative flex items-center justify-center bg-surface p-4">
       <div className="w-full max-w-md">
         <Link to="/" className="flex items-center justify-center gap-2 mb-6">
           <div className="size-9 rounded-lg bg-primary grid place-items-center text-primary-foreground font-bold">V</div>
@@ -54,28 +62,34 @@ function AuthPage() {
         <h1 className="sr-only">Sign in to SEZA POS</h1>
 
         <Card>
-          <Tabs defaultValue={search.mode ?? "keypad"}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-center">Sign in to your terminal</CardTitle>
-              <CardDescription className="text-center">
-                Employees sign in with their 6-digit ID.
-              </CardDescription>
-            </CardHeader>
-            <div className="px-6">
-              <TabsList className="grid grid-cols-2 w-full">
-                <TabsTrigger value="keypad">Employee ID</TabsTrigger>
-                <TabsTrigger value="email">Email</TabsTrigger>
-              </TabsList>
-            </div>
-            <CardContent className="pt-4">
-              <TabsContent value="keypad" className="m-0">
-                <KeypadLogin />
-              </TabsContent>
-              <TabsContent value="email" className="m-0">
-                <EmailLogin />
-              </TabsContent>
-            </CardContent>
-          </Tabs>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-center">
+              {mode === "email" ? "Sign in with email" : "Enter your PIN"}
+            </CardTitle>
+            <CardDescription className="text-center">
+              {mode === "email"
+                ? "For owners, managers, and first-time device sign-in."
+                : mode === "pin_with_id"
+                  ? "More than one employee shares this PIN — please also enter your 6-digit Employee ID."
+                  : "Employees sign in with their 6-digit PIN."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {mode === "email" ? (
+              <EmailLogin onBack={() => setMode("pin")} />
+            ) : (
+              <PinLogin mode={mode} setMode={setMode} />
+            )}
+
+            {mode !== "email" && (
+              <div className="mt-4 pt-4 border-t space-y-2">
+                <Button variant="outline" className="w-full" onClick={() => setMode("email")}>
+                  <Mail className="size-4 mr-2" /> Sign in with Email
+                </Button>
+                <ForgotLoginLink />
+              </div>
+            )}
+          </CardContent>
           <div className="px-6 pb-6 -mt-2 text-center text-xs text-muted-foreground">
             New merchant?{" "}
             <Link to="/signup" className="text-primary hover:underline font-medium">
@@ -84,40 +98,49 @@ function AuthPage() {
           </div>
         </Card>
       </div>
+
+      <Button
+        onClick={switchUser}
+        variant="secondary"
+        className="fixed bottom-4 right-4 shadow-lg"
+        size="lg"
+      >
+        <ArrowLeftRight className="size-4 mr-2" /> Switch User
+      </Button>
     </div>
   );
 }
 
-/* ------------------------------- Keypad ------------------------------- */
+/* ------------------------------- PIN login ------------------------------- */
 
-function KeypadLogin() {
+function PinLogin({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }) {
   const navigate = useNavigate();
   const [empId, setEmpId] = useState("");
   const [pin, setPin] = useState("");
-  const [stage, setStage] = useState<"id" | "pin">("id");
   const [busy, setBusy] = useState(false);
-  const signIn = useServerFn(signInWithEmployeePin);
+  const signPin = useServerFn(signInWithPin);
+  const signPinId = useServerFn(signInWithEmployeePin);
+
+  // In pin_with_id mode, the ID is captured first, then the PIN.
+  const [stage, setStage] = useState<"id" | "pin">(mode === "pin_with_id" ? "id" : "pin");
+  useEffect(() => { setStage(mode === "pin_with_id" ? "id" : "pin"); }, [mode]);
 
   const active = stage === "id" ? empId : pin;
   const setActive = stage === "id" ? setEmpId : setPin;
   const label = stage === "id" ? "Employee ID" : "PIN";
 
-  const dots = useMemo(() => {
-    const len = 6;
-    return Array.from({ length: len }, (_, i) => i < active.length);
-  }, [active]);
+  const dots = useMemo(() => Array.from({ length: 6 }, (_, i) => i < active.length), [active]);
 
-  const press = (d: string) => {
-    if (active.length >= 6) return;
-    setActive(active + d);
-  };
+  const press = (d: string) => { if (active.length < 6) setActive(active + d); };
   const del = () => setActive(active.slice(0, -1));
   const clear = () => setActive("");
 
+  // Auto-advance ID -> PIN
   useEffect(() => {
-    if (stage === "id" && empId.length === 6) setStage("pin");
-  }, [empId, stage]);
+    if (mode === "pin_with_id" && stage === "id" && empId.length === 6) setStage("pin");
+  }, [empId, mode, stage]);
 
+  // Auto-submit when PIN is 6 digits
   useEffect(() => {
     if (stage !== "pin" || pin.length !== 6) return;
     void submit();
@@ -127,18 +150,26 @@ function KeypadLogin() {
   const submit = async () => {
     setBusy(true);
     try {
-      const { email, token_hash } = await signIn({ data: { employee_id: empId, pin } });
+      const result = mode === "pin_with_id"
+        ? await signPinId({ data: { employee_id: empId, pin } })
+        : await signPin({ data: { pin } });
       const { error } = await supabase.auth.verifyOtp({
-        email,
-        token_hash,
+        email: result.email,
+        token_hash: result.token_hash,
         type: "magiclink",
       });
       if (error) throw error;
       navigate({ to: "/pos", replace: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sign in failed");
-      setPin("");
-      setStage("pin");
+      const msg = err instanceof Error ? err.message : "Sign in failed";
+      if (msg.startsWith("MULTIPLE_MATCHES:")) {
+        toast.info(msg.slice("MULTIPLE_MATCHES:".length));
+        setMode("pin_with_id");
+        setPin(""); setEmpId("");
+      } else {
+        toast.error(msg);
+        setPin("");
+      }
     } finally {
       setBusy(false);
     }
@@ -155,7 +186,6 @@ function KeypadLogin() {
               className={cn(
                 "size-3.5 rounded-full border-2",
                 filled ? "bg-primary border-primary" : "border-muted-foreground/40",
-                stage === "pin" && filled ? "bg-primary" : "",
               )}
             />
           ))}
@@ -163,7 +193,11 @@ function KeypadLogin() {
         {stage === "id" && empId.length > 0 && (
           <div className="text-2xl font-mono tracking-widest">{empId.padEnd(6, "•")}</div>
         )}
-        {busy && <div className="mt-2 text-xs text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="size-3 animate-spin" />Signing you in…</div>}
+        {busy && (
+          <div className="mt-2 text-xs text-muted-foreground flex items-center justify-center gap-2">
+            <Loader2 className="size-3 animate-spin" />Signing you in…
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-2">
@@ -175,24 +209,15 @@ function KeypadLogin() {
         <KeyBtn onClick={del} disabled={busy} variant="ghost"><Delete className="size-5" /></KeyBtn>
       </div>
 
-      <div className="flex justify-between text-xs">
+      {mode === "pin_with_id" && stage === "pin" && (
         <button
           type="button"
-          className="text-muted-foreground hover:text-foreground"
-          onClick={() => { setStage("id"); setEmpId(""); setPin(""); }}
+          onClick={() => { setStage("id"); setPin(""); }}
+          className="text-xs text-primary hover:underline w-full text-center"
         >
-          Switch employee
+          Change Employee ID
         </button>
-        {stage === "pin" && (
-          <button
-            type="button"
-            className="text-primary hover:underline"
-            onClick={() => { setStage("id"); setPin(""); }}
-          >
-            Change ID
-          </button>
-        )}
-      </div>
+      )}
     </div>
   );
 }
@@ -220,7 +245,7 @@ function KeyBtn({
 
 /* ------------------------------ Email login --------------------------- */
 
-function EmailLogin() {
+function EmailLogin({ onBack }: { onBack: () => void }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -243,34 +268,25 @@ function EmailLogin() {
 
   const handleGoogle = async () => {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error(result.error.message ?? "Google sign-in failed");
-      setBusy(false);
-      return;
-    }
+    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+    if (result.error) { toast.error(result.error.message ?? "Google sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
     navigate({ to: "/pos", replace: true });
   };
 
   const handleApple = async () => {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("apple", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error(result.error.message ?? "Apple sign-in failed");
-      setBusy(false);
-      return;
-    }
+    const result = await lovable.auth.signInWithOAuth("apple", { redirect_uri: window.location.origin });
+    if (result.error) { toast.error(result.error.message ?? "Apple sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
     navigate({ to: "/pos", replace: true });
   };
 
   return (
     <div className="space-y-4">
+      <button type="button" onClick={onBack} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+        <ArrowLeft className="size-3" /> Back to PIN sign-in
+      </button>
       <Button type="button" variant="outline" className="w-full h-11" onClick={handleGoogle} disabled={busy}>
         <svg className="size-4 mr-2" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.83z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
         Continue with Google
@@ -298,9 +314,109 @@ function EmailLogin() {
           {busy ? <Loader2 className="size-4 animate-spin" /> : <><LogIn className="size-4 mr-2" />Sign in</>}
         </Button>
       </form>
-      <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
-        <Mail className="size-3" /> Employees sign in with email <strong>only on first login</strong>.
-      </p>
+      <ForgotLoginLink />
     </div>
+  );
+}
+
+/* ---------------------------- Forgot login --------------------------- */
+
+function ForgotLoginLink() {
+  const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"menu" | "password" | "username">("menu");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const reset = () => { setView("menu"); setEmail(""); };
+
+  const sendReset = async () => {
+    if (!email) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast.success("If that email exists, a reset link is on its way.");
+      setOpen(false); reset();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send reset email");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => { reset(); setOpen(true); }}
+        className="text-xs text-primary hover:underline w-full text-center block"
+      >
+        Forgot Username / Password?
+      </button>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
+        <DialogContent>
+          {view === "menu" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>What do you need help with?</DialogTitle>
+                <DialogDescription>Choose an option and we'll walk you through recovery.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 py-2">
+                <Button variant="outline" className="w-full justify-start h-auto py-3" onClick={() => setView("password")}>
+                  <KeyRound className="size-4 mr-3 shrink-0" />
+                  <div className="text-left">
+                    <div className="font-medium text-sm">I forgot my password</div>
+                    <div className="text-xs text-muted-foreground">We'll email you a reset link.</div>
+                  </div>
+                </Button>
+                <Button variant="outline" className="w-full justify-start h-auto py-3" onClick={() => setView("username")}>
+                  <Mail className="size-4 mr-3 shrink-0" />
+                  <div className="text-left">
+                    <div className="font-medium text-sm">I forgot my username (email)</div>
+                    <div className="text-xs text-muted-foreground">Ask your store owner to look it up.</div>
+                  </div>
+                </Button>
+              </div>
+            </>
+          )}
+          {view === "password" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Reset your password</DialogTitle>
+                <DialogDescription>Enter your account email. If it exists, we'll send a secure reset link.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-2">
+                <Label htmlFor="reset-email">Email</Label>
+                <Input id="reset-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setView("menu")}>Back</Button>
+                <Button onClick={sendReset} disabled={busy || !email}>
+                  {busy && <Loader2 className="size-4 animate-spin mr-2" />}Send reset link
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+          {view === "username" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Recover your username</DialogTitle>
+                <DialogDescription>Your username is the email address on your employee profile.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 py-2 text-sm text-muted-foreground">
+                <p>For security, we can't display employee emails here. Please ask your store owner or manager to open <strong>Settings → Employees</strong> and share your email with you.</p>
+                <p>If you are the store owner, use the email you registered with when you created this account.</p>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setView("menu")}>Back</Button>
+                <Button onClick={() => { setOpen(false); reset(); }}>Got it</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

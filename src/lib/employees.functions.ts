@@ -280,6 +280,53 @@ export const signInWithEmployeePin = createServerFn({ method: "POST" })
     };
   });
 
+/* --------------------- quick sign-in with PIN only --------------------- */
+
+// PIN-only sign-in. Scans active employees with a pin_hash and verifies
+// each with scrypt. Returns a magic-link token_hash for verifyOtp.
+// If multiple employees share the same PIN, the caller must fall back to
+// PIN + Employee ID mode.
+export const signInWithPin = createServerFn({ method: "POST" })
+  .inputValidator((data: { pin: string }) => data)
+  .handler(async ({ data }) => {
+    if (!/^\d{6}$/.test(data.pin)) throw new Error("PIN must be exactly 6 digits");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+
+    const { data: profiles, error } = await admin
+      .from("profiles")
+      .select("id, email, pin_hash, status")
+      .eq("status", "active")
+      .not("pin_hash", "is", null);
+
+    if (error) throw new Error(`Lookup failed: ${error.message}`);
+    if (!profiles || profiles.length === 0) throw new Error("Incorrect PIN");
+
+    const { verifyPin } = await import("./pin.server");
+    const matches = profiles.filter((p: { pin_hash: string }) =>
+      verifyPin(data.pin, p.pin_hash as string),
+    );
+    if (matches.length === 0) throw new Error("Incorrect PIN");
+    if (matches.length > 1) {
+      throw new Error("MULTIPLE_MATCHES:This PIN is used by more than one employee. Please also enter your 6-digit Employee ID.");
+    }
+    const profile = matches[0];
+    if (!profile.email) throw new Error("Employee has no email on file");
+
+    const { data: link, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
+      email: profile.email as string,
+    });
+    if (linkErr || !link.properties) throw new Error("Could not create session");
+
+    return {
+      email: profile.email as string,
+      token_hash: (link.properties as { hashed_token: string }).hashed_token,
+    };
+  });
+
 /* ---------------------- update employee (admin edit) ------------------- */
 
 export const updateEmployee = createServerFn({ method: "POST" })
