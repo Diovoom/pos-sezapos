@@ -6,7 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 export function usePaddleCheckout() {
   const [loading, setLoading] = useState(false);
 
-  const openCheckout = async (priceId: "starter_monthly" | "pro_monthly" | "business_monthly") => {
+  const openCheckout = async (
+    priceId: "starter_monthly" | "pro_monthly" | "business_monthly",
+    opts?: { successUrl?: string },
+  ) => {
     setLoading(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -24,7 +27,7 @@ export function usePaddleCheckout() {
         customData: { userId: user.id, environment: getPaddleEnvironment() },
         settings: {
           displayMode: "overlay",
-          successUrl: `${window.location.origin}/settings?checkout=success`,
+          successUrl: opts?.successUrl ?? `${window.location.origin}/settings?checkout=success`,
           allowLogout: false,
           variant: "one-page",
         },

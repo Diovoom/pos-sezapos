@@ -3,12 +3,13 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
 import { useSession } from "@/hooks/useSession";
+import { MarketingShell } from "@/components/marketing/MarketingShell";
 
 export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
       { title: "Pricing — SEZA POS" },
-      { name: "description", content: "Simple, transparent pricing for SEZA POS. Starter $29, Pro $59, Business $89. 14-day free trial, no credit card required." },
+      { name: "description", content: "Simple, transparent pricing for SEZA POS. Starter $29, Pro $59, Business $89. 14-day free trial with card on file." },
       { property: "og:title", content: "Pricing — SEZA POS" },
       { property: "og:description", content: "Three plans for retail businesses of every size. Start with a 14-day free trial." },
       { property: "og:type", content: "website" },
@@ -102,21 +103,12 @@ function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="font-bold text-lg">SEZA POS</Link>
-          <nav className="flex gap-4 text-sm">
-            <Link to="/auth" className="text-muted-foreground hover:text-foreground">Sign in</Link>
-          </nav>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-6 py-16">
+    <MarketingShell>
+      <section className="max-w-6xl mx-auto px-6 py-16">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold tracking-tight">Simple pricing for every store</h1>
           <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
-            Start with a 7-day free trial. No credit card required. Cancel anytime.
+            Start with a 14-day free trial. Card on file required to activate — you're only charged when the trial ends.
           </p>
         </div>
 
@@ -160,17 +152,10 @@ function PricingPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-8">
-          Payments are securely processed by Paddle, our Merchant of Record. Prices in USD.
+          Payments are securely processed by Paddle, our Merchant of Record. Prices in USD. Need something custom?{" "}
+          <Link to="/contact" className="text-primary hover:underline">Contact us</Link>.
         </p>
-      </main>
-
-      <footer className="border-t mt-16">
-        <div className="max-w-6xl mx-auto px-6 py-6 flex flex-wrap justify-center gap-6 text-xs text-muted-foreground">
-          <Link to="/terms">Terms</Link>
-          <Link to="/refund">Refund Policy</Link>
-          <Link to="/privacy">Privacy</Link>
-        </div>
-      </footer>
-    </div>
+      </section>
+    </MarketingShell>
   );
 }

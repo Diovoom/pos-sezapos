@@ -11,12 +11,17 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as SupportRouteImport } from './routes/support'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SelectPlanRouteImport } from './routes/select-plan'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RefundRouteImport } from './routes/refund'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as HardwareRouteImport } from './routes/hardware'
+import { Route as FeaturesRouteImport } from './routes/features'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -58,6 +63,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -66,6 +76,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SelectPlanRoute = SelectPlanRouteImport.update({
+  id: '/select-plan',
+  path: '/select-plan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -86,6 +101,21 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HardwareRoute = HardwareRouteImport.update({
+  id: '/hardware',
+  path: '/hardware',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeaturesRoute = FeaturesRouteImport.update({
+  id: '/features',
+  path: '/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -246,12 +276,17 @@ const ApiPublicPaymentsWebhookRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
+  '/features': typeof FeaturesRoute
+  '/hardware': typeof HardwareRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/select-plan': typeof SelectPlanRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/customers': typeof AuthenticatedCustomersRoute
@@ -285,12 +320,17 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
+  '/features': typeof FeaturesRoute
+  '/hardware': typeof HardwareRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/select-plan': typeof SelectPlanRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/customers': typeof AuthenticatedCustomersRoute
@@ -326,12 +366,17 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
+  '/features': typeof FeaturesRoute
+  '/hardware': typeof HardwareRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/select-plan': typeof SelectPlanRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRoute
@@ -367,12 +412,17 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/contact'
+    | '/features'
+    | '/hardware'
     | '/pricing'
     | '/privacy'
     | '/refund'
     | '/reset-password'
+    | '/select-plan'
     | '/signup'
     | '/sitemap.xml'
+    | '/support'
     | '/terms'
     | '/unsubscribe'
     | '/customers'
@@ -406,12 +456,17 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/contact'
+    | '/features'
+    | '/hardware'
     | '/pricing'
     | '/privacy'
     | '/refund'
     | '/reset-password'
+    | '/select-plan'
     | '/signup'
     | '/sitemap.xml'
+    | '/support'
     | '/terms'
     | '/unsubscribe'
     | '/customers'
@@ -446,12 +501,17 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/contact'
+    | '/features'
+    | '/hardware'
     | '/pricing'
     | '/privacy'
     | '/refund'
     | '/reset-password'
+    | '/select-plan'
     | '/signup'
     | '/sitemap.xml'
+    | '/support'
     | '/terms'
     | '/unsubscribe'
     | '/_authenticated/customers'
@@ -487,12 +547,17 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ContactRoute: typeof ContactRoute
+  FeaturesRoute: typeof FeaturesRoute
+  HardwareRoute: typeof HardwareRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   RefundRoute: typeof RefundRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SelectPlanRoute: typeof SelectPlanRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
@@ -523,6 +588,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -535,6 +607,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/select-plan': {
+      id: '/select-plan'
+      path: '/select-plan'
+      fullPath: '/select-plan'
+      preLoaderRoute: typeof SelectPlanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -563,6 +642,27 @@ declare module '@tanstack/react-router' {
       path: '/pricing'
       fullPath: '/pricing'
       preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hardware': {
+      id: '/hardware'
+      path: '/hardware'
+      fullPath: '/hardware'
+      preLoaderRoute: typeof HardwareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features': {
+      id: '/features'
+      path: '/features'
+      fullPath: '/features'
+      preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -837,12 +937,17 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ContactRoute: ContactRoute,
+  FeaturesRoute: FeaturesRoute,
+  HardwareRoute: HardwareRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   RefundRoute: RefundRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SelectPlanRoute: SelectPlanRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,

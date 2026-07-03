@@ -44,7 +44,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
-const NAV = [
+const NAV: { to: string; label: string; icon: any; search?: Record<string, string> }[] = [
   { to: "/pos", label: "Checkout", icon: ScanBarcode },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/sales", label: "Sales", icon: Receipt },
@@ -58,11 +58,21 @@ const NAV = [
   { to: "/register", label: "Register", icon: Wallet },
   { to: "/shifts", label: "Shifts", icon: Receipt },
   { to: "/reports", label: "Reports", icon: BarChart3 },
+  { to: "/settings", label: "Billing", icon: CreditCard, search: { section: "billing" } },
   { to: "/settings", label: "Settings", icon: Settings },
-] as const;
+];
+
+// Route locations that stringify to "path?key=value" for active-state matching.
+function locKey(to: string, search?: Record<string, string>) {
+  if (!search) return to;
+  const qs = new URLSearchParams(search).toString();
+  return qs ? `${to}?${qs}` : to;
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const location = useRouterState({ select: (s) => s.location });
+  const pathname = location.pathname;
+  const currentSection = (location.search as { section?: string })?.section;
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: me } = useMe();
@@ -104,11 +114,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav aria-label="Primary navigation" className="flex-1 p-2 space-y-0.5 overflow-y-auto">
           {NAV.map((item) => {
             const Icon = item.icon;
-            const active = pathname === item.to || (item.to !== "/pos" && pathname.startsWith(item.to));
+            const wantSection = item.search?.section;
+            let active: boolean;
+            if (item.to === "/settings") {
+              // Distinguish Billing (section=billing) from Settings (any other/none)
+              active = pathname === "/settings" && (wantSection ? currentSection === wantSection : currentSection !== "billing");
+            } else {
+              active = pathname === item.to || (item.to !== "/pos" && pathname.startsWith(item.to + "/"));
+            }
             return (
               <Link
-                key={item.to}
+                key={locKey(item.to, item.search)}
                 to={item.to}
+                search={item.search as any}
                 aria-label={item.label}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",

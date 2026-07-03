@@ -110,7 +110,7 @@ function SignupPage() {
         email: form.email,
         password: form.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/setup`,
+          emailRedirectTo: `${window.location.origin}/select-plan`,
           data: {
             business_name: form.businessName.trim(),
             full_name: form.fullName.trim(),
@@ -124,10 +124,10 @@ function SignupPage() {
       });
       if (error) throw error;
 
-      // If the project auto-confirms emails, there is a session immediately — send them in.
+      // If the project auto-confirms emails, there is a session immediately — send to plan selection.
       if (data.session) {
         toast.success("Welcome to SEZA POS!");
-        navigate({ to: "/pos", replace: true });
+        navigate({ to: "/select-plan", replace: true });
         return;
       }
       setSent(form.email);
