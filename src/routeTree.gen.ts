@@ -25,7 +25,9 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LegalIndexRouteImport } from './routes/legal.index'
 import { Route as RIdRouteImport } from './routes/r.$id'
+import { Route as LegalSlugRouteImport } from './routes/legal.$slug'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as AuthenticatedTimeclockRouteImport } from './routes/_authenticated/timeclock'
 import { Route as AuthenticatedShiftsRouteImport } from './routes/_authenticated/shifts'
@@ -132,9 +134,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalIndexRoute = LegalIndexRouteImport.update({
+  id: '/legal/',
+  path: '/legal/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RIdRoute = RIdRouteImport.update({
   id: '/r/$id',
   path: '/r/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalSlugRoute = LegalSlugRouteImport.update({
+  id: '/legal/$slug',
+  path: '/legal/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
@@ -306,7 +318,9 @@ export interface FileRoutesByFullPath {
   '/shifts': typeof AuthenticatedShiftsRoute
   '/timeclock': typeof AuthenticatedTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/legal/$slug': typeof LegalSlugRoute
   '/r/$id': typeof RIdRoute
+  '/legal/': typeof LegalIndexRoute
   '/employees/$id': typeof AuthenticatedEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
@@ -350,7 +364,9 @@ export interface FileRoutesByTo {
   '/shifts': typeof AuthenticatedShiftsRoute
   '/timeclock': typeof AuthenticatedTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/legal/$slug': typeof LegalSlugRoute
   '/r/$id': typeof RIdRoute
+  '/legal': typeof LegalIndexRoute
   '/employees/$id': typeof AuthenticatedEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
@@ -396,7 +412,9 @@ export interface FileRoutesById {
   '/_authenticated/shifts': typeof AuthenticatedShiftsRoute
   '/_authenticated/timeclock': typeof AuthenticatedTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/legal/$slug': typeof LegalSlugRoute
   '/r/$id': typeof RIdRoute
+  '/legal/': typeof LegalIndexRoute
   '/_authenticated/employees/$id': typeof AuthenticatedEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
@@ -442,7 +460,9 @@ export interface FileRouteTypes {
     | '/shifts'
     | '/timeclock'
     | '/email/unsubscribe'
+    | '/legal/$slug'
     | '/r/$id'
+    | '/legal/'
     | '/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
@@ -486,7 +506,9 @@ export interface FileRouteTypes {
     | '/shifts'
     | '/timeclock'
     | '/email/unsubscribe'
+    | '/legal/$slug'
     | '/r/$id'
+    | '/legal'
     | '/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
@@ -531,7 +553,9 @@ export interface FileRouteTypes {
     | '/_authenticated/shifts'
     | '/_authenticated/timeclock'
     | '/email/unsubscribe'
+    | '/legal/$slug'
     | '/r/$id'
+    | '/legal/'
     | '/_authenticated/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
@@ -561,7 +585,9 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
+  LegalSlugRoute: typeof LegalSlugRoute
   RIdRoute: typeof RIdRoute
+  LegalIndexRoute: typeof LegalIndexRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   LovableSmsSendRoute: typeof LovableSmsSendRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
@@ -686,11 +712,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal/': {
+      id: '/legal/'
+      path: '/legal'
+      fullPath: '/legal/'
+      preLoaderRoute: typeof LegalIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/r/$id': {
       id: '/r/$id'
       path: '/r/$id'
       fullPath: '/r/$id'
       preLoaderRoute: typeof RIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/$slug': {
+      id: '/legal/$slug'
+      path: '/legal/$slug'
+      fullPath: '/legal/$slug'
+      preLoaderRoute: typeof LegalSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/email/unsubscribe': {
@@ -951,7 +991,9 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
+  LegalSlugRoute: LegalSlugRoute,
   RIdRoute: RIdRoute,
+  LegalIndexRoute: LegalIndexRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   LovableSmsSendRoute: LovableSmsSendRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
