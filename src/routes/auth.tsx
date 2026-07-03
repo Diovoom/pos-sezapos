@@ -154,20 +154,35 @@ function PinLogin({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void })
         ? await signPinId({ data: { employee_id: empId, pin } })
         : await signPin({ data: { pin } });
       const { error } = await supabase.auth.verifyOtp({
-        email: result.email,
         token_hash: result.token_hash,
         type: "magiclink",
       });
       if (error) throw error;
       navigate({ to: "/pos", replace: true });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Sign in failed";
-      if (msg.startsWith("MULTIPLE_MATCHES:")) {
-        toast.info(msg.slice("MULTIPLE_MATCHES:".length));
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      if (rawMsg.startsWith("MULTIPLE_MATCHES:")) {
+        toast.info(rawMsg.slice("MULTIPLE_MATCHES:".length));
         setMode("pin_with_id");
         setPin(""); setEmpId("");
+      } else if (
+        rawMsg === "Incorrect PIN" ||
+        rawMsg === "PIN must be exactly 6 digits" ||
+        rawMsg === "Invalid PIN" ||
+        rawMsg === "Invalid employee ID"
+      ) {
+        toast.error("Invalid PIN. Please try again.");
+        setPin("");
+      } else if (rawMsg.includes("No PIN set")) {
+        toast.error("No PIN set for this account. Sign in with email first.");
+        setPin("");
+      } else if (rawMsg === "Account is disabled" || rawMsg === "No employee found with that ID" || rawMsg === "Employee has no email on file") {
+        toast.error(rawMsg);
+        setPin("");
       } else {
-        toast.error(msg);
+        // Log technical errors to the console, show a friendly message.
+        console.error("[PIN sign-in]", err);
+        toast.error("Sign in failed. Please try again.");
         setPin("");
       }
     } finally {
