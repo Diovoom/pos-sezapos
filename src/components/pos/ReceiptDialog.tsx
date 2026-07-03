@@ -25,14 +25,30 @@ export function ReceiptDialog({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [smsOpen, setSmsOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+
+  // Fetch SMS default country for the store when needed (owner/manager can read).
+  const { data: smsSettings } = useQuery({
+    queryKey: ["sms-settings-default-country"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("sms_settings")
+        .select("default_country, enabled")
+        .maybeSingle();
+      return data as { default_country: string; enabled: boolean } | null;
+    },
+    staleTime: 5 * 60_000,
+  });
+  const defaultCountry = ((smsSettings?.default_country as CountryCode) || "US") as CountryCode;
 
   // Reset panel state when dialog opens for a new receipt
   useEffect(() => {
     if (open) {
       setEmailOpen(false);
+      setSmsOpen(false);
       setEmail("");
       setSending(false);
       setSent(false);
