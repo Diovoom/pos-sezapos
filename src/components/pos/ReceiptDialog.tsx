@@ -1,12 +1,16 @@
 import { useRef, useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Printer, Mail, X, MessageSquare, Loader2, CheckCircle2 } from "lucide-react";
 import { Receipt, type ReceiptData } from "./Receipt";
+import { SmsReceiptPanel } from "./SmsReceiptPanel";
 import { toast } from "sonner";
 import { sendTransactionalEmail } from "@/lib/email/send";
+import { supabase } from "@/integrations/supabase/client";
+import type { CountryCode } from "libphonenumber-js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
