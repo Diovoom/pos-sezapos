@@ -70,7 +70,9 @@ function locKey(to: string, search?: Record<string, string>) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { pathname, searchStr } = useRouterState({
+    select: (s) => ({ pathname: s.location.pathname, searchStr: s.location.searchStr ?? "" }),
+  });
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: me } = useMe();
