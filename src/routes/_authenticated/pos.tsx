@@ -224,27 +224,35 @@ function PosPage() {
   // Sale is written ONLY after payment is confirmed.
   const finalize = useMutation({
     mutationFn: async (payment: CompletedPayment) => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not signed in");
+      // 1. Auth
+      const { data: u, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !u.user) {
+        throw new SaleError("auth", "Your session has expired. Please sign in again.", authErr);
+      }
 
       const terminalRef =
         payment.reference ||
         (payment.cardBrand && payment.last4 ? `${payment.cardBrand} ••${payment.last4}` : null);
 
-      // Attach to the currently-open register session for this store, if any.
+      // 2. Register session lookup (non-fatal)
       let registerSessionId: string | null = null;
       if (store?.id) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: rs } = await (supabase.from as any)("register_sessions")
-          .select("id")
-          .eq("store_id", store.id)
-          .eq("status", "open")
-          .order("opened_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        registerSessionId = rs?.id ?? null;
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: rs } = await (supabase.from as any)("register_sessions")
+            .select("id")
+            .eq("store_id", store.id)
+            .eq("status", "open")
+            .order("opened_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          registerSessionId = rs?.id ?? null;
+        } catch (err) {
+          console.warn("[sale] register session lookup failed (non-fatal):", err);
+        }
       }
 
+      // 3. Insert sale header
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: sale, error: saleErr } = await (supabase.from as any)("sales")
         .insert({
@@ -263,8 +271,15 @@ function PosPage() {
         })
         .select()
         .single();
-      if (saleErr) throw saleErr;
+      if (saleErr || !sale) {
+        throw new SaleError(
+          "sale_insert",
+          friendlyDbMessage(saleErr, "Unable to save sale. Please try again."),
+          saleErr,
+        );
+      }
 
+      // 4. Insert sale items — DB trigger decrements stock
       const items = cart.map((l) => ({
         sale_id: sale.id,
         product_id: l.product.id.startsWith("custom-") ? null : l.product.id,
@@ -274,7 +289,23 @@ function PosPage() {
         line_total: Math.round(l.product.price * l.qty * 100) / 100,
       }));
       const { error: itemsErr } = await supabase.from("sale_items").insert(items);
-      if (itemsErr) throw itemsErr;
+      if (itemsErr) {
+        // Roll back the sale header so we don't leave an orphan
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase.from as any)("sales").delete().eq("id", sale.id);
+        } catch (rollbackErr) {
+          console.error("[sale] rollback of sale header failed:", rollbackErr);
+        }
+        const isStock = /stock|inventory|negative/i.test(itemsErr.message ?? "");
+        throw new SaleError(
+          isStock ? "inventory" : "sale_items_insert",
+          isStock
+            ? "Inventory update failed. Please check stock levels and try again."
+            : friendlyDbMessage(itemsErr, "Unable to save sale items. Please try again."),
+          itemsErr,
+        );
+      }
       return { sale, payment };
     },
     onSuccess: ({ sale, payment }) => {
@@ -305,18 +336,32 @@ function PosPage() {
       setReceipt(rd);
       setReceiptOpen(true);
       toast.success(`Sale completed · ${fmtCurrency(total, currency)}`);
-      void import("@/lib/audit-log").then((m) => m.logAudit({
-        action: "sale.create", entity: "sale", entity_id: rd.transactionId,
-        details: { total, method: payment.method, items: cart.length },
-      }));
+      // Fire-and-forget: audit log failure must NOT cancel the sale.
+      void import("@/lib/audit-log")
+        .then((m) => m.logAudit({
+          action: "sale.create", entity: "sale", entity_id: rd.transactionId,
+          details: { total, method: payment.method, items: cart.length },
+        }))
+        .catch((err) => console.warn("[sale] audit log failed (non-fatal):", err));
       clearCart();
       setPayOpen(false);
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["products"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to record sale"),
+    onError: (e) => {
+      // Always log the real error for developers
+      console.error("[sale] finalize failed:", e);
+      const friendly = e instanceof SaleError
+        ? e.message
+        : "Unable to complete sale. Please try again.";
+      const detail = import.meta.env.DEV && e instanceof Error
+        ? (e instanceof SaleError && e.cause instanceof Error ? e.cause.message : e.message)
+        : undefined;
+      toast.error(friendly, detail ? { description: detail } : undefined);
+    },
   });
+
 
   const openPayment = () => {
     if (cart.length === 0) {
