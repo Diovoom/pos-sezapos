@@ -20,6 +20,7 @@ import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RIdRouteImport } from './routes/r.$id'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as AuthenticatedTimeclockRouteImport } from './routes/_authenticated/timeclock'
 import { Route as AuthenticatedShiftsRouteImport } from './routes/_authenticated/shifts'
@@ -37,6 +38,7 @@ import { Route as AuthenticatedInventoryRouteImport } from './routes/_authentica
 import { Route as AuthenticatedEmployeesRouteImport } from './routes/_authenticated/employees'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
+import { Route as LovableSmsSendRouteImport } from './routes/lovable/sms/send'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as AuthenticatedEmployeesIdRouteImport } from './routes/_authenticated/employees.$id'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
@@ -98,6 +100,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RIdRoute = RIdRouteImport.update({
+  id: '/r/$id',
+  path: '/r/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
@@ -185,6 +192,11 @@ const AuthenticatedCustomersRoute = AuthenticatedCustomersRouteImport.update({
   path: '/customers',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const LovableSmsSendRoute = LovableSmsSendRouteImport.update({
+  id: '/lovable/sms/send',
+  path: '/lovable/sms/send',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   id: '/lovable/email/suppression',
   path: '/lovable/email/suppression',
@@ -259,8 +271,10 @@ export interface FileRoutesByFullPath {
   '/shifts': typeof AuthenticatedShiftsRoute
   '/timeclock': typeof AuthenticatedTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/r/$id': typeof RIdRoute
   '/employees/$id': typeof AuthenticatedEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
+  '/lovable/sms/send': typeof LovableSmsSendRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -296,8 +310,10 @@ export interface FileRoutesByTo {
   '/shifts': typeof AuthenticatedShiftsRoute
   '/timeclock': typeof AuthenticatedTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/r/$id': typeof RIdRoute
   '/employees/$id': typeof AuthenticatedEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
+  '/lovable/sms/send': typeof LovableSmsSendRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -335,8 +351,10 @@ export interface FileRoutesById {
   '/_authenticated/shifts': typeof AuthenticatedShiftsRoute
   '/_authenticated/timeclock': typeof AuthenticatedTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/r/$id': typeof RIdRoute
   '/_authenticated/employees/$id': typeof AuthenticatedEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
+  '/lovable/sms/send': typeof LovableSmsSendRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -374,8 +392,10 @@ export interface FileRouteTypes {
     | '/shifts'
     | '/timeclock'
     | '/email/unsubscribe'
+    | '/r/$id'
     | '/employees/$id'
     | '/lovable/email/suppression'
+    | '/lovable/sms/send'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -411,8 +431,10 @@ export interface FileRouteTypes {
     | '/shifts'
     | '/timeclock'
     | '/email/unsubscribe'
+    | '/r/$id'
     | '/employees/$id'
     | '/lovable/email/suppression'
+    | '/lovable/sms/send'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -449,8 +471,10 @@ export interface FileRouteTypes {
     | '/_authenticated/shifts'
     | '/_authenticated/timeclock'
     | '/email/unsubscribe'
+    | '/r/$id'
     | '/_authenticated/employees/$id'
     | '/lovable/email/suppression'
+    | '/lovable/sms/send'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -472,7 +496,9 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
+  RIdRoute: typeof RIdRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
+  LovableSmsSendRoute: typeof LovableSmsSendRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -558,6 +584,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/r/$id': {
+      id: '/r/$id'
+      path: '/r/$id'
+      fullPath: '/r/$id'
+      preLoaderRoute: typeof RIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/email/unsubscribe': {
@@ -678,6 +711,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/customers'
       preLoaderRoute: typeof AuthenticatedCustomersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/lovable/sms/send': {
+      id: '/lovable/sms/send'
+      path: '/lovable/sms/send'
+      fullPath: '/lovable/sms/send'
+      preLoaderRoute: typeof LovableSmsSendRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/lovable/email/suppression': {
       id: '/lovable/email/suppression'
@@ -806,7 +846,9 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
+  RIdRoute: RIdRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
+  LovableSmsSendRoute: LovableSmsSendRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,

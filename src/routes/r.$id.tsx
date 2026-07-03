@@ -17,13 +17,16 @@ const receiptQuery = (id: string) =>
   });
 
 export const Route = createFileRoute("/r/$id")({
-  head: ({ loaderData }) => ({
-    meta: [
-      { title: loaderData ? `Receipt #${loaderData.receiptNumber} — ${loaderData.store.name ?? "Store"}` : "Receipt" },
-      { name: "description", content: "Your digital receipt." },
-      { name: "robots", content: "noindex, nofollow" },
-    ],
-  }),
+  head: ({ loaderData }) => {
+    const r = loaderData as { receiptNumber: string | number; store: { name: string | null } } | undefined;
+    return {
+      meta: [
+        { title: r ? `Receipt #${r.receiptNumber} — ${r.store.name ?? "Store"}` : "Receipt" },
+        { name: "description", content: "Your digital receipt." },
+        { name: "robots", content: "noindex, nofollow" },
+      ],
+    };
+  },
   loader: async ({ context, params }) => context.queryClient.ensureQueryData(receiptQuery(params.id)),
   component: PublicReceiptPage,
   errorComponent: () => (
