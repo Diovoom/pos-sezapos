@@ -412,18 +412,7 @@ function EmailSetupPanel() {
 }
 
 function SmsSetupPanel() {
-  return (
-    <Card className="max-w-2xl">
-      <CardHeader><CardTitle>SMS Setup</CardTitle><CardDescription>SMS receipts require a provider. Add your Twilio credentials to enable.</CardDescription></CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        <div className="rounded-md border p-3 flex items-center justify-between">
-          <span>Delivery status</span>
-          <Badge variant="outline">Not configured</Badge>
-        </div>
-        <p className="text-muted-foreground">Add <code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code>, and <code>TWILIO_FROM_NUMBER</code> as secrets to enable SMS receipts.</p>
-      </CardContent>
-    </Card>
-  );
+  return <SmsSettingsPanel />;
 }
 
 function TaxSetupPanel() {
