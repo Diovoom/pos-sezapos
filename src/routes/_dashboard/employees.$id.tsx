@@ -364,10 +364,11 @@ function EditDetailsCard({ profile, currentRole, isSelf, isOwner, canChangeRole,
         <div className="space-y-1"><Label>Hire date</Label><Input type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} /></div>
         <div className="space-y-1">
           <Label>Role</Label>
-          <Select value={role} onValueChange={(v) => setRole(v as typeof role)} disabled={isSelf && currentRole === "owner"}>
+          <Select value={role} onValueChange={(v) => setRole(v as typeof role)} disabled={!canChangeRole || (isSelf && currentRole === "owner")}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>{roleOptions.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
           </Select>
+          {!canChangeRole && <p className="text-[10px] text-muted-foreground">Only owners or admins can change roles.</p>}
           {isSelf && currentRole === "owner" && <p className="text-[10px] text-muted-foreground">You can't demote yourself from owner.</p>}
         </div>
         <div className="col-span-2 flex justify-end">
