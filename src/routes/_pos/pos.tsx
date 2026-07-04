@@ -52,7 +52,7 @@ function friendlyDbMessage(err: unknown, fallback: string): string {
 
 
 
-export const Route = createFileRoute("/_authenticated/pos")({
+export const Route = createFileRoute("/_pos/pos")({
   head: () => ({ meta: [{ title: "Checkout — SEZA POS" }, { name: "description", content: "Fast POS checkout with barcode scanning, custom items, discounts, and card + cash." }] }),
   component: PosPage,
 });

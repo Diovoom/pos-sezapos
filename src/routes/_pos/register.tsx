@@ -15,7 +15,7 @@ import { Loader2, Wallet, LockOpen, Lock, AlertTriangle } from "lucide-react";
 import { logAudit } from "@/lib/audit-log";
 import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
 
-export const Route = createFileRoute("/_authenticated/register")({
+export const Route = createFileRoute("/_pos/register")({
   head: () => ({ meta: [{ title: "Register — SEZA POS" }, { name: "description", content: "Open and close the cash register for the current shift with cash reconciliation." }] }),
   component: RegisterPage,
 });

@@ -28,7 +28,7 @@ import { ArrowLeft, Clock, DollarSign, RotateCcw, Loader2, Camera, KeyRound, Ref
 import { format } from "date-fns";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/employees/$id")({
+export const Route = createFileRoute("/_dashboard/employees/$id")({
   head: () => ({ meta: [{ title: "Employee — SEZA POS" }, { name: "description", content: "Manage employee profile, role, PIN, hourly wage, and time clock activity." }] }),
   component: EmployeeProfile,
 });

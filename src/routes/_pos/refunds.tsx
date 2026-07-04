@@ -20,7 +20,7 @@ import type { ReceiptData } from "@/components/pos/Receipt";
 import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 
-export const Route = createFileRoute("/_authenticated/refunds")({
+export const Route = createFileRoute("/_pos/refunds")({
   head: () => ({ meta: [{ title: "Refunds — SEZA POS" }, { name: "description", content: "Search sales by receipt number to refund, exchange, or void a transaction." }] }),
   component: RefundsPage,
 });

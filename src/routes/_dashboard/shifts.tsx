@@ -18,7 +18,7 @@ import { fmtCurrency } from "@/lib/format";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
 
-export const Route = createFileRoute("/_authenticated/shifts")({
+export const Route = createFileRoute("/_dashboard/shifts")({
   head: () => ({ meta: [{ title: "Shifts — SEZA POS" }, { name: "description", content: "Employee shifts from clock-in to clock-out, with register session reports." }] }),
   validateSearch: (s: Record<string, unknown>) => ({
     id: (s.id as string | undefined) ?? undefined,

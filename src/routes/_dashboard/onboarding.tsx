@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, KeyRound } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/onboarding")({
+export const Route = createFileRoute("/_dashboard/onboarding")({
   head: () => ({ meta: [{ title: "Set up your account — SEZA POS" }, { name: "description", content: "Complete your first-time SEZA POS sign-in and personalize your account." }] }),
   component: OnboardingPage,
 });

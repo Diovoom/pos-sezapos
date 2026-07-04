@@ -11,7 +11,7 @@ import { Printer } from "lucide-react";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
 
-export const Route = createFileRoute("/_authenticated/sales")({
+export const Route = createFileRoute("/_dashboard/sales")({
   head: () => ({ meta: [{ title: "Sales — SEZA POS" }, { name: "description", content: "Recent sales transactions, receipts, and payment details." }] }),
   component: SalesPage,
 });
