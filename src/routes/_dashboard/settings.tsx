@@ -34,6 +34,7 @@ import {
   loadAgeSettings, saveAgeSettings, AGE_CATEGORIES, DEFAULT_AGE_SETTINGS,
   type AgeVerificationSettings,
 } from "@/lib/age-verification";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   head: () => ({ meta: [{ title: "Settings — SEZA POS" }, { name: "description", content: "Store administration, hardware setup, inventory preferences, and billing." }] }),
