@@ -587,9 +587,17 @@ function PosPage() {
               {discount && (
                 <div className="flex justify-between text-sm text-success">
                   <button className="underline underline-offset-2" onClick={() => setDiscountOpen(true)}>
-                    Discount ({discount.mode === "percent" ? `${discount.value}%` : fmtCurrency(discount.value, currency)})
+                    Discount{discount.code ? ` (${discount.code})` : ""} ({discount.mode === "percent" ? `${discount.value}%` : fmtCurrency(discount.value, currency)})
                   </button>
-                  <span className="font-mono">− {fmtCurrency(discountAmount, currency)}</span>
+                  <span className="font-mono">− {fmtCurrency(manualDiscount, currency)}</span>
+                </div>
+              )}
+              {effectiveLoyaltyRedemption > 0 && (
+                <div className="flex justify-between text-sm text-success">
+                  <button className="underline underline-offset-2" onClick={() => setLoyaltyOpen(true)}>
+                    Loyalty redeem
+                  </button>
+                  <span className="font-mono">− {fmtCurrency(effectiveLoyaltyRedemption, currency)}</span>
                 </div>
               )}
               <Row label={`Tax (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(tax, currency)} />
