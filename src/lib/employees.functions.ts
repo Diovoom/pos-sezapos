@@ -173,7 +173,7 @@ export const resetEmployeeCredentials = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { user_id: string }) => data)
   .handler(async ({ data, context }) => {
-    await assertOwner(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const tempPassword = generateTempPassword();
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
