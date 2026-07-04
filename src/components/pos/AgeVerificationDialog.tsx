@@ -213,7 +213,25 @@ export function AgeVerificationDialog({
 
   const submitManual = async () => {
     if (!manualDob) return toast.error("Enter a date of birth");
-    if (settings.requireManagerForManual && !manualManagerOk) {
+    // Owners and managers who are currently signed in are trusted to enter
+    // a DOB manually without a second manager PIN prompt.
+    let trustedManager = manualManagerOk;
+    if (settings.requireManagerForManual && !trustedManager) {
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        if (u.user) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: roleRows } = await (supabase as any)
+            .from("user_roles").select("role").eq("user_id", u.user.id);
+          const roles = ((roleRows ?? []) as { role: string }[]).map((r) => r.role);
+          if (roles.some((r) => r === "owner" || r === "admin" || r === "manager")) {
+            trustedManager = { manager_id: u.user.id, manager_name: u.user.email ?? "manager" };
+            setManualManagerOk(trustedManager);
+          }
+        }
+      } catch { /* fall through to prompt */ }
+    }
+    if (settings.requireManagerForManual && !trustedManager) {
       setManagerOpen(true);
       return;
     }
@@ -222,18 +240,18 @@ export function AgeVerificationDialog({
     setMode("result");
     if (r.ok) {
       await finalize({
-        method: manualManagerOk ? "override" : "manual",
+        method: trustedManager ? "override" : "manual",
         minAge: requiredAge,
         ageYears: r.ageYears,
         dobIso: manualDob,
-        manager: manualManagerOk,
+        manager: trustedManager,
       });
     } else {
       await logEvent({
         method: "manual",
         result: r.reason === "underage" ? "underage" : "rejected",
         dobIso: manualDob,
-        manager: manualManagerOk,
+        manager: trustedManager,
       });
     }
   };

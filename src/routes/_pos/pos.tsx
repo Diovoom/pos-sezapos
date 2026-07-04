@@ -19,6 +19,10 @@ import { CustomItemDialog } from "@/components/pos/CustomItemDialog";
 import { DiscountDialog, type DiscountValue } from "@/components/pos/DiscountDialog";
 import { LoyaltyDialog, accrueLoyaltyPoints, spendLoyaltyPoints, type LoyaltyCustomer } from "@/components/pos/LoyaltyDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
+import { useMe } from "@/hooks/useMe";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { logAudit } from "@/lib/audit-log";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
@@ -107,8 +111,12 @@ function PosPage() {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [ageOpen, setAgeOpen] = useState(false);
   const [ageVerification, setAgeVerification] = useState<SuccessfulVerification | null>(null);
+  const [voidLine, setVoidLine] = useState<CartLine | null>(null);
+  const [voidReason, setVoidReason] = useState("");
   const ageSettings = useMemo(() => loadAgeSettings(), []);
   const searchRef = useRef<HTMLInputElement>(null);
+  const me = useMe();
+  const canManage = (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager");
 
   const { data: store } = useQuery({
     queryKey: ["store"],
@@ -492,8 +500,14 @@ function PosPage() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <Button variant="outline" className="h-10" onClick={() => setCustomOpen(true)}>
-                <Calculator className="size-4 mr-2" />Custom
+              <Button
+                variant="outline"
+                className="h-10"
+                onClick={() => setCustomOpen(true)}
+                disabled={!canManage}
+                title={canManage ? "Add a custom item" : "Owner or manager approval required"}
+              >
+                <Plus className="size-4 mr-2" />Add item
               </Button>
               <Button variant="outline" className="h-10" onClick={() => setDiscountOpen(true)}>
                 <Percent className="size-4 mr-2" />
@@ -564,13 +578,15 @@ function PosPage() {
                       <Button size="icon" variant="outline" className="size-6" onClick={() => setQty(line.product.id, line.qty + 1)}>
                         <Plus className="size-3" />
                       </Button>
-                      <button
-                        onClick={() => removeLine(line.product.id)}
-                        className="size-6 ml-1 grid place-items-center text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label="Remove"
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 ml-1 text-destructive hover:bg-destructive/10 text-[11px] font-semibold"
+                        onClick={() => { setVoidReason(""); setVoidLine(line); }}
+                        aria-label="Void item"
                       >
-                        <Trash2 className="size-3.5" />
-                      </button>
+                        <Trash2 className="size-3 mr-1" /> Void
+                      </Button>
                     </div>
                   </div>
                   <p className="text-sm font-mono font-semibold">
@@ -736,7 +752,57 @@ function PosPage() {
         redemption={loyaltyRedemption}
         onApply={(cust, amt) => { setLoyalty(cust); setLoyaltyRedemption(amt); }}
       />
+
+      <Dialog open={!!voidLine} onOpenChange={(v) => { if (!v) setVoidLine(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Void item</DialogTitle>
+            <DialogDescription>
+              Remove <span className="font-semibold text-foreground">{voidLine?.product.name}</span> from the current sale. This is recorded in the shift audit log.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="void-reason">Reason (optional)</Label>
+            <Input
+              id="void-reason"
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="e.g. customer changed mind, wrong scan"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVoidLine(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!voidLine) return;
+                const l = voidLine;
+                removeLine(l.product.id);
+                void logAudit({
+                  action: "sale.item.void",
+                  entity: "cart_line",
+                  entity_id: l.product.id,
+                  details: {
+                    product_name: l.product.name,
+                    qty: l.qty,
+                    unit_price: l.product.price,
+                    line_total: Math.round(l.product.price * l.qty * 100) / 100,
+                    reason: voidReason || null,
+                  },
+                });
+                toast.info(`Voided ${l.product.name}`);
+                setVoidLine(null);
+                setVoidReason("");
+              }}
+            >
+              Void item
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
+
 
   );
 }

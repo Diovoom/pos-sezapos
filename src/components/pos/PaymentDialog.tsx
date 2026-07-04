@@ -29,6 +29,7 @@ import {
   type PaymentResult,
   type PaymentStatus,
 } from "@/lib/pos/payment-terminal";
+import { ManagerOverrideDialog } from "@/components/pos/ManagerOverrideDialog";
 
 export type PaymentMethod =
   | "cash"
@@ -56,26 +57,49 @@ type Props = {
   onComplete: (p: CompletedPayment) => void;
 };
 
+// Once cash or card is selected we lock the payment flow — cashiers cannot
+// silently back out. A manager PIN is required to cancel. Cash panel handles
+// its own gate; TerminalPanel gates cancel unless the provider is missing.
 export function PaymentDialog({ open, onOpenChange, method, total, currency, onComplete }: Props) {
   const isCash = method === "cash";
+  const [managerOpen, setManagerOpen] = useState(false);
+  const requestCancel = () => setManagerOpen(true);
+  const approveCancel = () => { setManagerOpen(false); onOpenChange(false); };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onOpenChange(false)}>
-      <DialogContent className="sm:max-w-md p-0 overflow-hidden">
-        {isCash ? (
-          <CashPanel total={total} currency={currency} onComplete={onComplete} onCancel={() => onOpenChange(false)} />
-        ) : (
-          <TerminalPanel
-            key={String(open)}
-            method={method}
-            total={total}
-            currency={currency}
-            onComplete={onComplete}
-            onCancel={() => onOpenChange(false)}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          if (v) return;
+          requestCancel();
+        }}
+      >
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden" onEscapeKeyDown={(e) => e.preventDefault()}>
+          {isCash ? (
+            <CashPanel total={total} currency={currency} onComplete={onComplete} onCancel={requestCancel} />
+          ) : (
+            <TerminalPanel
+              key={String(open)}
+              method={method}
+              total={total}
+              currency={currency}
+              onComplete={onComplete}
+              onCancel={requestCancel}
+              onCancelNoApproval={() => onOpenChange(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+      <ManagerOverrideDialog
+        open={managerOpen}
+        onOpenChange={setManagerOpen}
+        action="payment.cancel"
+        description="A manager PIN is required to cancel this payment after tender selection."
+        details={{ method, amount: total, currency }}
+        onApprove={approveCancel}
+      />
+    </>
   );
 }
 
@@ -194,12 +218,17 @@ function TerminalPanel({
   currency,
   onComplete,
   onCancel,
+  onCancelNoApproval,
 }: {
   method: PaymentMethod;
   total: number;
   currency: string;
   onComplete: (p: CompletedPayment) => void;
   onCancel: () => void;
+  // Bypass manager approval only when the flow can't actually charge
+  // (e.g. no terminal connected). Approved sales and mid-charge cancels
+  // still go through onCancel.
+  onCancelNoApproval: () => void;
 }) {
   const provider = getActiveProvider();
   const [event, setEvent] = useState<PaymentEvent>({ status: "idle", message: "Ready" });
@@ -289,7 +318,7 @@ function TerminalPanel({
           </div>
         </div>
         <div className="p-4 border-t bg-surface/40 flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={onCancel}>
+          <Button variant="outline" className="flex-1" onClick={onCancelNoApproval}>
             Back to cart
           </Button>
           <Button asChild className="flex-1">
