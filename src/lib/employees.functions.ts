@@ -153,7 +153,7 @@ export const setEmployeeStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { user_id: string; status: "active" | "disabled" }) => data)
   .handler(async ({ data, context }) => {
-    await assertOwner(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
@@ -408,7 +408,7 @@ export const setEmployeeCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { user_id: string; employee_id: string }) => data)
   .handler(async ({ data, context }) => {
-    await assertOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
     if (!/^\d{6}$/.test(data.employee_id)) throw new Error("Employee ID must be 6 digits");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -424,7 +424,7 @@ export const regenerateEmployeeCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { user_id: string }) => data)
   .handler(async ({ data, context }) => {
-    await assertOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
@@ -450,7 +450,7 @@ export const adminResetPin = createServerFn({ method: "POST" })
     (data: { user_id: string; pin?: string | null; force_change?: boolean; clear?: boolean }) => data,
   )
   .handler(async ({ data, context }) => {
-    await assertOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
