@@ -669,16 +669,22 @@ function DangerZoneCard({ profile, isSelf, isOwner, onChanged, onDeleted }: {
 
 /* -------------------------- Attendance / Sales ------------------------- */
 
+type TimeEntryRow = { id: string; clock_in: string; clock_out: string | null; break_minutes: number; late?: boolean; late_minutes?: number };
+
 function AttendanceList({ userId }: { userId: string }) {
-  const { data = [], isLoading } = useQuery({
+  const me = useMe();
+  const canAdjust = (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager");
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState<TimeEntryRow | null>(null);
+  const { data = [], isLoading } = useQuery<TimeEntryRow[]>({
     queryKey: ["employee-time-list", userId],
     queryFn: async () => {
       const { data } = await sb.from("time_entries").select("*").eq("user_id", userId).order("clock_in", { ascending: false }).limit(50);
-      return data ?? [];
+      return (data ?? []) as TimeEntryRow[];
     },
   });
-  const lastIn = data.find((e: { clock_in: string }) => e.clock_in);
-  const lastOut = data.find((e: { clock_out: string | null }) => e.clock_out);
+  const lastIn = data.find((e) => e.clock_in);
+  const lastOut = data.find((e) => e.clock_out);
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">Attendance history</CardTitle>
@@ -686,24 +692,82 @@ function AttendanceList({ userId }: { userId: string }) {
       <CardContent className="p-0">
         {isLoading && <div className="p-6 text-center text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin inline mr-2" />Loading…</div>}
         {!isLoading && data.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No time entries yet.</div>}
-        {data.map((e: { id: string; clock_in: string; clock_out: string | null; break_minutes: number; late?: boolean; late_minutes?: number }) => {
+        {data.map((e) => {
           const inD = new Date(e.clock_in);
           const outD = e.clock_out ? new Date(e.clock_out) : null;
           const mins = outD ? Math.max(0, Math.round((outD.getTime() - inD.getTime()) / 60000) - (e.break_minutes ?? 0)) : null;
           return (
-            <div key={e.id} className="flex items-center justify-between px-4 py-2 border-b last:border-0 text-xs">
-              <div>
+            <div key={e.id} className="flex items-center justify-between px-4 py-2 border-b last:border-0 text-xs gap-2">
+              <div className="min-w-0">
                 <div className="font-medium flex items-center gap-2">{format(inD, "EEE, MMM d")}
                   {e.late && <Badge variant="outline" className="border-warning text-warning">Late {e.late_minutes}m</Badge>}
                 </div>
-                <div className="text-muted-foreground">{format(inD, "p")} – {outD ? format(outD, "p") : <span className="text-primary">Clocked in</span>}</div>
+                <div className="text-muted-foreground">{format(inD, "p")} – {outD ? format(outD, "p") : <span className="text-primary">Clocked in</span>}{e.break_minutes ? ` · ${e.break_minutes}m break` : ""}</div>
               </div>
-              <div className="text-right font-mono">{mins != null ? `${(mins / 60).toFixed(2)} h` : "—"}</div>
+              <div className="flex items-center gap-2">
+                <div className="text-right font-mono">{mins != null ? `${(mins / 60).toFixed(2)} h` : "—"}</div>
+                {canAdjust && (
+                  <Button size="sm" variant="outline" onClick={() => setEditing(e)}>Adjust</Button>
+                )}
+              </div>
             </div>
           );
         })}
       </CardContent>
+      {editing && (
+        <TimeEntryEditDialog
+          entry={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); qc.invalidateQueries({ queryKey: ["employee-time-list", userId] }); qc.invalidateQueries({ queryKey: ["employee-hours-agg", userId] }); }}
+        />
+      )}
     </Card>
+  );
+}
+
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function TimeEntryEditDialog({ entry, onClose, onSaved }: { entry: TimeEntryRow; onClose: () => void; onSaved: () => void }) {
+  const adjust = useServerFn(adjustTimeEntry);
+  const [clockIn, setClockIn] = useState(toLocalInput(entry.clock_in));
+  const [clockOut, setClockOut] = useState(toLocalInput(entry.clock_out));
+  const [breakMin, setBreakMin] = useState(String(entry.break_minutes ?? 0));
+  const [note, setNote] = useState("");
+  const m = useMutation({
+    mutationFn: async () => adjust({ data: {
+      entry_id: entry.id,
+      clock_in: new Date(clockIn).toISOString(),
+      clock_out: clockOut ? new Date(clockOut).toISOString() : null,
+      break_minutes: Number(breakMin) || 0,
+      note: note || undefined,
+    } }),
+    onSuccess: () => { toast.success("Time entry adjusted"); onSaved(); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Adjust time entry</DialogTitle>
+          <DialogDescription>Correct clock-in/out or break for this shift. This is logged for audit.</DialogDescription></DialogHeader>
+        <div className="grid gap-3">
+          <div className="space-y-1"><Label>Clock in</Label><Input type="datetime-local" value={clockIn} onChange={(e) => setClockIn(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Clock out</Label><Input type="datetime-local" value={clockOut} onChange={(e) => setClockOut(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Break (minutes)</Label><Input type="number" min="0" value={breakMin} onChange={(e) => setBreakMin(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Reason / note</Label><Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. forgot to clock out" /></div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => m.mutate()} disabled={m.isPending || !clockIn}>
+            {m.isPending && <Loader2 className="size-4 animate-spin mr-2" />}Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
