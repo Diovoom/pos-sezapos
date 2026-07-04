@@ -516,6 +516,7 @@ function PinCard({ profile, onChanged }: { profile: Profile; onChanged: () => vo
 
 function PayScheduleCard({ userId }: { userId: string }) {
   const qc = useQueryClient();
+  const savePay = useServerFn(updateEmployeePay);
   const { data } = useQuery({
     queryKey: ["employee-pay", userId],
     queryFn: async () => {
@@ -541,16 +542,13 @@ function PayScheduleCard({ userId }: { userId: string }) {
     setThreshold(String(data.late_threshold_minutes ?? 5));
   }, [data]);
   const save = useMutation({
-    mutationFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from as any)("profiles").update({
-        hourly_wage: wage === "" ? null : Number(wage),
-        scheduled_start_time: start || null,
-        scheduled_end_time: end || null,
-        late_threshold_minutes: Number(threshold) || 5,
-      }).eq("id", userId);
-      if (error) throw error;
-    },
+    mutationFn: async () => savePay({ data: {
+      user_id: userId,
+      hourly_wage: wage === "" ? null : Number(wage),
+      scheduled_start_time: start || null,
+      scheduled_end_time: end || null,
+      late_threshold_minutes: Number(threshold) || 5,
+    } }),
     onSuccess: () => {
       toast.success("Pay & schedule saved");
       qc.invalidateQueries({ queryKey: ["employee-pay", userId] });
