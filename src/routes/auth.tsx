@@ -64,7 +64,7 @@ function AuthPage() {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) return;
       const dest = await landingRouteForUser(data.session.user.id);
-      navigate({ to: dest, replace: true });
+      goToLanding(navigate, dest);
     });
   }, [navigate]);
 
@@ -181,7 +181,7 @@ function PinLogin({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void })
         type: "magiclink",
       });
       if (error) throw error;
-      navigate({ to: "/pos", replace: true });
+      goToLanding(navigate, "/pos");
     } catch (err) {
       const rawMsg = err instanceof Error ? err.message : String(err);
       if (rawMsg.startsWith("MULTIPLE_MATCHES:")) {
@@ -297,7 +297,7 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
       if (error) throw error;
       void import("@/lib/audit-log").then((m) => m.logAudit({ action: "login", details: { method: "password" } }));
       const dest = signIn.user ? await landingRouteForUser(signIn.user.id) : "/pos";
-      navigate({ to: dest, replace: true });
+      goToLanding(navigate, dest);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sign in failed");
     } finally {
@@ -311,7 +311,7 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
     if (result.error) { toast.error(result.error.message ?? "Google sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
     const { data: u } = await supabase.auth.getUser();
-    navigate({ to: u.user ? await landingRouteForUser(u.user.id) : "/pos", replace: true });
+    goToLanding(navigate, u.user ? await landingRouteForUser(u.user.id) : "/pos");
   };
 
   const handleApple = async () => {
