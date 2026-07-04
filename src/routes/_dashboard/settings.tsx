@@ -102,25 +102,14 @@ const GROUPS: Group[] = [
   },
   {
     id: "setup",
-    label: "Setup",
+    label: "Store Setup",
     items: [
       { id: "general", label: "Store Information", icon: Building2 },
-      { id: "employees", label: "Labor / Employees", icon: Users },
+      { id: "receipt", label: "Receipt", icon: ReceiptIcon },
+      { id: "hardware_setup", label: "Hardware Setup", icon: HardDrive },
+      { id: "employees", label: "Employees", icon: Users },
       { id: "roles", label: "Roles & Permissions", icon: Shield },
       { id: "inventory", label: "Menu / Inventory", icon: Package },
-      { id: "suppliers", label: "Suppliers", icon: Truck },
-      { id: "customers", label: "Loyalty", icon: Heart },
-      { id: "discounts", label: "Discounts", icon: Percent },
-      { id: "refunds", label: "Refunds", icon: RotateCcw },
-      { id: "printer", label: "Printer Setup", icon: Printer },
-      { id: "scanner", label: "Barcode Scanner", icon: Scan },
-      { id: "camera", label: "Camera Scanner", icon: Camera },
-      { id: "drawer", label: "Cash Drawer Setup", icon: DollarSign },
-      { id: "display", label: "Customer Display", icon: Monitor },
-      { id: "setup_receipt", label: "Receipt Setup", icon: ReceiptIcon },
-      { id: "setup_email", label: "Email Setup", icon: MessageSquare },
-      { id: "setup_sms", label: "SMS Setup", icon: MessageSquare },
-      { id: "setup_tax", label: "Tax Setup", icon: Percent },
       { id: "age", label: "Age Verification", icon: ShieldAlert },
       { id: "notifications", label: "Notifications", icon: Bell },
       { id: "security", label: "Security", icon: Lock },
@@ -203,46 +192,25 @@ function SettingsPage() {
             <TabsContent value="employees" className="mt-0"><EmployeesPanel /></TabsContent>
             <TabsContent value="roles" className="mt-0"><RolePermissionsPanel canEdit={canEditRoles} /></TabsContent>
             <TabsContent value="terminal" className="mt-0"><TerminalPanel /></TabsContent>
-            <TabsContent value="printer" className="mt-0">
-              <HardwareCard kind="printer" title="Receipt Printer" description="Connect a thermal receipt printer via USB, Bluetooth, or Serial." transports={["usb", "bluetooth", "serial"]} />
-              <ReceiptPreferences />
-            </TabsContent>
-            <TabsContent value="setup_receipt" className="mt-0"><ReceiptPreferences /></TabsContent>
-            <TabsContent value="scanner" className="mt-0">
-              <HardwareCard kind="scanner" title="Barcode Scanner" description="USB or Bluetooth HID scanner. Most keyboard-emulating scanners work automatically without pairing." transports={["usb", "bluetooth", "hid"]} />
-              <ScannerPreferences />
-            </TabsContent>
-            <TabsContent value="camera" className="mt-0"><CameraPanel /></TabsContent>
-            <TabsContent value="drawer" className="mt-0">
-              <HardwareCard kind="drawer" title="Cash Drawer" description="Serial or USB cash drawer. Opens automatically after cash payments." transports={["usb", "serial"]} />
-            </TabsContent>
-            <TabsContent value="cash_drawers" className="mt-0">
-              <HardwareCard kind="drawer" title="Cash Drawers" description="Connected cash drawers for this terminal." transports={["usb", "serial"]} />
-            </TabsContent>
-            <TabsContent value="display" className="mt-0"><CustomerDisplayPanel /></TabsContent>
+            <TabsContent value="receipt" className="mt-0"><UnifiedReceiptPanel /></TabsContent>
+            <TabsContent value="hardware_setup" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            {/* Legacy deep-links still supported */}
+            <TabsContent value="printer" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            <TabsContent value="scanner" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            <TabsContent value="camera" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            <TabsContent value="drawer" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            <TabsContent value="cash_drawers" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            <TabsContent value="display" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            <TabsContent value="setup_receipt" className="mt-0"><UnifiedReceiptPanel /></TabsContent>
+            <TabsContent value="setup_email" className="mt-0"><UnifiedReceiptPanel /></TabsContent>
+            <TabsContent value="setup_sms" className="mt-0"><UnifiedReceiptPanel /></TabsContent>
+            <TabsContent value="setup_tax" className="mt-0"><GeneralPanel canEdit={canEditSettings} /></TabsContent>
             <TabsContent value="inventory" className="mt-0"><PrefPanel prefKey="inventory" title="Menu & Inventory" desc="Low stock alerts, auto-reorder, expiration, and tracking preferences." fields={[
               { k: "low_stock_threshold", label: "Low stock threshold", type: "number", default: "5" },
               { k: "auto_reorder", label: "Enable auto-reorder suggestions", type: "switch", default: "true" },
               { k: "expiration_alerts", label: "Expiration alerts", type: "switch", default: "false" },
               { k: "lot_tracking", label: "Lot tracking", type: "switch", default: "false" },
               { k: "waste_tracking", label: "Waste tracking", type: "switch", default: "false" },
-            ]} /></TabsContent>
-            <TabsContent value="suppliers" className="mt-0"><ComingSoon title="Suppliers" desc="Supplier profiles, purchase orders, and automatic reordering." /></TabsContent>
-            <TabsContent value="customers" className="mt-0"><PrefPanel prefKey="customers" title="Loyalty & customers" desc="Loyalty program and reward defaults." fields={[
-              { k: "loyalty_enabled", label: "Enable loyalty program", type: "switch", default: "false" },
-              { k: "points_per_dollar", label: "Points per dollar", type: "number", default: "1" },
-              { k: "birthday_reward", label: "Birthday reward ($)", type: "number", default: "5" },
-            ]} /></TabsContent>
-            <TabsContent value="discounts" className="mt-0"><PrefPanel prefKey="discounts" title="Discounts" desc="Discount limits and approval thresholds." fields={[
-              { k: "cashier_max_pct", label: "Cashier max discount (%)", type: "number", default: "10" },
-              { k: "manager_approval_pct", label: "Manager approval required above (%)", type: "number", default: "15" },
-              { k: "employee_discount_pct", label: "Employee discount (%)", type: "number", default: "20" },
-            ]} /></TabsContent>
-            <TabsContent value="refunds" className="mt-0"><PrefPanel prefKey="refunds" title="Refunds" desc="Refund reasons, approvals, and limits." fields={[
-              { k: "manager_approval", label: "Require manager approval for refunds", type: "switch", default: "true" },
-              { k: "auto_restock", label: "Automatically restock refunded items", type: "switch", default: "true" },
-              { k: "max_refund_days", label: "Max refund window (days)", type: "number", default: "30" },
-              { k: "reasons", label: "Refund reasons (comma separated)", type: "text", default: "Defective, Wrong item, Customer changed mind, Duplicate charge" },
             ]} /></TabsContent>
             <TabsContent value="register" className="mt-0"><PrefPanel prefKey="register" title="Cash payouts, deposits & register" desc="Cash drawer float, payouts, deposits, and close-of-day rules." fields={[
               { k: "default_float", label: "Starting float ($)", type: "number", default: "100" },
@@ -277,9 +245,7 @@ function SettingsPage() {
             <TabsContent value="integrations" className="mt-0"><IntegrationsPanel /></TabsContent>
             <TabsContent value="appearance" className="mt-0"><AppearancePanel /></TabsContent>
             <TabsContent value="about" className="mt-0"><AboutPanel /></TabsContent>
-            <TabsContent value="setup_email" className="mt-0"><EmailSetupPanel /></TabsContent>
-            <TabsContent value="setup_sms" className="mt-0"><SmsSetupPanel /></TabsContent>
-            <TabsContent value="setup_tax" className="mt-0"><TaxSetupPanel /></TabsContent>
+            {/* setup_email, setup_sms, setup_tax handled above via unified panels */}
             <TabsContent value="account_pin" className="mt-0"><ChangePinPanel /></TabsContent>
             <TabsContent value="account_password" className="mt-0"><ChangePasswordPanel /></TabsContent>
             <TabsContent value="account_profile" className="mt-0"><ProfilePanel /></TabsContent>
@@ -646,6 +612,113 @@ function PrefPanel({ prefKey, title, desc, fields }: { prefKey: string; title: s
         <Button onClick={save}>Save {title.toLowerCase()}</Button>
       </CardContent>
     </Card>
+  );
+}
+
+/* ================= Unified panels ================= */
+
+function UnifiedReceiptPanel() {
+  return (
+    <div className="space-y-4 max-w-3xl">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ReceiptIcon className="size-5" /> Receipt</CardTitle>
+          <CardDescription>
+            One place for every receipt setting — paper/printer format, logo and footer, numbering, layout, and email
+            & SMS delivery to customers.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      <HardwareCard
+        kind="printer"
+        title="Receipt printer"
+        description="Connect a thermal receipt printer via USB, Bluetooth, or Serial. Used for auto-print after each sale."
+        transports={["usb", "bluetooth", "serial"]}
+      />
+
+      <ReceiptPreferences />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Email receipts</CardTitle>
+          <CardDescription>Transactional receipts sent from your store address through Lovable Cloud.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="rounded-md border p-3 flex items-center justify-between">
+            <span>Delivery status</span>
+            <Badge variant="outline" className="bg-success/15 text-success border-success/30">Active</Badge>
+          </div>
+          <p className="text-muted-foreground">
+            To customize the sender domain (for example, receipts.yourdomain.com), open the Email domain settings from
+            the Backend view.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>SMS receipts</CardTitle>
+          <CardDescription>Text a receipt link straight to the customer's phone.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SmsSettingsPanel />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function UnifiedHardwarePanel() {
+  return (
+    <div className="space-y-4 max-w-4xl">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><HardDrive className="size-5" /> Hardware Setup</CardTitle>
+          <CardDescription>
+            Pair, test, and manage every device connected to this terminal: receipt printer, barcode scanner, camera
+            scanner, cash drawer, and customer display.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <HardwareCard
+          kind="printer"
+          title="Receipt printer"
+          description="Thermal receipt printer via USB, Bluetooth, or Serial."
+          transports={["usb", "bluetooth", "serial"]}
+        />
+        <HardwareCard
+          kind="scanner"
+          title="Barcode scanner"
+          description="USB or Bluetooth HID scanner. Most keyboard-emulating scanners work automatically without pairing."
+          transports={["usb", "bluetooth", "hid"]}
+        />
+        <HardwareCard
+          kind="drawer"
+          title="Cash drawer"
+          description="Serial or USB cash drawer. Opens automatically after cash payments."
+          transports={["usb", "serial"]}
+        />
+        <HardwareCard
+          kind="display"
+          title="Customer display"
+          description="Second-screen or tablet display for customers to see the cart, tax, and total."
+          transports={["usb", "hid"]}
+        />
+        <HardwareCard
+          kind="terminal"
+          title="Payment terminal (transport)"
+          description="For non-cloud terminals connected directly (Serial, USB HID, Bluetooth)."
+          transports={["usb", "bluetooth", "serial", "hid"]}
+        />
+      </div>
+
+      <CameraPanel />
+      <ScannerPreferences />
+      <CustomerDisplayPanel />
+    </div>
   );
 }
 

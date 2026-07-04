@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/pos/AppShell";
 import { fmtCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2, Camera, Calculator, Percent } from "lucide-react";
+import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2, Camera, Calculator, Percent, Heart, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { PaymentDialog, type CompletedPayment, type PaymentMethod } from "@/components/pos/PaymentDialog";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
@@ -17,6 +17,7 @@ import { loadAgeSettings } from "@/lib/age-verification";
 import { useProductImageUrl } from "@/lib/pos/product-images";
 import { CustomItemDialog } from "@/components/pos/CustomItemDialog";
 import { DiscountDialog, type DiscountValue } from "@/components/pos/DiscountDialog";
+import { LoyaltyDialog, accrueLoyaltyPoints, spendLoyaltyPoints, type LoyaltyCustomer } from "@/components/pos/LoyaltyDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
@@ -96,6 +97,9 @@ function PosPage() {
   const [customOpen, setCustomOpen] = useState(false);
   const [discountOpen, setDiscountOpen] = useState(false);
   const [discount, setDiscount] = useState<DiscountValue | null>(null);
+  const [loyaltyOpen, setLoyaltyOpen] = useState(false);
+  const [loyalty, setLoyalty] = useState<LoyaltyCustomer | null>(null);
+  const [loyaltyRedemption, setLoyaltyRedemption] = useState(0);
 
   const [tender, setTender] = useState<PaymentMethod>("card");
   const [payOpen, setPayOpen] = useState(false);
@@ -197,7 +201,7 @@ function PosPage() {
     setCart((cur) => cur.map((l) => (l.product.id === id ? { ...l, qty } : l)));
   };
   const removeLine = (id: string) => setCart((cur) => cur.filter((l) => l.product.id !== id));
-  const clearCart = () => { setCart([]); setAgeVerification(null); setDiscount(null); };
+  const clearCart = () => { setCart([]); setAgeVerification(null); setDiscount(null); setLoyalty(null); setLoyaltyRedemption(0); };
 
   const addCustomItem = (item: { name: string; price: number; taxable: boolean }) => {
     const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -242,16 +246,19 @@ function PosPage() {
   };
 
   const subtotal = Math.round(cart.reduce((s, l) => s + l.product.price * l.qty, 0) * 100) / 100;
-  const discountAmount = !discount
+  const manualDiscount = !discount
     ? 0
     : discount.mode === "percent"
       ? Math.min(subtotal, Math.round(subtotal * discount.value) / 100)
       : Math.min(subtotal, Math.round(discount.value * 100) / 100);
+  const effectiveLoyaltyRedemption = Math.min(Math.max(0, subtotal - manualDiscount), loyaltyRedemption);
+  const discountAmount = Math.round((manualDiscount + effectiveLoyaltyRedemption) * 100) / 100;
   const discountRatio = subtotal > 0 ? discountAmount / subtotal : 0;
   const taxableBase = cart.reduce((s, l) => s + (l.product.taxable ? l.product.price * l.qty : 0), 0);
   const taxableAfterDiscount = Math.max(0, taxableBase * (1 - discountRatio));
   const tax = Math.round(taxableAfterDiscount * taxRate * 100) / 100;
   const total = Math.max(0, Math.round((subtotal - discountAmount + tax) * 100) / 100);
+  const loyaltyEarn = loyalty ? Math.floor(Math.max(0, subtotal - discountAmount)) : 0;
 
   // Sale is written ONLY after payment is confirmed.
   const finalize = useMutation({
@@ -368,6 +375,15 @@ function PosPage() {
       setReceipt(rd);
       setReceiptOpen(true);
       toast.success(`Sale completed · ${fmtCurrency(total, currency)}`);
+      if (loyalty) {
+        if (effectiveLoyaltyRedemption > 0) {
+          spendLoyaltyPoints(loyalty.identifier, Math.round(effectiveLoyaltyRedemption * 100));
+        }
+        if (loyaltyEarn > 0) {
+          accrueLoyaltyPoints(loyalty.identifier, loyaltyEarn);
+          toast.info(`+${loyaltyEarn} loyalty points earned`);
+        }
+      }
       // Fire-and-forget: audit log failure must NOT cancel the sale.
       void import("@/lib/audit-log")
         .then((m) => m.logAudit({
@@ -475,13 +491,20 @@ function PosPage() {
               ))}
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" className="h-10 flex-1" onClick={() => setCustomOpen(true)}>
-                <Calculator className="size-4 mr-2" />Add Custom Item
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <Button variant="outline" className="h-10" onClick={() => setCustomOpen(true)}>
+                <Calculator className="size-4 mr-2" />Custom
               </Button>
-              <Button variant="outline" className="h-10 flex-1" onClick={() => setDiscountOpen(true)}>
+              <Button variant="outline" className="h-10" onClick={() => setDiscountOpen(true)}>
                 <Percent className="size-4 mr-2" />
-                {discount ? "Edit discount" : "Add discount"}
+                {discount ? "Edit discount" : "Discount"}
+              </Button>
+              <Button variant="outline" className="h-10" onClick={() => setLoyaltyOpen(true)}>
+                <Heart className="size-4 mr-2" />
+                {loyalty ? "Loyalty ✓" : "Loyalty"}
+              </Button>
+              <Button variant="outline" className="h-10" asChild>
+                <Link to="/refunds"><RotateCcw className="size-4 mr-2" />Refund</Link>
               </Button>
             </div>
           </div>
@@ -564,9 +587,17 @@ function PosPage() {
               {discount && (
                 <div className="flex justify-between text-sm text-success">
                   <button className="underline underline-offset-2" onClick={() => setDiscountOpen(true)}>
-                    Discount ({discount.mode === "percent" ? `${discount.value}%` : fmtCurrency(discount.value, currency)})
+                    Discount{discount.code ? ` (${discount.code})` : ""} ({discount.mode === "percent" ? `${discount.value}%` : fmtCurrency(discount.value, currency)})
                   </button>
-                  <span className="font-mono">− {fmtCurrency(discountAmount, currency)}</span>
+                  <span className="font-mono">− {fmtCurrency(manualDiscount, currency)}</span>
+                </div>
+              )}
+              {effectiveLoyaltyRedemption > 0 && (
+                <div className="flex justify-between text-sm text-success">
+                  <button className="underline underline-offset-2" onClick={() => setLoyaltyOpen(true)}>
+                    Loyalty redeem
+                  </button>
+                  <span className="font-mono">− {fmtCurrency(effectiveLoyaltyRedemption, currency)}</span>
                 </div>
               )}
               <Row label={`Tax (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(tax, currency)} />
@@ -574,6 +605,12 @@ function PosPage() {
                 <span>Total</span>
                 <span className="font-mono">{fmtCurrency(total, currency)}</span>
               </div>
+              {loyalty && loyaltyEarn > 0 && (
+                <div className="flex justify-between text-[11px] text-muted-foreground">
+                  <span>Loyalty · {loyalty.identifier}</span>
+                  <span>+{loyaltyEarn} pts</span>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-2 mb-3">
@@ -688,6 +725,16 @@ function PosPage() {
         currency={currency}
         current={discount}
         onApply={setDiscount}
+      />
+
+      <LoyaltyDialog
+        open={loyaltyOpen}
+        onOpenChange={setLoyaltyOpen}
+        subtotal={Math.max(0, subtotal - manualDiscount)}
+        currency={currency}
+        current={loyalty}
+        redemption={loyaltyRedemption}
+        onApply={(cust, amt) => { setLoyalty(cust); setLoyaltyRedemption(amt); }}
       />
     </>
 
