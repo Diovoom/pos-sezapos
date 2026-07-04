@@ -500,8 +500,14 @@ function PosPage() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <Button variant="outline" className="h-10" onClick={() => setCustomOpen(true)}>
-                <Calculator className="size-4 mr-2" />Custom
+              <Button
+                variant="outline"
+                className="h-10"
+                onClick={() => setCustomOpen(true)}
+                disabled={!canManage}
+                title={canManage ? "Add a custom item" : "Owner or manager approval required"}
+              >
+                <Plus className="size-4 mr-2" />Add item
               </Button>
               <Button variant="outline" className="h-10" onClick={() => setDiscountOpen(true)}>
                 <Percent className="size-4 mr-2" />
