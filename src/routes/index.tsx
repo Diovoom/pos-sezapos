@@ -29,12 +29,16 @@ function LandingPage() {
 
   // Subdomain routing: dashboard.sezapos.com/ → /dashboard, pos.sezapos.com/ → /pos.
   useEffect(() => {
-    const app = currentApp();
-    if (app === "dashboard") { navigate({ to: "/dashboard", replace: true }); return; }
-    if (app === "pos") { navigate({ to: "/pos", replace: true }); return; }
-    // Marketing host: signed-in visitors go straight to their app.
-    if (!loading && session) navigate({ to: "/dashboard", replace: true });
+    (async () => {
+      const app = currentApp();
+      if (app === "dashboard") { navigate({ to: "/dashboard", replace: true }); return; }
+      if (app === "pos") { navigate({ to: "/pos", replace: true }); return; }
+      // Marketing host: wait for shared-cookie session, then bounce signed-in visitors.
+      await hydrateSessionFromCookie();
+      if (!loading && session) navigate({ to: "/dashboard", replace: true });
+    })();
   }, [session, loading, navigate]);
+
 
   return (
     <MarketingShell>
