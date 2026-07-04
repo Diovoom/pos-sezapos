@@ -16,9 +16,9 @@ function generateTempPassword(): string {
 }
 
 async function assertOwner(context: { supabase: SupabaseCtx; userId: string }) {
-  const { data, error } = await context.supabase.rpc("has_role", {
+  const { data, error } = await context.supabase.rpc("has_any_role", {
     _user_id: context.userId,
-    _role: "owner",
+    _roles: ["owner"],
   });
   if (error || !data) throw new Error("Forbidden: owner role required");
 }
