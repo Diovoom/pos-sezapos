@@ -375,6 +375,15 @@ function PosPage() {
       setReceipt(rd);
       setReceiptOpen(true);
       toast.success(`Sale completed · ${fmtCurrency(total, currency)}`);
+      if (loyalty) {
+        if (effectiveLoyaltyRedemption > 0) {
+          spendLoyaltyPoints(loyalty.identifier, Math.round(effectiveLoyaltyRedemption * 100));
+        }
+        if (loyaltyEarn > 0) {
+          accrueLoyaltyPoints(loyalty.identifier, loyaltyEarn);
+          toast.info(`+${loyaltyEarn} loyalty points earned`);
+        }
+      }
       // Fire-and-forget: audit log failure must NOT cancel the sale.
       void import("@/lib/audit-log")
         .then((m) => m.logAudit({
