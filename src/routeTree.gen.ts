@@ -13,6 +13,7 @@ import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as TrustRouteImport } from './routes/trust'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SupportRouteImport } from './routes/support'
+import { Route as StatusRouteImport } from './routes/status'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SelectPlanRouteImport } from './routes/select-plan'
@@ -31,6 +32,8 @@ import { Route as CareersRouteImport } from './routes/careers'
 import { Route as BlogRouteImport } from './routes/blog'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AboutRouteImport } from './routes/about'
+import { Route as PosRouteRouteImport } from './routes/_pos/route'
+import { Route as DashboardRouteRouteImport } from './routes/_dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LegalIndexRouteImport } from './routes/legal.index'
 import { Route as RIdRouteImport } from './routes/r.$id'
@@ -80,6 +83,11 @@ const TermsRoute = TermsRouteImport.update({
 const SupportRoute = SupportRouteImport.update({
   id: '/support',
   path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatusRoute = StatusRouteImport.update({
+  id: '/status',
+  path: '/status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -172,6 +180,14 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PosRouteRoute = PosRouteRouteImport.update({
+  id: '/_pos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRouteRoute = DashboardRouteRouteImport.update({
+  id: '/_dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -198,84 +214,84 @@ const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const PosTimeclockRoute = PosTimeclockRouteImport.update({
-  id: '/_pos/timeclock',
+  id: '/timeclock',
   path: '/timeclock',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => PosRouteRoute,
 } as any)
 const PosRegisterRoute = PosRegisterRouteImport.update({
-  id: '/_pos/register',
+  id: '/register',
   path: '/register',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => PosRouteRoute,
 } as any)
 const PosRefundsRoute = PosRefundsRouteImport.update({
-  id: '/_pos/refunds',
+  id: '/refunds',
   path: '/refunds',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => PosRouteRoute,
 } as any)
 const PosPosRoute = PosPosRouteImport.update({
-  id: '/_pos/pos',
+  id: '/pos',
   path: '/pos',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => PosRouteRoute,
 } as any)
 const DashboardShiftsRoute = DashboardShiftsRouteImport.update({
-  id: '/_dashboard/shifts',
+  id: '/shifts',
   path: '/shifts',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardSetupRoute = DashboardSetupRouteImport.update({
-  id: '/_dashboard/setup',
+  id: '/setup',
   path: '/setup',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
-  id: '/_dashboard/settings',
+  id: '/settings',
   path: '/settings',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardSalesRoute = DashboardSalesRouteImport.update({
-  id: '/_dashboard/sales',
+  id: '/sales',
   path: '/sales',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardReportsRoute = DashboardReportsRouteImport.update({
-  id: '/_dashboard/reports',
+  id: '/reports',
   path: '/reports',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardProductsRoute = DashboardProductsRouteImport.update({
-  id: '/_dashboard/products',
+  id: '/products',
   path: '/products',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardPayrollRoute = DashboardPayrollRouteImport.update({
-  id: '/_dashboard/payroll',
+  id: '/payroll',
   path: '/payroll',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardOnboardingRoute = DashboardOnboardingRouteImport.update({
-  id: '/_dashboard/onboarding',
+  id: '/onboarding',
   path: '/onboarding',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardInventoryRoute = DashboardInventoryRouteImport.update({
-  id: '/_dashboard/inventory',
+  id: '/inventory',
   path: '/inventory',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardEmployeesRoute = DashboardEmployeesRouteImport.update({
-  id: '/_dashboard/employees',
+  id: '/employees',
   path: '/employees',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardDashboardRoute = DashboardDashboardRouteImport.update({
-  id: '/_dashboard/dashboard',
+  id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardCustomersRoute = DashboardCustomersRouteImport.update({
-  id: '/_dashboard/customers',
+  id: '/customers',
   path: '/customers',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const LovableSmsSendRoute = LovableSmsSendRouteImport.update({
   id: '/lovable/sms/send',
@@ -347,6 +363,7 @@ export interface FileRoutesByFullPath {
   '/select-plan': typeof SelectPlanRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/status': typeof StatusRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/trust': typeof TrustRoute
@@ -401,6 +418,7 @@ export interface FileRoutesByTo {
   '/select-plan': typeof SelectPlanRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/status': typeof StatusRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/trust': typeof TrustRoute
@@ -438,6 +456,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_dashboard': typeof DashboardRouteRouteWithChildren
+  '/_pos': typeof PosRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
   '/blog': typeof BlogRoute
@@ -456,6 +476,7 @@ export interface FileRoutesById {
   '/select-plan': typeof SelectPlanRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/status': typeof StatusRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/trust': typeof TrustRoute
@@ -512,6 +533,7 @@ export interface FileRouteTypes {
     | '/select-plan'
     | '/signup'
     | '/sitemap.xml'
+    | '/status'
     | '/support'
     | '/terms'
     | '/trust'
@@ -566,6 +588,7 @@ export interface FileRouteTypes {
     | '/select-plan'
     | '/signup'
     | '/sitemap.xml'
+    | '/status'
     | '/support'
     | '/terms'
     | '/trust'
@@ -602,6 +625,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/_dashboard'
+    | '/_pos'
     | '/about'
     | '/auth'
     | '/blog'
@@ -620,6 +645,7 @@ export interface FileRouteTypes {
     | '/select-plan'
     | '/signup'
     | '/sitemap.xml'
+    | '/status'
     | '/support'
     | '/terms'
     | '/trust'
@@ -657,6 +683,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
+  PosRouteRoute: typeof PosRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
   AuthRoute: typeof AuthRoute
   BlogRoute: typeof BlogRoute
@@ -675,26 +703,11 @@ export interface RootRouteChildren {
   SelectPlanRoute: typeof SelectPlanRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  StatusRoute: typeof StatusRoute
   SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
   TrustRoute: typeof TrustRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
-  DashboardCustomersRoute: typeof DashboardCustomersRoute
-  DashboardDashboardRoute: typeof DashboardDashboardRoute
-  DashboardEmployeesRoute: typeof DashboardEmployeesRouteWithChildren
-  DashboardInventoryRoute: typeof DashboardInventoryRoute
-  DashboardOnboardingRoute: typeof DashboardOnboardingRoute
-  DashboardPayrollRoute: typeof DashboardPayrollRoute
-  DashboardProductsRoute: typeof DashboardProductsRoute
-  DashboardReportsRoute: typeof DashboardReportsRoute
-  DashboardSalesRoute: typeof DashboardSalesRoute
-  DashboardSettingsRoute: typeof DashboardSettingsRoute
-  DashboardSetupRoute: typeof DashboardSetupRoute
-  DashboardShiftsRoute: typeof DashboardShiftsRoute
-  PosPosRoute: typeof PosPosRoute
-  PosRefundsRoute: typeof PosRefundsRoute
-  PosRegisterRoute: typeof PosRegisterRoute
-  PosTimeclockRoute: typeof PosTimeclockRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   LegalSlugRoute: typeof LegalSlugRoute
   RIdRoute: typeof RIdRoute
@@ -737,6 +750,13 @@ declare module '@tanstack/react-router' {
       path: '/support'
       fullPath: '/support'
       preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/status': {
+      id: '/status'
+      path: '/status'
+      fullPath: '/status'
+      preLoaderRoute: typeof StatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -865,6 +885,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_pos': {
+      id: '/_pos'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PosRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_dashboard': {
+      id: '/_dashboard'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof DashboardRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -905,112 +939,112 @@ declare module '@tanstack/react-router' {
       path: '/timeclock'
       fullPath: '/timeclock'
       preLoaderRoute: typeof PosTimeclockRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof PosRouteRoute
     }
     '/_pos/register': {
       id: '/_pos/register'
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof PosRegisterRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof PosRouteRoute
     }
     '/_pos/refunds': {
       id: '/_pos/refunds'
       path: '/refunds'
       fullPath: '/refunds'
       preLoaderRoute: typeof PosRefundsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof PosRouteRoute
     }
     '/_pos/pos': {
       id: '/_pos/pos'
       path: '/pos'
       fullPath: '/pos'
       preLoaderRoute: typeof PosPosRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof PosRouteRoute
     }
     '/_dashboard/shifts': {
       id: '/_dashboard/shifts'
       path: '/shifts'
       fullPath: '/shifts'
       preLoaderRoute: typeof DashboardShiftsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/setup': {
       id: '/_dashboard/setup'
       path: '/setup'
       fullPath: '/setup'
       preLoaderRoute: typeof DashboardSetupRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/settings': {
       id: '/_dashboard/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof DashboardSettingsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/sales': {
       id: '/_dashboard/sales'
       path: '/sales'
       fullPath: '/sales'
       preLoaderRoute: typeof DashboardSalesRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/reports': {
       id: '/_dashboard/reports'
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof DashboardReportsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/products': {
       id: '/_dashboard/products'
       path: '/products'
       fullPath: '/products'
       preLoaderRoute: typeof DashboardProductsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/payroll': {
       id: '/_dashboard/payroll'
       path: '/payroll'
       fullPath: '/payroll'
       preLoaderRoute: typeof DashboardPayrollRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/onboarding': {
       id: '/_dashboard/onboarding'
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof DashboardOnboardingRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/inventory': {
       id: '/_dashboard/inventory'
       path: '/inventory'
       fullPath: '/inventory'
       preLoaderRoute: typeof DashboardInventoryRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/employees': {
       id: '/_dashboard/employees'
       path: '/employees'
       fullPath: '/employees'
       preLoaderRoute: typeof DashboardEmployeesRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/dashboard': {
       id: '/_dashboard/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardDashboardRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/customers': {
       id: '/_dashboard/customers'
       path: '/customers'
       fullPath: '/customers'
       preLoaderRoute: typeof DashboardCustomersRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/lovable/sms/send': {
       id: '/lovable/sms/send'
@@ -1089,8 +1123,62 @@ const DashboardEmployeesRouteChildren: DashboardEmployeesRouteChildren = {
 const DashboardEmployeesRouteWithChildren =
   DashboardEmployeesRoute._addFileChildren(DashboardEmployeesRouteChildren)
 
+interface DashboardRouteRouteChildren {
+  DashboardCustomersRoute: typeof DashboardCustomersRoute
+  DashboardDashboardRoute: typeof DashboardDashboardRoute
+  DashboardEmployeesRoute: typeof DashboardEmployeesRouteWithChildren
+  DashboardInventoryRoute: typeof DashboardInventoryRoute
+  DashboardOnboardingRoute: typeof DashboardOnboardingRoute
+  DashboardPayrollRoute: typeof DashboardPayrollRoute
+  DashboardProductsRoute: typeof DashboardProductsRoute
+  DashboardReportsRoute: typeof DashboardReportsRoute
+  DashboardSalesRoute: typeof DashboardSalesRoute
+  DashboardSettingsRoute: typeof DashboardSettingsRoute
+  DashboardSetupRoute: typeof DashboardSetupRoute
+  DashboardShiftsRoute: typeof DashboardShiftsRoute
+}
+
+const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
+  DashboardCustomersRoute: DashboardCustomersRoute,
+  DashboardDashboardRoute: DashboardDashboardRoute,
+  DashboardEmployeesRoute: DashboardEmployeesRouteWithChildren,
+  DashboardInventoryRoute: DashboardInventoryRoute,
+  DashboardOnboardingRoute: DashboardOnboardingRoute,
+  DashboardPayrollRoute: DashboardPayrollRoute,
+  DashboardProductsRoute: DashboardProductsRoute,
+  DashboardReportsRoute: DashboardReportsRoute,
+  DashboardSalesRoute: DashboardSalesRoute,
+  DashboardSettingsRoute: DashboardSettingsRoute,
+  DashboardSetupRoute: DashboardSetupRoute,
+  DashboardShiftsRoute: DashboardShiftsRoute,
+}
+
+const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
+  DashboardRouteRouteChildren,
+)
+
+interface PosRouteRouteChildren {
+  PosPosRoute: typeof PosPosRoute
+  PosRefundsRoute: typeof PosRefundsRoute
+  PosRegisterRoute: typeof PosRegisterRoute
+  PosTimeclockRoute: typeof PosTimeclockRoute
+}
+
+const PosRouteRouteChildren: PosRouteRouteChildren = {
+  PosPosRoute: PosPosRoute,
+  PosRefundsRoute: PosRefundsRoute,
+  PosRegisterRoute: PosRegisterRoute,
+  PosTimeclockRoute: PosTimeclockRoute,
+}
+
+const PosRouteRouteWithChildren = PosRouteRoute._addFileChildren(
+  PosRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DashboardRouteRoute: DashboardRouteRouteWithChildren,
+  PosRouteRoute: PosRouteRouteWithChildren,
   AboutRoute: AboutRoute,
   AuthRoute: AuthRoute,
   BlogRoute: BlogRoute,
@@ -1109,26 +1197,11 @@ const rootRouteChildren: RootRouteChildren = {
   SelectPlanRoute: SelectPlanRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  StatusRoute: StatusRoute,
   SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
   TrustRoute: TrustRoute,
   UnsubscribeRoute: UnsubscribeRoute,
-  DashboardCustomersRoute: DashboardCustomersRoute,
-  DashboardDashboardRoute: DashboardDashboardRoute,
-  DashboardEmployeesRoute: DashboardEmployeesRouteWithChildren,
-  DashboardInventoryRoute: DashboardInventoryRoute,
-  DashboardOnboardingRoute: DashboardOnboardingRoute,
-  DashboardPayrollRoute: DashboardPayrollRoute,
-  DashboardProductsRoute: DashboardProductsRoute,
-  DashboardReportsRoute: DashboardReportsRoute,
-  DashboardSalesRoute: DashboardSalesRoute,
-  DashboardSettingsRoute: DashboardSettingsRoute,
-  DashboardSetupRoute: DashboardSetupRoute,
-  DashboardShiftsRoute: DashboardShiftsRoute,
-  PosPosRoute: PosPosRoute,
-  PosRefundsRoute: PosRefundsRoute,
-  PosRegisterRoute: PosRegisterRoute,
-  PosTimeclockRoute: PosTimeclockRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   LegalSlugRoute: LegalSlugRoute,
   RIdRoute: RIdRoute,
