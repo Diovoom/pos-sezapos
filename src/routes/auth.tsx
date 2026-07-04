@@ -169,6 +169,34 @@ function PinLogin({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
 
+  // Physical keyboard input — numpad and top-row digits, Backspace, Escape.
+  // Ignores keys while the user is typing in another input (email login, etc.).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (busy) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        press(e.key);
+      } else if (e.key === "Backspace") {
+        e.preventDefault();
+        del();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        clear();
+      } else if (e.key === "Enter" && stage === "pin" && pin.length >= 4) {
+        e.preventDefault();
+        void submit();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, stage, busy, pin]);
+
+
   const submit = async () => {
     setBusy(true);
     try {
