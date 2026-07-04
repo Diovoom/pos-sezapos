@@ -63,12 +63,15 @@ function AuthPage() {
   const [mode, setMode] = useState<Mode>(search.mode ?? "pin");
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
+    (async () => {
+      await hydrateSessionFromCookie();
+      const { data } = await supabase.auth.getSession();
       if (!data.session) return;
       const dest = await landingRouteForUser(data.session.user.id);
       goToLanding(navigate, dest);
-    });
+    })();
   }, [navigate]);
+
 
   const switchUser = async () => {
     await supabase.auth.signOut();
