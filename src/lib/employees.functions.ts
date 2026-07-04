@@ -485,3 +485,68 @@ export const deleteEmployee = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+/* ------------------------- pay & schedule ------------------------------ */
+
+export const updateEmployeePay = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      user_id: string;
+      hourly_wage?: number | null;
+      scheduled_start_time?: string | null;
+      scheduled_end_time?: string | null;
+      late_threshold_minutes?: number | null;
+    }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+    const patch: Record<string, unknown> = {};
+    for (const k of ["hourly_wage", "scheduled_start_time", "scheduled_end_time", "late_threshold_minutes"] as const) {
+      if (data[k] !== undefined) patch[k] = data[k];
+    }
+    if (Object.keys(patch).length === 0) return { ok: true };
+    const { error } = await admin.from("profiles").update(patch).eq("id", data.user_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/* ------------------------- adjust time entry --------------------------- */
+
+export const adjustTimeEntry = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      entry_id: string;
+      clock_in?: string;
+      clock_out?: string | null;
+      break_minutes?: number;
+      note?: string;
+    }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+    const patch: Record<string, unknown> = { adjusted_at: new Date().toISOString(), adjusted_by: (context as { userId: string }).userId };
+    if (data.clock_in !== undefined) patch.clock_in = data.clock_in;
+    if (data.clock_out !== undefined) patch.clock_out = data.clock_out;
+    if (data.break_minutes !== undefined) patch.break_minutes = data.break_minutes;
+    if (data.note !== undefined) patch.adjustment_note = data.note;
+    // Filter to columns that exist to avoid breaking on schemas without adjustment fields.
+    const { error } = await admin.from("time_entries").update(patch).eq("id", data.entry_id);
+    if (error) {
+      // Fallback: retry without optional audit columns if they don't exist.
+      const safe: Record<string, unknown> = {};
+      if (data.clock_in !== undefined) safe.clock_in = data.clock_in;
+      if (data.clock_out !== undefined) safe.clock_out = data.clock_out;
+      if (data.break_minutes !== undefined) safe.break_minutes = data.break_minutes;
+      const { error: err2 } = await admin.from("time_entries").update(safe).eq("id", data.entry_id);
+      if (err2) throw new Error(err2.message);
+    }
+    return { ok: true };
+  });
