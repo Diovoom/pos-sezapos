@@ -1,7 +1,9 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { hydrateSessionFromCookie } from "@/integrations/supabase/session-bridge";
 import { PosShell } from "@/components/pos/PosShell";
 import { currentApp } from "@/lib/host";
+
 
 // POS register surface — cashiers, managers, admins, owners.
 export const Route = createFileRoute("/_pos")({
