@@ -313,8 +313,8 @@ function StatsRow({ userId }: { userId: string }) {
 
 /* --------------------------- Editable details -------------------------- */
 
-function EditDetailsCard({ profile, currentRole, isSelf, isOwner, onChanged }: {
-  profile: Profile; currentRole: "owner" | "manager" | "cashier" | "admin"; isSelf: boolean; isOwner: boolean; onChanged: () => void;
+function EditDetailsCard({ profile, currentRole, isSelf, isOwner, canChangeRole, onChanged }: {
+  profile: Profile; currentRole: "owner" | "manager" | "cashier" | "admin"; isSelf: boolean; isOwner: boolean; canChangeRole: boolean; onChanged: () => void;
 }) {
   const update = useServerFn(updateEmployee);
   const [first, setFirst] = useState(profile.first_name ?? "");
