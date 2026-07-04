@@ -245,9 +245,7 @@ function SettingsPage() {
             <TabsContent value="integrations" className="mt-0"><IntegrationsPanel /></TabsContent>
             <TabsContent value="appearance" className="mt-0"><AppearancePanel /></TabsContent>
             <TabsContent value="about" className="mt-0"><AboutPanel /></TabsContent>
-            <TabsContent value="setup_email" className="mt-0"><EmailSetupPanel /></TabsContent>
-            <TabsContent value="setup_sms" className="mt-0"><SmsSetupPanel /></TabsContent>
-            <TabsContent value="setup_tax" className="mt-0"><TaxSetupPanel /></TabsContent>
+            {/* setup_email, setup_sms, setup_tax handled above via unified panels */}
             <TabsContent value="account_pin" className="mt-0"><ChangePinPanel /></TabsContent>
             <TabsContent value="account_password" className="mt-0"><ChangePasswordPanel /></TabsContent>
             <TabsContent value="account_profile" className="mt-0"><ProfilePanel /></TabsContent>
