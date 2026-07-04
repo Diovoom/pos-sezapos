@@ -318,7 +318,7 @@ function TerminalPanel({
           </div>
         </div>
         <div className="p-4 border-t bg-surface/40 flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={onCancel}>
+          <Button variant="outline" className="flex-1" onClick={onCancelNoApproval}>
             Back to cart
           </Button>
           <Button asChild className="flex-1">
