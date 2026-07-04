@@ -491,13 +491,20 @@ function PosPage() {
               ))}
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" className="h-10 flex-1" onClick={() => setCustomOpen(true)}>
-                <Calculator className="size-4 mr-2" />Add Custom Item
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <Button variant="outline" className="h-10" onClick={() => setCustomOpen(true)}>
+                <Calculator className="size-4 mr-2" />Custom
               </Button>
-              <Button variant="outline" className="h-10 flex-1" onClick={() => setDiscountOpen(true)}>
+              <Button variant="outline" className="h-10" onClick={() => setDiscountOpen(true)}>
                 <Percent className="size-4 mr-2" />
-                {discount ? "Edit discount" : "Add discount"}
+                {discount ? "Edit discount" : "Discount"}
+              </Button>
+              <Button variant="outline" className="h-10" onClick={() => setLoyaltyOpen(true)}>
+                <Heart className="size-4 mr-2" />
+                {loyalty ? "Loyalty ✓" : "Loyalty"}
+              </Button>
+              <Button variant="outline" className="h-10" asChild>
+                <Link to="/refunds"><RotateCcw className="size-4 mr-2" />Refund</Link>
               </Button>
             </div>
           </div>
