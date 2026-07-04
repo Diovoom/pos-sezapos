@@ -202,6 +202,9 @@ export function PageHeader({
       </div>
       <div className="flex items-center gap-2">
         {actions}
+        <Button asChild variant="outline" size="sm">
+          <Link to="/pos"><ScanBarcode className="size-4 mr-2" />Open POS</Link>
+        </Button>
         <DeviceStatusMenu />
       </div>
     </header>
