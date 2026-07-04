@@ -605,6 +605,12 @@ function PosPage() {
                 <span>Total</span>
                 <span className="font-mono">{fmtCurrency(total, currency)}</span>
               </div>
+              {loyalty && loyaltyEarn > 0 && (
+                <div className="flex justify-between text-[11px] text-muted-foreground">
+                  <span>Loyalty · {loyalty.identifier}</span>
+                  <span>+{loyaltyEarn} pts</span>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-2 mb-3">
