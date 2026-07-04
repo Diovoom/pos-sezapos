@@ -218,12 +218,17 @@ function TerminalPanel({
   currency,
   onComplete,
   onCancel,
+  onCancelNoApproval,
 }: {
   method: PaymentMethod;
   total: number;
   currency: string;
   onComplete: (p: CompletedPayment) => void;
   onCancel: () => void;
+  // Bypass manager approval only when the flow can't actually charge
+  // (e.g. no terminal connected). Approved sales and mid-charge cancels
+  // still go through onCancel.
+  onCancelNoApproval: () => void;
 }) {
   const provider = getActiveProvider();
   const [event, setEvent] = useState<PaymentEvent>({ status: "idle", message: "Ready" });
