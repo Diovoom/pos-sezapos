@@ -13,6 +13,18 @@ import { toast } from "sonner";
 import { Loader2, Delete, LogIn, Mail, KeyRound, ArrowLeft, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const MANAGER_ROLES = new Set(["owner", "admin", "manager"]);
+
+async function landingRouteForUser(userId: string): Promise<"/dashboard" | "/pos"> {
+  try {
+    const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    const roles = (data ?? []).map((r) => r.role as string);
+    return roles.some((r) => MANAGER_ROLES.has(r)) ? "/dashboard" : "/pos";
+  } catch {
+    return "/pos";
+  }
+}
+
 type Mode = "pin" | "email" | "pin_with_id";
 type Search = { mode?: Mode };
 
