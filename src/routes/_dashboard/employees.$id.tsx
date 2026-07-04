@@ -157,19 +157,19 @@ function EmployeeProfile() {
               </TabsList>
 
               <TabsContent value="details" className="space-y-4">
-                {canManage ? (
-                  <EditDetailsCard profile={profile} currentRole={currentRole} isSelf={!!isSelf} isOwner={!!isOwner} onChanged={invalidateAll} />
+                {canEditStaff ? (
+                  <EditDetailsCard profile={profile} currentRole={currentRole} isSelf={!!isSelf} isOwner={!!isOwner} canChangeRole={!!canManage} onChanged={invalidateAll} />
                 ) : (
                   <ReadOnlyDetails profile={profile} role={currentRole} />
                 )}
-                {isOwner && (
+                {canEditStaff && (
                   <>
                     <EmployeeIdCard profile={profile} onChanged={invalidateAll} />
                     <PinCard profile={profile} onChanged={invalidateAll} />
                     <PayScheduleCard userId={profile.id} />
                   </>
                 )}
-                {canManage && (
+                {canEditStaff && (
                   <DangerZoneCard
                     profile={profile}
                     isSelf={!!isSelf}
@@ -178,10 +178,12 @@ function EmployeeProfile() {
                     onDeleted={() => navigate({ to: "/employees" })}
                   />
                 )}
-                {!canManage && !isSelf && (
+                {!canEditStaff && !isSelf && (
                   <Card><CardContent className="p-6 text-sm text-muted-foreground">You can only view basic information for other employees.</CardContent></Card>
                 )}
               </TabsContent>
+
+
 
               <TabsContent value="attendance"><AttendanceList userId={id} /></TabsContent>
               <TabsContent value="sales"><SalesList userId={id} /></TabsContent>
