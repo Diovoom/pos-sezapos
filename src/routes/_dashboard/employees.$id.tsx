@@ -62,7 +62,9 @@ function EmployeeProfile() {
   const navigate = useNavigate();
   const isOwner = me.data?.roles.includes("owner");
   const isAdmin = me.data?.roles.includes("admin");
+  const isManager = me.data?.roles.includes("manager");
   const canManage = isOwner || isAdmin;
+  const canEditStaff = isOwner || isAdmin || isManager;
   const isSelf = me.data?.user.id === id;
 
   const profileQ = useQuery<Profile | null, Error>({
