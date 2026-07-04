@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { posUrl } from "@/lib/host";
 
 const NAV: { to: string; label: string; icon: any; search?: Record<string, string> }[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -201,7 +202,7 @@ export function PageHeader({
       <div className="flex items-center gap-2">
         {actions}
         <Button asChild variant="outline" size="sm">
-          <Link to="/pos"><ScanBarcode className="size-4 mr-2" />Open POS</Link>
+          <a href={posUrl("/pos")}><ScanBarcode className="size-4 mr-2" />Open POS</a>
         </Button>
         <DeviceStatusMenu />
       </div>

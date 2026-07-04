@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { dashboardUrl } from "@/lib/host";
 
 const POS_NAV = [
   { to: "/pos", label: "Sell", icon: ScanBarcode },
@@ -101,10 +102,10 @@ export function PosShell({ children }: { children: ReactNode }) {
         {canDashboard && (
           <div className="p-2 border-t">
             <Button asChild variant="outline" size="sm" className="w-full">
-              <Link to="/dashboard">
+              <a href={dashboardUrl("/dashboard")}>
                 <LayoutDashboard className="size-4 lg:mr-2" />
                 <span className="hidden lg:inline">Dashboard</span>
-              </Link>
+              </a>
             </Button>
           </div>
         )}
