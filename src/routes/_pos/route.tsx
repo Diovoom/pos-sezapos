@@ -18,10 +18,15 @@ export const Route = createFileRoute("/_pos")({
         throw redirect({ to: "/" });
       }
     }
+    // Wait for the shared-cookie session to hydrate into localStorage before
+    // asking Supabase who we are — otherwise a signed-in cross-subdomain
+    // visitor gets bounced to /auth and reloaded in a loop.
+    await hydrateSessionFromCookie();
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
     return { user: data.user };
   },
+
   component: PosLayout,
 });
 
