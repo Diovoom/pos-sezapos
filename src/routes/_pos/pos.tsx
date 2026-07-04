@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/pos/AppShell";
 import { fmtCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2, Camera, Calculator, Percent } from "lucide-react";
+import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2, Camera, Calculator, Percent, Heart, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { PaymentDialog, type CompletedPayment, type PaymentMethod } from "@/components/pos/PaymentDialog";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
