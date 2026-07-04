@@ -617,6 +617,113 @@ function PrefPanel({ prefKey, title, desc, fields }: { prefKey: string; title: s
   );
 }
 
+/* ================= Unified panels ================= */
+
+function UnifiedReceiptPanel() {
+  return (
+    <div className="space-y-4 max-w-3xl">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ReceiptIcon className="size-5" /> Receipt</CardTitle>
+          <CardDescription>
+            One place for every receipt setting — paper/printer format, logo and footer, numbering, layout, and email
+            & SMS delivery to customers.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      <HardwareCard
+        kind="printer"
+        title="Receipt printer"
+        description="Connect a thermal receipt printer via USB, Bluetooth, or Serial. Used for auto-print after each sale."
+        transports={["usb", "bluetooth", "serial"]}
+      />
+
+      <ReceiptPreferences />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Email receipts</CardTitle>
+          <CardDescription>Transactional receipts sent from your store address through Lovable Cloud.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="rounded-md border p-3 flex items-center justify-between">
+            <span>Delivery status</span>
+            <Badge variant="outline" className="bg-success/15 text-success border-success/30">Active</Badge>
+          </div>
+          <p className="text-muted-foreground">
+            To customize the sender domain (for example, receipts.yourdomain.com), open the Email domain settings from
+            the Backend view.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>SMS receipts</CardTitle>
+          <CardDescription>Text a receipt link straight to the customer's phone.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SmsSettingsPanel />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function UnifiedHardwarePanel() {
+  return (
+    <div className="space-y-4 max-w-4xl">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><HardDrive className="size-5" /> Hardware Setup</CardTitle>
+          <CardDescription>
+            Pair, test, and manage every device connected to this terminal: receipt printer, barcode scanner, camera
+            scanner, cash drawer, and customer display.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <HardwareCard
+          kind="printer"
+          title="Receipt printer"
+          description="Thermal receipt printer via USB, Bluetooth, or Serial."
+          transports={["usb", "bluetooth", "serial"]}
+        />
+        <HardwareCard
+          kind="scanner"
+          title="Barcode scanner"
+          description="USB or Bluetooth HID scanner. Most keyboard-emulating scanners work automatically without pairing."
+          transports={["usb", "bluetooth", "hid"]}
+        />
+        <HardwareCard
+          kind="drawer"
+          title="Cash drawer"
+          description="Serial or USB cash drawer. Opens automatically after cash payments."
+          transports={["usb", "serial"]}
+        />
+        <HardwareCard
+          kind="display"
+          title="Customer display"
+          description="Second-screen or tablet display for customers to see the cart, tax, and total."
+          transports={["usb", "hid"]}
+        />
+        <HardwareCard
+          kind="terminal"
+          title="Payment terminal (transport)"
+          description="For non-cloud terminals connected directly (Serial, USB HID, Bluetooth)."
+          transports={["usb", "bluetooth", "serial", "hid"]}
+        />
+      </div>
+
+      <CameraPanel />
+      <ScannerPreferences />
+      <CustomerDisplayPanel />
+    </div>
+  );
+}
+
 /* ================= Receipt / Scanner / Camera / Display ================= */
 
 function ReceiptPreferences() {
