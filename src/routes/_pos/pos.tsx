@@ -17,6 +17,7 @@ import { loadAgeSettings } from "@/lib/age-verification";
 import { useProductImageUrl } from "@/lib/pos/product-images";
 import { CustomItemDialog } from "@/components/pos/CustomItemDialog";
 import { DiscountDialog, type DiscountValue } from "@/components/pos/DiscountDialog";
+import { LoyaltyDialog, accrueLoyaltyPoints, spendLoyaltyPoints, type LoyaltyCustomer } from "@/components/pos/LoyaltyDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
