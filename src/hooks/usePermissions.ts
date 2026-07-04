@@ -48,7 +48,13 @@ export function usePermissions() {
       .filter((r) => myRoles.includes(r.role))
       .map((r) => r.permission),
   );
-  const isSuper = rows.some((r) => myRoles.includes(r.role) && r.permission === "*");
+  // Owner and admin are always super users — full permissions, never blocked
+  // by manager-approval flows. Enforced client-side so a slow/failed
+  // role_permissions fetch never locks the owner out of their own store.
+  const isSuper =
+    myRoles.includes("owner") ||
+    myRoles.includes("admin") ||
+    rows.some((r) => myRoles.includes(r.role) && r.permission === "*");
 
   const has = (p: string) => isSuper || mine.has(p);
   return { has, isSuper, myRoles, loading: me.isLoading || perms.isLoading };

@@ -8,12 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMe } from "@/hooks/useMe";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Loader2, Wallet, LockOpen, Lock, AlertTriangle } from "lucide-react";
+import { Loader2, Wallet, LockOpen, Lock, AlertTriangle, ArrowUpFromLine, ArrowDownToLine, DoorOpen } from "lucide-react";
 import { logAudit } from "@/lib/audit-log";
 import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
+import { openCashDrawer } from "@/lib/pos/hardware";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export const Route = createFileRoute("/_pos/register")({
   head: () => ({ meta: [{ title: "Register — SEZA POS" }, { name: "description", content: "Open and close the cash register for the current shift with cash reconciliation." }] }),
@@ -39,6 +43,31 @@ type Session = {
   status: string;
   notes: string | null;
 };
+
+type CashMovement = {
+  id: string;
+  register_session_id: string;
+  type: "payout" | "deposit";
+  amount: number;
+  reason: string;
+  notes: string | null;
+  created_at: string;
+};
+
+const PAYOUT_REASONS = [
+  "Supplier payment",
+  "Store expense",
+  "Refund adjustment",
+  "Petty cash",
+  "Other",
+];
+
+const DEPOSIT_REASONS = [
+  "Cash drop from safe",
+  "Owner deposit",
+  "Change fund top-up",
+  "Other",
+];
 
 function RegisterPage() {
   const { data: me } = useMe();
@@ -143,10 +172,14 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
 function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: () => void }) {
   const { data: me } = useMe();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { isSuper } = usePermissions();
   const [closingCash, setClosingCash] = useState("");
   const [notes, setNotes] = useState(session.notes ?? "");
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [approver, setApprover] = useState<ManagerOverrideResult | null>(null);
+  const [payoutOpen, setPayoutOpen] = useState(false);
+  const [depositOpen, setDepositOpen] = useState(false);
 
   // Threshold from Settings → Register preferences, default $5.
   const threshold = useMemo(() => {
@@ -178,21 +211,47 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
     },
   });
 
+  const movements = useQuery({
+    queryKey: ["register", "movements", session.id],
+    queryFn: async (): Promise<CashMovement[]> => {
+      const { data } = await sb
+        .from("cash_movements")
+        .select("*")
+        .eq("register_session_id", session.id)
+        .order("created_at", { ascending: false });
+      return (data ?? []) as CashMovement[];
+    },
+  });
+
+  const payoutsTotal = useMemo(
+    () => (movements.data ?? []).filter((m) => m.type === "payout").reduce((a, m) => a + Number(m.amount), 0),
+    [movements.data],
+  );
+  const depositsTotal = useMemo(
+    () => (movements.data ?? []).filter((m) => m.type === "deposit").reduce((a, m) => a + Number(m.amount), 0),
+    [movements.data],
+  );
+
   const expected = useMemo(() => {
     const cs = totals.data?.cashSales ?? 0;
     const cr = totals.data?.cashRefunds ?? 0;
-    return Number(session.opening_cash) + cs - cr;
-  }, [session.opening_cash, totals.data]);
+    return Number(session.opening_cash) + cs - cr - payoutsTotal + depositsTotal;
+  }, [session.opening_cash, totals.data, payoutsTotal, depositsTotal]);
 
   const variance = closingCash !== "" ? Number(closingCash) - expected : null;
-  const needsOverride = variance !== null && Math.abs(variance) > threshold;
+  const needsOverride = !isSuper && variance !== null && Math.abs(variance) > threshold;
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["register", "movements", session.id] });
+    qc.invalidateQueries({ queryKey: ["register", "totals", session.id] });
+  };
 
   const close = useMutation({
     mutationFn: async () => {
       const cc = Number(closingCash);
       if (!Number.isFinite(cc) || cc < 0) throw new Error("Enter the counted cash");
       const v = cc - expected;
-      if (Math.abs(v) > threshold && !approver) throw new Error("Manager override required");
+      if (!isSuper && Math.abs(v) > threshold && !approver) throw new Error("Manager override required");
       const { data: closed, error } = await sb.from("register_sessions").update({
         status: "closed",
         closed_at: new Date().toISOString(),
@@ -234,7 +293,8 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
   };
 
   return (
-    <Card className="max-w-2xl">
+    <>
+    <Card className="max-w-3xl">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2"><Wallet className="size-5" /> Open Shift</span>
@@ -245,12 +305,34 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
         <CardDescription>Current shift totals. Count the drawer and close when the shift ends.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <Stat label="Opening float" value={fmt(session.opening_cash)} />
           <Stat label="Cash sales" value={fmt(totals.data?.cashSales ?? 0)} />
-          <Stat label="Cash refunds" value={fmt(totals.data?.cashRefunds ?? 0)} />
+          <Stat label="Cash refunds" value={`-${fmt(totals.data?.cashRefunds ?? 0)}`} />
+          <Stat label="Deposits" value={`+${fmt(depositsTotal)}`} />
+          <Stat label="Payouts" value={`-${fmt(payoutsTotal)}`} />
           <Stat label="Card / other" value={fmt(totals.data?.cardSales ?? 0)} muted />
         </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setPayoutOpen(true)}>
+            <ArrowUpFromLine className="size-4 mr-2" /> Cash Payout
+          </Button>
+          <Button variant="outline" onClick={() => setDepositOpen(true)}>
+            <ArrowDownToLine className="size-4 mr-2" /> Cash Deposit
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              const r = openCashDrawer("manual_open");
+              toast.success(r.simulated ? "Drawer open (simulated)" : "Drawer opened");
+              void logAudit({ action: "hardware.test", entity: "cash_drawer", details: { reason: "manual_open", simulated: r.simulated } });
+            }}
+          >
+            <DoorOpen className="size-4 mr-2" /> Open Drawer
+          </Button>
+        </div>
+
         <div className="rounded-md border p-3 bg-surface/40 flex items-center justify-between">
           <div>
             <div className="text-xs text-muted-foreground">Expected in drawer</div>
@@ -265,6 +347,7 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
             </div>
           )}
         </div>
+
         {needsOverride && (
           <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-sm flex items-start gap-2">
             <AlertTriangle className="size-4 mt-0.5 text-warning" />
@@ -277,6 +360,7 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
             </div>
           </div>
         )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Counted cash ($)</Label>
@@ -291,6 +375,31 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
           {close.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : <Lock className="size-4 mr-2" />}
           {needsOverride && !approver ? "Request Manager Approval" : "Close Register & View Report"}
         </Button>
+
+        {movements.data && movements.data.length > 0 && (
+          <div>
+            <div className="text-sm font-medium mb-2">Cash movements this shift</div>
+            <div className="rounded-md border divide-y">
+              {movements.data.map((m) => (
+                <div key={m.id} className="p-2 flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    {m.type === "payout"
+                      ? <ArrowUpFromLine className="size-4 text-destructive" />
+                      : <ArrowDownToLine className="size-4 text-success" />}
+                    <div>
+                      <div className="font-medium capitalize">{m.type} — {m.reason}</div>
+                      {m.notes && <div className="text-xs text-muted-foreground">{m.notes}</div>}
+                      <div className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleString()}</div>
+                    </div>
+                  </div>
+                  <div className={`font-mono ${m.type === "payout" ? "text-destructive" : "text-success"}`}>
+                    {m.type === "payout" ? "-" : "+"}{fmt(Number(m.amount))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
 
       <ManagerOverrideDialog
@@ -302,6 +411,185 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
         onApprove={(r) => { setApprover(r); setTimeout(() => close.mutate(), 0); }}
       />
     </Card>
+
+    <CashMovementDialog
+      open={payoutOpen}
+      onOpenChange={setPayoutOpen}
+      type="payout"
+      session={session}
+      currentBalance={expected}
+      onDone={invalidate}
+    />
+    <CashMovementDialog
+      open={depositOpen}
+      onOpenChange={setDepositOpen}
+      type="deposit"
+      session={session}
+      currentBalance={expected}
+      onDone={invalidate}
+    />
+    </>
+  );
+}
+
+function CashMovementDialog({
+  open,
+  onOpenChange,
+  type,
+  session,
+  currentBalance,
+  onDone,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  type: "payout" | "deposit";
+  session: Session;
+  currentBalance: number;
+  onDone: () => void;
+}) {
+  const { data: me } = useMe();
+  const reasons = type === "payout" ? PAYOUT_REASONS : DEPOSIT_REASONS;
+  const [reason, setReason] = useState(reasons[0]);
+  const [customReason, setCustomReason] = useState("");
+  const [amount, setAmount] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const isPayout = type === "payout";
+  const label = isPayout ? "Cash Payout" : "Cash Deposit";
+  const amt = Number(amount);
+  const valid = Number.isFinite(amt) && amt > 0;
+  const projected = isPayout ? currentBalance - amt : currentBalance + amt;
+  const effectiveReason = reason === "Other" ? customReason.trim() : reason;
+
+  const reset = () => {
+    setReason(reasons[0]);
+    setCustomReason("");
+    setAmount("");
+    setNotes("");
+  };
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (!valid) throw new Error("Enter a valid amount");
+      if (!effectiveReason) throw new Error("Reason is required");
+      if (isPayout && amt > currentBalance) throw new Error("Payout exceeds available cash");
+      if (!me?.user?.id) throw new Error("Not signed in");
+      const { data, error } = await sb.from("cash_movements").insert({
+        register_session_id: session.id,
+        store_id: session.store_id,
+        user_id: me.user.id,
+        type,
+        amount: Math.round(amt * 100) / 100,
+        reason: effectiveReason,
+        notes: notes || null,
+      }).select().single();
+      if (error) throw error;
+
+      const drawer = openCashDrawer(`cash.${type}`);
+      void logAudit({
+        action: isPayout ? "cash.payout" : "cash.deposit",
+        entity: "cash_movement",
+        entity_id: data.id,
+        details: {
+          amount: amt,
+          reason: effectiveReason,
+          notes: notes || null,
+          balance_before: currentBalance,
+          balance_after: projected,
+          drawer_simulated: drawer.simulated,
+        },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      toast.success(`${label} recorded`);
+      reset();
+      onOpenChange(false);
+      onDone();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : `${label} failed`),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reset(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {isPayout ? <ArrowUpFromLine className="size-5 text-destructive" /> : <ArrowDownToLine className="size-5 text-success" />}
+            {label}
+          </DialogTitle>
+          <DialogDescription>
+            {isPayout
+              ? "Record cash leaving the drawer (supplier, expense, petty cash…)."
+              : "Record cash added to the drawer mid-shift."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>Reason {isPayout && <span className="text-destructive">*</span>}</Label>
+            <Select value={reason} onValueChange={setReason}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {reasons.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {reason === "Other" && (
+              <Input
+                placeholder="Specify reason"
+                value={customReason}
+                onChange={(e) => setCustomReason(e.target.value)}
+                className="mt-2"
+              />
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label>Amount ($)</Label>
+            <Input
+              type="number" step="0.01" min="0" autoFocus
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+
+          <div className="rounded-md border p-3 space-y-1 text-sm bg-surface/40">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Current drawer balance</span>
+              <span className="font-mono">{fmt(currentBalance)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">{isPayout ? "Payout" : "Deposit"}</span>
+              <span className={`font-mono ${isPayout ? "text-destructive" : "text-success"}`}>
+                {isPayout ? "-" : "+"}{fmt(valid ? amt : 0)}
+              </span>
+            </div>
+            <div className="flex justify-between border-t pt-1 font-semibold">
+              <span>Expected after {isPayout ? "payout" : "deposit"}</span>
+              <span className={`font-mono ${projected < 0 ? "text-destructive" : ""}`}>{fmt(projected)}</span>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Notes (optional)</Label>
+            <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Invoice #, recipient, etc." />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>Cancel</Button>
+          <Button
+            onClick={() => mut.mutate()}
+            disabled={mut.isPending || !valid || !effectiveReason || (isPayout && amt > currentBalance)}
+            variant={isPayout ? "destructive" : "default"}
+          >
+            {mut.isPending && <Loader2 className="size-4 animate-spin mr-2" />}
+            Confirm {label}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
