@@ -246,16 +246,19 @@ function PosPage() {
   };
 
   const subtotal = Math.round(cart.reduce((s, l) => s + l.product.price * l.qty, 0) * 100) / 100;
-  const discountAmount = !discount
+  const manualDiscount = !discount
     ? 0
     : discount.mode === "percent"
       ? Math.min(subtotal, Math.round(subtotal * discount.value) / 100)
       : Math.min(subtotal, Math.round(discount.value * 100) / 100);
+  const effectiveLoyaltyRedemption = Math.min(Math.max(0, subtotal - manualDiscount), loyaltyRedemption);
+  const discountAmount = Math.round((manualDiscount + effectiveLoyaltyRedemption) * 100) / 100;
   const discountRatio = subtotal > 0 ? discountAmount / subtotal : 0;
   const taxableBase = cart.reduce((s, l) => s + (l.product.taxable ? l.product.price * l.qty : 0), 0);
   const taxableAfterDiscount = Math.max(0, taxableBase * (1 - discountRatio));
   const tax = Math.round(taxableAfterDiscount * taxRate * 100) / 100;
   const total = Math.max(0, Math.round((subtotal - discountAmount + tax) * 100) / 100);
+  const loyaltyEarn = loyalty ? Math.floor(Math.max(0, subtotal - discountAmount)) : 0;
 
   // Sale is written ONLY after payment is confirmed.
   const finalize = useMutation({
