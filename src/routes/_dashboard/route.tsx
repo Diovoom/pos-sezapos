@@ -2,6 +2,8 @@ import { createFileRoute, Outlet, redirect, useLocation, useNavigate } from "@ta
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { hydrateSessionFromCookie } from "@/integrations/supabase/session-bridge";
+
 import { AppShell } from "@/components/pos/AppShell";
 import { useMe } from "@/hooks/useMe";
 import { useSubscription } from "@/hooks/useSubscription";
