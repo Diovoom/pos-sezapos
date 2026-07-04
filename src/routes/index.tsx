@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/useSession";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { currentApp } from "@/lib/host";
+import { hydrateSessionFromCookie } from "@/integrations/supabase/session-bridge";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
