@@ -34,6 +34,7 @@ import {
   loadAgeSettings, saveAgeSettings, AGE_CATEGORIES, DEFAULT_AGE_SETTINGS,
   type AgeVerificationSettings,
 } from "@/lib/age-verification";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   head: () => ({ meta: [{ title: "Settings — SEZA POS" }, { name: "description", content: "Store administration, hardware setup, inventory preferences, and billing." }] }),
@@ -849,13 +850,17 @@ function AppearancePanel() {
   };
   return (
     <Card className="max-w-2xl">
-      <CardHeader><CardTitle>Appearance</CardTitle><CardDescription>Theme and accessibility.</CardDescription></CardHeader>
-      <CardContent className="space-y-3">
+      <CardHeader><CardTitle>Appearance & Language</CardTitle><CardDescription>Theme, accessibility, and interface language.</CardDescription></CardHeader>
+      <CardContent className="space-y-4">
         <div className="flex items-center gap-2">
           <Label className="flex-1">Theme</Label>
           {(["light", "dark", "system"] as const).map((t) => (
             <Button key={t} size="sm" variant={theme === t ? "default" : "outline"} onClick={() => apply(t)}>{t}</Button>
           ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="flex-1 flex items-center gap-2"><Languages className="size-4" /> Interface language</Label>
+          <LanguageSwitcher />
         </div>
         <PrefPanelInline prefKey="appearance" fields={[
           { k: "compact", label: "Compact mode", type: "switch", default: "false" },
