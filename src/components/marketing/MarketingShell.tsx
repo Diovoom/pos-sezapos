@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/useSession";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
+import { dashboardUrl } from "@/lib/host";
 
 const PRIMARY_NAV = [
   { to: "/features", label: "Features" },
@@ -36,7 +37,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           </nav>
           <div className="flex items-center gap-2">
             {session ? (
-              <Button asChild size="sm"><Link to="/dashboard">Open Dashboard</Link></Button>
+              <Button asChild size="sm"><a href={dashboardUrl("/dashboard")}>Open Dashboard</a></Button>
             ) : (
               <>
                 <Button asChild size="sm" variant="ghost"><Link to="/auth">Sign In</Link></Button>
