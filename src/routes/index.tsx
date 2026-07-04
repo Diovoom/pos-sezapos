@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Check, ShoppingCart, BarChart3, Users, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,12 @@ import { currentApp } from "@/lib/host";
 
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+    const app = currentApp();
+    if (app === "dashboard") throw redirect({ to: "/dashboard" });
+    if (app === "pos") throw redirect({ to: "/pos" });
+  },
   head: () => ({
     meta: [
       { title: "SEZA POS — Modern Cloud Point of Sale for Retail" },
