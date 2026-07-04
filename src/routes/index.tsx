@@ -2,10 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Check, ShoppingCart, BarChart3, Users, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useSession } from "@/hooks/useSession";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { currentApp } from "@/lib/host";
-import { hydrateSessionFromCookie } from "@/integrations/supabase/session-bridge";
 
 
 export const Route = createFileRoute("/")({
@@ -24,20 +22,14 @@ export const Route = createFileRoute("/")({
 });
 
 function LandingPage() {
-  const { session, loading } = useSession();
   const navigate = useNavigate();
 
-  // Subdomain routing: dashboard.sezapos.com/ → /dashboard, pos.sezapos.com/ → /pos.
+  // Subdomain routing: each custom domain owns its own website surface.
   useEffect(() => {
-    (async () => {
-      const app = currentApp();
-      if (app === "dashboard") { navigate({ to: "/dashboard", replace: true }); return; }
-      if (app === "pos") { navigate({ to: "/pos", replace: true }); return; }
-      // Marketing host: wait for shared-cookie session, then bounce signed-in visitors.
-      await hydrateSessionFromCookie();
-      if (!loading && session) navigate({ to: "/dashboard", replace: true });
-    })();
-  }, [session, loading, navigate]);
+    const app = currentApp();
+    if (app === "dashboard") navigate({ to: "/dashboard", replace: true });
+    if (app === "pos") navigate({ to: "/pos", replace: true });
+  }, [navigate]);
 
 
   return (

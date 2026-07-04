@@ -7,7 +7,7 @@ import { hydrateSessionFromCookie } from "@/integrations/supabase/session-bridge
 import { AppShell } from "@/components/pos/AppShell";
 import { useMe } from "@/hooks/useMe";
 import { useSubscription } from "@/hooks/useSubscription";
-import { currentApp, posUrl } from "@/lib/host";
+import { currentApp, dashboardUrl, posUrl } from "@/lib/host";
 
 // Owner / manager surface. Cashiers get pushed to /pos.
 export const Route = createFileRoute("/_dashboard")({
@@ -18,11 +18,10 @@ export const Route = createFileRoute("/_dashboard")({
     if (typeof window !== "undefined") {
       const app = currentApp();
       if (app === "pos") {
-        window.location.replace(posUrl(window.location.pathname + window.location.search));
-        throw redirect({ to: "/" });
+        throw redirect({ to: "/pos" });
       }
       if (app === "marketing") {
-        window.location.replace(`https://dashboard.sezapos.com${window.location.pathname}${window.location.search}`);
+        window.location.replace(dashboardUrl("/dashboard"));
         throw redirect({ to: "/" });
       }
     }
