@@ -11,6 +11,8 @@ import {
   resetEmployeeCredentials,
   setEmployeeStatus,
   deleteEmployee,
+  updateEmployeePay,
+  adjustTimeEntry,
 } from "@/lib/employees.functions";
 import { useMe } from "@/hooks/useMe";
 import { PageHeader } from "@/components/pos/AppShell";
