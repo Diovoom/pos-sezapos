@@ -97,6 +97,9 @@ function PosPage() {
   const [customOpen, setCustomOpen] = useState(false);
   const [discountOpen, setDiscountOpen] = useState(false);
   const [discount, setDiscount] = useState<DiscountValue | null>(null);
+  const [loyaltyOpen, setLoyaltyOpen] = useState(false);
+  const [loyalty, setLoyalty] = useState<LoyaltyCustomer | null>(null);
+  const [loyaltyRedemption, setLoyaltyRedemption] = useState(0);
 
   const [tender, setTender] = useState<PaymentMethod>("card");
   const [payOpen, setPayOpen] = useState(false);
