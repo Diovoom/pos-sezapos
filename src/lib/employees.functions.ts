@@ -360,7 +360,11 @@ export const updateEmployee = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data, context }) => {
-    await assertOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const callerIsOwnerOrAdmin = await isOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    if (data.role && !callerIsOwnerOrAdmin) {
+      throw new Error("Only owners or admins can change a role");
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
