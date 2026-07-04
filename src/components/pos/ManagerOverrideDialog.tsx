@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { verifyManagerOverride } from "@/lib/overrides.functions";
+import { verifyManagerPin } from "@/lib/overrides.functions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,26 +25,32 @@ export function ManagerOverrideDialog({
   details?: Record<string, unknown>;
   onApprove: (r: ManagerOverrideResult) => void;
 }) {
-  const [empId, setEmpId] = useState("");
   const [pin, setPin] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const verify = useServerFn(verifyManagerOverride);
+  const verify = useServerFn(verifyManagerPin);
+  const pinRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      setPin(""); setReason(""); setBusy(false);
+      setTimeout(() => pinRef.current?.focus(), 50);
+    }
+  }, [open]);
 
   const submit = async () => {
-    if (!/^\d{6}$/.test(empId)) return toast.error("Enter a 6-digit employee ID");
     if (!/^\d{4,8}$/.test(pin)) return toast.error("Enter the manager's PIN");
     setBusy(true);
     try {
       const r = await verify({
-        data: { employee_id: empId, pin, action, details: { ...(details ?? {}), reason } },
+        data: { pin, action, details: { ...(details ?? {}), reason } },
       });
       toast.success(`Approved by ${r.manager_name}`);
       onApprove(r);
       onOpenChange(false);
-      setEmpId(""); setPin(""); setReason("");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Override denied");
+      setPin("");
     } finally {
       setBusy(false);
     }
@@ -61,21 +67,17 @@ export function ManagerOverrideDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Manager employee ID</Label>
-            <Input
-              autoFocus inputMode="numeric" maxLength={6} value={empId}
-              onChange={(e) => setEmpId(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="6 digits"
-            />
-          </div>
-          <div className="space-y-1">
             <Label>Manager PIN</Label>
             <Input
+              ref={pinRef}
               type="password" inputMode="numeric" maxLength={8} value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
-              placeholder="PIN"
+              placeholder="Enter manager or owner PIN"
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
+            <p className="text-xs text-muted-foreground">
+              Any active manager or owner PIN will approve this action.
+            </p>
           </div>
           <div className="space-y-1">
             <Label>Reason (optional)</Label>
@@ -83,7 +85,7 @@ export function ManagerOverrideDialog({
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
-            <Button onClick={submit} disabled={busy}>
+            <Button onClick={submit} disabled={busy || pin.length < 4}>
               {busy && <Loader2 className="size-4 animate-spin mr-2" />}Approve
             </Button>
           </div>
