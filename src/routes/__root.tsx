@@ -16,6 +16,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import "@/i18n";
 import { applyLanguage } from "@/i18n";
+import { installSessionBridge } from "@/integrations/supabase/session-bridge";
 
 function NotFoundComponent() {
   return (
@@ -153,6 +154,7 @@ function RootComponent() {
   useEffect(() => {
     const saved = typeof window !== "undefined" ? window.localStorage.getItem("i18nextLng") : null;
     if (saved) applyLanguage(saved);
+    installSessionBridge();
   }, []);
 
   useEffect(() => {
