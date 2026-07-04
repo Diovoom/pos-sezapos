@@ -752,7 +752,57 @@ function PosPage() {
         redemption={loyaltyRedemption}
         onApply={(cust, amt) => { setLoyalty(cust); setLoyaltyRedemption(amt); }}
       />
+
+      <Dialog open={!!voidLine} onOpenChange={(v) => { if (!v) setVoidLine(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Void item</DialogTitle>
+            <DialogDescription>
+              Remove <span className="font-semibold text-foreground">{voidLine?.product.name}</span> from the current sale. This is recorded in the shift audit log.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="void-reason">Reason (optional)</Label>
+            <Input
+              id="void-reason"
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="e.g. customer changed mind, wrong scan"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVoidLine(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!voidLine) return;
+                const l = voidLine;
+                removeLine(l.product.id);
+                void logAudit({
+                  action: "sale.item.void",
+                  entity: "cart_line",
+                  entity_id: l.product.id,
+                  details: {
+                    product_name: l.product.name,
+                    qty: l.qty,
+                    unit_price: l.product.price,
+                    line_total: Math.round(l.product.price * l.qty * 100) / 100,
+                    reason: voidReason || null,
+                  },
+                });
+                toast.info(`Voided ${l.product.name}`);
+                setVoidLine(null);
+                setVoidReason("");
+              }}
+            >
+              Void item
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
+
 
   );
 }
