@@ -578,13 +578,15 @@ function PosPage() {
                       <Button size="icon" variant="outline" className="size-6" onClick={() => setQty(line.product.id, line.qty + 1)}>
                         <Plus className="size-3" />
                       </Button>
-                      <button
-                        onClick={() => removeLine(line.product.id)}
-                        className="size-6 ml-1 grid place-items-center text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label="Remove"
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 ml-1 text-destructive hover:bg-destructive/10 text-[11px] font-semibold"
+                        onClick={() => { setVoidReason(""); setVoidLine(line); }}
+                        aria-label="Void item"
                       >
-                        <Trash2 className="size-3.5" />
-                      </button>
+                        <Trash2 className="size-3 mr-1" /> Void
+                      </Button>
                     </div>
                   </div>
                   <p className="text-sm font-mono font-semibold">
