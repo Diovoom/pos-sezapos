@@ -192,46 +192,25 @@ function SettingsPage() {
             <TabsContent value="employees" className="mt-0"><EmployeesPanel /></TabsContent>
             <TabsContent value="roles" className="mt-0"><RolePermissionsPanel canEdit={canEditRoles} /></TabsContent>
             <TabsContent value="terminal" className="mt-0"><TerminalPanel /></TabsContent>
-            <TabsContent value="printer" className="mt-0">
-              <HardwareCard kind="printer" title="Receipt Printer" description="Connect a thermal receipt printer via USB, Bluetooth, or Serial." transports={["usb", "bluetooth", "serial"]} />
-              <ReceiptPreferences />
-            </TabsContent>
-            <TabsContent value="setup_receipt" className="mt-0"><ReceiptPreferences /></TabsContent>
-            <TabsContent value="scanner" className="mt-0">
-              <HardwareCard kind="scanner" title="Barcode Scanner" description="USB or Bluetooth HID scanner. Most keyboard-emulating scanners work automatically without pairing." transports={["usb", "bluetooth", "hid"]} />
-              <ScannerPreferences />
-            </TabsContent>
-            <TabsContent value="camera" className="mt-0"><CameraPanel /></TabsContent>
-            <TabsContent value="drawer" className="mt-0">
-              <HardwareCard kind="drawer" title="Cash Drawer" description="Serial or USB cash drawer. Opens automatically after cash payments." transports={["usb", "serial"]} />
-            </TabsContent>
-            <TabsContent value="cash_drawers" className="mt-0">
-              <HardwareCard kind="drawer" title="Cash Drawers" description="Connected cash drawers for this terminal." transports={["usb", "serial"]} />
-            </TabsContent>
-            <TabsContent value="display" className="mt-0"><CustomerDisplayPanel /></TabsContent>
+            <TabsContent value="receipt" className="mt-0"><UnifiedReceiptPanel /></TabsContent>
+            <TabsContent value="hardware_setup" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            {/* Legacy deep-links still supported */}
+            <TabsContent value="printer" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            <TabsContent value="scanner" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            <TabsContent value="camera" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            <TabsContent value="drawer" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            <TabsContent value="cash_drawers" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            <TabsContent value="display" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
+            <TabsContent value="setup_receipt" className="mt-0"><UnifiedReceiptPanel /></TabsContent>
+            <TabsContent value="setup_email" className="mt-0"><UnifiedReceiptPanel /></TabsContent>
+            <TabsContent value="setup_sms" className="mt-0"><UnifiedReceiptPanel /></TabsContent>
+            <TabsContent value="setup_tax" className="mt-0"><GeneralPanel canEdit={canEditSettings} /></TabsContent>
             <TabsContent value="inventory" className="mt-0"><PrefPanel prefKey="inventory" title="Menu & Inventory" desc="Low stock alerts, auto-reorder, expiration, and tracking preferences." fields={[
               { k: "low_stock_threshold", label: "Low stock threshold", type: "number", default: "5" },
               { k: "auto_reorder", label: "Enable auto-reorder suggestions", type: "switch", default: "true" },
               { k: "expiration_alerts", label: "Expiration alerts", type: "switch", default: "false" },
               { k: "lot_tracking", label: "Lot tracking", type: "switch", default: "false" },
               { k: "waste_tracking", label: "Waste tracking", type: "switch", default: "false" },
-            ]} /></TabsContent>
-            <TabsContent value="suppliers" className="mt-0"><ComingSoon title="Suppliers" desc="Supplier profiles, purchase orders, and automatic reordering." /></TabsContent>
-            <TabsContent value="customers" className="mt-0"><PrefPanel prefKey="customers" title="Loyalty & customers" desc="Loyalty program and reward defaults." fields={[
-              { k: "loyalty_enabled", label: "Enable loyalty program", type: "switch", default: "false" },
-              { k: "points_per_dollar", label: "Points per dollar", type: "number", default: "1" },
-              { k: "birthday_reward", label: "Birthday reward ($)", type: "number", default: "5" },
-            ]} /></TabsContent>
-            <TabsContent value="discounts" className="mt-0"><PrefPanel prefKey="discounts" title="Discounts" desc="Discount limits and approval thresholds." fields={[
-              { k: "cashier_max_pct", label: "Cashier max discount (%)", type: "number", default: "10" },
-              { k: "manager_approval_pct", label: "Manager approval required above (%)", type: "number", default: "15" },
-              { k: "employee_discount_pct", label: "Employee discount (%)", type: "number", default: "20" },
-            ]} /></TabsContent>
-            <TabsContent value="refunds" className="mt-0"><PrefPanel prefKey="refunds" title="Refunds" desc="Refund reasons, approvals, and limits." fields={[
-              { k: "manager_approval", label: "Require manager approval for refunds", type: "switch", default: "true" },
-              { k: "auto_restock", label: "Automatically restock refunded items", type: "switch", default: "true" },
-              { k: "max_refund_days", label: "Max refund window (days)", type: "number", default: "30" },
-              { k: "reasons", label: "Refund reasons (comma separated)", type: "text", default: "Defective, Wrong item, Customer changed mind, Duplicate charge" },
             ]} /></TabsContent>
             <TabsContent value="register" className="mt-0"><PrefPanel prefKey="register" title="Cash payouts, deposits & register" desc="Cash drawer float, payouts, deposits, and close-of-day rules." fields={[
               { k: "default_float", label: "Starting float ($)", type: "number", default: "100" },
