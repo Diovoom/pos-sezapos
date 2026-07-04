@@ -111,8 +111,12 @@ function PosPage() {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [ageOpen, setAgeOpen] = useState(false);
   const [ageVerification, setAgeVerification] = useState<SuccessfulVerification | null>(null);
+  const [voidLine, setVoidLine] = useState<CartLine | null>(null);
+  const [voidReason, setVoidReason] = useState("");
   const ageSettings = useMemo(() => loadAgeSettings(), []);
   const searchRef = useRef<HTMLInputElement>(null);
+  const me = useMe();
+  const canManage = (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager");
 
   const { data: store } = useQuery({
     queryKey: ["store"],
