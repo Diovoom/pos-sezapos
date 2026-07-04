@@ -31,6 +31,22 @@ async function assertOwnerOrAdmin(context: { supabase: SupabaseCtx; userId: stri
   if (error || !data) throw new Error("Forbidden: owner or admin role required");
 }
 
+async function assertOwnerAdminOrManager(context: { supabase: SupabaseCtx; userId: string }) {
+  const { data, error } = await context.supabase.rpc("has_any_role", {
+    _user_id: context.userId,
+    _roles: ["owner", "admin", "manager"],
+  });
+  if (error || !data) throw new Error("Forbidden: owner, admin or manager role required");
+}
+
+async function isOwnerOrAdmin(context: { supabase: SupabaseCtx; userId: string }): Promise<boolean> {
+  const { data } = await context.supabase.rpc("has_any_role", {
+    _user_id: context.userId,
+    _roles: ["owner", "admin"],
+  });
+  return !!data;
+}
+
 function generateSixDigitId(): string {
   const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000;
   return String(n).padStart(6, "0");
