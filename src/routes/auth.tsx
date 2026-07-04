@@ -40,8 +40,10 @@ function AuthPage() {
   const [mode, setMode] = useState<Mode>(search.mode ?? "pin");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/pos", replace: true });
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      const dest = await landingRouteForUser(data.session.user.id);
+      navigate({ to: dest, replace: true });
     });
   }, [navigate]);
 
