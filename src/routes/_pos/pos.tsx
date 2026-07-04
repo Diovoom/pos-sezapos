@@ -726,6 +726,16 @@ function PosPage() {
         current={discount}
         onApply={setDiscount}
       />
+
+      <LoyaltyDialog
+        open={loyaltyOpen}
+        onOpenChange={setLoyaltyOpen}
+        subtotal={Math.max(0, subtotal - manualDiscount)}
+        currency={currency}
+        current={loyalty}
+        redemption={loyaltyRedemption}
+        onApply={(cust, amt) => { setLoyalty(cust); setLoyaltyRedemption(amt); }}
+      />
     </>
 
   );
