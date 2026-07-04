@@ -19,6 +19,10 @@ import { CustomItemDialog } from "@/components/pos/CustomItemDialog";
 import { DiscountDialog, type DiscountValue } from "@/components/pos/DiscountDialog";
 import { LoyaltyDialog, accrueLoyaltyPoints, spendLoyaltyPoints, type LoyaltyCustomer } from "@/components/pos/LoyaltyDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
+import { useMe } from "@/hooks/useMe";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { logAudit } from "@/lib/audit-log";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
