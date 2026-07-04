@@ -320,7 +320,7 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
     if (result.error) { toast.error(result.error.message ?? "Apple sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
     const { data: u } = await supabase.auth.getUser();
-    navigate({ to: u.user ? await landingRouteForUser(u.user.id) : "/pos", replace: true });
+    goToLanding(navigate, u.user ? await landingRouteForUser(u.user.id) : "/pos");
   };
 
   return (
