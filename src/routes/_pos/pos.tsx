@@ -201,7 +201,7 @@ function PosPage() {
     setCart((cur) => cur.map((l) => (l.product.id === id ? { ...l, qty } : l)));
   };
   const removeLine = (id: string) => setCart((cur) => cur.filter((l) => l.product.id !== id));
-  const clearCart = () => { setCart([]); setAgeVerification(null); setDiscount(null); };
+  const clearCart = () => { setCart([]); setAgeVerification(null); setDiscount(null); setLoyalty(null); setLoyaltyRedemption(0); };
 
   const addCustomItem = (item: { name: string; price: number; taxable: boolean }) => {
     const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
