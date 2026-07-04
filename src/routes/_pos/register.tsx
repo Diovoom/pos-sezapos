@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
@@ -638,7 +638,7 @@ function HistoryCard({ sessions }: { sessions: Session[] }) {
                     </td>
                     <td className="text-right">
                       <Button asChild variant="ghost" size="sm">
-                        <a href={`/shifts?session=${s.id}`}>Report</a>
+                        <Link to="/shifts" search={{ session: s.id }}>Report</Link>
                       </Button>
                     </td>
                   </tr>

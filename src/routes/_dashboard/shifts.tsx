@@ -300,8 +300,95 @@ function ShiftsList() {
             )}
           </CardContent>
         </Card>
+
+        <RegisterSessionsCard dateFrom={dateFrom} dateTo={dateTo} />
       </div>
     </>
+  );
+}
+
+type RegisterSession = {
+  id: string;
+  opened_at: string;
+  closed_at: string | null;
+  opened_by: string | null;
+  closed_by: string | null;
+  status: string;
+  opening_cash: number;
+  cash_sales: number | null;
+  expected_cash: number | null;
+  closing_cash: number | null;
+  variance: number | null;
+};
+
+function RegisterSessionsCard({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }) {
+  const { data = [], isLoading } = useQuery<RegisterSession[]>({
+    queryKey: ["register-sessions-history", dateFrom, dateTo],
+    queryFn: async () => {
+      const { data } = await sb.from("register_sessions")
+        .select("id, opened_at, closed_at, opened_by, closed_by, status, opening_cash, cash_sales, expected_cash, closing_cash, variance")
+        .gte("opened_at", `${dateFrom}T00:00:00Z`)
+        .lte("opened_at", `${dateTo}T23:59:59Z`)
+        .order("opened_at", { ascending: false })
+        .limit(200);
+      return (data ?? []) as RegisterSession[];
+    },
+  });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Register sessions</CardTitle>
+        <CardDescription>Closed and open cash register sessions in this range.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground text-sm"><Loader2 className="size-4 animate-spin" /> Loading…</div>
+        ) : data.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No register sessions in this range.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-muted-foreground border-b">
+                <tr>
+                  <th className="py-2">Opened</th>
+                  <th>Closed</th>
+                  <th className="text-right">Opening</th>
+                  <th className="text-right">Cash sales</th>
+                  <th className="text-right">Expected</th>
+                  <th className="text-right">Counted</th>
+                  <th className="text-right">Variance</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((s) => (
+                  <tr key={s.id} className="border-b last:border-0">
+                    <td className="py-2">{format(new Date(s.opened_at), "MMM d, p")}</td>
+                    <td>{s.closed_at ? format(new Date(s.closed_at), "MMM d, p") : "—"}</td>
+                    <td className="text-right tabular-nums">{fmtCurrency(Number(s.opening_cash ?? 0), "USD")}</td>
+                    <td className="text-right tabular-nums">{fmtCurrency(Number(s.cash_sales ?? 0), "USD")}</td>
+                    <td className="text-right tabular-nums">{s.expected_cash != null ? fmtCurrency(Number(s.expected_cash), "USD") : "—"}</td>
+                    <td className="text-right tabular-nums">{s.closing_cash != null ? fmtCurrency(Number(s.closing_cash), "USD") : "—"}</td>
+                    <td className={`text-right tabular-nums ${s.variance == null || s.variance === 0 ? "" : s.variance > 0 ? "text-success" : "text-destructive"}`}>
+                      {s.variance != null ? `${s.variance > 0 ? "+" : ""}${fmtCurrency(Number(s.variance), "USD")}` : "—"}
+                    </td>
+                    <td>
+                      <Badge variant="outline" className={s.status === "open" ? "text-success border-success/30" : "text-muted-foreground"}>{s.status}</Badge>
+                    </td>
+                    <td className="text-right">
+                      <Button asChild variant="ghost" size="sm">
+                        <Link to="/shifts" search={{ session: s.id }}>Report</Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
