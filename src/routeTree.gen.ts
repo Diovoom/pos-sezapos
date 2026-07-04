@@ -18,6 +18,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SelectPlanRouteImport } from './routes/select-plan'
 import { Route as SecurityRouteImport } from './routes/security'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RefundRouteImport } from './routes/refund'
 import { Route as PrivacyRouteImport } from './routes/privacy'
@@ -108,6 +109,11 @@ const SelectPlanRoute = SelectPlanRouteImport.update({
 const SecurityRoute = SecurityRouteImport.update({
   id: '/security',
   path: '/security',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -359,6 +365,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/security': typeof SecurityRoute
   '/select-plan': typeof SelectPlanRoute
   '/signup': typeof SignupRoute
@@ -414,6 +421,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/security': typeof SecurityRoute
   '/select-plan': typeof SelectPlanRoute
   '/signup': typeof SignupRoute
@@ -472,6 +480,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/refund': typeof RefundRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/security': typeof SecurityRoute
   '/select-plan': typeof SelectPlanRoute
   '/signup': typeof SignupRoute
@@ -529,6 +538,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/refund'
     | '/reset-password'
+    | '/robots.txt'
     | '/security'
     | '/select-plan'
     | '/signup'
@@ -584,6 +594,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/refund'
     | '/reset-password'
+    | '/robots.txt'
     | '/security'
     | '/select-plan'
     | '/signup'
@@ -641,6 +652,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/refund'
     | '/reset-password'
+    | '/robots.txt'
     | '/security'
     | '/select-plan'
     | '/signup'
@@ -699,6 +711,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   RefundRoute: typeof RefundRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   SecurityRoute: typeof SecurityRoute
   SelectPlanRoute: typeof SelectPlanRoute
   SignupRoute: typeof SignupRoute
@@ -785,6 +798,13 @@ declare module '@tanstack/react-router' {
       path: '/security'
       fullPath: '/security'
       preLoaderRoute: typeof SecurityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -1193,6 +1213,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   RefundRoute: RefundRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   SecurityRoute: SecurityRoute,
   SelectPlanRoute: SelectPlanRoute,
   SignupRoute: SignupRoute,
@@ -1218,13 +1239,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

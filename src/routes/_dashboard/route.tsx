@@ -5,12 +5,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/pos/AppShell";
 import { useMe } from "@/hooks/useMe";
 import { useSubscription } from "@/hooks/useSubscription";
+import { currentApp, posUrl } from "@/lib/host";
 
 // Owner / manager surface. Cashiers get pushed to /pos.
 export const Route = createFileRoute("/_dashboard")({
   ssr: false,
   head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   beforeLoad: async () => {
+    // Wrong subdomain? Send visitors to the right one.
+    if (typeof window !== "undefined") {
+      const app = currentApp();
+      if (app === "pos") {
+        window.location.replace(posUrl(window.location.pathname + window.location.search));
+        throw redirect({ to: "/" });
+      }
+      if (app === "marketing") {
+        window.location.replace(`https://dashboard.sezapos.com${window.location.pathname}${window.location.search}`);
+        throw redirect({ to: "/" });
+      }
+    }
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
     return { user: data.user };
@@ -37,7 +50,7 @@ function DashboardLayout() {
   const toastedRef = useRef(false);
   const bouncedRef = useRef(false);
 
-  // Cashiers don't get dashboard access — send them to POS.
+  // Cashiers don't get dashboard access — send them to POS (cross-subdomain aware).
   useEffect(() => {
     if (!me.data || bouncedRef.current) return;
     const roles = me.data.roles ?? [];
@@ -45,7 +58,9 @@ function DashboardLayout() {
     if (!canDashboard) {
       bouncedRef.current = true;
       toast.info("Cashiers use the POS register");
-      navigate({ to: "/pos", replace: true });
+      const target = posUrl("/pos");
+      if (target.startsWith("http")) window.location.replace(target);
+      else navigate({ to: "/pos", replace: true });
     }
   }, [me.data, navigate]);
 

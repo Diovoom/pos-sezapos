@@ -4,6 +4,7 @@ import { Check, ShoppingCart, BarChart3, Users, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/useSession";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
+import { currentApp } from "@/lib/host";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -24,11 +25,13 @@ function LandingPage() {
   const { session, loading } = useSession();
   const navigate = useNavigate();
 
-  // Logged-in users on the marketing home → straight to Dashboard.
+  // Subdomain routing: dashboard.sezapos.com/ → /dashboard, pos.sezapos.com/ → /pos.
   useEffect(() => {
-    if (!loading && session) {
-      navigate({ to: "/dashboard", replace: true });
-    }
+    const app = currentApp();
+    if (app === "dashboard") { navigate({ to: "/dashboard", replace: true }); return; }
+    if (app === "pos") { navigate({ to: "/pos", replace: true }); return; }
+    // Marketing host: signed-in visitors go straight to their app.
+    if (!loading && session) navigate({ to: "/dashboard", replace: true });
   }, [session, loading, navigate]);
 
   return (

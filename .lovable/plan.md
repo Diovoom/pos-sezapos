@@ -1,115 +1,89 @@
+# Subdomain-aware multi-app routing
 
-## Goal
+Your three custom domains (`sezapos.com`, `dashboard.sezapos.com`, `pos.sezapos.com`) all serve this same project today. This plan makes each subdomain behave like its own dedicated app — clean URLs, isolated navigation, cross-subdomain sign-in, and per-host SEO.
 
-One Lovable project, three clearly separated experiences behind role-based guards. Later you can point `dashboard.sezapos.com` and `pos.sezapos.com` at the same app via path rewrites — no code changes needed.
+## What each subdomain will serve
 
-## Final URL layout
+| Subdomain | Purpose | Routes exposed |
+|---|---|---|
+| `sezapos.com` | Marketing website | `/`, `/features`, `/pricing`, `/about`, `/contact`, `/support`, `/status`, `/legal/*`, `/auth`, `/signup` |
+| `dashboard.sezapos.com` | Merchant Dashboard | `/` → dashboard home, `/products`, `/inventory`, `/reports`, … (all `_dashboard` routes), plus `/auth` |
+| `pos.sezapos.com` | POS Register | `/` → sell screen, `/register`, `/refunds`, `/timeclock`, `/shift`, plus `/auth` |
 
-```text
-/                          Marketing (existing MarketingShell)
-/features /pricing /about /contact /support /status /legal/*   Marketing
-/auth /signup /reset-password                                  Auth (public)
+## Clean URLs (chosen)
 
-/dashboard/*               Merchant Dashboard (owner/manager only)
-  dashboard, products, inventory, customers, employees,
-  reports, sales, shifts, payroll, settings, setup, onboarding
+The internal file tree stays as `src/routes/_dashboard/*` and `src/routes/_pos/*`. A tiny host-aware layer rewrites the URL bar so:
 
-/pos/*                     POS Register (cashier + manager + owner)
-  sell (checkout), register (open/close), refunds,
-  timeclock, shift
-  Locked behind PIN unlock, not email/password.
-```
+- `dashboard.sezapos.com/products` → renders `_dashboard/products`
+- `pos.sezapos.com/sell` → renders `_pos/pos`
+- `sezapos.com/` → renders marketing home
 
-## Role gates
+Implementation: a middleware on the server side (`src/start.ts` request middleware) that inspects `Host` and rewrites the incoming pathname before TanStack Router matches. On the client, a small `Link` wrapper and `useNavigate` helper strip/add the prefix based on `window.location.host`.
 
-- **Public**: everything under `/`, `/features`, `/pricing`, `/about`, `/contact`, `/support`, `/status`, `/legal/*`, `/auth`, `/signup`, `/reset-password`.
-- **`/dashboard/*`** → requires session AND role in `{owner, admin, manager}`. Cashiers hitting it get redirected to `/pos`.
-- **`/pos/*`** → requires session AND (role in `{owner, admin, manager, cashier}`) AND active PIN unlock in `sessionStorage`. No PIN → PIN screen.
+## Cross-subdomain behavior
 
-Post-login redirect:
-- owner/admin/manager → `/dashboard`
-- cashier → `/pos` (PIN screen first)
+- **Cashier hits `dashboard.sezapos.com`** → redirect to `https://pos.sezapos.com/` (as requested).
+- **Owner/manager hits `pos.sezapos.com`** → allowed; a "Switch to Dashboard" link points to `https://dashboard.sezapos.com/`.
+- **Anyone hits `sezapos.com/dashboard` or `/pos`** → 302 to the correct subdomain.
+- **Unauth on dashboard/pos subdomain** → send to `/auth` on the same subdomain; after login, redirect by role (owner/manager stays, cashier is bounced to POS host).
 
-## Shell changes
+## Shared sign-in across subdomains
 
-- **MarketingShell** — already good; add `/status` link in footer.
-- **DashboardShell** (rename of current `AppShell`): sidebar shows business management only (Dashboard, Products, Inventory, Customers, Employees, Sales, Reports, Shifts, Payroll, Settings). Owner/manager gets a header button **"Open POS"** → `/pos`.
-- **PosShell** (new): minimal top bar with Store name, current cashier, Clock in/out, and — for owner/manager only — **"Switch to Dashboard"** link. Left rail with just: Sell, Register, Refunds, Timeclock, Shift. No products/inventory/reports/settings.
+Currently Supabase persists the session in `localStorage`, which is per-origin — signing in on `sezapos.com` doesn't sign you in on `dashboard.sezapos.com`.
 
-## PIN unlock (cashiers)
+Fix: switch the Supabase client to cookie-based storage scoped to `.sezapos.com` (parent domain). One session, all three subdomains. `localhost` preview continues to work because we set the cookie domain only when the host ends in `sezapos.com`.
 
-- Reuse existing `src/lib/pin.server.ts` and `profiles.pin_hash` (already in schema based on employee flows).
-- New server fn `verifyCashierPin({ employee_id, pin })` returns `{ userId, storeId, roles }` on success.
-- POS PIN screen: employee_id + 4-6 digit PIN. On success store `{ userId, expiresAt }` in `sessionStorage` under `pos_unlock`. Auto-lock after 15 min idle or on tab close.
-- Owners/managers already have a Supabase session; PIN screen offers "Unlock as manager" that just requires their PIN too, so the POS device has a consistent unlock model.
+## Per-subdomain SEO & metadata
 
-## File moves & new files
+- Root `head()` sets a generic title only; each subdomain's landing route defines its own title, description, canonical, and og tags.
+- `dashboard.*` and `pos.*` get `<meta name="robots" content="noindex, nofollow">` on every route so only the marketing site is indexed.
+- `robots.txt` and `sitemap.xml` become host-aware server routes: on `sezapos.com` they list marketing URLs; on `dashboard.*`/`pos.*` they disallow all crawling.
+- Canonical URLs always point to the marketing host for shared pages (e.g. `/auth` canonical is `https://sezapos.com/auth`).
 
-Move (rename URL from `/pos` in `_authenticated` → new `/pos` shell; keep dashboard routes but shift under `/dashboard/*`):
+## Shell adjustments
 
-```text
-NEW  src/routes/_dashboard/route.tsx        (owner/manager gate, DashboardShell)
-NEW  src/routes/_dashboard/dashboard.tsx    (from _authenticated/dashboard.tsx)
-NEW  src/routes/_dashboard/products.tsx     (moved)
-NEW  src/routes/_dashboard/inventory.tsx    (moved)
-NEW  src/routes/_dashboard/customers.tsx    (moved)
-NEW  src/routes/_dashboard/employees.tsx    (moved)
-NEW  src/routes/_dashboard/employees.$id.tsx(moved)
-NEW  src/routes/_dashboard/sales.tsx        (moved — read-only history)
-NEW  src/routes/_dashboard/reports.tsx      (moved)
-NEW  src/routes/_dashboard/shifts.tsx       (moved)
-NEW  src/routes/_dashboard/payroll.tsx      (moved)
-NEW  src/routes/_dashboard/settings.tsx     (moved)
-NEW  src/routes/_dashboard/setup.tsx        (moved)
-NEW  src/routes/_dashboard/onboarding.tsx   (moved)
+- **MarketingShell**: "Open Dashboard" / "Open POS" buttons link to the absolute subdomain URLs.
+- **DashboardShell**: internal nav uses relative paths (no `/dashboard` prefix visible). "Open POS" button → `https://pos.sezapos.com/`.
+- **PosShell**: internal nav relative. "Switch to Dashboard" → `https://dashboard.sezapos.com/` (owner/manager only).
 
-NEW  src/routes/pos/route.tsx               (session + PIN gate, PosShell)
-NEW  src/routes/pos/index.tsx               (redirect → /pos/sell)
-NEW  src/routes/pos/sell.tsx                (from _authenticated/pos.tsx)
-NEW  src/routes/pos/register.tsx            (from _authenticated/register.tsx)
-NEW  src/routes/pos/refunds.tsx             (moved)
-NEW  src/routes/pos/timeclock.tsx           (moved)
-NEW  src/routes/pos/shift.tsx               (cashier-facing shift summary)
+## Files touched (new/edit)
 
-NEW  src/routes/status.tsx                  (static "All systems operational")
-NEW  src/components/dashboard/DashboardShell.tsx
-NEW  src/components/pos/PosShell.tsx
-NEW  src/components/pos/PinUnlock.tsx
-NEW  src/lib/pos/pin-session.ts             (sessionStorage helpers)
-NEW  src/lib/pos/pin.functions.ts           (verifyCashierPin server fn)
+New:
+- `src/lib/host.ts` — `getAppFromHost(host)` → `"marketing" | "dashboard" | "pos" | "unknown"`, plus URL builders (`dashboardUrl(path)`, `posUrl(path)`, `marketingUrl(path)`).
+- `src/lib/subdomain-router.ts` — client-side `AppLink` and `useAppNavigate` that translate clean paths to internal `_dashboard/_pos` paths.
+- Request middleware in `src/start.ts` — rewrites `request.url` pathname based on `Host` before SSR routing.
+- Host-aware `src/routes/robots[.]txt.ts`.
 
-DELETE  src/routes/_authenticated/*         (whole folder)
-```
+Edit:
+- `src/integrations/supabase/client.ts` — cookie storage on `.sezapos.com` (only auto-generated file we'd touch; if off-limits, we'll add a wrapping session bridge instead — see Technical notes).
+- `src/routes/_dashboard/route.tsx` + `src/routes/_pos/route.tsx` — add host guard (`beforeLoad`) that 302s wrong-subdomain hits, and set `noindex` head.
+- `src/routes/__root.tsx` — read host at SSR, expose via router context so components can render subdomain-correct links.
+- `src/routes/auth.tsx` — post-login redirect uses absolute subdomain URLs.
+- `src/components/marketing/MarketingShell.tsx`, `src/components/pos/AppShell.tsx`, `src/components/pos/PosShell.tsx` — subdomain-aware nav links.
+- `src/routes/sitemap[.]xml.ts` — host-aware output.
 
-The old `_authenticated` folder is retired entirely so there's only one gated shell per app. Existing `AppShell` becomes the dashboard shell; POS gets a purpose-built shell.
+## Technical notes
 
-## Redirects for old URLs
+- **SSR host detection**: read `Host` header in a request middleware; stash on request-scoped context (via `AsyncLocalStorage` from `@tanstack/react-start/server`) so route `head()` and components can read it during SSR.
+- **Client host detection**: `window.location.host` in a small hook; falls back to SSR-provided value during hydration to avoid mismatch.
+- **Supabase client is auto-generated** and off-limits to edit. Workaround: after `createClient(...)`, in a project-owned module (`src/integrations/supabase/session-bridge.ts`) install a cookie sync — write the session to a `.sezapos.com` cookie on `SIGNED_IN`, restore on load if `localStorage` is empty but the cookie exists. This gives cross-subdomain SSO without touching the generated file.
+- **Preview & localhost unaffected**: all host logic no-ops when host isn't `*.sezapos.com`, so `id-preview--*.lovable.app` keeps serving the whole app at path prefixes.
+- **No DNS or hosting changes needed** — all three domains already point at this project.
 
-`/dashboard` stays the same. Old paths that used to be `/pos`, `/register`, `/refunds`, `/timeclock`, `/products`, `/settings`, etc. get one-line route files at the old locations that `redirect()` to the new home so bookmarks and in-app links keep working. I'll grep the codebase for hardcoded old URLs (`to: "/pos"`, `to: "/products"`, …) and rewrite them to `/pos/sell`, `/dashboard/products`, etc. in the same pass.
+## Out of scope
 
-## Post-login router
-
-`/auth` submit handler and OAuth callback:
-1. `getUser()` + fetch roles.
-2. If roles ∩ {owner, admin, manager} → `navigate('/dashboard')`.
-3. Else if `cashier` → `navigate('/pos')` (PIN screen renders).
-4. Else → sign out with "no store access" message.
-
-## Status page
-
-`/status` static page: green "All systems operational" badge, four components (POS Register, Merchant Dashboard, Payments, Email/SMS) each with green dot, "Last checked" timestamp = build time. Note that this is a placeholder and real monitoring is coming.
-
-## Out of scope (this turn)
-
-- Real subdomain hosting (needs your DNS + Lovable custom-domain setup after the code lands).
-- Real uptime monitoring.
-- New POS features (Apple Pay, offline mode, camera scanning).
-- Any DB schema changes — reuses existing `profiles.pin_hash`, `user_roles`, `stores`.
+- Splitting into three separate Lovable projects.
+- Real DNS/registrar work.
+- Changing the POS PIN flow, roles table, or any DB schema.
+- New features inside dashboard or POS.
 
 ## Verification
 
-After the moves I'll run `bun run build`-equivalent typecheck via the harness and click through `/`, `/auth`, `/dashboard`, `/pos` in the preview to confirm role gates and PIN unlock work.
+After build passes, click through:
+1. `sezapos.com/` shows marketing; nav has no dashboard/POS internals.
+2. `dashboard.sezapos.com/` (signed in as owner) shows dashboard home at path `/`, not `/dashboard`.
+3. `pos.sezapos.com/` (signed in as cashier) shows PIN → sell.
+4. Sign in on marketing, then hit `dashboard.sezapos.com` — no re-login.
+5. Cashier hitting `dashboard.sezapos.com` gets bounced to `pos.sezapos.com`.
 
----
-
-This is a large refactor (~25 file moves + 6 new files + one grep-and-replace pass for internal links). I'll ship it in this next turn end-to-end, then we can iterate on POS UI polish. Approve to proceed.
+Approve to build.

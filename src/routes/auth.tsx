@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { toast } from "sonner";
 import { Loader2, Delete, LogIn, Mail, KeyRound, ArrowLeft, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { dashboardUrl, posUrl } from "@/lib/host";
 
 const MANAGER_ROLES = new Set(["owner", "admin", "manager"]);
 
@@ -23,6 +24,14 @@ async function landingRouteForUser(userId: string): Promise<"/dashboard" | "/pos
   } catch {
     return "/pos";
   }
+}
+
+// Redirect to the correct subdomain after auth. Falls back to same-origin
+// navigation on non-sezapos.com hosts (previews, localhost).
+function goToLanding(navigate: (opts: { to: "/dashboard" | "/pos"; replace: true }) => void, dest: "/dashboard" | "/pos") {
+  const abs = dest === "/dashboard" ? dashboardUrl("/dashboard") : posUrl("/pos");
+  if (abs.startsWith("http")) window.location.replace(abs);
+  else navigate({ to: dest, replace: true });
 }
 
 type Mode = "pin" | "email" | "pin_with_id";
@@ -55,7 +64,7 @@ function AuthPage() {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) return;
       const dest = await landingRouteForUser(data.session.user.id);
-      navigate({ to: dest, replace: true });
+      goToLanding(navigate, dest);
     });
   }, [navigate]);
 
@@ -172,7 +181,7 @@ function PinLogin({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void })
         type: "magiclink",
       });
       if (error) throw error;
-      navigate({ to: "/pos", replace: true });
+      goToLanding(navigate, "/pos");
     } catch (err) {
       const rawMsg = err instanceof Error ? err.message : String(err);
       if (rawMsg.startsWith("MULTIPLE_MATCHES:")) {
@@ -288,7 +297,7 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
       if (error) throw error;
       void import("@/lib/audit-log").then((m) => m.logAudit({ action: "login", details: { method: "password" } }));
       const dest = signIn.user ? await landingRouteForUser(signIn.user.id) : "/pos";
-      navigate({ to: dest, replace: true });
+      goToLanding(navigate, dest);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sign in failed");
     } finally {
@@ -302,7 +311,7 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
     if (result.error) { toast.error(result.error.message ?? "Google sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
     const { data: u } = await supabase.auth.getUser();
-    navigate({ to: u.user ? await landingRouteForUser(u.user.id) : "/pos", replace: true });
+    goToLanding(navigate, u.user ? await landingRouteForUser(u.user.id) : "/pos");
   };
 
   const handleApple = async () => {
@@ -311,7 +320,7 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
     if (result.error) { toast.error(result.error.message ?? "Apple sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
     const { data: u } = await supabase.auth.getUser();
-    navigate({ to: u.user ? await landingRouteForUser(u.user.id) : "/pos", replace: true });
+    goToLanding(navigate, u.user ? await landingRouteForUser(u.user.id) : "/pos");
   };
 
   return (
