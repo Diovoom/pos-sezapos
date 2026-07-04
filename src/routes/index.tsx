@@ -1,18 +1,9 @@
-import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Check, ShoppingCart, BarChart3, Users, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
-import { currentApp } from "@/lib/host";
-
 
 export const Route = createFileRoute("/")({
-  beforeLoad: () => {
-    if (typeof window === "undefined") return;
-    const app = currentApp();
-    if (app === "dashboard") throw redirect({ to: "/dashboard" });
-    if (app === "pos") throw redirect({ to: "/pos" });
-  },
   head: () => ({
     meta: [
       { title: "SEZA POS — Modern Cloud Point of Sale for Retail" },
@@ -28,16 +19,6 @@ export const Route = createFileRoute("/")({
 });
 
 function LandingPage() {
-  const navigate = useNavigate();
-
-  // Subdomain routing: each custom domain owns its own website surface.
-  useEffect(() => {
-    const app = currentApp();
-    if (app === "dashboard") navigate({ to: "/dashboard", replace: true });
-    if (app === "pos") navigate({ to: "/pos", replace: true });
-  }, [navigate]);
-
-
   return (
     <MarketingShell>
       <section className="max-w-6xl mx-auto px-6 py-20 text-center">

@@ -2,35 +2,19 @@ import { createFileRoute, Outlet, redirect, useLocation, useNavigate } from "@ta
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { hydrateSessionFromCookie } from "@/integrations/supabase/session-bridge";
 
 import { AppShell } from "@/components/pos/AppShell";
 import { useMe } from "@/hooks/useMe";
 import { useSubscription } from "@/hooks/useSubscription";
-import { currentApp, dashboardUrl, posUrl } from "@/lib/host";
 
 // Owner / manager surface. Cashiers get pushed to /pos.
 export const Route = createFileRoute("/_dashboard")({
   ssr: false,
   head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   beforeLoad: async () => {
-    // Wrong subdomain? Send visitors to the right one.
-    if (typeof window !== "undefined") {
-      const app = currentApp();
-      if (app === "pos") {
-        throw redirect({ to: "/pos" });
-      }
-      if (app === "marketing") {
-        window.location.replace(dashboardUrl("/dashboard"));
-        throw redirect({ to: "/" });
-      }
-    }
-    // Wait for the shared-cookie session to hydrate before checking auth.
-    await hydrateSessionFromCookie();
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
     return { user: data.user };
-
   },
   component: DashboardLayout,
 });
@@ -54,7 +38,7 @@ function DashboardLayout() {
   const toastedRef = useRef(false);
   const bouncedRef = useRef(false);
 
-  // Cashiers don't get dashboard access — send them to POS (cross-subdomain aware).
+  // Cashiers don't get dashboard access — send them to POS.
   useEffect(() => {
     if (!me.data || bouncedRef.current) return;
     const roles = me.data.roles ?? [];
@@ -62,9 +46,7 @@ function DashboardLayout() {
     if (!canDashboard) {
       bouncedRef.current = true;
       toast.info("Cashiers use the POS register");
-      const target = posUrl("/pos");
-      if (target.startsWith("http")) window.location.replace(target);
-      else navigate({ to: "/pos", replace: true });
+      navigate({ to: "/pos", replace: true });
     }
   }, [me.data, navigate]);
 
