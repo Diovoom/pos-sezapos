@@ -284,10 +284,11 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
     e.preventDefault();
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signIn, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       void import("@/lib/audit-log").then((m) => m.logAudit({ action: "login", details: { method: "password" } }));
-      navigate({ to: "/pos", replace: true });
+      const dest = signIn.user ? await landingRouteForUser(signIn.user.id) : "/pos";
+      navigate({ to: dest, replace: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sign in failed");
     } finally {
@@ -300,7 +301,8 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
     const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
     if (result.error) { toast.error(result.error.message ?? "Google sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
-    navigate({ to: "/pos", replace: true });
+    const { data: u } = await supabase.auth.getUser();
+    navigate({ to: u.user ? await landingRouteForUser(u.user.id) : "/pos", replace: true });
   };
 
   const handleApple = async () => {
@@ -308,7 +310,8 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
     const result = await lovable.auth.signInWithOAuth("apple", { redirect_uri: window.location.origin });
     if (result.error) { toast.error(result.error.message ?? "Apple sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
-    navigate({ to: "/pos", replace: true });
+    const { data: u } = await supabase.auth.getUser();
+    navigate({ to: u.user ? await landingRouteForUser(u.user.id) : "/pos", replace: true });
   };
 
   return (
