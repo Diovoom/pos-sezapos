@@ -36,7 +36,8 @@ export function isSezaposHost(host?: string | null): boolean {
 
 /** Build an absolute URL on a specific subdomain, preserving the current
  *  protocol. When we're not on a sezapos.com host (previews, localhost),
- *  return a relative path so nothing jumps off-origin. */
+ *  or we're already on the target host, return a relative path so nothing
+ *  jumps off-origin or triggers a needless full reload. */
 function buildUrl(sub: "" | "dashboard" | "pos", path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   if (typeof window === "undefined") {
@@ -46,9 +47,13 @@ function buildUrl(sub: "" | "dashboard" | "pos", path: string): string {
   }
   if (!isSezaposHost()) return p;
   const proto = window.location.protocol; // "https:" or "http:"
-  const host = sub ? `${sub}.${ROOT_DOMAIN}` : ROOT_DOMAIN;
-  return `${proto}//${host}${p}`;
+  const targetHost = sub ? `${sub}.${ROOT_DOMAIN}` : ROOT_DOMAIN;
+  const currentHostname = window.location.host.toLowerCase().split(":")[0];
+  // Same subdomain? Use a relative path so navigation stays client-side.
+  if (currentHostname === targetHost) return p;
+  return `${proto}//${targetHost}${p}`;
 }
+
 
 export const marketingUrl = (path: string = "/") => buildUrl("", path);
 export const dashboardUrl = (path: string = "/") => buildUrl("dashboard", path);

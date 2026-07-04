@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { Loader2, Delete, LogIn, Mail, KeyRound, ArrowLeft, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dashboardUrl, posUrl } from "@/lib/host";
+import { hydrateSessionFromCookie } from "@/integrations/supabase/session-bridge";
+
 
 const MANAGER_ROLES = new Set(["owner", "admin", "manager"]);
 
@@ -61,12 +63,15 @@ function AuthPage() {
   const [mode, setMode] = useState<Mode>(search.mode ?? "pin");
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
+    (async () => {
+      await hydrateSessionFromCookie();
+      const { data } = await supabase.auth.getSession();
       if (!data.session) return;
       const dest = await landingRouteForUser(data.session.user.id);
       goToLanding(navigate, dest);
-    });
+    })();
   }, [navigate]);
+
 
   const switchUser = async () => {
     await supabase.auth.signOut();

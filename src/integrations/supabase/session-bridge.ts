@@ -41,19 +41,26 @@ function clearCookie(name: string) {
 }
 
 let installed = false;
+let hydratePromise: Promise<void> | null = null;
 
-export function installSessionBridge(): void {
-  if (installed) return;
-  if (typeof window === "undefined") return;
-  if (!isSezaposHost()) return; // only for the three subdomains
-  installed = true;
+/**
+ * Restore the Supabase session from the shared `.sezapos.com` cookie into
+ * localStorage BEFORE any route guard reads the session. Safe to call
+ * multiple times — the work happens once per page load.
+ *
+ * No-op on non-sezapos.com hosts and on the server.
+ */
+export function hydrateSessionFromCookie(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (!isSezaposHost()) return Promise.resolve();
+  if (hydratePromise) return hydratePromise;
 
-  // Restore from shared cookie if we don't have a local session yet.
-  void (async () => {
+  hydratePromise = (async () => {
     try {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        // We're already signed in locally; sync our session out to the cookie.
+        // Already signed in locally — mirror out to the cookie so other
+        // subdomains can pick it up.
         syncSessionToCookie(data.session.access_token, data.session.refresh_token);
         return;
       }
@@ -70,6 +77,19 @@ export function installSessionBridge(): void {
       clearCookie(COOKIE_NAME);
     }
   })();
+
+  return hydratePromise;
+}
+
+export function installSessionBridge(): void {
+  if (installed) return;
+  if (typeof window === "undefined") return;
+  if (!isSezaposHost()) return; // only for the three subdomains
+  installed = true;
+
+  // Kick off cookie → localStorage restore ASAP. Callers that need to
+  // await it (route guards, /auth mount) should call hydrateSessionFromCookie().
+  void hydrateSessionFromCookie();
 
   // Keep the shared cookie in sync with local session changes.
   supabase.auth.onAuthStateChange((event, session) => {
@@ -91,4 +111,11 @@ export function installSessionBridge(): void {
 function syncSessionToCookie(access_token: string, refresh_token: string) {
   const value = encodeURIComponent(JSON.stringify({ access_token, refresh_token }));
   writeCookie(COOKIE_NAME, value, COOKIE_MAX_AGE);
+}
+
+// Install eagerly on the client so the onAuthStateChange listener and the
+// cookie → localStorage restore begin before any route effect runs. Route
+// guards should still `await hydrateSessionFromCookie()` to close the race.
+if (typeof window !== "undefined") {
+  installSessionBridge();
 }
