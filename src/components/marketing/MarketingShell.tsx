@@ -81,6 +81,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             <ul className="space-y-1 text-muted-foreground">
               <li><Link to="/trust" className="hover:text-foreground">Trust Center</Link></li>
               <li><Link to="/security" className="hover:text-foreground">Security</Link></li>
+              <li><Link to="/status" className="hover:text-foreground">System Status</Link></li>
               <li><Link to="/support" className="hover:text-foreground">Support</Link></li>
               <li><Link to="/faq" className="hover:text-foreground">FAQ</Link></li>
               <li><a href={`mailto:${LEGAL_CONFIG.supportEmail}`} className="hover:text-foreground">{LEGAL_CONFIG.supportEmail}</a></li>
