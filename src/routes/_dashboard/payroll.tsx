@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { fmtCurrency } from "@/lib/format";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 
-export const Route = createFileRoute("/_authenticated/payroll")({
+export const Route = createFileRoute("/_dashboard/payroll")({
   head: () => ({ meta: [{ title: "Payroll — SEZA POS" }, { name: "description", content: "Hours worked and estimated pay per employee for the current pay period." }] }),
   beforeLoad: async () => {
     const { data: u } = await supabase.auth.getUser();

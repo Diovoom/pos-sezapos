@@ -11,7 +11,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, CartesianGrid, Ba
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
 
-export const Route = createFileRoute("/_authenticated/dashboard")({
+export const Route = createFileRoute("/_dashboard/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — SEZA POS" }, { name: "description", content: "Live overview of today's sales, transactions, tax, refunds, best sellers, and busiest hour." }] }),
   component: DashboardPage,
 });

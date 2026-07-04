@@ -13,6 +13,7 @@ import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as TrustRouteImport } from './routes/trust'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SupportRouteImport } from './routes/support'
+import { Route as StatusRouteImport } from './routes/status'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SelectPlanRouteImport } from './routes/select-plan'
@@ -31,31 +32,32 @@ import { Route as CareersRouteImport } from './routes/careers'
 import { Route as BlogRouteImport } from './routes/blog'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AboutRouteImport } from './routes/about'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as PosRouteRouteImport } from './routes/_pos/route'
+import { Route as DashboardRouteRouteImport } from './routes/_dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LegalIndexRouteImport } from './routes/legal.index'
 import { Route as RIdRouteImport } from './routes/r.$id'
 import { Route as LegalSlugRouteImport } from './routes/legal.$slug'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
-import { Route as AuthenticatedTimeclockRouteImport } from './routes/_authenticated/timeclock'
-import { Route as AuthenticatedShiftsRouteImport } from './routes/_authenticated/shifts'
-import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/setup'
-import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/sales'
-import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
-import { Route as AuthenticatedRegisterRouteImport } from './routes/_authenticated/register'
-import { Route as AuthenticatedRefundsRouteImport } from './routes/_authenticated/refunds'
-import { Route as AuthenticatedProductsRouteImport } from './routes/_authenticated/products'
-import { Route as AuthenticatedPosRouteImport } from './routes/_authenticated/pos'
-import { Route as AuthenticatedPayrollRouteImport } from './routes/_authenticated/payroll'
-import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
-import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
-import { Route as AuthenticatedEmployeesRouteImport } from './routes/_authenticated/employees'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
+import { Route as PosTimeclockRouteImport } from './routes/_pos/timeclock'
+import { Route as PosRegisterRouteImport } from './routes/_pos/register'
+import { Route as PosRefundsRouteImport } from './routes/_pos/refunds'
+import { Route as PosPosRouteImport } from './routes/_pos/pos'
+import { Route as DashboardShiftsRouteImport } from './routes/_dashboard/shifts'
+import { Route as DashboardSetupRouteImport } from './routes/_dashboard/setup'
+import { Route as DashboardSettingsRouteImport } from './routes/_dashboard/settings'
+import { Route as DashboardSalesRouteImport } from './routes/_dashboard/sales'
+import { Route as DashboardReportsRouteImport } from './routes/_dashboard/reports'
+import { Route as DashboardProductsRouteImport } from './routes/_dashboard/products'
+import { Route as DashboardPayrollRouteImport } from './routes/_dashboard/payroll'
+import { Route as DashboardOnboardingRouteImport } from './routes/_dashboard/onboarding'
+import { Route as DashboardInventoryRouteImport } from './routes/_dashboard/inventory'
+import { Route as DashboardEmployeesRouteImport } from './routes/_dashboard/employees'
+import { Route as DashboardDashboardRouteImport } from './routes/_dashboard/dashboard'
+import { Route as DashboardCustomersRouteImport } from './routes/_dashboard/customers'
 import { Route as LovableSmsSendRouteImport } from './routes/lovable/sms/send'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
-import { Route as AuthenticatedEmployeesIdRouteImport } from './routes/_authenticated/employees.$id'
+import { Route as DashboardEmployeesIdRouteImport } from './routes/_dashboard/employees.$id'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
@@ -81,6 +83,11 @@ const TermsRoute = TermsRouteImport.update({
 const SupportRoute = SupportRouteImport.update({
   id: '/support',
   path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatusRoute = StatusRouteImport.update({
+  id: '/status',
+  path: '/status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -173,8 +180,12 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const PosRouteRoute = PosRouteRouteImport.update({
+  id: '/_pos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRouteRoute = DashboardRouteRouteImport.update({
+  id: '/_dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -202,85 +213,85 @@ const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
   path: '/email/unsubscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedTimeclockRoute = AuthenticatedTimeclockRouteImport.update({
+const PosTimeclockRoute = PosTimeclockRouteImport.update({
   id: '/timeclock',
   path: '/timeclock',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => PosRouteRoute,
 } as any)
-const AuthenticatedShiftsRoute = AuthenticatedShiftsRouteImport.update({
-  id: '/shifts',
-  path: '/shifts',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSetupRoute = AuthenticatedSetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSalesRoute = AuthenticatedSalesRouteImport.update({
-  id: '/sales',
-  path: '/sales',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedRegisterRoute = AuthenticatedRegisterRouteImport.update({
+const PosRegisterRoute = PosRegisterRouteImport.update({
   id: '/register',
   path: '/register',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => PosRouteRoute,
 } as any)
-const AuthenticatedRefundsRoute = AuthenticatedRefundsRouteImport.update({
+const PosRefundsRoute = PosRefundsRouteImport.update({
   id: '/refunds',
   path: '/refunds',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => PosRouteRoute,
 } as any)
-const AuthenticatedProductsRoute = AuthenticatedProductsRouteImport.update({
-  id: '/products',
-  path: '/products',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPosRoute = AuthenticatedPosRouteImport.update({
+const PosPosRoute = PosPosRouteImport.update({
   id: '/pos',
   path: '/pos',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => PosRouteRoute,
 } as any)
-const AuthenticatedPayrollRoute = AuthenticatedPayrollRouteImport.update({
+const DashboardShiftsRoute = DashboardShiftsRouteImport.update({
+  id: '/shifts',
+  path: '/shifts',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardSetupRoute = DashboardSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardSalesRoute = DashboardSalesRouteImport.update({
+  id: '/sales',
+  path: '/sales',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardReportsRoute = DashboardReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardProductsRoute = DashboardProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardPayrollRoute = DashboardPayrollRouteImport.update({
   id: '/payroll',
   path: '/payroll',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
+const DashboardOnboardingRoute = DashboardOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({
+const DashboardInventoryRoute = DashboardInventoryRouteImport.update({
   id: '/inventory',
   path: '/inventory',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const AuthenticatedEmployeesRoute = AuthenticatedEmployeesRouteImport.update({
+const DashboardEmployeesRoute = DashboardEmployeesRouteImport.update({
   id: '/employees',
   path: '/employees',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+const DashboardDashboardRoute = DashboardDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
-const AuthenticatedCustomersRoute = AuthenticatedCustomersRouteImport.update({
+const DashboardCustomersRoute = DashboardCustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const LovableSmsSendRoute = LovableSmsSendRouteImport.update({
   id: '/lovable/sms/send',
@@ -292,12 +303,11 @@ const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   path: '/lovable/email/suppression',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedEmployeesIdRoute =
-  AuthenticatedEmployeesIdRouteImport.update({
-    id: '/$id',
-    path: '/$id',
-    getParentRoute: () => AuthenticatedEmployeesRoute,
-  } as any)
+const DashboardEmployeesIdRoute = DashboardEmployeesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => DashboardEmployeesRoute,
+} as any)
 const LovableEmailTransactionalSendRoute =
   LovableEmailTransactionalSendRouteImport.update({
     id: '/lovable/email/transactional/send',
@@ -353,31 +363,32 @@ export interface FileRoutesByFullPath {
   '/select-plan': typeof SelectPlanRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/status': typeof StatusRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/trust': typeof TrustRoute
   '/unsubscribe': typeof UnsubscribeRoute
-  '/customers': typeof AuthenticatedCustomersRoute
-  '/dashboard': typeof AuthenticatedDashboardRoute
-  '/employees': typeof AuthenticatedEmployeesRouteWithChildren
-  '/inventory': typeof AuthenticatedInventoryRoute
-  '/onboarding': typeof AuthenticatedOnboardingRoute
-  '/payroll': typeof AuthenticatedPayrollRoute
-  '/pos': typeof AuthenticatedPosRoute
-  '/products': typeof AuthenticatedProductsRoute
-  '/refunds': typeof AuthenticatedRefundsRoute
-  '/register': typeof AuthenticatedRegisterRoute
-  '/reports': typeof AuthenticatedReportsRoute
-  '/sales': typeof AuthenticatedSalesRoute
-  '/settings': typeof AuthenticatedSettingsRoute
-  '/setup': typeof AuthenticatedSetupRoute
-  '/shifts': typeof AuthenticatedShiftsRoute
-  '/timeclock': typeof AuthenticatedTimeclockRoute
+  '/customers': typeof DashboardCustomersRoute
+  '/dashboard': typeof DashboardDashboardRoute
+  '/employees': typeof DashboardEmployeesRouteWithChildren
+  '/inventory': typeof DashboardInventoryRoute
+  '/onboarding': typeof DashboardOnboardingRoute
+  '/payroll': typeof DashboardPayrollRoute
+  '/products': typeof DashboardProductsRoute
+  '/reports': typeof DashboardReportsRoute
+  '/sales': typeof DashboardSalesRoute
+  '/settings': typeof DashboardSettingsRoute
+  '/setup': typeof DashboardSetupRoute
+  '/shifts': typeof DashboardShiftsRoute
+  '/pos': typeof PosPosRoute
+  '/refunds': typeof PosRefundsRoute
+  '/register': typeof PosRegisterRoute
+  '/timeclock': typeof PosTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/r/$id': typeof RIdRoute
   '/legal/': typeof LegalIndexRoute
-  '/employees/$id': typeof AuthenticatedEmployeesIdRoute
+  '/employees/$id': typeof DashboardEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -407,31 +418,32 @@ export interface FileRoutesByTo {
   '/select-plan': typeof SelectPlanRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/status': typeof StatusRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/trust': typeof TrustRoute
   '/unsubscribe': typeof UnsubscribeRoute
-  '/customers': typeof AuthenticatedCustomersRoute
-  '/dashboard': typeof AuthenticatedDashboardRoute
-  '/employees': typeof AuthenticatedEmployeesRouteWithChildren
-  '/inventory': typeof AuthenticatedInventoryRoute
-  '/onboarding': typeof AuthenticatedOnboardingRoute
-  '/payroll': typeof AuthenticatedPayrollRoute
-  '/pos': typeof AuthenticatedPosRoute
-  '/products': typeof AuthenticatedProductsRoute
-  '/refunds': typeof AuthenticatedRefundsRoute
-  '/register': typeof AuthenticatedRegisterRoute
-  '/reports': typeof AuthenticatedReportsRoute
-  '/sales': typeof AuthenticatedSalesRoute
-  '/settings': typeof AuthenticatedSettingsRoute
-  '/setup': typeof AuthenticatedSetupRoute
-  '/shifts': typeof AuthenticatedShiftsRoute
-  '/timeclock': typeof AuthenticatedTimeclockRoute
+  '/customers': typeof DashboardCustomersRoute
+  '/dashboard': typeof DashboardDashboardRoute
+  '/employees': typeof DashboardEmployeesRouteWithChildren
+  '/inventory': typeof DashboardInventoryRoute
+  '/onboarding': typeof DashboardOnboardingRoute
+  '/payroll': typeof DashboardPayrollRoute
+  '/products': typeof DashboardProductsRoute
+  '/reports': typeof DashboardReportsRoute
+  '/sales': typeof DashboardSalesRoute
+  '/settings': typeof DashboardSettingsRoute
+  '/setup': typeof DashboardSetupRoute
+  '/shifts': typeof DashboardShiftsRoute
+  '/pos': typeof PosPosRoute
+  '/refunds': typeof PosRefundsRoute
+  '/register': typeof PosRegisterRoute
+  '/timeclock': typeof PosTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/r/$id': typeof RIdRoute
   '/legal': typeof LegalIndexRoute
-  '/employees/$id': typeof AuthenticatedEmployeesIdRoute
+  '/employees/$id': typeof DashboardEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -444,7 +456,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/_dashboard': typeof DashboardRouteRouteWithChildren
+  '/_pos': typeof PosRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
   '/blog': typeof BlogRoute
@@ -463,31 +476,32 @@ export interface FileRoutesById {
   '/select-plan': typeof SelectPlanRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/status': typeof StatusRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/trust': typeof TrustRoute
   '/unsubscribe': typeof UnsubscribeRoute
-  '/_authenticated/customers': typeof AuthenticatedCustomersRoute
-  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/employees': typeof AuthenticatedEmployeesRouteWithChildren
-  '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
-  '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
-  '/_authenticated/payroll': typeof AuthenticatedPayrollRoute
-  '/_authenticated/pos': typeof AuthenticatedPosRoute
-  '/_authenticated/products': typeof AuthenticatedProductsRoute
-  '/_authenticated/refunds': typeof AuthenticatedRefundsRoute
-  '/_authenticated/register': typeof AuthenticatedRegisterRoute
-  '/_authenticated/reports': typeof AuthenticatedReportsRoute
-  '/_authenticated/sales': typeof AuthenticatedSalesRoute
-  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
-  '/_authenticated/setup': typeof AuthenticatedSetupRoute
-  '/_authenticated/shifts': typeof AuthenticatedShiftsRoute
-  '/_authenticated/timeclock': typeof AuthenticatedTimeclockRoute
+  '/_dashboard/customers': typeof DashboardCustomersRoute
+  '/_dashboard/dashboard': typeof DashboardDashboardRoute
+  '/_dashboard/employees': typeof DashboardEmployeesRouteWithChildren
+  '/_dashboard/inventory': typeof DashboardInventoryRoute
+  '/_dashboard/onboarding': typeof DashboardOnboardingRoute
+  '/_dashboard/payroll': typeof DashboardPayrollRoute
+  '/_dashboard/products': typeof DashboardProductsRoute
+  '/_dashboard/reports': typeof DashboardReportsRoute
+  '/_dashboard/sales': typeof DashboardSalesRoute
+  '/_dashboard/settings': typeof DashboardSettingsRoute
+  '/_dashboard/setup': typeof DashboardSetupRoute
+  '/_dashboard/shifts': typeof DashboardShiftsRoute
+  '/_pos/pos': typeof PosPosRoute
+  '/_pos/refunds': typeof PosRefundsRoute
+  '/_pos/register': typeof PosRegisterRoute
+  '/_pos/timeclock': typeof PosTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/r/$id': typeof RIdRoute
   '/legal/': typeof LegalIndexRoute
-  '/_authenticated/employees/$id': typeof AuthenticatedEmployeesIdRoute
+  '/_dashboard/employees/$id': typeof DashboardEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -519,6 +533,7 @@ export interface FileRouteTypes {
     | '/select-plan'
     | '/signup'
     | '/sitemap.xml'
+    | '/status'
     | '/support'
     | '/terms'
     | '/trust'
@@ -529,15 +544,15 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/onboarding'
     | '/payroll'
-    | '/pos'
     | '/products'
-    | '/refunds'
-    | '/register'
     | '/reports'
     | '/sales'
     | '/settings'
     | '/setup'
     | '/shifts'
+    | '/pos'
+    | '/refunds'
+    | '/register'
     | '/timeclock'
     | '/email/unsubscribe'
     | '/legal/$slug'
@@ -573,6 +588,7 @@ export interface FileRouteTypes {
     | '/select-plan'
     | '/signup'
     | '/sitemap.xml'
+    | '/status'
     | '/support'
     | '/terms'
     | '/trust'
@@ -583,15 +599,15 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/onboarding'
     | '/payroll'
-    | '/pos'
     | '/products'
-    | '/refunds'
-    | '/register'
     | '/reports'
     | '/sales'
     | '/settings'
     | '/setup'
     | '/shifts'
+    | '/pos'
+    | '/refunds'
+    | '/register'
     | '/timeclock'
     | '/email/unsubscribe'
     | '/legal/$slug'
@@ -609,7 +625,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/_authenticated'
+    | '/_dashboard'
+    | '/_pos'
     | '/about'
     | '/auth'
     | '/blog'
@@ -628,31 +645,32 @@ export interface FileRouteTypes {
     | '/select-plan'
     | '/signup'
     | '/sitemap.xml'
+    | '/status'
     | '/support'
     | '/terms'
     | '/trust'
     | '/unsubscribe'
-    | '/_authenticated/customers'
-    | '/_authenticated/dashboard'
-    | '/_authenticated/employees'
-    | '/_authenticated/inventory'
-    | '/_authenticated/onboarding'
-    | '/_authenticated/payroll'
-    | '/_authenticated/pos'
-    | '/_authenticated/products'
-    | '/_authenticated/refunds'
-    | '/_authenticated/register'
-    | '/_authenticated/reports'
-    | '/_authenticated/sales'
-    | '/_authenticated/settings'
-    | '/_authenticated/setup'
-    | '/_authenticated/shifts'
-    | '/_authenticated/timeclock'
+    | '/_dashboard/customers'
+    | '/_dashboard/dashboard'
+    | '/_dashboard/employees'
+    | '/_dashboard/inventory'
+    | '/_dashboard/onboarding'
+    | '/_dashboard/payroll'
+    | '/_dashboard/products'
+    | '/_dashboard/reports'
+    | '/_dashboard/sales'
+    | '/_dashboard/settings'
+    | '/_dashboard/setup'
+    | '/_dashboard/shifts'
+    | '/_pos/pos'
+    | '/_pos/refunds'
+    | '/_pos/register'
+    | '/_pos/timeclock'
     | '/email/unsubscribe'
     | '/legal/$slug'
     | '/r/$id'
     | '/legal/'
-    | '/_authenticated/employees/$id'
+    | '/_dashboard/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/api/public/payments/webhook'
@@ -665,7 +683,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
+  PosRouteRoute: typeof PosRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
   AuthRoute: typeof AuthRoute
   BlogRoute: typeof BlogRoute
@@ -684,6 +703,7 @@ export interface RootRouteChildren {
   SelectPlanRoute: typeof SelectPlanRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  StatusRoute: typeof StatusRoute
   SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
   TrustRoute: typeof TrustRoute
@@ -730,6 +750,13 @@ declare module '@tanstack/react-router' {
       path: '/support'
       fullPath: '/support'
       preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/status': {
+      id: '/status'
+      path: '/status'
+      fullPath: '/status'
+      preLoaderRoute: typeof StatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -858,11 +885,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated': {
-      id: '/_authenticated'
+    '/_pos': {
+      id: '/_pos'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      preLoaderRoute: typeof PosRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_dashboard': {
+      id: '/_dashboard'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof DashboardRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -900,117 +934,117 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EmailUnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/timeclock': {
-      id: '/_authenticated/timeclock'
+    '/_pos/timeclock': {
+      id: '/_pos/timeclock'
       path: '/timeclock'
       fullPath: '/timeclock'
-      preLoaderRoute: typeof AuthenticatedTimeclockRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof PosTimeclockRouteImport
+      parentRoute: typeof PosRouteRoute
     }
-    '/_authenticated/shifts': {
-      id: '/_authenticated/shifts'
-      path: '/shifts'
-      fullPath: '/shifts'
-      preLoaderRoute: typeof AuthenticatedShiftsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/setup': {
-      id: '/_authenticated/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof AuthenticatedSetupRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/settings': {
-      id: '/_authenticated/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/sales': {
-      id: '/_authenticated/sales'
-      path: '/sales'
-      fullPath: '/sales'
-      preLoaderRoute: typeof AuthenticatedSalesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/reports': {
-      id: '/_authenticated/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof AuthenticatedReportsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/register': {
-      id: '/_authenticated/register'
+    '/_pos/register': {
+      id: '/_pos/register'
       path: '/register'
       fullPath: '/register'
-      preLoaderRoute: typeof AuthenticatedRegisterRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof PosRegisterRouteImport
+      parentRoute: typeof PosRouteRoute
     }
-    '/_authenticated/refunds': {
-      id: '/_authenticated/refunds'
+    '/_pos/refunds': {
+      id: '/_pos/refunds'
       path: '/refunds'
       fullPath: '/refunds'
-      preLoaderRoute: typeof AuthenticatedRefundsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof PosRefundsRouteImport
+      parentRoute: typeof PosRouteRoute
     }
-    '/_authenticated/products': {
-      id: '/_authenticated/products'
-      path: '/products'
-      fullPath: '/products'
-      preLoaderRoute: typeof AuthenticatedProductsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/pos': {
-      id: '/_authenticated/pos'
+    '/_pos/pos': {
+      id: '/_pos/pos'
       path: '/pos'
       fullPath: '/pos'
-      preLoaderRoute: typeof AuthenticatedPosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof PosPosRouteImport
+      parentRoute: typeof PosRouteRoute
     }
-    '/_authenticated/payroll': {
-      id: '/_authenticated/payroll'
+    '/_dashboard/shifts': {
+      id: '/_dashboard/shifts'
+      path: '/shifts'
+      fullPath: '/shifts'
+      preLoaderRoute: typeof DashboardShiftsRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/_dashboard/setup': {
+      id: '/_dashboard/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof DashboardSetupRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/_dashboard/settings': {
+      id: '/_dashboard/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof DashboardSettingsRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/_dashboard/sales': {
+      id: '/_dashboard/sales'
+      path: '/sales'
+      fullPath: '/sales'
+      preLoaderRoute: typeof DashboardSalesRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/_dashboard/reports': {
+      id: '/_dashboard/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof DashboardReportsRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/_dashboard/products': {
+      id: '/_dashboard/products'
+      path: '/products'
+      fullPath: '/products'
+      preLoaderRoute: typeof DashboardProductsRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/_dashboard/payroll': {
+      id: '/_dashboard/payroll'
       path: '/payroll'
       fullPath: '/payroll'
-      preLoaderRoute: typeof AuthenticatedPayrollRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof DashboardPayrollRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/_authenticated/onboarding': {
-      id: '/_authenticated/onboarding'
+    '/_dashboard/onboarding': {
+      id: '/_dashboard/onboarding'
       path: '/onboarding'
       fullPath: '/onboarding'
-      preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof DashboardOnboardingRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/_authenticated/inventory': {
-      id: '/_authenticated/inventory'
+    '/_dashboard/inventory': {
+      id: '/_dashboard/inventory'
       path: '/inventory'
       fullPath: '/inventory'
-      preLoaderRoute: typeof AuthenticatedInventoryRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof DashboardInventoryRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/_authenticated/employees': {
-      id: '/_authenticated/employees'
+    '/_dashboard/employees': {
+      id: '/_dashboard/employees'
       path: '/employees'
       fullPath: '/employees'
-      preLoaderRoute: typeof AuthenticatedEmployeesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof DashboardEmployeesRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
+    '/_dashboard/dashboard': {
+      id: '/_dashboard/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof DashboardDashboardRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/_authenticated/customers': {
-      id: '/_authenticated/customers'
+    '/_dashboard/customers': {
+      id: '/_dashboard/customers'
       path: '/customers'
       fullPath: '/customers'
-      preLoaderRoute: typeof AuthenticatedCustomersRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof DashboardCustomersRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/lovable/sms/send': {
       id: '/lovable/sms/send'
@@ -1026,12 +1060,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailSuppressionRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/employees/$id': {
-      id: '/_authenticated/employees/$id'
+    '/_dashboard/employees/$id': {
+      id: '/_dashboard/employees/$id'
       path: '/$id'
       fullPath: '/employees/$id'
-      preLoaderRoute: typeof AuthenticatedEmployeesIdRouteImport
-      parentRoute: typeof AuthenticatedEmployeesRoute
+      preLoaderRoute: typeof DashboardEmployeesIdRouteImport
+      parentRoute: typeof DashboardEmployeesRoute
     }
     '/lovable/email/transactional/send': {
       id: '/lovable/email/transactional/send'
@@ -1078,64 +1112,73 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AuthenticatedEmployeesRouteChildren {
-  AuthenticatedEmployeesIdRoute: typeof AuthenticatedEmployeesIdRoute
+interface DashboardEmployeesRouteChildren {
+  DashboardEmployeesIdRoute: typeof DashboardEmployeesIdRoute
 }
 
-const AuthenticatedEmployeesRouteChildren: AuthenticatedEmployeesRouteChildren =
-  {
-    AuthenticatedEmployeesIdRoute: AuthenticatedEmployeesIdRoute,
-  }
-
-const AuthenticatedEmployeesRouteWithChildren =
-  AuthenticatedEmployeesRoute._addFileChildren(
-    AuthenticatedEmployeesRouteChildren,
-  )
-
-interface AuthenticatedRouteRouteChildren {
-  AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRoute
-  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedEmployeesRoute: typeof AuthenticatedEmployeesRouteWithChildren
-  AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
-  AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
-  AuthenticatedPayrollRoute: typeof AuthenticatedPayrollRoute
-  AuthenticatedPosRoute: typeof AuthenticatedPosRoute
-  AuthenticatedProductsRoute: typeof AuthenticatedProductsRoute
-  AuthenticatedRefundsRoute: typeof AuthenticatedRefundsRoute
-  AuthenticatedRegisterRoute: typeof AuthenticatedRegisterRoute
-  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
-  AuthenticatedSalesRoute: typeof AuthenticatedSalesRoute
-  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
-  AuthenticatedSetupRoute: typeof AuthenticatedSetupRoute
-  AuthenticatedShiftsRoute: typeof AuthenticatedShiftsRoute
-  AuthenticatedTimeclockRoute: typeof AuthenticatedTimeclockRoute
+const DashboardEmployeesRouteChildren: DashboardEmployeesRouteChildren = {
+  DashboardEmployeesIdRoute: DashboardEmployeesIdRoute,
 }
 
-const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedCustomersRoute: AuthenticatedCustomersRoute,
-  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedEmployeesRoute: AuthenticatedEmployeesRouteWithChildren,
-  AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
-  AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
-  AuthenticatedPayrollRoute: AuthenticatedPayrollRoute,
-  AuthenticatedPosRoute: AuthenticatedPosRoute,
-  AuthenticatedProductsRoute: AuthenticatedProductsRoute,
-  AuthenticatedRefundsRoute: AuthenticatedRefundsRoute,
-  AuthenticatedRegisterRoute: AuthenticatedRegisterRoute,
-  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
-  AuthenticatedSalesRoute: AuthenticatedSalesRoute,
-  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
-  AuthenticatedSetupRoute: AuthenticatedSetupRoute,
-  AuthenticatedShiftsRoute: AuthenticatedShiftsRoute,
-  AuthenticatedTimeclockRoute: AuthenticatedTimeclockRoute,
+const DashboardEmployeesRouteWithChildren =
+  DashboardEmployeesRoute._addFileChildren(DashboardEmployeesRouteChildren)
+
+interface DashboardRouteRouteChildren {
+  DashboardCustomersRoute: typeof DashboardCustomersRoute
+  DashboardDashboardRoute: typeof DashboardDashboardRoute
+  DashboardEmployeesRoute: typeof DashboardEmployeesRouteWithChildren
+  DashboardInventoryRoute: typeof DashboardInventoryRoute
+  DashboardOnboardingRoute: typeof DashboardOnboardingRoute
+  DashboardPayrollRoute: typeof DashboardPayrollRoute
+  DashboardProductsRoute: typeof DashboardProductsRoute
+  DashboardReportsRoute: typeof DashboardReportsRoute
+  DashboardSalesRoute: typeof DashboardSalesRoute
+  DashboardSettingsRoute: typeof DashboardSettingsRoute
+  DashboardSetupRoute: typeof DashboardSetupRoute
+  DashboardShiftsRoute: typeof DashboardShiftsRoute
 }
 
-const AuthenticatedRouteRouteWithChildren =
-  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
+  DashboardCustomersRoute: DashboardCustomersRoute,
+  DashboardDashboardRoute: DashboardDashboardRoute,
+  DashboardEmployeesRoute: DashboardEmployeesRouteWithChildren,
+  DashboardInventoryRoute: DashboardInventoryRoute,
+  DashboardOnboardingRoute: DashboardOnboardingRoute,
+  DashboardPayrollRoute: DashboardPayrollRoute,
+  DashboardProductsRoute: DashboardProductsRoute,
+  DashboardReportsRoute: DashboardReportsRoute,
+  DashboardSalesRoute: DashboardSalesRoute,
+  DashboardSettingsRoute: DashboardSettingsRoute,
+  DashboardSetupRoute: DashboardSetupRoute,
+  DashboardShiftsRoute: DashboardShiftsRoute,
+}
+
+const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
+  DashboardRouteRouteChildren,
+)
+
+interface PosRouteRouteChildren {
+  PosPosRoute: typeof PosPosRoute
+  PosRefundsRoute: typeof PosRefundsRoute
+  PosRegisterRoute: typeof PosRegisterRoute
+  PosTimeclockRoute: typeof PosTimeclockRoute
+}
+
+const PosRouteRouteChildren: PosRouteRouteChildren = {
+  PosPosRoute: PosPosRoute,
+  PosRefundsRoute: PosRefundsRoute,
+  PosRegisterRoute: PosRegisterRoute,
+  PosTimeclockRoute: PosTimeclockRoute,
+}
+
+const PosRouteRouteWithChildren = PosRouteRoute._addFileChildren(
+  PosRouteRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  DashboardRouteRoute: DashboardRouteRouteWithChildren,
+  PosRouteRoute: PosRouteRouteWithChildren,
   AboutRoute: AboutRoute,
   AuthRoute: AuthRoute,
   BlogRoute: BlogRoute,
@@ -1154,6 +1197,7 @@ const rootRouteChildren: RootRouteChildren = {
   SelectPlanRoute: SelectPlanRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  StatusRoute: StatusRoute,
   SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
   TrustRoute: TrustRoute,

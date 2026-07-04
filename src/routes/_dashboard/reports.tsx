@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/pos/AppShell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { FileBarChart, ClipboardList, LayoutDashboard, Wallet } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/reports")({
+export const Route = createFileRoute("/_dashboard/reports")({
   head: () => ({ meta: [{ title: "Reports — SEZA POS" }, { name: "description", content: "Shift, sales, tax, and cash reports for your store." }] }),
   component: ReportsPage,
 });

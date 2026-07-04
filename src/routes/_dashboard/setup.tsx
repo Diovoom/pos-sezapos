@@ -39,7 +39,7 @@ function CountrySelect({ value, onChange }: { value: string; onChange: (v: strin
   );
 }
 
-export const Route = createFileRoute("/_authenticated/setup")({
+export const Route = createFileRoute("/_dashboard/setup")({
   head: () => ({ meta: [{ title: "Store setup — SEZA POS" }, { name: "description", content: "Configure your store details, currency, and tax rates before going live." }] }),
   component: SetupWizardPage,
 });

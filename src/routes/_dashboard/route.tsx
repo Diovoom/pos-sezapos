@@ -6,52 +6,50 @@ import { AppShell } from "@/components/pos/AppShell";
 import { useMe } from "@/hooks/useMe";
 import { useSubscription } from "@/hooks/useSubscription";
 
-export const Route = createFileRoute("/_authenticated")({
+// Owner / manager surface. Cashiers get pushed to /pos.
+export const Route = createFileRoute("/_dashboard")({
   ssr: false,
-  head: () => ({
-    meta: [{ name: "robots", content: "noindex, nofollow" }],
-  }),
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   beforeLoad: async () => {
     const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) {
-      throw redirect({ to: "/auth" });
-    }
+    if (error || !data.user) throw redirect({ to: "/auth" });
     return { user: data.user };
   },
-  component: AuthedLayout,
+  component: DashboardLayout,
 });
 
-// Routes that mutate business data — blocked in read-only mode
 const READ_ONLY_BLOCKED = new Set([
-  "/pos",
-  "/register",
-  "/refunds",
-  "/inventory",
-  "/timeclock",
-  "/payroll",
-  "/products",
-  "/customers",
-  "/employees",
+  "/refunds", "/inventory", "/timeclock", "/payroll",
+  "/products", "/customers", "/employees",
 ]);
-
-// Routes still viewable in read-only mode
 const READ_ONLY_ALLOWED = new Set([
-  "/dashboard",
-  "/sales",
-  "/reports",
-  "/shifts",
-  "/settings",
-  "/setup",
-  "/onboarding",
+  "/dashboard", "/sales", "/reports", "/shifts",
+  "/settings", "/setup", "/onboarding",
 ]);
 
-function AuthedLayout() {
+const DASHBOARD_ROLES = new Set(["owner", "admin", "manager"]);
+
+function DashboardLayout() {
   const me = useMe();
   const { data: plan } = useSubscription();
   const location = useLocation();
   const navigate = useNavigate();
   const toastedRef = useRef(false);
+  const bouncedRef = useRef(false);
 
+  // Cashiers don't get dashboard access — send them to POS.
+  useEffect(() => {
+    if (!me.data || bouncedRef.current) return;
+    const roles = me.data.roles ?? [];
+    const canDashboard = roles.some((r) => DASHBOARD_ROLES.has(r));
+    if (!canDashboard) {
+      bouncedRef.current = true;
+      toast.info("Cashiers use the POS register");
+      navigate({ to: "/pos", replace: true });
+    }
+  }, [me.data, navigate]);
+
+  // First-run setup for owners.
   useEffect(() => {
     if (!me.data) return;
     const isOwner = me.data.roles.includes("owner");
@@ -63,12 +61,9 @@ function AuthedLayout() {
     }
   }, [me.data, location.pathname, navigate]);
 
-  // Enforce read-only mode when trial + subscription have both lapsed
+  // Read-only mode enforcement.
   useEffect(() => {
-    if (!plan?.isReadOnly) {
-      toastedRef.current = false;
-      return;
-    }
+    if (!plan?.isReadOnly) { toastedRef.current = false; return; }
     const path = location.pathname;
     const isBlocked = READ_ONLY_BLOCKED.has(path) || [...READ_ONLY_BLOCKED].some((p) => path.startsWith(p + "/"));
     const isAllowed = READ_ONLY_ALLOWED.has(path) || [...READ_ONLY_ALLOWED].some((p) => path.startsWith(p + "/"));
@@ -77,6 +72,7 @@ function AuthedLayout() {
         toast.error("Read-only mode — subscribe to keep using this feature", { duration: 5000 });
         toastedRef.current = true;
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       navigate({ to: "/settings", search: { section: "billing" } as any, replace: true });
     }
   }, [plan?.isReadOnly, location.pathname, navigate]);

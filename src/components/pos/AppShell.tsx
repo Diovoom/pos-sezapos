@@ -14,11 +14,9 @@ import {
   Boxes,
   LogOut,
   CircleUser,
-  RotateCcw,
   Clock,
   UserPlus,
   ArrowLeftRight,
-  Wallet,
   MoreVertical,
   Wifi,
   CreditCard,
@@ -45,17 +43,13 @@ import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 const NAV: { to: string; label: string; icon: any; search?: Record<string, string> }[] = [
-  { to: "/pos", label: "Checkout", icon: ScanBarcode },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/sales", label: "Sales", icon: Receipt },
-  { to: "/refunds", label: "Refunds", icon: RotateCcw },
   { to: "/products", label: "Products", icon: Package },
   { to: "/inventory", label: "Inventory", icon: Boxes },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/employees", label: "Employees", icon: UserPlus },
-  { to: "/timeclock", label: "Time Clock", icon: Clock },
   { to: "/payroll", label: "Payroll", icon: BarChart3 },
-  { to: "/register", label: "Register", icon: Wallet },
   { to: "/shifts", label: "Shifts", icon: Receipt },
   { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/settings", label: "Billing", icon: CreditCard, search: { section: "billing" } },
@@ -206,6 +200,9 @@ export function PageHeader({
       </div>
       <div className="flex items-center gap-2">
         {actions}
+        <Button asChild variant="outline" size="sm">
+          <Link to="/pos"><ScanBarcode className="size-4 mr-2" />Open POS</Link>
+        </Button>
         <DeviceStatusMenu />
       </div>
     </header>
@@ -318,7 +315,7 @@ export function PlaceholderPage({ title, description }: { title: string; descrip
           </div>
           <h2 className="text-lg font-semibold mb-2">Coming next</h2>
           <p className="text-sm text-muted-foreground mb-4">{description}</p>
-          <Button asChild variant="outline"><Link to="/pos">Back to checkout</Link></Button>
+          <Button asChild variant="outline"><Link to="/dashboard">Back to dashboard</Link></Button>
         </div>
       </div>
     </>

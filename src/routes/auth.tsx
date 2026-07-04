@@ -13,6 +13,18 @@ import { toast } from "sonner";
 import { Loader2, Delete, LogIn, Mail, KeyRound, ArrowLeft, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const MANAGER_ROLES = new Set(["owner", "admin", "manager"]);
+
+async function landingRouteForUser(userId: string): Promise<"/dashboard" | "/pos"> {
+  try {
+    const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    const roles = (data ?? []).map((r) => r.role as string);
+    return roles.some((r) => MANAGER_ROLES.has(r)) ? "/dashboard" : "/pos";
+  } catch {
+    return "/pos";
+  }
+}
+
 type Mode = "pin" | "email" | "pin_with_id";
 type Search = { mode?: Mode };
 
@@ -40,8 +52,10 @@ function AuthPage() {
   const [mode, setMode] = useState<Mode>(search.mode ?? "pin");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/pos", replace: true });
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      const dest = await landingRouteForUser(data.session.user.id);
+      navigate({ to: dest, replace: true });
     });
   }, [navigate]);
 
@@ -270,10 +284,11 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
     e.preventDefault();
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signIn, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       void import("@/lib/audit-log").then((m) => m.logAudit({ action: "login", details: { method: "password" } }));
-      navigate({ to: "/pos", replace: true });
+      const dest = signIn.user ? await landingRouteForUser(signIn.user.id) : "/pos";
+      navigate({ to: dest, replace: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sign in failed");
     } finally {
@@ -286,7 +301,8 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
     const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
     if (result.error) { toast.error(result.error.message ?? "Google sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
-    navigate({ to: "/pos", replace: true });
+    const { data: u } = await supabase.auth.getUser();
+    navigate({ to: u.user ? await landingRouteForUser(u.user.id) : "/pos", replace: true });
   };
 
   const handleApple = async () => {
@@ -294,7 +310,8 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
     const result = await lovable.auth.signInWithOAuth("apple", { redirect_uri: window.location.origin });
     if (result.error) { toast.error(result.error.message ?? "Apple sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
-    navigate({ to: "/pos", replace: true });
+    const { data: u } = await supabase.auth.getUser();
+    navigate({ to: u.user ? await landingRouteForUser(u.user.id) : "/pos", replace: true });
   };
 
   return (

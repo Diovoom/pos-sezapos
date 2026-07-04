@@ -1,119 +1,115 @@
-# Production-Ready Overhaul — Phased Plan
 
-This is a large, multi-phase effort. Some pieces are already done and will be preserved, not rebuilt. I'll ship in reviewable phases so you can approve each before the next.
+## Goal
 
-## What's already in place (keep, don't rebuild)
+One Lovable project, three clearly separated experiences behind role-based guards. Later you can point `dashboard.sezapos.com` and `pos.sezapos.com` at the same app via path rewrites — no code changes needed.
 
-- Public/private split via `MarketingShell` + `_authenticated` layout
-- Marketing routes: Home, Features, Hardware, Pricing, Contact, Support
-- Auth flow (signup → email verify → `/select-plan` → Paddle checkout with card-on-file trial → `/dashboard`)
-- POS sidebar (`AppShell`) with Billing shortcut
-- Billing tab inside Settings (plan, upgrade, cancel, Paddle customer portal)
-- Legal Center at `/legal` with 14 documents, sticky TOC, search, print/PDF
-- Auto-redirect signed-in users from `/` to `/dashboard`
+## Final URL layout
 
-## What this plan adds/changes
+```text
+/                          Marketing (existing MarketingShell)
+/features /pricing /about /contact /support /status /legal/*   Marketing
+/auth /signup /reset-password                                  Auth (public)
+
+/dashboard/*               Merchant Dashboard (owner/manager only)
+  dashboard, products, inventory, customers, employees,
+  reports, sales, shifts, payroll, settings, setup, onboarding
+
+/pos/*                     POS Register (cashier + manager + owner)
+  sell (checkout), register (open/close), refunds,
+  timeclock, shift
+  Locked behind PIN unlock, not email/password.
+```
+
+## Role gates
+
+- **Public**: everything under `/`, `/features`, `/pricing`, `/about`, `/contact`, `/support`, `/status`, `/legal/*`, `/auth`, `/signup`, `/reset-password`.
+- **`/dashboard/*`** → requires session AND role in `{owner, admin, manager}`. Cashiers hitting it get redirected to `/pos`.
+- **`/pos/*`** → requires session AND (role in `{owner, admin, manager, cashier}`) AND active PIN unlock in `sessionStorage`. No PIN → PIN screen.
+
+Post-login redirect:
+- owner/admin/manager → `/dashboard`
+- cashier → `/pos` (PIN screen first)
+
+## Shell changes
+
+- **MarketingShell** — already good; add `/status` link in footer.
+- **DashboardShell** (rename of current `AppShell`): sidebar shows business management only (Dashboard, Products, Inventory, Customers, Employees, Sales, Reports, Shifts, Payroll, Settings). Owner/manager gets a header button **"Open POS"** → `/pos`.
+- **PosShell** (new): minimal top bar with Store name, current cashier, Clock in/out, and — for owner/manager only — **"Switch to Dashboard"** link. Left rail with just: Sell, Register, Refunds, Timeclock, Shift. No products/inventory/reports/settings.
+
+## PIN unlock (cashiers)
+
+- Reuse existing `src/lib/pin.server.ts` and `profiles.pin_hash` (already in schema based on employee flows).
+- New server fn `verifyCashierPin({ employee_id, pin })` returns `{ userId, storeId, roles }` on success.
+- POS PIN screen: employee_id + 4-6 digit PIN. On success store `{ userId, expiresAt }` in `sessionStorage` under `pos_unlock`. Auto-lock after 15 min idle or on tab close.
+- Owners/managers already have a Supabase session; PIN screen offers "Unlock as manager" that just requires their PIN too, so the POS device has a consistent unlock model.
+
+## File moves & new files
+
+Move (rename URL from `/pos` in `_authenticated` → new `/pos` shell; keep dashboard routes but shift under `/dashboard/*`):
+
+```text
+NEW  src/routes/_dashboard/route.tsx        (owner/manager gate, DashboardShell)
+NEW  src/routes/_dashboard/dashboard.tsx    (from _authenticated/dashboard.tsx)
+NEW  src/routes/_dashboard/products.tsx     (moved)
+NEW  src/routes/_dashboard/inventory.tsx    (moved)
+NEW  src/routes/_dashboard/customers.tsx    (moved)
+NEW  src/routes/_dashboard/employees.tsx    (moved)
+NEW  src/routes/_dashboard/employees.$id.tsx(moved)
+NEW  src/routes/_dashboard/sales.tsx        (moved — read-only history)
+NEW  src/routes/_dashboard/reports.tsx      (moved)
+NEW  src/routes/_dashboard/shifts.tsx       (moved)
+NEW  src/routes/_dashboard/payroll.tsx      (moved)
+NEW  src/routes/_dashboard/settings.tsx     (moved)
+NEW  src/routes/_dashboard/setup.tsx        (moved)
+NEW  src/routes/_dashboard/onboarding.tsx   (moved)
+
+NEW  src/routes/pos/route.tsx               (session + PIN gate, PosShell)
+NEW  src/routes/pos/index.tsx               (redirect → /pos/sell)
+NEW  src/routes/pos/sell.tsx                (from _authenticated/pos.tsx)
+NEW  src/routes/pos/register.tsx            (from _authenticated/register.tsx)
+NEW  src/routes/pos/refunds.tsx             (moved)
+NEW  src/routes/pos/timeclock.tsx           (moved)
+NEW  src/routes/pos/shift.tsx               (cashier-facing shift summary)
+
+NEW  src/routes/status.tsx                  (static "All systems operational")
+NEW  src/components/dashboard/DashboardShell.tsx
+NEW  src/components/pos/PosShell.tsx
+NEW  src/components/pos/PinUnlock.tsx
+NEW  src/lib/pos/pin-session.ts             (sessionStorage helpers)
+NEW  src/lib/pos/pin.functions.ts           (verifyCashierPin server fn)
+
+DELETE  src/routes/_authenticated/*         (whole folder)
+```
+
+The old `_authenticated` folder is retired entirely so there's only one gated shell per app. Existing `AppShell` becomes the dashboard shell; POS gets a purpose-built shell.
+
+## Redirects for old URLs
+
+`/dashboard` stays the same. Old paths that used to be `/pos`, `/register`, `/refunds`, `/timeclock`, `/products`, `/settings`, etc. get one-line route files at the old locations that `redirect()` to the new home so bookmarks and in-app links keep working. I'll grep the codebase for hardcoded old URLs (`to: "/pos"`, `to: "/products"`, …) and rewrite them to `/pos/sell`, `/dashboard/products`, etc. in the same pass.
+
+## Post-login router
+
+`/auth` submit handler and OAuth callback:
+1. `getUser()` + fetch roles.
+2. If roles ∩ {owner, admin, manager} → `navigate('/dashboard')`.
+3. Else if `cashier` → `navigate('/pos')` (PIN screen renders).
+4. Else → sign out with "no store access" message.
+
+## Status page
+
+`/status` static page: green "All systems operational" badge, four components (POS Register, Merchant Dashboard, Payments, Email/SMS) each with green dot, "Last checked" timestamp = build time. Note that this is a placeholder and real monitoring is coming.
+
+## Out of scope (this turn)
+
+- Real subdomain hosting (needs your DNS + Lovable custom-domain setup after the code lands).
+- Real uptime monitoring.
+- New POS features (Apple Pay, offline mode, camera scanning).
+- Any DB schema changes — reuses existing `profiles.pin_hash`, `user_roles`, `stores`.
+
+## Verification
+
+After the moves I'll run `bun run build`-equivalent typecheck via the harness and click through `/`, `/auth`, `/dashboard`, `/pos` in the preview to confirm role gates and PIN unlock work.
 
 ---
 
-### Phase 1 — Marketing site completion (public)
-
-**New routes**
-- `/industries` — sections for Convenience, Liquor, Specialty Retail, Grocery, Cafe/QSR, Smoke shops (feature bullets per vertical; no fake logos)
-- `/integrations` — categorized grid (Payments, SMS, Accounting, E-commerce, Hardware) with clearly-marked "Available" vs "Roadmap" tags
-- `/security` — public-facing security overview (encryption, RLS, backups, incident response) — deep-links into Legal Center
-- `/about` — Story, Mission, Vision, Why we built this, Values, Security commitment, Reliability commitment, Roadmap. No invented founders/awards/customer counts; company info uses `[Company Name]`, `[Founded Year]`, `[Business Address]` placeholders from `LEGAL_CONFIG`
-- `/faq` — grouped accordion (Getting started, Billing, Hardware, Security, Data)
-- `/blog` — clean empty-state "Coming soon — sign up for updates" (no fake posts)
-- `/careers` — "We're not hiring yet — reach out at [email]" placeholder page
-
-**Existing marketing pages — audit & polish**
-- Rewrite Home hero + sections to remove any demo stats/testimonials/fake logos and match the enterprise tone
-- Rewrite Features, Hardware, Pricing, Contact, Support for consistent copy, real product features only
-
-**MarketingShell**
-- Expand nav: Features · Industries · Pricing · Hardware · Integrations · Company (dropdown: About, Security, Blog, Careers, Contact) · Support
-- Full footer with all requested sections (Product, Company, Trust, Legal, Support, Social placeholders)
-
----
-
-### Phase 2 — POS sidebar & feature scaffolding
-
-**Sidebar expansion in `AppShell`**
-Add missing entries and route stubs where they don't exist yet:
-- Sales, Inventory, Products, Customers, Employees (existing — keep)
-- Suppliers, Purchase Orders, Reports, Analytics, Register, Help (new routes if missing)
-- Group into sections (Operate / Manage / Insights / Account) for scannability
-- Logout at the bottom, calls the full sign-out hygiene sequence (cancel queries → clear cache → signOut → replace-navigate to `/auth`)
-
-**Feature audit — placeholder replacement, not rewrite**
-- Sweep all POS routes and components for lorem ipsum, TODO comments, `example.com`, `John Doe`, and mock arrays; replace with empty-states + real copy
-- Ensure Reports/Analytics/Suppliers/Purchase Orders routes exist even if the feature is minimal — each shows a proper empty state with "Coming in an upcoming release" rather than a blank/broken page
-
-I will **not** build brand-new POS features (Gift Cards, Apple/Google Pay, offline mode redesign, camera scanning rewrites) in this pass — those are individually large. I'll flag which of the listed POS features already work vs. need dedicated follow-up work, and mark the not-yet-built ones with clean coming-soon placeholders in the UI.
-
----
-
-### Phase 3 — Trust Center & Support Center
-
-**Trust Center** at `/trust`
-- Landing hub linking to: Security, Compliance, System Status, Privacy, Legal Center, Incident Response, Encryption, Backups, Responsible Disclosure
-- Reuses Legal Center content — Trust Center is a curated presentation, not duplicated docs
-- System Status shows a static "Operational" badge + link to a future status page (clearly labeled placeholder)
-
-**Support Center** at `/help` (public) and `/dashboard/help` (in-app)
-- Knowledge Base: category grid → article stubs organized by topic (Getting started, Sales, Inventory, Employees, Payments, Hardware, Troubleshooting)
-- Contact Support form (routes to `[Support Email]`)
-- Video Tutorials — labeled placeholder
-- Documentation — link to KB
-- Release Notes — placeholder empty state
-- System Status — link into Trust Center
-
----
-
-### Phase 4 — Onboarding polish & Settings audit
-
-**Onboarding flow refinement**
-- After signup → email verify → `/select-plan` → checkout → success
-- Post-checkout: land on `/onboarding` (new) that walks Owner through: business info → tax settings → receipt settings → first employee (optional) → Dashboard
-- This makes the "create workspace + first store" step explicit instead of implicit
-
-**Settings audit**
-- Verify sections exist: Store Profile, Business Info, Tax, Receipts, SMS, Email, Payments, Employees, Roles/Permissions, Security, Notifications, Integrations, Backups, API Keys (labeled "Coming soon"), Billing
-- Fill any missing tab with a proper empty/coming-soon state
-
----
-
-### Phase 5 — Global UI/polish pass
-
-- Notification center in POS topbar (bell icon → dropdown, backed by an existing signal like low stock alerts)
-- Global loading skeletons for slow POS pages (Products, Reports)
-- 404 + generic error components refreshed to match design
-- Consistent empty states component reused across POS
-- Dark/light already supported — verify parity on new pages
-- Sitemap.xml update to include new public routes
-
----
-
-## Technical Details
-
-- All new pages use `MarketingShell` (public) or `AppShell` (POS)
-- All placeholder company info comes from `src/lib/legal/config.ts` (`LEGAL_CONFIG`) — single source of truth
-- New public routes each get proper `head()` metadata (title, description, og:*), per TanStack routing rules
-- No new database schema in this plan; POS feature stubs use existing tables where applicable
-- No new server functions unless required for a specific page
-- Signed-in redirect from `/` to `/dashboard` already works; will extend to `/pricing`, `/features` etc? **See question below.**
-
-## Explicit non-goals for this plan
-
-- Not implementing new payment methods (Apple Pay, Google Pay, split payments) — those need dedicated design + Paddle/Stripe work
-- Not implementing offline mode from scratch
-- Not building a real status page (labeled placeholder linking out)
-- Not rewriting the checkout/POS transaction engine
-- Not writing real blog posts, real KB articles, or real release notes (structure + empty states only)
-
-## Questions before I start
-
-1. **Signed-in visitors on marketing pages**: currently only `/` redirects them to `/dashboard`. Should visiting `/features`, `/pricing`, `/about`, etc. while signed in also auto-redirect to `/dashboard`, or should signed-in users be allowed to browse marketing content (with a "Back to Dashboard" button)?
-2. **Phase order**: OK to execute Phase 1 → 2 → 3 → 4 → 5 in that order across multiple turns, or do you want a different sequence (e.g. sidebar/POS first)?
-3. **Any of the "Explicit non-goals" you want moved into scope**? (Each of those is a full separate build.)
+This is a large refactor (~25 file moves + 6 new files + one grep-and-replace pass for internal links). I'll ship it in this next turn end-to-end, then we can iterate on POS UI polish. Approve to proceed.
