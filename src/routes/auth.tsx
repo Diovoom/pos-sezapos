@@ -12,9 +12,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { toast } from "sonner";
 import { Loader2, Delete, LogIn, Mail, KeyRound, ArrowLeft, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { dashboardUrl, posUrl } from "@/lib/host";
-import { hydrateSessionFromCookie } from "@/integrations/supabase/session-bridge";
-
 
 const MANAGER_ROLES = new Set(["owner", "admin", "manager"]);
 
@@ -28,13 +25,11 @@ async function landingRouteForUser(userId: string): Promise<"/dashboard" | "/pos
   }
 }
 
-// Redirect to the correct subdomain after auth. Falls back to same-origin
-// navigation on non-sezapos.com hosts (previews, localhost).
+// Single-domain navigation after auth.
 function goToLanding(navigate: (opts: { to: "/dashboard" | "/pos"; replace: true }) => void, dest: "/dashboard" | "/pos") {
-  const abs = dest === "/dashboard" ? dashboardUrl("/dashboard") : posUrl("/pos");
-  if (abs.startsWith("http")) window.location.replace(abs);
-  else navigate({ to: dest, replace: true });
+  navigate({ to: dest, replace: true });
 }
+
 
 type Mode = "pin" | "email" | "pin_with_id";
 type Search = { mode?: Mode };
@@ -64,7 +59,6 @@ function AuthPage() {
 
   useEffect(() => {
     (async () => {
-      await hydrateSessionFromCookie();
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;
       const dest = await landingRouteForUser(data.session.user.id);
