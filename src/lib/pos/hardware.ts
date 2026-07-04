@@ -134,3 +134,23 @@ export async function testDevice(id: string): Promise<{ ok: boolean; message: st
   // A real driver would send a status/ping frame. We report connection state.
   return { ok: dev.connected, message: dev.connected ? "Device responded" : "Device not connected" };
 }
+
+/**
+ * Trigger the cash drawer to open. If a physical drawer is connected via a
+ * receipt printer, the real driver would send the ESC/POS kick-out sequence
+ * here (`ESC p m t1 t2`). When no hardware is connected we simulate the
+ * action so the POS flow (payout, deposit, cash sale) still completes and
+ * fires the same `pos-drawer-open` event that receipt printer integrations
+ * can subscribe to.
+ */
+export function openCashDrawer(reason: string): { simulated: boolean; deviceId: string | null } {
+  const drawer = getDevice("drawer") ?? getDevice("printer");
+  const simulated = !drawer;
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("pos-drawer-open", { detail: { reason, simulated, at: new Date().toISOString() } }));
+    }
+  } catch { /* noop */ }
+  return { simulated, deviceId: drawer?.id ?? null };
+}
+
