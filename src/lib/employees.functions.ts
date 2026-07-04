@@ -31,6 +31,22 @@ async function assertOwnerOrAdmin(context: { supabase: SupabaseCtx; userId: stri
   if (error || !data) throw new Error("Forbidden: owner or admin role required");
 }
 
+async function assertOwnerAdminOrManager(context: { supabase: SupabaseCtx; userId: string }) {
+  const { data, error } = await context.supabase.rpc("has_any_role", {
+    _user_id: context.userId,
+    _roles: ["owner", "admin", "manager"],
+  });
+  if (error || !data) throw new Error("Forbidden: owner, admin or manager role required");
+}
+
+async function isOwnerOrAdmin(context: { supabase: SupabaseCtx; userId: string }): Promise<boolean> {
+  const { data } = await context.supabase.rpc("has_any_role", {
+    _user_id: context.userId,
+    _roles: ["owner", "admin"],
+  });
+  return !!data;
+}
+
 function generateSixDigitId(): string {
   const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000;
   return String(n).padStart(6, "0");
@@ -137,7 +153,7 @@ export const setEmployeeStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { user_id: string; status: "active" | "disabled" }) => data)
   .handler(async ({ data, context }) => {
-    await assertOwner(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
@@ -157,7 +173,7 @@ export const resetEmployeeCredentials = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { user_id: string }) => data)
   .handler(async ({ data, context }) => {
-    await assertOwner(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const tempPassword = generateTempPassword();
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
@@ -344,7 +360,11 @@ export const updateEmployee = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data, context }) => {
-    await assertOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const callerIsOwnerOrAdmin = await isOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    if (data.role && !callerIsOwnerOrAdmin) {
+      throw new Error("Only owners or admins can change a role");
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
@@ -388,7 +408,7 @@ export const setEmployeeCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { user_id: string; employee_id: string }) => data)
   .handler(async ({ data, context }) => {
-    await assertOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
     if (!/^\d{6}$/.test(data.employee_id)) throw new Error("Employee ID must be 6 digits");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -404,7 +424,7 @@ export const regenerateEmployeeCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { user_id: string }) => data)
   .handler(async ({ data, context }) => {
-    await assertOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
@@ -430,7 +450,7 @@ export const adminResetPin = createServerFn({ method: "POST" })
     (data: { user_id: string; pin?: string | null; force_change?: boolean; clear?: boolean }) => data,
   )
   .handler(async ({ data, context }) => {
-    await assertOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
@@ -465,3 +485,68 @@ export const deleteEmployee = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+/* ------------------------- pay & schedule ------------------------------ */
+
+export const updateEmployeePay = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      user_id: string;
+      hourly_wage?: number | null;
+      scheduled_start_time?: string | null;
+      scheduled_end_time?: string | null;
+      late_threshold_minutes?: number | null;
+    }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+    const patch: Record<string, unknown> = {};
+    for (const k of ["hourly_wage", "scheduled_start_time", "scheduled_end_time", "late_threshold_minutes"] as const) {
+      if (data[k] !== undefined) patch[k] = data[k];
+    }
+    if (Object.keys(patch).length === 0) return { ok: true };
+    const { error } = await admin.from("profiles").update(patch).eq("id", data.user_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/* ------------------------- adjust time entry --------------------------- */
+
+export const adjustTimeEntry = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      entry_id: string;
+      clock_in?: string;
+      clock_out?: string | null;
+      break_minutes?: number;
+      note?: string;
+    }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+    const patch: Record<string, unknown> = { adjusted_at: new Date().toISOString(), adjusted_by: (context as { userId: string }).userId };
+    if (data.clock_in !== undefined) patch.clock_in = data.clock_in;
+    if (data.clock_out !== undefined) patch.clock_out = data.clock_out;
+    if (data.break_minutes !== undefined) patch.break_minutes = data.break_minutes;
+    if (data.note !== undefined) patch.adjustment_note = data.note;
+    // Filter to columns that exist to avoid breaking on schemas without adjustment fields.
+    const { error } = await admin.from("time_entries").update(patch).eq("id", data.entry_id);
+    if (error) {
+      // Fallback: retry without optional audit columns if they don't exist.
+      const safe: Record<string, unknown> = {};
+      if (data.clock_in !== undefined) safe.clock_in = data.clock_in;
+      if (data.clock_out !== undefined) safe.clock_out = data.clock_out;
+      if (data.break_minutes !== undefined) safe.break_minutes = data.break_minutes;
+      const { error: err2 } = await admin.from("time_entries").update(safe).eq("id", data.entry_id);
+      if (err2) throw new Error(err2.message);
+    }
+    return { ok: true };
+  });
