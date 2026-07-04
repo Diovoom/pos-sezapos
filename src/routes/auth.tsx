@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { Loader2, Delete, LogIn, Mail, KeyRound, ArrowLeft, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dashboardUrl, posUrl } from "@/lib/host";
+import { hydrateSessionFromCookie } from "@/integrations/supabase/session-bridge";
+
 
 const MANAGER_ROLES = new Set(["owner", "admin", "manager"]);
 
