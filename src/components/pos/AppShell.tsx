@@ -317,7 +317,7 @@ export function PlaceholderPage({ title, description }: { title: string; descrip
           </div>
           <h2 className="text-lg font-semibold mb-2">Coming next</h2>
           <p className="text-sm text-muted-foreground mb-4">{description}</p>
-          <Button asChild variant="outline"><Link to="/pos">Back to checkout</Link></Button>
+          <Button asChild variant="outline"><Link to="/dashboard">Back to dashboard</Link></Button>
         </div>
       </div>
     </>
