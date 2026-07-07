@@ -22,7 +22,7 @@ const CATEGORIES: { icon: React.ComponentType<{ className?: string }>; name: str
     icon: CreditCard,
     name: "Payments",
     items: [
-      { name: "Paddle (subscription billing)", status: "available", note: "SEZA subscription billing runs on Paddle as merchant of record." },
+      { name: "Stripe (subscription billing)", status: "roadmap", note: "Subscription billing integration is being configured." },
       { name: "Card terminals (in-app)", status: "available", note: "Integrated card capture through supported terminal hardware." },
       { name: "Apple Pay / Google Pay", status: "roadmap", note: "Wallet-based tap-to-pay support via supported terminals." },
       { name: "Split tender", status: "roadmap", note: "Split a single sale across multiple payment methods." },
