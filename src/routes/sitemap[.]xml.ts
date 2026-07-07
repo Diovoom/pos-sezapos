@@ -12,16 +12,7 @@ interface SitemapEntry {
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
-        const host = (request.headers.get("host") ?? "").toLowerCase().split(":")[0];
-        const isMarketingHost = host === "sezapos.com" || host === "www.sezapos.com" || !host.endsWith("sezapos.com");
-        // On dashboard.* / pos.* return an empty sitemap — those surfaces are noindex.
-        if (!isMarketingHost) {
-          const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>`;
-          return new Response(xml, {
-            headers: { "Content-Type": "application/xml", "Cache-Control": "public, max-age=3600" },
-          });
-        }
+      GET: async () => {
 
         const entries: SitemapEntry[] = [
           { path: "/", changefreq: "weekly", priority: "1.0" },
