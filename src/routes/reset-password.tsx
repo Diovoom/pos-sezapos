@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, KeyRound } from "lucide-react";
+import { Logo } from "@/components/brand/Logo";
 
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
@@ -57,7 +58,7 @@ function ResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-surface p-4">
       <div className="w-full max-w-md">
         <Link to="/" className="flex items-center justify-center gap-2 mb-6">
-          <div className="size-9 rounded-lg bg-primary grid place-items-center text-primary-foreground font-bold">V</div>
+          <Logo className="size-9 rounded-lg" />
           <span className="font-semibold tracking-tight text-lg">SEZA POS</span>
         </Link>
         <Card>

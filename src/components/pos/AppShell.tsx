@@ -42,6 +42,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { posUrl } from "@/lib/host";
+import { Logo } from "@/components/brand/Logo";
 
 const NAV: { to: string; label: string; icon: any; search?: Record<string, string> }[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -100,7 +101,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
       <aside className="w-16 lg:w-60 border-r bg-surface/60 flex flex-col shrink-0">
         <div className="h-16 px-4 border-b flex items-center gap-3">
-          <div className="size-8 bg-primary rounded-lg grid place-items-center text-primary-foreground font-bold">V</div>
+          <Logo className="size-8 rounded-lg" />
           <div className="hidden lg:flex flex-col leading-tight">
             <span className="font-semibold tracking-tight text-sm">SEZA POS</span>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{me?.store?.name ?? "Store"}</span>
