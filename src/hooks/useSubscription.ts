@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getPaddleEnvironment } from "@/lib/paddle";
 import { useSession } from "@/hooks/useSession";
 import { useMe } from "@/hooks/useMe";
 
@@ -15,7 +14,6 @@ export interface PlanState {
   isReadOnly: boolean;
   isTrialing: boolean;
   daysLeft: number | null;
-  environment: "sandbox" | "live";
 }
 
 const rank: Record<PlanTier, number> = {
@@ -34,10 +32,9 @@ export function useSubscription() {
   const { session } = useSession();
   const { data: me } = useMe();
   const storeId = (me?.profile?.store_id as string | undefined) ?? me?.store?.id ?? null;
-  const env = getPaddleEnvironment();
 
   return useQuery<PlanState | null>({
-    queryKey: ["subscription", storeId, env, session?.user.id],
+    queryKey: ["subscription", storeId, session?.user.id],
     enabled: !!storeId,
     refetchOnWindowFocus: true,
     queryFn: async () => {
@@ -67,7 +64,6 @@ export function useSubscription() {
         isReadOnly: !active,
         isTrialing: status === "trialing",
         daysLeft,
-        environment: env,
       };
     },
   });

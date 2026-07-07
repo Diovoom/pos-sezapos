@@ -2,7 +2,7 @@
 
 > SEZA POS is a modern cloud point-of-sale platform for convenience stores, mini marts, liquor stores, and independent retailers. Fast checkout, real-time inventory, employee time tracking, and reporting — all in a browser.
 
-SEZA POS is built and operated by SEZA TECHNOLOGIES. Payments are handled by Paddle as Merchant of Record. New customers get a 14-day free trial with no credit card required.
+SEZA POS is built and operated by SEZA TECHNOLOGIES. New customers get a 14-day free trial with no credit card required.
 
 ## Pages
 
@@ -12,4 +12,4 @@ SEZA POS is built and operated by SEZA TECHNOLOGIES. Payments are handled by Pad
 - [Sign in](/auth): Existing merchants and employees sign in here.
 - [Terms of Service](/terms): SEZA TECHNOLOGIES terms of service.
 - [Privacy Notice](/privacy): How SEZA TECHNOLOGIES collects, uses, and protects personal data.
-- [Refund Policy](/refund): 30-day money-back guarantee and refund process via Paddle.
+- [Refund Policy](/refund): 30-day money-back guarantee and refund process.

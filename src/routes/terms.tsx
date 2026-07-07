@@ -4,7 +4,7 @@ export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
       { title: "Terms & Conditions — SEZA POS" },
-      { name: "description", content: "SEZA TECHNOLOGIES terms of service, including permitted use, intellectual property, and Paddle as Merchant of Record." },
+      { name: "description", content: "SEZA TECHNOLOGIES terms of service, including permitted use, intellectual property, and subscription billing." },
       { property: "og:title", content: "Terms & Conditions — SEZA POS" },
       { property: "og:description", content: "The terms of service that apply when using SEZA POS." },
       { property: "og:type", content: "website" },
@@ -38,7 +38,7 @@ function TermsPage() {
       <p>SEZA TECHNOLOGIES owns the Service, including the software, documentation, and branding. We grant you a limited, non-exclusive, non-transferable right to use the Service within your selected plan. You retain ownership of the data you upload; you grant us a limited license to host and process that data solely to provide the Service.</p>
 
       <h2>6. Payment, subscription and refunds</h2>
-      <p>Our order process is conducted by our online reseller <strong>Paddle.com</strong>. <strong>Paddle.com is the Merchant of Record for all our orders.</strong> Paddle provides all customer service inquiries and handles returns. Payment, billing, tax, cancellation, and refund terms are governed by Paddle's Buyer Terms at <a href="https://www.paddle.com/legal/checkout-buyer-terms" target="_blank" rel="noreferrer">paddle.com/legal/checkout-buyer-terms</a>. Our Refund Policy is available at <Link to="/refund">/refund</Link>.</p>
+      <p>Subscriptions to SEZA POS are billed by <strong>SEZA TECHNOLOGIES</strong>. Payment, billing, cancellation, and refund terms are described in our <Link to="/refund">Refund Policy</Link>. Billing provider integration is being configured; details of the payment processor will be published here once available.</p>
 
       <h2>7. Service availability</h2>
       <p>We work hard to keep the Service running, but we do not guarantee uninterrupted or error-free performance. Scheduled maintenance and outages may occur.</p>

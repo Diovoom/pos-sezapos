@@ -13,7 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
-import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
+
 import "@/i18n";
 import { applyLanguage } from "@/i18n";
 import { installSessionBridge } from "@/integrations/supabase/session-bridge";
@@ -183,7 +183,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <PaymentTestModeBanner />
+      
       <Outlet />
       <Toaster richColors position="top-right" />
     </QueryClientProvider>
