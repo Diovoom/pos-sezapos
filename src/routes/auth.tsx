@@ -77,7 +77,7 @@ function AuthPage() {
     <div className="min-h-screen relative flex items-center justify-center bg-surface p-4">
       <div className="w-full max-w-md">
         <Link to="/" className="flex items-center justify-center gap-2 mb-6">
-          <div className="size-9 rounded-lg bg-primary grid place-items-center text-primary-foreground font-bold">V</div>
+          <Logo className="size-9 rounded-lg" />
           <span className="font-semibold tracking-tight text-lg">SEZA POS</span>
         </Link>
 
