@@ -3,15 +3,26 @@ import { Check, ShoppingCart, BarChart3, Users, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 
+const HOME_TITLE = "SEZA POS | Smart Point of Sale System for Retail Businesses";
+const HOME_DESCRIPTION = "SEZA POS is a modern point-of-sale system for retail stores, convenience stores, liquor stores, grocery stores, and small businesses. Manage sales, inventory, employees, receipts, reports, and payments in one platform.";
+const HOME_OG_IMAGE = "https://sezapos.com/__l5e/assets-v1/5cbb57a3-89b6-4c34-9e82-d3c4e406f71a/seza-og.jpg";
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "SEZA POS — Modern Cloud Point of Sale for Retail" },
-      { name: "description", content: "SEZA POS is a modern cloud point-of-sale for convenience stores, mini marts, liquor and retail. Fast checkout, inventory, employees, and reports. 14-day free trial." },
-      { property: "og:title", content: "SEZA POS — Modern Cloud POS for Retail" },
-      { property: "og:description", content: "Fast checkout, inventory, employees, and reports. Start a 14-day free trial." },
+      { title: HOME_TITLE },
+      { name: "description", content: HOME_DESCRIPTION },
+      { property: "og:title", content: HOME_TITLE },
+      { property: "og:description", content: HOME_DESCRIPTION },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://sezapos.com/" },
+      { property: "og:image", content: HOME_OG_IMAGE },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: HOME_TITLE },
+      { name: "twitter:description", content: HOME_DESCRIPTION },
+      { name: "twitter:image", content: HOME_OG_IMAGE },
     ],
     links: [{ rel: "canonical", href: "https://sezapos.com/" }],
   }),
