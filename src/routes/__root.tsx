@@ -78,24 +78,39 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
+const SITE_TITLE = "SEZA POS | Smart Point of Sale System for Retail Businesses";
+const SITE_DESCRIPTION = "SEZA POS is a modern point-of-sale system for retail stores, convenience stores, liquor stores, grocery stores, and small businesses. Manage sales, inventory, employees, receipts, reports, and payments in one platform.";
+const OG_IMAGE = "https://sezapos.com/__l5e/assets-v1/5cbb57a3-89b6-4c34-9e82-d3c4e406f71a/seza-og.jpg";
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "SEZA POS — Modern Point of Sale" },
-      { name: "description", content: "Cloud-based POS for convenience stores, mini marts, liquor and retail. Fast checkout, inventory, reports." },
+      { title: SITE_TITLE },
+      { name: "description", content: SITE_DESCRIPTION },
       { name: "author", content: "SEZA POS" },
+      { name: "theme-color", content: "#1e40af" },
       { property: "og:site_name", content: "SEZA POS" },
-      { property: "og:title", content: "SEZA POS — Modern Point of Sale" },
-      { property: "og:description", content: "Cloud-based POS for convenience stores, mini marts, liquor and retail. Fast checkout, inventory, reports." },
+      { property: "og:title", content: SITE_TITLE },
+      { property: "og:description", content: SITE_DESCRIPTION },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "SEZA POS — Modern Point of Sale" },
-      { name: "twitter:description", content: "Cloud-based POS for convenience stores, mini marts, liquor and retail. Fast checkout, inventory, reports." },
+      { property: "og:url", content: "https://sezapos.com/" },
+      { property: "og:image", content: OG_IMAGE },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: SITE_TITLE },
+      { name: "twitter:description", content: SITE_DESCRIPTION },
+      { name: "twitter:image", content: OG_IMAGE },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
+      { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon.png" },
+      { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+      { rel: "manifest", href: "/manifest.json" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       {
