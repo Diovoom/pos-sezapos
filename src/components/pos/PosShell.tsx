@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { dashboardUrl } from "@/lib/host";
+import { Logo } from "@/components/brand/Logo";
 
 const POS_NAV = [
   { to: "/pos", label: "Sell", icon: ScanBarcode },
