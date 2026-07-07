@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
 import { useSession } from "@/hooks/useSession";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 
@@ -9,7 +9,7 @@ export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
       { title: "Pricing — SEZA POS" },
-      { name: "description", content: "Simple, transparent pricing for SEZA POS. Starter $29, Pro $59, Business $89. 14-day free trial with card on file." },
+      { name: "description", content: "Simple, transparent pricing for SEZA POS. Starter $29, Pro $59, Business $89. 14-day free trial." },
       { property: "og:title", content: "Pricing — SEZA POS" },
       { property: "og:description", content: "Three plans for retail businesses of every size. Start with a 14-day free trial." },
       { property: "og:type", content: "website" },
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/pricing")({
 });
 
 type Plan = {
-  id: "starter_monthly" | "pro_monthly" | "business_monthly";
+  id: "starter" | "pro" | "business";
   name: string;
   price: number;
   tagline: string;
@@ -32,7 +32,7 @@ type Plan = {
 
 const PLANS: Plan[] = [
   {
-    id: "starter_monthly",
+    id: "starter",
     name: "Starter",
     price: 29,
     tagline: "Small shops, solo owners, new businesses",
@@ -50,7 +50,7 @@ const PLANS: Plan[] = [
     ],
   },
   {
-    id: "pro_monthly",
+    id: "pro",
     name: "Pro",
     price: 59,
     tagline: "Growing retail stores",
@@ -70,7 +70,7 @@ const PLANS: Plan[] = [
     ],
   },
   {
-    id: "business_monthly",
+    id: "business",
     name: "Business",
     price: 89,
     tagline: "High-volume & multi-store businesses",
@@ -91,15 +91,14 @@ const PLANS: Plan[] = [
 ];
 
 function PricingPage() {
-  const { openCheckout, loading } = usePaddleCheckout();
   const { session } = useSession();
 
-  const handleChoose = (planId: Plan["id"]) => {
+  const handleChoose = (planName: string) => {
     if (!session) {
       window.location.href = `/signup`;
       return;
     }
-    openCheckout(planId);
+    toast.info(`${planName} selected. Billing provider not configured yet — Stripe integration coming soon.`);
   };
 
   return (
@@ -108,7 +107,7 @@ function PricingPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold tracking-tight">Simple pricing for every store</h1>
           <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
-            Start with a 14-day free trial. Card on file required to activate — you're only charged when the trial ends.
+            Start with a 14-day free trial. No credit card required during preview — payments are not yet processed.
           </p>
         </div>
 
@@ -142,8 +141,7 @@ function PricingPage() {
               <Button
                 className="mt-6 w-full"
                 variant={plan.highlight ? "default" : "outline"}
-                disabled={loading}
-                onClick={() => handleChoose(plan.id)}
+                onClick={() => handleChoose(plan.name)}
               >
                 {session ? `Choose ${plan.name}` : "Start Free Trial"}
               </Button>
@@ -152,7 +150,7 @@ function PricingPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-8">
-          Payments are securely processed by Paddle, our Merchant of Record. Prices in USD. Need something custom?{" "}
+          Prices in USD. Need something custom?{" "}
           <Link to="/contact" className="text-primary hover:underline">Contact us</Link>.
         </p>
       </section>

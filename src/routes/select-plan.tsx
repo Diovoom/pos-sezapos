@@ -1,9 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Check, Loader2, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+import { Check, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
 import { useSession } from "@/hooks/useSession";
 import { useSubscription } from "@/hooks/useSubscription";
 
@@ -18,28 +18,29 @@ export const Route = createFileRoute("/select-plan")({
 });
 
 const PLANS = [
-  { id: "starter_monthly" as const, name: "Starter", price: 29, tagline: "1 register, up to 2 employees", features: ["Cash + card checkout", "Basic inventory", "Email receipts"] },
-  { id: "pro_monthly" as const, name: "Pro", price: 59, tagline: "Growing retail stores", highlight: true, features: ["Everything in Starter", "Up to 10 employees", "SMS receipts", "Advanced reports"] },
-  { id: "business_monthly" as const, name: "Business", price: 89, tagline: "High-volume & multi-store", features: ["Everything in Pro", "Unlimited employees", "Multi-store", "API access"] },
+  { id: "starter" as const, name: "Starter", price: 29, tagline: "1 register, up to 2 employees", features: ["Cash + card checkout", "Basic inventory", "Email receipts"] },
+  { id: "pro" as const, name: "Pro", price: 59, tagline: "Growing retail stores", highlight: true, features: ["Everything in Starter", "Up to 10 employees", "SMS receipts", "Advanced reports"] },
+  { id: "business" as const, name: "Business", price: 89, tagline: "High-volume & multi-store", features: ["Everything in Pro", "Unlimited employees", "Multi-store", "API access"] },
 ];
 
 function SelectPlanPage() {
   const navigate = useNavigate();
   const { session, loading: sessLoading } = useSession();
-  const { openCheckout, loading } = usePaddleCheckout();
   const { data: plan } = useSubscription();
 
-  // Not signed in → send to signup
   useEffect(() => {
     if (!sessLoading && !session) navigate({ to: "/signup", replace: true });
   }, [session, sessLoading, navigate]);
 
-  // Already has a real paid subscription → skip
   useEffect(() => {
     if (plan && plan.tier !== "trial_pro" && plan.tier !== "expired") {
       navigate({ to: "/dashboard", replace: true });
     }
   }, [plan, navigate]);
+
+  const handleChoose = (name: string) => {
+    toast.info(`${name} selected. Billing provider not configured yet — Stripe integration coming soon.`);
+  };
 
   return (
     <div className="min-h-screen bg-surface p-4 py-10">
@@ -48,7 +49,7 @@ function SelectPlanPage() {
           <ShieldCheck className="h-10 w-10 text-primary mx-auto" />
           <h1 className="mt-3 text-3xl font-bold tracking-tight">Activate your account</h1>
           <p className="mt-2 text-muted-foreground max-w-xl mx-auto">
-            Add a payment method to unlock your 14-day free trial. You won't be charged until the trial ends — cancel any time.
+            Start your 14-day free trial. Billing is not yet enabled — you won't be charged.
           </p>
         </div>
 
@@ -77,10 +78,9 @@ function SelectPlanPage() {
                 <Button
                   className="w-full"
                   variant={p.highlight ? "default" : "outline"}
-                  disabled={loading}
-                  onClick={() => openCheckout(p.id, { successUrl: `${window.location.origin}/dashboard?checkout=success` })}
+                  onClick={() => handleChoose(p.name)}
                 >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : `Choose ${p.name}`}
+                  Choose {p.name}
                 </Button>
               </CardContent>
             </Card>
@@ -89,7 +89,7 @@ function SelectPlanPage() {
 
         <div className="mt-8 text-center space-y-2">
           <p className="text-xs text-muted-foreground">
-            Payments are securely processed by Paddle, our Merchant of Record.
+            Billing provider not configured yet. Stripe integration coming soon.
           </p>
           <Button asChild variant="ghost" size="sm">
             <Link to="/dashboard">Skip for now — continue on trial</Link>

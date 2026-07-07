@@ -17,7 +17,7 @@ export const LEGAL_CONFIG = {
   arbitrationVenue: "the American Arbitration Association (AAA), Wilmington, Delaware",
   effectiveDate: "July 1, 2026",
   lastUpdated: "July 3, 2026",
-  merchantOfRecord: "Paddle.com Market Ltd.",
+  merchantOfRecord: "SEZA TECHNOLOGIES",
 } as const;
 
 export type LegalConfig = typeof LEGAL_CONFIG;
