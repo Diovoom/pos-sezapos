@@ -11,7 +11,6 @@ import {
   LogOut,
   ArrowLeftRight,
   LayoutDashboard,
-  CircleUser,
   Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
