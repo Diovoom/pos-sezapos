@@ -13,7 +13,6 @@ import {
   Receipt,
   Boxes,
   LogOut,
-  CircleUser,
   Clock,
   UserPlus,
   ArrowLeftRight,
@@ -43,6 +42,7 @@ import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { posUrl } from "@/lib/host";
 import { Logo } from "@/components/brand/Logo";
+import { roleAvatarClass, roleDotClass, roleTextClass, roleInitials } from "@/lib/role-visual";
 
 const NAV: { to: string; label: string; icon: any; search?: Record<string, string> }[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -142,12 +142,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-accent transition-colors text-left">
-                <div className="size-8 rounded-full bg-muted grid place-items-center shrink-0">
-                  <CircleUser className="size-5 text-muted-foreground" />
+                <div className="relative shrink-0">
+                  <div className={cn("size-9 rounded-full grid place-items-center text-white font-semibold text-sm", roleAvatarClass(role))}>
+                    {roleInitials(me?.profile?.full_name ?? me?.user?.email ?? "?")}
+                  </div>
+                  <span className={cn("absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-background", roleDotClass(role))} aria-hidden="true" />
                 </div>
                 <div className="hidden lg:flex flex-col min-w-0 flex-1">
                   <span className="text-xs font-semibold truncate">{me?.profile?.full_name ?? me?.user?.email}</span>
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{role ?? "user"}</span>
+                  <span className={cn("text-[10px] font-medium uppercase tracking-wider", roleTextClass(role))}>
+                    {role ?? "user"} · On shift
+                  </span>
                 </div>
               </button>
             </DropdownMenuTrigger>
