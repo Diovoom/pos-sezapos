@@ -47,12 +47,6 @@ function TrustPage() {
               </div>
               <h3 className="mt-3 font-semibold">{t.title}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{t.body}</p>
-              {t.status ? (
-                <div className="mt-3 inline-flex items-center gap-2 text-xs font-medium">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  Operational
-                </div>
-              ) : null}
             </>
           );
           const cls = "rounded-xl border p-6 hover:border-primary/40 transition-colors block";
