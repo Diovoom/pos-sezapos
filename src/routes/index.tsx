@@ -1,7 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ScanLine, Package, Users, BarChart3, Check, ArrowRight, Store, Wine, ShoppingBasket, Sparkles } from "lucide-react";
+import { ScanLine, Package, Users, BarChart3, Check, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
+import homeSell from "@/assets/home-sell.png.asset.json";
+import homeInventory from "@/assets/home-inventory.png.asset.json";
+import homeReports from "@/assets/home-reports.png.asset.json";
 
 const HOME_TITLE = "SEZA POS — A faster, simpler POS for independent retail";
 const HOME_DESCRIPTION = "SEZA POS is a modern cloud point-of-sale for convenience stores, liquor stores, mini marts, and specialty retail. Ring up sales, track stock, manage staff, and see what's happening in your store from one system.";
@@ -31,27 +34,15 @@ export const Route = createFileRoute("/")({
 
 const TRIAL_MICROCOPY = "14-day free trial. No credit card required. Cancel anytime.";
 
-function ScreenshotPlaceholder({ label, tone = "primary" }: { label: string; tone?: "primary" | "muted" }) {
+function ScreenshotFrame({ src, alt }: { src: string; alt: string }) {
   return (
-    <div
-      role="img"
-      aria-label={`SEZA POS ${label} screenshot placeholder`}
-      className={`aspect-[16/10] w-full rounded-xl border shadow-sm overflow-hidden relative ${
-        tone === "primary" ? "bg-gradient-to-br from-primary/10 via-background to-primary/5" : "bg-muted/40"
-      }`}
-    >
-      <div className="absolute top-0 left-0 right-0 h-8 border-b bg-background/80 backdrop-blur flex items-center gap-1.5 px-3">
-        <span className="size-2.5 rounded-full bg-red-400/70" />
-        <span className="size-2.5 rounded-full bg-yellow-400/70" />
-        <span className="size-2.5 rounded-full bg-green-400/70" />
-        <span className="ml-3 text-[10px] text-muted-foreground font-mono">sezapos.com — {label}</span>
-      </div>
-      <div className="absolute inset-0 pt-8 grid place-items-center">
-        <div className="text-center px-6">
-          <div className="text-xs font-medium text-primary uppercase tracking-wider">Screenshot</div>
-          <div className="mt-1 text-sm text-muted-foreground">{label}</div>
-        </div>
-      </div>
+    <div className="group relative rounded-2xl overflow-hidden border bg-background shadow-[0_10px_40px_-12px_rgba(37,99,235,0.25)] transition-all duration-300 hover:shadow-[0_20px_60px_-12px_rgba(37,99,235,0.35)] hover:-translate-y-1">
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        className="w-full h-auto block transition-transform duration-500 group-hover:scale-[1.02]"
+      />
     </div>
   );
 }
@@ -84,7 +75,7 @@ function LandingPage() {
           </p>
         </div>
         <div className="order-1 lg:order-2">
-          <ScreenshotPlaceholder label="Register — checkout" />
+          <ScreenshotFrame src={homeSell.url} alt="SEZA POS register — ring up a sale" />
         </div>
       </section>
 
