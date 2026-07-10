@@ -1299,12 +1299,12 @@ export type Database = {
           current_period_start: string | null
           environment: string
           id: string
-          paddle_customer_id: string
-          paddle_subscription_id: string
           price_id: string
           product_id: string
           status: string
           store_id: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           updated_at: string
           user_id: string
         }
@@ -1315,12 +1315,12 @@ export type Database = {
           current_period_start?: string | null
           environment?: string
           id?: string
-          paddle_customer_id: string
-          paddle_subscription_id: string
           price_id: string
           product_id: string
           status?: string
           store_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1331,12 +1331,12 @@ export type Database = {
           current_period_start?: string | null
           environment?: string
           id?: string
-          paddle_customer_id?: string
-          paddle_subscription_id?: string
           price_id?: string
           product_id?: string
           status?: string
           store_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1515,7 +1515,7 @@ export type Database = {
         }
         Returns: number
       }
-      plan_tier_for_product: { Args: { _product_id: string }; Returns: string }
+      plan_tier_for_price: { Args: { _price_id: string }; Returns: string }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
