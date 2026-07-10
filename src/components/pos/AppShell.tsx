@@ -43,6 +43,7 @@ import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { posUrl } from "@/lib/host";
 import { Logo } from "@/components/brand/Logo";
+import { roleAvatarClass, roleDotClass, roleTextClass, roleInitials } from "@/lib/role-visual";
 
 const NAV: { to: string; label: string; icon: any; search?: Record<string, string> }[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
