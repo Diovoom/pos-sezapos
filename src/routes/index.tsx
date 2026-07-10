@@ -128,14 +128,31 @@ function LandingPage() {
           </div>
           <div className="mt-12 grid gap-8 lg:grid-cols-3">
             {[
-              { title: "Ring up a sale", body: "The checkout screen — barcode scanning, quick keys, discounts, and tender.", label: "Register" },
-              { title: "Manage inventory", body: "Products, categories, stock levels, and low-stock alerts in one catalog.", label: "Inventory" },
-              { title: "Review the day", body: "Sales reports, shifts, tenders, taxes, and top-selling items.", label: "Reports" },
+              {
+                title: "Ring up a sale",
+                body: "Fast checkout with barcode scanning, favorites, discounts, split payments, and modern payment methods.",
+                src: homeSell.url,
+                alt: "SEZA POS checkout screen",
+              },
+              {
+                title: "Manage inventory",
+                body: "Organize products, monitor stock, manage suppliers, receive low-stock alerts, and track inventory in real time.",
+                src: homeInventory.url,
+                alt: "SEZA POS inventory screen",
+              },
+              {
+                title: "Review the day",
+                body: "View sales reports, taxes, employee performance, payment methods, top-selling products, and daily business insights.",
+                src: homeReports.url,
+                alt: "SEZA POS reports screen",
+              },
             ].map((s) => (
-              <div key={s.title} className="rounded-xl border bg-background p-4">
-                <ScreenshotPlaceholder label={s.label} tone="muted" />
-                <h3 className="mt-4 font-semibold">{s.title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{s.body}</p>
+              <div key={s.title} className="space-y-4">
+                <ScreenshotFrame src={s.src} alt={s.alt} />
+                <div className="px-1">
+                  <h3 className="text-lg font-semibold tracking-tight">{s.title}</h3>
+                  <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{s.body}</p>
+                </div>
               </div>
             ))}
           </div>
