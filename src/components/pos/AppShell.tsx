@@ -13,7 +13,6 @@ import {
   Receipt,
   Boxes,
   LogOut,
-  CircleUser,
   Clock,
   UserPlus,
   ArrowLeftRight,
