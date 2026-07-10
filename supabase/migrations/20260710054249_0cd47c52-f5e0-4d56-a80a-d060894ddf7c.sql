@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.tg_profiles_prevent_privileged_self_update() FROM PUBLIC, anon, authenticated;

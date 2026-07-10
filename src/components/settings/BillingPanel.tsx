@@ -1,10 +1,14 @@
+import { useState } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Loader2, CreditCard, AlertTriangle, Info, FileText, RefreshCw, Settings2 } from "lucide-react";
+import { Loader2, CreditCard, AlertTriangle, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSubscription, type PlanTier } from "@/hooks/useSubscription";
+import { StripeCheckoutDialog } from "@/components/billing/StripeCheckoutDialog";
+import { createBillingPortalSession } from "@/lib/billing/checkout.functions";
+import { getStripeEnvironment, isPaymentsConfigured } from "@/lib/stripe";
 
 const TIER_LABEL: Record<PlanTier, string> = {
   expired: "Expired",
@@ -15,21 +19,52 @@ const TIER_LABEL: Record<PlanTier, string> = {
 };
 
 const PLANS = [
-  { id: "starter" as const, name: "Starter", price: 29, tier: "starter" as PlanTier },
-  { id: "pro" as const, name: "Pro", price: 59, tier: "pro" as PlanTier },
-  { id: "business" as const, name: "Business", price: 89, tier: "business" as PlanTier },
+  { id: "starter", name: "Starter", price: 29, tier: "starter" as PlanTier, priceId: "starter_monthly" },
+  { id: "pro", name: "Pro", price: 59, tier: "pro" as PlanTier, priceId: "pro_monthly" },
+  { id: "business", name: "Business", price: 89, tier: "business" as PlanTier, priceId: "business_monthly" },
 ];
-
-const notConfigured = () =>
-  toast.info("Billing provider not configured yet. Stripe integration coming soon.");
 
 export function BillingPanel() {
   const { data: plan, isLoading } = useSubscription();
+  const [checkout, setCheckout] = useState<{ priceId: string; name: string } | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const paymentsOn = isPaymentsConfigured();
+
+  const openCheckout = (priceId: string, name: string) => {
+    if (!paymentsOn) {
+      toast.error("Payments are not configured for this build.");
+      return;
+    }
+    setCheckout({ priceId, name });
+  };
+
+  const openPortal = async () => {
+    if (!paymentsOn) {
+      toast.error("Payments are not configured for this build.");
+      return;
+    }
+    try {
+      setPortalLoading(true);
+      const result = await createBillingPortalSession({
+        data: {
+          environment: getStripeEnvironment(),
+          returnUrl: `${window.location.origin}/settings`,
+        },
+      });
+      if ("error" in result) throw new Error(result.error);
+      window.open(result.url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not open the billing portal");
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   if (isLoading) return <div className="p-6"><Loader2 className="animate-spin" /></div>;
 
   const isTrialing = plan?.isTrialing;
   const isReadOnly = plan?.isReadOnly;
+  const hasPaidPlan = plan?.tier && plan.tier !== "trial_pro" && plan.tier !== "expired";
 
   return (
     <div className="space-y-6">
@@ -66,41 +101,29 @@ export function BillingPanel() {
             </div>
           )}
 
-          <div className="rounded-md border border-dashed bg-muted/40 p-4 flex gap-3 items-start">
-            <Info className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-            <div className="space-y-1 text-sm">
-              <p className="font-medium">Billing provider not configured yet.</p>
-              <p className="text-muted-foreground">
-                Stripe integration is coming soon. No real payments will be processed until it's connected.
-              </p>
+          {hasPaidPlan && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={openPortal} disabled={portalLoading}>
+                {portalLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ExternalLink className="h-4 w-4 mr-2" />}
+                Manage subscription
+              </Button>
             </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button variant="default" onClick={notConfigured}>
-              <CreditCard className="h-4 w-4 mr-2" /> Connect Stripe
-            </Button>
-            <Button variant="outline" onClick={notConfigured}>
-              <Settings2 className="h-4 w-4 mr-2" /> Manage Subscription
-            </Button>
-            <Button variant="outline" onClick={notConfigured}>
-              <FileText className="h-4 w-4 mr-2" /> View Invoices
-            </Button>
-            <Button variant="outline" onClick={notConfigured}>
-              <RefreshCw className="h-4 w-4 mr-2" /> Update Payment Method
-            </Button>
-          </div>
+          )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Available plans</CardTitle>
-          <CardDescription>Choose a plan once billing is configured.</CardDescription>
+          <CardTitle>{hasPaidPlan ? "Change plan" : "Choose a plan"}</CardTitle>
+          <CardDescription>
+            {hasPaidPlan
+              ? "Upgrade or downgrade at any time — changes take effect immediately."
+              : "Subscribe to keep using SEZA POS after your trial ends."}
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           {PLANS.map((p) => {
-            const isCurrent = plan && plan.tier !== "trial_pro" && plan.tier === p.tier;
+            const isCurrent = plan?.tier === p.tier;
             return (
               <div key={p.id} className={`rounded-lg border p-4 ${isCurrent ? "border-primary" : ""}`}>
                 <div className="flex items-center justify-between">
@@ -110,14 +133,29 @@ export function BillingPanel() {
                 <div className="mt-2 text-2xl font-bold">
                   ${p.price}<span className="text-sm font-normal text-muted-foreground">/mo</span>
                 </div>
-                <Button className="mt-4 w-full" size="sm" variant="outline" onClick={notConfigured}>
-                  {isCurrent ? "Current plan" : "Choose"}
+                <Button
+                  className="mt-4 w-full"
+                  size="sm"
+                  variant={isCurrent ? "outline" : "default"}
+                  disabled={isCurrent}
+                  onClick={() => openCheckout(p.priceId, p.name)}
+                >
+                  {isCurrent ? "Current plan" : hasPaidPlan ? "Switch" : "Subscribe"}
                 </Button>
               </div>
             );
           })}
         </CardContent>
       </Card>
+
+      {checkout && (
+        <StripeCheckoutDialog
+          open={!!checkout}
+          onOpenChange={(o) => !o && setCheckout(null)}
+          priceId={checkout.priceId}
+          planName={checkout.name}
+        />
+      )}
     </div>
   );
 }

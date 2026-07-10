@@ -22,9 +22,9 @@ const CATEGORIES: { icon: React.ComponentType<{ className?: string }>; name: str
     icon: CreditCard,
     name: "Payments",
     items: [
-      { name: "Stripe (subscription billing)", status: "roadmap", note: "Subscription billing integration is being configured." },
-      { name: "Card terminals (in-app)", status: "available", note: "Integrated card capture through supported terminal hardware." },
-      { name: "Apple Pay / Google Pay", status: "roadmap", note: "Wallet-based tap-to-pay support via supported terminals." },
+      { name: "Stripe subscription billing", status: "available", note: "Manage your SEZA POS subscription, invoices, and payment methods through Stripe." },
+      { name: "Stripe Terminal (in-person card)", status: "roadmap", note: "Tap, chip, and swipe at the register through a paired Stripe reader. Cash tender works today." },
+      { name: "Apple Pay / Google Pay", status: "roadmap", note: "Wallet-based tap-to-pay support via Stripe Terminal readers." },
       { name: "Split tender", status: "roadmap", note: "Split a single sale across multiple payment methods." },
     ],
   },
