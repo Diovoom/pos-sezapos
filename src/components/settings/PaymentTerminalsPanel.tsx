@@ -102,7 +102,9 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><CreditCard className="size-5" /> Registered terminals</CardTitle>
-        <CardDescription>Card readers connected to this store. Providers listed here are configuration only — actual SDKs are registered at boot.</CardDescription>
+        <CardDescription>
+          Card readers connected to this store. Cash tender works today. In-person card charging via Stripe Terminal is coming soon — the server plumbing is ready and will light up once a reader is paired to your Stripe account.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {terminals.isLoading ? (
