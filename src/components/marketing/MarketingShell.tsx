@@ -1,19 +1,65 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { ChevronDown, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useSession } from "@/hooks/useSession";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { dashboardUrl } from "@/lib/host";
 
-const PRIMARY_NAV = [
+type NavItem = { to: string; label: string };
+
+const PRODUCT_ITEMS: NavItem[] = [
   { to: "/features", label: "Features" },
-  { to: "/industries", label: "Industries" },
-  { to: "/pricing", label: "Pricing" },
-  { to: "/hardware", label: "Hardware" },
-  { to: "/integrations", label: "Integrations" },
+  { to: "/features", label: "Checkout" },
+  { to: "/features", label: "Inventory" },
+  { to: "/features", label: "Employees & shifts" },
+  { to: "/features", label: "Reports" },
+];
+
+const INDUSTRY_ITEMS: NavItem[] = [
+  { to: "/industries", label: "Convenience stores" },
+  { to: "/industries", label: "Liquor stores" },
+  { to: "/industries", label: "Mini marts & grocery" },
+  { to: "/industries", label: "Specialty retail" },
+];
+
+const RESOURCE_ITEMS: NavItem[] = [
+  { to: "/hardware", label: "Hardware compatibility" },
+  { to: "/faq", label: "FAQ" },
   { to: "/security", label: "Security" },
-  { to: "/about", label: "Company" },
-] as const;
+  { to: "/support", label: "Support" },
+];
+
+function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1 py-0.5">
+        {label}
+        <ChevronDown className="h-3.5 w-3.5" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-52">
+        {items.map((it) => (
+          <DropdownMenuItem asChild key={it.label}>
+            <Link to={it.to} className="cursor-pointer">{it.label}</Link>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export function MarketingShell({ children }: { children: ReactNode }) {
   const { session } = useSession();
@@ -23,28 +69,83 @@ export function MarketingShell({ children }: { children: ReactNode }) {
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-40">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <Link to="/" className="font-bold text-lg shrink-0">SEZA POS</Link>
-          <nav className="hidden lg:flex items-center gap-5 text-sm">
-            {PRIMARY_NAV.map((l) => (
-              <Link
-                key={l.to}
-                to={l.to}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                activeProps={{ className: "text-foreground font-medium" }}
-              >
-                {l.label}
-              </Link>
-            ))}
+
+          <nav className="hidden lg:flex items-center gap-6 text-sm" aria-label="Primary">
+            <NavDropdown label="Product" items={PRODUCT_ITEMS} />
+            <NavDropdown label="Industries" items={INDUSTRY_ITEMS} />
+            <Link
+              to="/pricing"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              activeProps={{ className: "text-foreground font-medium" }}
+            >
+              Pricing
+            </Link>
+            <NavDropdown label="Resources" items={RESOURCE_ITEMS} />
           </nav>
-          <div className="flex items-center gap-2">
+
+          <div className="hidden md:flex items-center gap-2">
             {session ? (
               <Button asChild size="sm"><a href={dashboardUrl("/dashboard")}>Open Dashboard</a></Button>
             ) : (
               <>
                 <Button asChild size="sm" variant="ghost"><Link to="/auth">Sign In</Link></Button>
-                <Button asChild size="sm"><Link to="/signup">Get Started</Link></Button>
+                <Button asChild size="sm"><Link to="/signup">Start free trial</Link></Button>
               </>
             )}
           </div>
+
+          {/* Mobile */}
+          <Sheet>
+            <SheetTrigger asChild className="md:hidden">
+              <Button variant="ghost" size="icon" aria-label="Open menu">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-80">
+              <SheetHeader>
+                <SheetTitle>SEZA POS</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6 space-y-6 text-sm">
+                <div>
+                  <div className="font-semibold mb-2">Product</div>
+                  <ul className="space-y-1.5 pl-1">
+                    {PRODUCT_ITEMS.map((i) => (
+                      <li key={i.label}><Link to={i.to} className="text-muted-foreground hover:text-foreground">{i.label}</Link></li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <div className="font-semibold mb-2">Industries</div>
+                  <ul className="space-y-1.5 pl-1">
+                    {INDUSTRY_ITEMS.map((i) => (
+                      <li key={i.label}><Link to={i.to} className="text-muted-foreground hover:text-foreground">{i.label}</Link></li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <Link to="/pricing" className="font-semibold hover:text-primary">Pricing</Link>
+                </div>
+                <div>
+                  <div className="font-semibold mb-2">Resources</div>
+                  <ul className="space-y-1.5 pl-1">
+                    {RESOURCE_ITEMS.map((i) => (
+                      <li key={i.label}><Link to={i.to} className="text-muted-foreground hover:text-foreground">{i.label}</Link></li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="pt-4 border-t space-y-2">
+                  {session ? (
+                    <Button asChild className="w-full"><a href={dashboardUrl("/dashboard")}>Open Dashboard</a></Button>
+                  ) : (
+                    <>
+                      <Button asChild variant="outline" className="w-full"><Link to="/auth">Sign In</Link></Button>
+                      <Button asChild className="w-full"><Link to="/signup">Start free trial</Link></Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </header>
 
@@ -72,8 +173,6 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             <div className="font-semibold mb-2">Company</div>
             <ul className="space-y-1 text-muted-foreground">
               <li><Link to="/about" className="hover:text-foreground">About</Link></li>
-              <li><Link to="/blog" className="hover:text-foreground">Blog</Link></li>
-              <li><Link to="/careers" className="hover:text-foreground">Careers</Link></li>
               <li><Link to="/contact" className="hover:text-foreground">Contact</Link></li>
             </ul>
           </div>
