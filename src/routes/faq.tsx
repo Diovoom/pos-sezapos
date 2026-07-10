@@ -28,7 +28,7 @@ const GROUPS: { title: string; items: { q: string; a: string }[] }[] = [
   {
     title: "Pricing & billing",
     items: [
-      { q: "Is there a free trial?", a: "Yes. Every plan includes a 14-day free trial. A card on file is required to activate the trial; you won't be charged until day 15 and can cancel any time before then." },
+      { q: "Is there a free trial?", a: "Yes. Every plan includes a 14-day free trial. No credit card is required to start, and you can cancel any time." },
       { q: "Can I change plans later?", a: "Yes. Upgrade or downgrade from Settings > Billing. Changes are prorated." },
       { q: "How do I cancel?", a: "Cancel any time from Settings > Billing. You keep access through the end of your billing period. There is no cancellation fee." },
       { q: "Do you charge per terminal?", a: "No. SEZA is priced per plan, not per terminal. Run as many devices under one plan as your business needs." },
