@@ -199,20 +199,29 @@ function EmployeesPage() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                            {isOwner && me.data?.user.id !== row.id && (
-                              <div className="flex gap-1 justify-end">
-                                <Button size="sm" variant="outline" onClick={() => resetM.mutate(row)}>
-                                  <KeyRound className="size-3.5 mr-1" /> Reset
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={row.status === "active" ? "outline" : "default"}
-                                  onClick={() => disableM.mutate(row)}
-                                >
-                                  {row.status === "active" ? <><Ban className="size-3.5 mr-1" />Disable</> : <><Check className="size-3.5 mr-1" />Enable</>}
-                                </Button>
-                              </div>
-                            )}
+                            <div className="flex gap-1 justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => navigate({ to: "/employees/$id", params: { id: row.id } })}
+                              >
+                                Edit
+                              </Button>
+                              {isOwner && me.data?.user.id !== row.id && (
+                                <>
+                                  <Button size="sm" variant="outline" onClick={() => resetM.mutate(row)}>
+                                    <KeyRound className="size-3.5 mr-1" /> Reset
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={row.status === "active" ? "outline" : "default"}
+                                    onClick={() => disableM.mutate(row)}
+                                  >
+                                    {row.status === "active" ? <><Ban className="size-3.5 mr-1" />Disable</> : <><Check className="size-3.5 mr-1" />Enable</>}
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
