@@ -372,7 +372,7 @@ function EditDetailsCard({ profile, currentRole, isSelf, isOwner, canChangeRole,
           {!canChangeRole && <p className="text-[10px] text-muted-foreground">Only owners or admins can change roles.</p>}
           {isSelf && currentRole === "owner" && <p className="text-[10px] text-muted-foreground">You can't demote yourself from owner.</p>}
         </div>
-        <div className="col-span-2 flex justify-end">
+        <div className="sm:col-span-2 flex justify-end">
           <Button onClick={() => m.mutate()} disabled={m.isPending}>
             {m.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : <Save className="size-4 mr-2" />}Save changes
           </Button>
