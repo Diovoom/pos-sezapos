@@ -310,11 +310,8 @@ export function PageHeader({
       </div>
       <div className="flex items-center gap-2 flex-wrap justify-end">
         {actions}
-        <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
+        <Button asChild variant="outline" size="sm" className="hidden md:inline-flex">
           <a href={posUrl("/pos")}><ScanBarcode className="size-4 mr-2" />Open POS</a>
-        </Button>
-        <Button asChild variant="outline" size="icon" className="sm:hidden" aria-label="Open POS">
-          <a href={posUrl("/pos")}><ScanBarcode className="size-4" /></a>
         </Button>
         <DeviceStatusMenu />
       </div>

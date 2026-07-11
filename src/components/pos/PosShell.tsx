@@ -69,8 +69,8 @@ export function PosShell({ children }: { children: ReactNode }) {
   const role = me?.roles?.[0];
 
   return (
-    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
-      <aside className="w-16 lg:w-56 border-r bg-surface/60 flex flex-col shrink-0">
+    <div className="flex h-[100dvh] w-full bg-background text-foreground overflow-hidden">
+      <aside className="hidden md:flex w-16 lg:w-56 border-r bg-surface/60 flex-col shrink-0">
         <div className="h-16 px-4 border-b flex items-center gap-3">
           <Logo className="size-8 rounded-lg" />
           <div className="hidden lg:flex flex-col leading-tight">
@@ -155,7 +155,32 @@ export function PosShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 flex flex-col overflow-hidden">{children}</main>
+      <main className="flex-1 min-w-0 flex flex-col overflow-hidden pb-14 md:pb-0">{children}</main>
+
+      {/* Mobile POS bottom nav */}
+      <nav
+        aria-label="POS navigation"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 h-14 border-t bg-background/95 backdrop-blur grid grid-cols-5"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        {POS_NAV.map((item) => {
+          const Icon = item.icon;
+          const active = pathname === item.to || pathname.startsWith(item.to + "/");
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={cn(
+                "flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium",
+                active ? "text-primary" : "text-muted-foreground hover:text-primary",
+              )}
+            >
+              <Icon className="size-5" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }
