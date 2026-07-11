@@ -164,6 +164,22 @@ export function PosShell({ children }: { children: ReactNode }) {
           })}
         </nav>
 
+        {/* Cash drawer control — always visible above the cashier row per POS spec. */}
+        {openShift.data && (
+          <div className="p-2 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-center"
+              onClick={() => setDrawerDialog(true)}
+              aria-label="Open cash drawer"
+            >
+              <DoorOpen className="size-4 lg:mr-2" />
+              <span className="hidden lg:inline">Open Cash Drawer</span>
+            </Button>
+          </div>
+        )}
+
         {canDashboard && (
           <div className="p-2 border-t">
             <Button asChild variant="outline" size="sm" className="w-full">
