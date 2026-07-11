@@ -402,6 +402,16 @@ export function PosShell({ children }: { children: ReactNode }) {
         }}
         onApprove={() => { setManagerGate(false); void doSignOut(); }}
       />
+
+      <OpenDrawerDialog
+        open={drawerDialog}
+        onOpenChange={setDrawerDialog}
+        session={openShift.data ? { id: openShift.data.id, store_id: storeId ?? "" } : null}
+        storeId={storeId}
+        cashierId={me?.user?.id}
+        onCountShift={() => navigate({ to: "/register" })}
+        onSafeDropRecorded={() => { qc.invalidateQueries({ queryKey: ["register"] }); }}
+      />
     </div>
   );
 }
