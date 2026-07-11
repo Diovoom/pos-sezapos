@@ -39,6 +39,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as LegalIndexRouteImport } from './routes/legal.index'
 import { Route as RIdRouteImport } from './routes/r.$id'
 import { Route as LegalTermsRouteImport } from './routes/legal.terms'
+import { Route as LegalRefundRouteImport } from './routes/legal.refund'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as LegalSlugRouteImport } from './routes/legal.$slug'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
@@ -214,6 +215,11 @@ const RIdRoute = RIdRouteImport.update({
 const LegalTermsRoute = LegalTermsRouteImport.update({
   id: '/legal/terms',
   path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalRefundRoute = LegalRefundRouteImport.update({
+  id: '/legal/refund',
+  path: '/legal/refund',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
@@ -406,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/refund': typeof LegalRefundRoute
   '/legal/terms': typeof LegalTermsRoute
   '/r/$id': typeof RIdRoute
   '/legal/': typeof LegalIndexRoute
@@ -464,6 +471,7 @@ export interface FileRoutesByTo {
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/refund': typeof LegalRefundRoute
   '/legal/terms': typeof LegalTermsRoute
   '/r/$id': typeof RIdRoute
   '/legal': typeof LegalIndexRoute
@@ -525,6 +533,7 @@ export interface FileRoutesById {
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/refund': typeof LegalRefundRoute
   '/legal/terms': typeof LegalTermsRoute
   '/r/$id': typeof RIdRoute
   '/legal/': typeof LegalIndexRoute
@@ -585,6 +594,7 @@ export interface FileRouteTypes {
     | '/email/unsubscribe'
     | '/legal/$slug'
     | '/legal/privacy'
+    | '/legal/refund'
     | '/legal/terms'
     | '/r/$id'
     | '/legal/'
@@ -643,6 +653,7 @@ export interface FileRouteTypes {
     | '/email/unsubscribe'
     | '/legal/$slug'
     | '/legal/privacy'
+    | '/legal/refund'
     | '/legal/terms'
     | '/r/$id'
     | '/legal'
@@ -703,6 +714,7 @@ export interface FileRouteTypes {
     | '/email/unsubscribe'
     | '/legal/$slug'
     | '/legal/privacy'
+    | '/legal/refund'
     | '/legal/terms'
     | '/r/$id'
     | '/legal/'
@@ -748,6 +760,7 @@ export interface RootRouteChildren {
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   LegalSlugRoute: typeof LegalSlugRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
+  LegalRefundRoute: typeof LegalRefundRoute
   LegalTermsRoute: typeof LegalTermsRoute
   RIdRoute: typeof RIdRoute
   LegalIndexRoute: typeof LegalIndexRoute
@@ -971,6 +984,13 @@ declare module '@tanstack/react-router' {
       path: '/legal/terms'
       fullPath: '/legal/terms'
       preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/refund': {
+      id: '/legal/refund'
+      path: '/legal/refund'
+      fullPath: '/legal/refund'
+      preLoaderRoute: typeof LegalRefundRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/legal/privacy': {
@@ -1266,6 +1286,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   LegalSlugRoute: LegalSlugRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
+  LegalRefundRoute: LegalRefundRoute,
   LegalTermsRoute: LegalTermsRoute,
   RIdRoute: RIdRoute,
   LegalIndexRoute: LegalIndexRoute,
