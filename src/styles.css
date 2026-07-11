@@ -114,16 +114,24 @@
 
 @layer base {
   * { border-color: var(--color-border); }
-  html, body { height: 100%; }
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  /* Confine wide tables to a horizontal scroll area (never blow out the page) */
+  .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 
 @media print {
