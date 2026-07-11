@@ -148,7 +148,7 @@ function EmployeesPage() {
                             )}
                           </div>
                         </div>
-                        <div className="text-muted-foreground shrink-0" aria-hidden>›</div>
+                        <div className="text-xs font-semibold text-primary shrink-0">Edit ›</div>
                       </button>
                     </li>
                   ))}
