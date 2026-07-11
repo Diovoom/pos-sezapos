@@ -13,7 +13,7 @@ export default defineTool({
     const { data: profile, error: profileErr } = await supabase
       .from("profiles")
       .select("store_id, full_name, email")
-      .eq("id", ctx.getUserId())
+      .eq("id", ctx.getUserId()!)
       .maybeSingle();
     if (profileErr) return { content: [{ type: "text", text: profileErr.message }], isError: true };
     if (!profile?.store_id) {
