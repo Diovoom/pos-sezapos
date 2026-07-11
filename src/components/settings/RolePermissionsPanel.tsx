@@ -6,10 +6,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ALL_PERMISSIONS, ROLES, useRolePermissions, type Role } from "@/hooks/usePermissions";
+import { useMe } from "@/hooks/useMe";
 import { logAudit } from "@/lib/audit-log";
 
 export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
   const qc = useQueryClient();
+  const me = useMe();
+  const storeId = me.data?.profile?.store_id as string | undefined;
   const { data: rows = [], isLoading } = useRolePermissions();
 
   const map = useMemo(() => {
@@ -21,13 +24,14 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
 
   const toggle = useMutation({
     mutationFn: async ({ role, permission, enabled }: { role: Role; permission: string; enabled: boolean }) => {
+      if (!storeId) throw new Error("No store context");
       if (enabled) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase.from as any)("role_permissions").insert({ role, permission });
+        const { error } = await (supabase.from as any)("role_permissions").insert({ role, permission, store_id: storeId });
         if (error && !String(error.message).includes("duplicate")) throw error;
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase.from as any)("role_permissions").delete().eq("role", role).eq("permission", permission);
+        const { error } = await (supabase.from as any)("role_permissions").delete().eq("role", role).eq("permission", permission).eq("store_id", storeId);
         if (error) throw error;
       }
       void logAudit({ action: "role_permissions.update", entity: "role", entity_id: role, details: { permission, enabled } });

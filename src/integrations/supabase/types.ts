@@ -885,20 +885,31 @@ export type Database = {
           id: string
           permission: string
           role: Database["public"]["Enums"]["app_role"]
+          store_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           permission: string
           role: Database["public"]["Enums"]["app_role"]
+          store_id: string
         }
         Update: {
           created_at?: string
           id?: string
           permission?: string
           role?: Database["public"]["Enums"]["app_role"]
+          store_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sale_items: {
         Row: {
