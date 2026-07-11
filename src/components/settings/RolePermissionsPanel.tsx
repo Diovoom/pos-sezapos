@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ALL_PERMISSIONS, ROLES, useRolePermissions, type Role } from "@/hooks/usePermissions";
+import { useMe } from "@/hooks/useMe";
 import { logAudit } from "@/lib/audit-log";
 
 export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
