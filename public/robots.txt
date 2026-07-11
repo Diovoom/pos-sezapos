@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /auth
+Disallow: /reset-password
+Disallow: /unsubscribe
+Disallow: /api/
+Disallow: /lovable/
+Disallow: /_dashboard/
+Disallow: /_pos/
+Disallow: /select-plan
+Disallow: /r/
+
+Sitemap: https://sezapos.com/sitemap.xml

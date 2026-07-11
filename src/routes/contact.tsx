@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Mail, Phone, MapPin, Loader2, CheckCircle2 } from "lucide-react";
+import { Mail, Clock, MapPin, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,10 +67,11 @@ function ContactPage() {
               <a href="mailto:support@sezapos.com" className="text-sm text-primary hover:underline">support@sezapos.com</a>
             </div>
             <div className="rounded-xl border p-5">
-              <Phone className="h-5 w-5 text-primary" />
-              <div className="mt-2 font-medium">Sales & support</div>
-              <p className="text-sm text-muted-foreground">Mon–Fri, 9am–6pm EST</p>
+              <Clock className="h-5 w-5 text-primary" />
+              <div className="mt-2 font-medium">Support hours</div>
+              <p className="text-sm text-muted-foreground">Mon–Fri, 9am–6pm EST · We reply within one business day.</p>
             </div>
+
             <div className="rounded-xl border p-5">
               <MapPin className="h-5 w-5 text-primary" />
               <div className="mt-2 font-medium">SEZA Technologies</div>
