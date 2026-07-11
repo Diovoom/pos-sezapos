@@ -118,22 +118,24 @@ function PayrollPage() {
   return (
     <>
       <PageHeader title="Payroll" subtitle="Hours worked and estimated pay per employee." />
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Pay period</CardTitle>
             <CardDescription>Hours × hourly wage. Breaks are subtracted automatically.</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-3 items-end">
-            <div className="space-y-1">
-              <Label>From</Label>
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>From</Label>
+                <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>To</Label>
+                <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>To</Label>
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-            </div>
-            <div className="ml-auto grid grid-cols-3 gap-4 text-right">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 text-left sm:text-right">
               <Stat label="Total hours" value={`${totals.hours.toFixed(2)} h`} />
               <Stat label="Late shifts" value={String(totals.late)} />
               <Stat label="Total pay" value={fmtCurrency(totals.pay, currency)} />
@@ -143,45 +145,91 @@ function PayrollPage() {
 
         <Card>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>ID</TableHead>
-                  <TableHead className="text-right">Shifts</TableHead>
-                  <TableHead className="text-right">Hours</TableHead>
-                  <TableHead className="text-right">Breaks</TableHead>
-                  <TableHead className="text-right">Late</TableHead>
-                  <TableHead className="text-right">Wage</TableHead>
-                  <TableHead className="text-right">Pay</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.length === 0 && (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No employees.</TableCell></TableRow>
-                )}
-                {rows.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.name}</TableCell>
-                    <TableCell className="font-mono text-xs">{r.employee_id ?? "—"}</TableCell>
-                    <TableCell className="text-right font-mono">{r.shifts}</TableCell>
-                    <TableCell className="text-right font-mono">{r.hours.toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-mono">{r.breakMins}m</TableCell>
-                    <TableCell className="text-right">
-                      {r.lateCount > 0 ? (
-                        <Badge variant="outline" className="border-warning text-warning">
-                          {r.lateCount} · {r.lateMins}m
-                        </Badge>
+            {/* Mobile: cards */}
+            <ul className="md:hidden divide-y">
+              {rows.length === 0 && (
+                <li className="p-6 text-center text-muted-foreground text-sm">No employees.</li>
+              )}
+              {rows.map((r) => (
+                <li key={r.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm truncate">{r.name}</div>
+                      <div className="text-xs text-muted-foreground font-mono truncate">ID {r.employee_id ?? "—"}</div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-base font-mono font-bold">{fmtCurrency(r.pay, currency)}</div>
+                      <div className="text-[10px] text-muted-foreground">{r.hours.toFixed(2)} h</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                    <div className="text-muted-foreground">Shifts</div><div className="text-right font-mono">{r.shifts}</div>
+                    <div className="text-muted-foreground">Breaks</div><div className="text-right font-mono">{r.breakMins}m</div>
+                    <div className="text-muted-foreground">Wage</div>
+                    <div className="text-right font-mono">
+                      {r.hourly_wage == null ? (
+                        <span className="text-warning">Not set</span>
                       ) : (
-                        <span className="text-muted-foreground text-xs">On time</span>
+                        `${fmtCurrency(r.wage, currency)}/h`
                       )}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{fmtCurrency(r.wage, currency)}/h</TableCell>
-                    <TableCell className="text-right font-mono font-bold">{fmtCurrency(r.pay, currency)}</TableCell>
+                    </div>
+                    <div className="text-muted-foreground">Late</div>
+                    <div className="text-right">
+                      {r.lateCount > 0
+                        ? <span className="text-warning">{r.lateCount} · {r.lateMins}m</span>
+                        : <span className="text-muted-foreground">On time</span>}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* Desktop: table */}
+            <div className="hidden md:block table-scroll">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>ID</TableHead>
+                    <TableHead className="text-right">Shifts</TableHead>
+                    <TableHead className="text-right">Hours</TableHead>
+                    <TableHead className="text-right">Breaks</TableHead>
+                    <TableHead className="text-right">Late</TableHead>
+                    <TableHead className="text-right">Wage</TableHead>
+                    <TableHead className="text-right">Pay</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {rows.length === 0 && (
+                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No employees.</TableCell></TableRow>
+                  )}
+                  {rows.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.name}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.employee_id ?? "—"}</TableCell>
+                      <TableCell className="text-right font-mono">{r.shifts}</TableCell>
+                      <TableCell className="text-right font-mono">{r.hours.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">{r.breakMins}m</TableCell>
+                      <TableCell className="text-right">
+                        {r.lateCount > 0 ? (
+                          <Badge variant="outline" className="border-warning text-warning">
+                            {r.lateCount} · {r.lateMins}m
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">On time</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {r.hourly_wage == null
+                          ? <span className="text-warning text-xs">Not set</span>
+                          : `${fmtCurrency(r.wage, currency)}/h`}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold">{fmtCurrency(r.pay, currency)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -193,7 +241,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="text-lg font-mono font-bold">{value}</div>
+      <div className="text-base sm:text-lg font-mono font-bold truncate">{value}</div>
     </div>
   );
 }
