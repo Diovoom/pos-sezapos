@@ -173,41 +173,29 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
   const { data: me } = useMe();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { isSuper } = usePermissions();
-  const [closingCash, setClosingCash] = useState("");
-  const [notes, setNotes] = useState(session.notes ?? "");
-  const [overrideOpen, setOverrideOpen] = useState(false);
-  const [approver, setApprover] = useState<ManagerOverrideResult | null>(null);
   const [payoutOpen, setPayoutOpen] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
-
-  // Threshold from Settings → Register preferences, default $5.
-  const threshold = useMemo(() => {
-    try {
-      const raw = localStorage.getItem("pos:prefs:register");
-      if (raw) {
-        const p = JSON.parse(raw) as { over_short_alert?: string };
-        const n = Number(p?.over_short_alert);
-        if (Number.isFinite(n) && n >= 0) return n;
-      }
-    } catch { /* ignore */ }
-    return 5;
-  }, []);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const totals = useQuery({
     queryKey: ["register", "totals", session.id],
     queryFn: async () => {
       const [salesRes, refundRes] = await Promise.all([
-        sb.from("sales").select("total, payment_method").eq("register_session_id", session.id),
-        sb.from("refunds").select("total, payment_method, sale_id, sales!inner(register_session_id)").eq("sales.register_session_id", session.id),
+        sb.from("sales").select("total, payment_method, status").eq("register_session_id", session.id),
+        sb.from("refunds").select("total, payment_method, refund_type, sale_id, sales!inner(register_session_id)").eq("sales.register_session_id", session.id),
       ]);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cashSales = (salesRes.data ?? []).filter((s: any) => s.payment_method === "cash").reduce((a: number, s: any) => a + Number(s.total || 0), 0);
+      const sales = (salesRes.data ?? []).filter((s: any) => s.status === "completed");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cashRefunds = (refundRes.data ?? []).filter((r: any) => r.payment_method === "cash").reduce((a: number, r: any) => a + Number(r.total || 0), 0);
+      const refunds = (refundRes.data ?? []).filter((r: any) => r.refund_type !== "void");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cardSales = (salesRes.data ?? []).filter((s: any) => s.payment_method !== "cash").reduce((a: number, s: any) => a + Number(s.total || 0), 0);
-      return { cashSales, cashRefunds, cardSales };
+      const cashSales = sales.filter((s: any) => s.payment_method === "cash").reduce((a: number, s: any) => a + Number(s.total || 0), 0);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const cardSales = sales.filter((s: any) => s.payment_method !== "cash").reduce((a: number, s: any) => a + Number(s.total || 0), 0);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const cashRefunds = refunds.filter((r: any) => r.payment_method === "cash").reduce((a: number, r: any) => a + Number(r.total || 0), 0);
+      return { cashSales, cashRefunds, cardSales, salesCount: sales.length };
     },
   });
 
@@ -223,164 +211,99 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
     },
   });
 
-  const payoutsTotal = useMemo(
-    () => (movements.data ?? []).filter((m) => m.type === "payout").reduce((a, m) => a + Number(m.amount), 0),
-    [movements.data],
-  );
-  const depositsTotal = useMemo(
-    () => (movements.data ?? []).filter((m) => m.type === "deposit").reduce((a, m) => a + Number(m.amount), 0),
-    [movements.data],
-  );
+  const noSaleCount = useQuery({
+    queryKey: ["register", "no-sale-count", session.id],
+    queryFn: async () => {
+      const { count } = await sb.from("audit_log").select("id", { count: "exact", head: true })
+        .eq("action", "drawer.no_sale_open")
+        .eq("entity_id", session.id);
+      return count ?? 0;
+    },
+  });
 
-  const expected = useMemo(() => {
-    const cs = totals.data?.cashSales ?? 0;
-    const cr = totals.data?.cashRefunds ?? 0;
-    return Number(session.opening_cash) + cs - cr - payoutsTotal + depositsTotal;
-  }, [session.opening_cash, totals.data, payoutsTotal, depositsTotal]);
+  // Live time-worked ticker.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  const workedMin = Math.max(0, Math.round((now - new Date(session.opened_at).getTime()) / 60_000));
 
-  const variance = closingCash !== "" ? Number(closingCash) - expected : null;
-  const needsOverride = !isSuper && variance !== null && Math.abs(variance) > threshold;
+  const payouts = (movements.data ?? []).filter((m) => m.type === "payout");
+  const deposits = (movements.data ?? []).filter((m) => m.type === "deposit");
+  const safeDropRows = (movements.data ?? []).filter((m) => m.type === "safe_drop");
+  const payoutsTotal = payouts.reduce((a, m) => a + Number(m.amount), 0);
+  const depositsTotal = deposits.reduce((a, m) => a + Number(m.amount), 0);
+  const safeDropTotal = safeDropRows.reduce((a, m) => a + Number(m.amount), 0);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["register", "movements", session.id] });
     qc.invalidateQueries({ queryKey: ["register", "totals", session.id] });
-  };
-
-  const close = useMutation({
-    mutationFn: async () => {
-      const cc = Number(closingCash);
-      if (!Number.isFinite(cc) || cc < 0) throw new Error("Enter the counted cash");
-      const v = cc - expected;
-      if (!isSuper && Math.abs(v) > threshold && !approver) throw new Error("Manager override required");
-      const { data: closed, error } = await sb.from("register_sessions").update({
-        status: "closed",
-        closed_at: new Date().toISOString(),
-        closed_by: me?.user?.id,
-        closing_cash: cc,
-        expected_cash: expected,
-        variance: v,
-        cash_sales: totals.data?.cashSales ?? 0,
-        cash_refunds: totals.data?.cashRefunds ?? 0,
-        notes: notes || null,
-      }).eq("id", session.id).select().single();
-      if (error) throw error;
-      void logAudit({
-        action: "register.close",
-        entity: "register_session",
-        entity_id: session.id,
-        details: {
-          closing_cash: cc,
-          expected,
-          variance: v,
-          approved_by: approver?.manager_id ?? null,
-          approver_name: approver?.manager_name ?? null,
-        },
-      });
-      return closed;
-    },
-    onSuccess: (closed) => {
-      toast.success("Register closed");
-      onChanged();
-      navigate({ to: "/shifts", search: { session: closed.id } });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to close"),
-  });
-
-  const attemptClose = () => {
-    if (closingCash === "") return toast.error("Enter counted cash");
-    if (needsOverride && !approver) { setOverrideOpen(true); return; }
-    close.mutate();
+    qc.invalidateQueries({ queryKey: ["register", "no-sale-count", session.id] });
   };
 
   return (
     <>
     <Card className="max-w-3xl">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center gap-2"><Wallet className="size-5" /> Open Shift</span>
+        <CardTitle className="flex items-center justify-between flex-wrap gap-2">
+          <span className="flex items-center gap-2"><Wallet className="size-5" /> Current Shift</span>
           <Badge className="bg-success/15 text-success border-success/30" variant="outline">
             Opened {new Date(session.opened_at).toLocaleString()}
           </Badge>
         </CardTitle>
-        <CardDescription>Current shift totals. Count the drawer and close when the shift ends.</CardDescription>
+        <CardDescription>
+          {me?.profile?.full_name || me?.user?.email} · {me?.store?.name ?? "Register"}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <Stat label="Opening float" value={fmt(session.opening_cash)} />
+          <Stat label="Time worked" value={`${Math.floor(workedMin / 60)}h ${workedMin % 60}m`} />
+          <Stat label="Sales" value={String(totals.data?.salesCount ?? 0)} />
           <Stat label="Cash sales" value={fmt(totals.data?.cashSales ?? 0)} />
-          <Stat label="Cash refunds" value={`-${fmt(totals.data?.cashRefunds ?? 0)}`} />
-          <Stat label="Deposits" value={`+${fmt(depositsTotal)}`} />
-          <Stat label="Payouts" value={`-${fmt(payoutsTotal)}`} />
           <Stat label="Card / other" value={fmt(totals.data?.cardSales ?? 0)} muted />
+          <Stat label="No-sale opens" value={String(noSaleCount.data ?? 0)} />
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setCloseOpen(true)} className="flex-1 min-w-[220px]" variant="destructive">
+            <Lock className="size-4 mr-2" /> Review &amp; Close Shift
+          </Button>
+          <Button variant="outline" onClick={() => setDrawerOpen(true)}>
+            <DoorOpen className="size-4 mr-2" /> Open Cash Drawer
+          </Button>
           <Button variant="outline" onClick={() => setPayoutOpen(true)}>
-            <ArrowUpFromLine className="size-4 mr-2" /> Cash Payout
+            <ArrowUpFromLine className="size-4 mr-2" /> Payout
           </Button>
           <Button variant="outline" onClick={() => setDepositOpen(true)}>
-            <ArrowDownToLine className="size-4 mr-2" /> Cash Deposit
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              const r = openCashDrawer("manual_open");
-              toast.success(r.simulated ? "Drawer open (simulated)" : "Drawer opened");
-              void logAudit({ action: "hardware.test", entity: "cash_drawer", details: { reason: "manual_open", simulated: r.simulated } });
-            }}
-          >
-            <DoorOpen className="size-4 mr-2" /> Open Drawer
+            <ArrowDownToLine className="size-4 mr-2" /> Deposit
           </Button>
         </div>
 
-        <div className="rounded-md border p-3 bg-surface/40 flex items-center justify-between">
+        {safeDropRows.length > 0 && (
           <div>
-            <div className="text-xs text-muted-foreground">Expected in drawer</div>
-            <div className="text-2xl font-semibold tabular-nums">{fmt(expected)}</div>
-          </div>
-          {variance !== null && (
-            <div className="text-right">
-              <div className="text-xs text-muted-foreground">Variance</div>
-              <div className={`text-2xl font-semibold tabular-nums ${variance === 0 ? "" : variance > 0 ? "text-success" : "text-destructive"}`}>
-                {variance > 0 ? "+" : ""}{fmt(variance)}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {needsOverride && (
-          <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-sm flex items-start gap-2">
-            <AlertTriangle className="size-4 mt-0.5 text-warning" />
-            <div>
-              <div className="font-medium">Manager override required</div>
-              <div className="text-muted-foreground">
-                Variance exceeds the ${threshold.toFixed(2)} threshold.
-                {approver ? ` Approved by ${approver.manager_name}.` : " A manager must approve this close."}
-              </div>
+            <div className="text-sm font-medium mb-2">Safe drops this shift · {fmt(safeDropTotal)}</div>
+            <div className="rounded-md border divide-y">
+              {safeDropRows.map((m) => (
+                <div key={m.id} className="p-2 flex items-center justify-between text-sm">
+                  <div>
+                    <div className="font-medium">{m.reason}</div>
+                    {m.notes && <div className="text-xs text-muted-foreground">{m.notes}</div>}
+                    <div className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleString()}</div>
+                  </div>
+                  <div className="font-mono text-destructive">-{fmt(Number(m.amount))}</div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label>Counted cash ($)</Label>
-            <Input type="number" step="0.01" value={closingCash} onChange={(e) => setClosingCash(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Close notes</Label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </div>
-        </div>
-        <Button onClick={attemptClose} disabled={close.isPending} className="w-full" variant="destructive">
-          {close.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : <Lock className="size-4 mr-2" />}
-          {needsOverride && !approver ? "Request Manager Approval" : "Close Register & View Report"}
-        </Button>
-
-        {movements.data && movements.data.length > 0 && (
+        {(payouts.length > 0 || deposits.length > 0) && (
           <div>
-            <div className="text-sm font-medium mb-2">Cash movements this shift</div>
+            <div className="text-sm font-medium mb-2">Cash movements · +{fmt(depositsTotal)} / -{fmt(payoutsTotal)}</div>
             <div className="rounded-md border divide-y">
-              {movements.data.map((m) => (
+              {movements.data!.filter((m) => m.type !== "safe_drop").map((m) => (
                 <div key={m.id} className="p-2 flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     {m.type === "payout"
@@ -401,23 +324,38 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
           </div>
         )}
       </CardContent>
-
-      <ManagerOverrideDialog
-        open={overrideOpen}
-        onOpenChange={setOverrideOpen}
-        action="register.close.override"
-        description={`Cash variance ${variance != null && variance > 0 ? "+" : ""}${fmt(variance ?? 0)} exceeds the $${threshold.toFixed(2)} threshold.`}
-        details={{ variance, expected, counted: Number(closingCash) }}
-        onApprove={(r) => { setApprover(r); setTimeout(() => close.mutate(), 0); }}
-      />
     </Card>
+
+    <CloseShiftDialog
+      open={closeOpen}
+      onOpenChange={setCloseOpen}
+      session={session}
+      store={me?.store ?? null}
+      cashierUserId={me?.user?.id}
+      onClosed={() => {
+        setCloseOpen(false);
+        onChanged();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        navigate({ to: "/auth", search: { mode: "pin" } as any, replace: true });
+      }}
+    />
+
+    <OpenDrawerDialog
+      open={drawerOpen}
+      onOpenChange={setDrawerOpen}
+      session={{ id: session.id, store_id: session.store_id }}
+      storeId={session.store_id}
+      cashierId={me?.user?.id}
+      onCountShift={() => setCloseOpen(true)}
+      onSafeDropRecorded={invalidate}
+    />
 
     <CashMovementDialog
       open={payoutOpen}
       onOpenChange={setPayoutOpen}
       type="payout"
       session={session}
-      currentBalance={expected}
+      currentBalance={Number(session.opening_cash) + (totals.data?.cashSales ?? 0) - (totals.data?.cashRefunds ?? 0) - payoutsTotal + depositsTotal - safeDropTotal}
       onDone={invalidate}
     />
     <CashMovementDialog
@@ -425,7 +363,7 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
       onOpenChange={setDepositOpen}
       type="deposit"
       session={session}
-      currentBalance={expected}
+      currentBalance={Number(session.opening_cash) + (totals.data?.cashSales ?? 0) - (totals.data?.cashRefunds ?? 0) - payoutsTotal + depositsTotal - safeDropTotal}
       onDone={invalidate}
     />
     </>
