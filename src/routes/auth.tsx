@@ -231,7 +231,7 @@ function PinLogin({ mode, setMode, next }: { mode: Mode; setMode: (m: Mode) => v
         type: "magiclink",
       });
       if (error) throw error;
-      goToLanding(navigate, "/pos");
+      goAfterAuth(navigate, "/pos", next);
     } catch (err) {
       const rawMsg = err instanceof Error ? err.message : String(err);
       if (rawMsg.startsWith("MULTIPLE_MATCHES:")) {
@@ -333,7 +333,7 @@ function KeyBtn({
 
 /* ------------------------------ Email login --------------------------- */
 
-function EmailLogin({ onBack }: { onBack: () => void }) {
+function EmailLogin({ onBack, next }: { onBack: () => void; next?: string }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -347,7 +347,7 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
       if (error) throw error;
       void import("@/lib/audit-log").then((m) => m.logAudit({ action: "login", details: { method: "password" } }));
       const dest = signIn.user ? await landingRouteForUser(signIn.user.id) : "/pos";
-      goToLanding(navigate, dest);
+      goAfterAuth(navigate, dest, next);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sign in failed");
     } finally {
