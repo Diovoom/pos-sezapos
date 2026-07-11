@@ -711,7 +711,7 @@ function PosPage() {
       {/* Mobile cart FAB */}
       {cart.length > 0 && (
         <div
-          className="md:hidden fixed inset-x-0 bottom-16 z-30 p-3"
+          className="md:hidden fixed inset-x-0 bottom-14 z-30 p-3"
           style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
         >
           <Button
