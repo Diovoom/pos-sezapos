@@ -357,7 +357,7 @@ function EditDetailsCard({ profile, currentRole, isSelf, isOwner, canChangeRole,
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">Edit information</CardTitle></CardHeader>
-      <CardContent className="grid grid-cols-2 gap-3">
+      <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1"><Label>First name</Label><Input value={first} onChange={(e) => setFirst(e.target.value)} /></div>
         <div className="space-y-1"><Label>Last name</Label><Input value={last} onChange={(e) => setLast(e.target.value)} /></div>
         <div className="space-y-1 col-span-2"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
