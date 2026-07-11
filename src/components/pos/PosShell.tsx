@@ -69,8 +69,8 @@ export function PosShell({ children }: { children: ReactNode }) {
   const role = me?.roles?.[0];
 
   return (
-    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
-      <aside className="w-16 lg:w-56 border-r bg-surface/60 flex flex-col shrink-0">
+    <div className="flex h-[100dvh] w-full bg-background text-foreground overflow-hidden">
+      <aside className="hidden md:flex w-16 lg:w-56 border-r bg-surface/60 flex-col shrink-0">
         <div className="h-16 px-4 border-b flex items-center gap-3">
           <Logo className="size-8 rounded-lg" />
           <div className="hidden lg:flex flex-col leading-tight">
