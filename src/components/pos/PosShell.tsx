@@ -14,7 +14,9 @@ import {
   Receipt,
   Menu,
   ChevronRight,
+  DoorOpen,
 } from "lucide-react";
+import { OpenDrawerDialog } from "@/components/pos/OpenDrawerDialog";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
