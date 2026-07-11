@@ -704,142 +704,40 @@ function PosPage() {
         </section>
 
         <section className="hidden md:flex w-[420px] flex-none flex-col bg-card">
-          <div className="p-6 pb-3 flex items-center justify-between">
-            <h2 className="font-semibold">Current Sale</h2>
-            {cart.length > 0 && (
-              <button onClick={clearCart} className="text-xs text-destructive font-medium hover:bg-destructive/10 px-2 py-1 rounded">
-                Clear
-              </button>
-            )}
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-6 space-y-3">
-            {cart.length === 0 ? (
-              <div className="h-full grid place-items-center text-sm text-muted-foreground">Cart is empty</div>
-            ) : (
-              cart.map((line) => (
-                <div key={line.product.id} className="flex items-start gap-3 group">
-                  <div className="size-10 rounded-md bg-muted grid place-items-center text-xs font-mono font-bold shrink-0">
-                    {line.qty}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{line.product.name}</p>
-                    <p className="text-[10px] text-muted-foreground font-mono">
-                      {fmtCurrency(Number(line.product.price), currency)} ea
-                    </p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <Button size="icon" variant="outline" className="size-6" onClick={() => setQty(line.product.id, line.qty - 1)}>
-                        <Minus className="size-3" />
-                      </Button>
-                      <Button size="icon" variant="outline" className="size-6" onClick={() => setQty(line.product.id, line.qty + 1)}>
-                        <Plus className="size-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 px-2 ml-1 text-destructive hover:bg-destructive/10 text-[11px] font-semibold"
-                        onClick={() => { setVoidReason(""); setVoidLine(line); }}
-                        aria-label="Void item"
-                      >
-                        <Trash2 className="size-3 mr-1" /> Void
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-sm font-mono font-semibold">
-                    {fmtCurrency(line.product.price * line.qty, currency)}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="p-6 border-t bg-surface/40">
-            <div className="space-y-1.5 mb-4">
-              <Row label="Subtotal" value={fmtCurrency(subtotal, currency)} />
-              {discount && (
-                <div className="flex justify-between text-sm text-success">
-                  <button className="underline underline-offset-2" onClick={() => setDiscountOpen(true)}>
-                    Discount{discount.code ? ` (${discount.code})` : ""} ({discount.mode === "percent" ? `${discount.value}%` : fmtCurrency(discount.value, currency)})
-                  </button>
-                  <span className="font-mono">− {fmtCurrency(manualDiscount, currency)}</span>
-                </div>
-              )}
-              {effectiveLoyaltyRedemption > 0 && (
-                <div className="flex justify-between text-sm text-success">
-                  <button className="underline underline-offset-2" onClick={() => setLoyaltyOpen(true)}>
-                    Loyalty redeem
-                  </button>
-                  <span className="font-mono">− {fmtCurrency(effectiveLoyaltyRedemption, currency)}</span>
-                </div>
-              )}
-              <Row label={`Tax (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(tax, currency)} />
-              <div className="flex justify-between text-2xl font-bold pt-2 border-t border-dashed">
-                <span>Total</span>
-                <span className="font-mono">{fmtCurrency(total, currency)}</span>
-              </div>
-              {loyalty && loyaltyEarn > 0 && (
-                <div className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>Loyalty · {loyalty.identifier}</span>
-                  <span>+{loyaltyEarn} pts</span>
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              {TENDER.map((t) => {
-                const Icon = t.icon;
-                const active = tender === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setTender(t.id)}
-                    className={cn(
-                      "h-12 border rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors",
-                      active ? "border-primary bg-primary/5 text-primary" : "bg-card hover:bg-accent",
-                    )}
-                  >
-                    <Icon className="size-3.5" />
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {restrictedItems.length > 0 && (
-              <div
-                className={cn(
-                  "mb-2 px-3 py-2 rounded-md text-xs font-medium flex items-center justify-between border",
-                  ageVerification
-                    ? "bg-success/10 border-success/30 text-success"
-                    : "bg-warning/10 border-warning/40 text-warning",
-                )}
-              >
-                <span>
-                  {ageVerification
-                    ? `Age verified (${ageVerification.ageYears}+ · ${ageVerification.method === "override" ? "manager override" : ageVerification.method === "manual" ? "manual" : "ID scan"})`
-                    : `${restrictedItems.length} age-restricted item${restrictedItems.length > 1 ? "s" : ""} — ID required`}
-                </span>
-                {!ageVerification && (
-                  <button className="underline" onClick={() => setAgeOpen(true)}>
-                    Verify now
-                  </button>
-                )}
-              </div>
-            )}
-            <Button
-              onClick={openPayment}
-              disabled={cart.length === 0 || finalize.isPending}
-              className="w-full h-16 text-lg font-bold rounded-xl shadow-[var(--shadow-charge)]"
-            >
-              {finalize.isPending
-                ? <Loader2 className="size-5 animate-spin" />
-                : needsAgeVerification
-                  ? <>Verify Age to Charge {fmtCurrency(total, currency)}</>
-                  : <>Charge {fmtCurrency(total, currency)}</>}
-            </Button>
-          </div>
+          {cartPanel}
         </section>
       </div>
+
+      {/* Mobile cart FAB */}
+      {cart.length > 0 && (
+        <div
+          className="md:hidden fixed inset-x-0 bottom-16 z-30 p-3"
+          style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+        >
+          <Button
+            onClick={() => setCartOpen(true)}
+            className="w-full h-14 text-base font-bold rounded-xl shadow-lg flex items-center justify-between px-4"
+          >
+            <span className="flex items-center gap-2">
+              <ShoppingCart className="size-5" />
+              View cart · {cartCount} item{cartCount === 1 ? "" : "s"}
+            </span>
+            <span className="font-mono">{fmtCurrency(total, currency)}</span>
+          </Button>
+        </div>
+      )}
+
+      {/* Mobile cart sheet */}
+      <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+          <SheetHeader className="p-4 pb-0">
+            <SheetTitle>Current sale</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 flex flex-col min-h-0">
+            {cartPanel}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <PaymentDialog
         open={payOpen}
