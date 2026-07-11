@@ -136,7 +136,7 @@ function EmployeeProfile() {
           </Button>
         }
       />
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
         <div className="grid md:grid-cols-3 gap-4">
           <ProfileCard
             profile={profile}
@@ -145,16 +145,17 @@ function EmployeeProfile() {
             onChanged={invalidateAll}
           />
 
-          <div className="md:col-span-2 space-y-4">
+          <div className="md:col-span-2 space-y-4 min-w-0">
             <StatsRow userId={id} />
             <Tabs defaultValue="details">
-              <TabsList className="grid grid-cols-5 w-full max-w-2xl">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="attendance">Attendance</TabsTrigger>
-                <TabsTrigger value="sales">Sales</TabsTrigger>
-                <TabsTrigger value="refunds">Refunds</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
+              <TabsList className="grid grid-cols-5 w-full max-w-2xl h-auto">
+                <TabsTrigger value="details" className="text-xs sm:text-sm py-2">Details</TabsTrigger>
+                <TabsTrigger value="attendance" className="text-xs sm:text-sm py-2">Attend.</TabsTrigger>
+                <TabsTrigger value="sales" className="text-xs sm:text-sm py-2">Sales</TabsTrigger>
+                <TabsTrigger value="refunds" className="text-xs sm:text-sm py-2">Refunds</TabsTrigger>
+                <TabsTrigger value="activity" className="text-xs sm:text-sm py-2">Activity</TabsTrigger>
               </TabsList>
+
 
               <TabsContent value="details" className="space-y-4">
                 {canEditStaff ? (
