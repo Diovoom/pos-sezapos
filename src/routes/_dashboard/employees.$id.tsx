@@ -386,7 +386,7 @@ function ReadOnlyDetails({ profile, role }: { profile: Profile; role: string }) 
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">Details</CardTitle></CardHeader>
-      <CardContent className="grid grid-cols-2 gap-3 text-sm">
+      <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
         <KV k="First name" v={profile.first_name ?? "—"} />
         <KV k="Last name" v={profile.last_name ?? "—"} />
         <KV k="Email" v={profile.email ?? "—"} />
