@@ -813,18 +813,22 @@ export type Database = {
       }
       register_sessions: {
         Row: {
+          approver_id: string | null
           cash_refunds: number
           cash_sales: number
+          close_notes: string | null
           closed_at: string | null
           closed_by: string | null
           closing_cash: number | null
           created_at: string
+          denominations: Json | null
           expected_cash: number | null
           id: string
           notes: string | null
           opened_at: string
           opened_by: string
           opening_cash: number
+          safe_drop_amount: number
           status: string
           store_id: string
           terminal_id: string | null
@@ -832,18 +836,22 @@ export type Database = {
           variance: number | null
         }
         Insert: {
+          approver_id?: string | null
           cash_refunds?: number
           cash_sales?: number
+          close_notes?: string | null
           closed_at?: string | null
           closed_by?: string | null
           closing_cash?: number | null
           created_at?: string
+          denominations?: Json | null
           expected_cash?: number | null
           id?: string
           notes?: string | null
           opened_at?: string
           opened_by: string
           opening_cash?: number
+          safe_drop_amount?: number
           status?: string
           store_id: string
           terminal_id?: string | null
@@ -851,18 +859,22 @@ export type Database = {
           variance?: number | null
         }
         Update: {
+          approver_id?: string | null
           cash_refunds?: number
           cash_sales?: number
+          close_notes?: string | null
           closed_at?: string | null
           closed_by?: string | null
           closing_cash?: number | null
           created_at?: string
+          denominations?: Json | null
           expected_cash?: number | null
           id?: string
           notes?: string | null
           opened_at?: string
           opened_by?: string
           opening_cash?: number
+          safe_drop_amount?: number
           status?: string
           store_id?: string
           terminal_id?: string | null
@@ -1187,7 +1199,9 @@ export type Database = {
           return_policy: string | null
           setup_completed_at: string | null
           setup_state: Json
+          show_expected_before_count: boolean
           social_links: Json
+          starting_cash_float: number
           state: string | null
           store_code: string | null
           tax_id: string | null
@@ -1197,6 +1211,7 @@ export type Database = {
           time_zone: string | null
           trial_ends_at: string | null
           updated_at: string
+          variance_alert_threshold: number
           website: string | null
           zip: string | null
         }
@@ -1233,7 +1248,9 @@ export type Database = {
           return_policy?: string | null
           setup_completed_at?: string | null
           setup_state?: Json
+          show_expected_before_count?: boolean
           social_links?: Json
+          starting_cash_float?: number
           state?: string | null
           store_code?: string | null
           tax_id?: string | null
@@ -1243,6 +1260,7 @@ export type Database = {
           time_zone?: string | null
           trial_ends_at?: string | null
           updated_at?: string
+          variance_alert_threshold?: number
           website?: string | null
           zip?: string | null
         }
@@ -1279,7 +1297,9 @@ export type Database = {
           return_policy?: string | null
           setup_completed_at?: string | null
           setup_state?: Json
+          show_expected_before_count?: boolean
           social_links?: Json
+          starting_cash_float?: number
           state?: string | null
           store_code?: string | null
           tax_id?: string | null
@@ -1289,6 +1309,7 @@ export type Database = {
           time_zone?: string | null
           trial_ends_at?: string | null
           updated_at?: string
+          variance_alert_threshold?: number
           website?: string | null
           zip?: string | null
         }
