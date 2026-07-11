@@ -111,81 +111,120 @@ function EmployeesPage() {
         }
       />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <Card>
           <CardContent className="p-0">
             {isLoading ? (
               <div className="p-12 grid place-items-center"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
+            ) : employees.length === 0 ? (
+              <div className="p-10 text-center text-sm text-muted-foreground">No employees yet.</div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                {/* Mobile: card list */}
+                <ul className="md:hidden divide-y">
                   {employees.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      className="cursor-pointer"
-                      onClick={() => navigate({ to: "/employees/$id", params: { id: row.id } })}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="size-9 rounded-full bg-muted grid place-items-center text-xs font-bold">
-                            {(row.first_name?.[0] ?? row.email?.[0] ?? "?").toUpperCase()}
+                    <li key={row.id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate({ to: "/employees/$id", params: { id: row.id } })}
+                        className="w-full flex items-center gap-3 p-4 text-left hover:bg-accent/40 active:bg-accent transition-colors min-h-11"
+                      >
+                        <div className="size-10 rounded-full bg-muted grid place-items-center text-sm font-bold shrink-0">
+                          {(row.first_name?.[0] ?? row.email?.[0] ?? "?").toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-sm truncate">
+                            {row.full_name || `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || "—"}
                           </div>
-                          <div>
-                            <div className="font-semibold text-sm">
-                              {row.full_name || `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || "—"}
-                            </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            ID {row.employee_id ?? "—"} · {row.email ?? "no email"}
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            <Badge variant={row.status === "active" ? "default" : "secondary"} className="text-[10px]">
+                              {row.status}
+                            </Badge>
                             {row.must_change_password && (
-                              <div className="text-[10px] text-warning uppercase tracking-wider">First login pending</div>
+                              <Badge variant="outline" className="text-[10px] border-warning text-warning">First login pending</Badge>
                             )}
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell className="font-mono">{row.employee_id ?? "—"}</TableCell>
-                      <TableCell className="text-xs">
-                        <div>{row.email}</div>
-                        {row.phone && <div className="text-muted-foreground">{row.phone}</div>}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={row.status === "active" ? "default" : "secondary"}>
-                          {row.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                        {isOwner && me.data?.user.id !== row.id && (
-                          <div className="flex gap-1 justify-end">
-                            <Button size="sm" variant="outline" onClick={() => resetM.mutate(row)}>
-                              <KeyRound className="size-3.5 mr-1" /> Reset
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={row.status === "active" ? "outline" : "default"}
-                              onClick={() => disableM.mutate(row)}
-                            >
-                              {row.status === "active" ? <><Ban className="size-3.5 mr-1" />Disable</> : <><Check className="size-3.5 mr-1" />Enable</>}
-                            </Button>
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
+                        <div className="text-muted-foreground shrink-0" aria-hidden>›</div>
+                      </button>
+                    </li>
                   ))}
-                  {employees.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-10">No employees yet.</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                </ul>
+
+                {/* Desktop: table (unchanged) */}
+                <div className="hidden md:block table-scroll">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Employee</TableHead>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Contact</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {employees.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          className="cursor-pointer"
+                          onClick={() => navigate({ to: "/employees/$id", params: { id: row.id } })}
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="size-9 rounded-full bg-muted grid place-items-center text-xs font-bold">
+                                {(row.first_name?.[0] ?? row.email?.[0] ?? "?").toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-sm">
+                                  {row.full_name || `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || "—"}
+                                </div>
+                                {row.must_change_password && (
+                                  <div className="text-[10px] text-warning uppercase tracking-wider">First login pending</div>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-mono">{row.employee_id ?? "—"}</TableCell>
+                          <TableCell className="text-xs">
+                            <div>{row.email}</div>
+                            {row.phone && <div className="text-muted-foreground">{row.phone}</div>}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={row.status === "active" ? "default" : "secondary"}>
+                              {row.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            {isOwner && me.data?.user.id !== row.id && (
+                              <div className="flex gap-1 justify-end">
+                                <Button size="sm" variant="outline" onClick={() => resetM.mutate(row)}>
+                                  <KeyRound className="size-3.5 mr-1" /> Reset
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant={row.status === "active" ? "outline" : "default"}
+                                  onClick={() => disableM.mutate(row)}
+                                >
+                                  {row.status === "active" ? <><Ban className="size-3.5 mr-1" />Disable</> : <><Check className="size-3.5 mr-1" />Enable</>}
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
       </div>
+
 
       <CreateEmployeeDialog open={createOpen} onOpenChange={setCreateOpen} />
 

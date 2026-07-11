@@ -97,9 +97,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const role = me?.roles?.[0];
 
+  const PRIMARY = NAV.filter((n) => ["/dashboard", "/inventory", "/employees"].includes(n.to));
+  const MORE = NAV.filter((n) => !["/dashboard", "/inventory", "/employees"].includes(n.to));
+
   return (
-    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
-      <aside className="w-16 lg:w-60 border-r bg-surface/60 flex flex-col shrink-0">
+    <div className="flex h-[100dvh] w-full bg-background text-foreground overflow-hidden">
+      {/* Desktop sidebar — unchanged behaviour on md+ */}
+      <aside className="hidden md:flex w-16 lg:w-60 border-r bg-surface/60 flex-col shrink-0">
         <div className="h-16 px-4 border-b flex items-center gap-3">
           <Logo className="size-8 rounded-lg" />
           <div className="hidden lg:flex flex-col leading-tight">
@@ -113,7 +117,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             const wantSection = item.search?.section;
             let active: boolean;
             if (item.to === "/settings") {
-              // Distinguish Billing (section=billing) from Settings (any other/none)
               active = pathname === "/settings" && (wantSection ? currentSection === wantSection : currentSection !== "billing");
             } else {
               active = pathname === item.to || (item.to !== "/pos" && pathname.startsWith(item.to + "/"));
@@ -167,9 +170,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate({ to: "/timeclock" })}>
-                <Clock className="size-4 mr-2" /> Time clock
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
                 <Settings className="size-4 mr-2" /> Settings
               </DropdownMenuItem>
@@ -185,8 +185,111 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 flex flex-col overflow-hidden">{children}</main>
+      {/* Main column */}
+      <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        {/* Mobile top bar (hidden on md+) */}
+        <div className="md:hidden h-14 border-b flex items-center justify-between px-3 shrink-0 bg-surface/60">
+          <Link to="/dashboard" className="flex items-center gap-2 min-w-0">
+            <Logo className="size-8 rounded-lg shrink-0" />
+            <span className="font-semibold text-sm truncate">SEZA POS</span>
+          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="size-10 rounded-full grid place-items-center hover:bg-accent" aria-label="Account menu">
+                <div className={cn("size-8 rounded-full grid place-items-center text-white text-xs font-semibold", roleAvatarClass(role))}>
+                  {roleInitials(me?.profile?.full_name ?? me?.user?.email ?? "?")}
+                </div>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="text-xs font-normal text-muted-foreground">Signed in as</div>
+                <div className="truncate">{me?.user?.email}</div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
+                <Settings className="size-4 mr-2" /> Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSwitchEmployee}>
+                <ArrowLeftRight className="size-4 mr-2" /> Switch employee
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                <LogOut className="size-4 mr-2" /> Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden pb-16 md:pb-0">{children}</div>
+
+        {/* Mobile bottom nav */}
+        <nav
+          aria-label="Primary navigation"
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 h-16 border-t bg-background/95 backdrop-blur grid grid-cols-5"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+          <MobileNavItem to="/dashboard" label="Home" icon={LayoutDashboard} pathname={pathname} />
+          <a
+            href={posUrl("/pos")}
+            className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium text-muted-foreground hover:text-primary"
+          >
+            <ScanBarcode className="size-5" />
+            POS
+          </a>
+          <MobileNavItem to="/inventory" label="Inventory" icon={Boxes} pathname={pathname} />
+          <MobileNavItem to="/employees" label="Staff" icon={UserPlus} pathname={pathname} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium text-muted-foreground hover:text-primary">
+                <MoreVertical className="size-5" />
+                More
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-52 mb-2">
+              <DropdownMenuLabel>More</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {MORE.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <DropdownMenuItem
+                    key={locKey(item.to, item.search)}
+                    onClick={() => navigate({ to: item.to as any, search: item.search as any })}
+                  >
+                    <Icon className="size-4 mr-2" /> {item.label}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </nav>
+      </main>
     </div>
+  );
+}
+
+function MobileNavItem({
+  to,
+  label,
+  icon: Icon,
+  pathname,
+}: {
+  to: string;
+  label: string;
+  icon: any;
+  pathname: string;
+}) {
+  const active = pathname === to || pathname.startsWith(to + "/");
+  return (
+    <Link
+      to={to}
+      className={cn(
+        "flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium",
+        active ? "text-primary" : "text-muted-foreground hover:text-primary",
+      )}
+    >
+      <Icon className="size-5" />
+      {label}
+    </Link>
   );
 }
 
@@ -200,15 +303,18 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="h-16 border-b flex items-center justify-between px-6 shrink-0">
-      <div>
-        <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
-        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+    <header className="border-b px-4 md:px-6 py-3 shrink-0 flex flex-wrap items-center gap-3 justify-between">
+      <div className="min-w-0 flex-1">
+        <h1 className="text-base md:text-lg font-semibold tracking-tight truncate">{title}</h1>
+        {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap justify-end">
         {actions}
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
           <a href={posUrl("/pos")}><ScanBarcode className="size-4 mr-2" />Open POS</a>
+        </Button>
+        <Button asChild variant="outline" size="icon" className="sm:hidden" aria-label="Open POS">
+          <a href={posUrl("/pos")}><ScanBarcode className="size-4" /></a>
         </Button>
         <DeviceStatusMenu />
       </div>

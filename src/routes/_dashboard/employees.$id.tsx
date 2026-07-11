@@ -136,7 +136,7 @@ function EmployeeProfile() {
           </Button>
         }
       />
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
         <div className="grid md:grid-cols-3 gap-4">
           <ProfileCard
             profile={profile}
@@ -145,16 +145,17 @@ function EmployeeProfile() {
             onChanged={invalidateAll}
           />
 
-          <div className="md:col-span-2 space-y-4">
+          <div className="md:col-span-2 space-y-4 min-w-0">
             <StatsRow userId={id} />
             <Tabs defaultValue="details">
-              <TabsList className="grid grid-cols-5 w-full max-w-2xl">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="attendance">Attendance</TabsTrigger>
-                <TabsTrigger value="sales">Sales</TabsTrigger>
-                <TabsTrigger value="refunds">Refunds</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
+              <TabsList className="grid grid-cols-5 w-full max-w-2xl h-auto">
+                <TabsTrigger value="details" className="text-xs sm:text-sm py-2">Details</TabsTrigger>
+                <TabsTrigger value="attendance" className="text-xs sm:text-sm py-2">Attend.</TabsTrigger>
+                <TabsTrigger value="sales" className="text-xs sm:text-sm py-2">Sales</TabsTrigger>
+                <TabsTrigger value="refunds" className="text-xs sm:text-sm py-2">Refunds</TabsTrigger>
+                <TabsTrigger value="activity" className="text-xs sm:text-sm py-2">Activity</TabsTrigger>
               </TabsList>
+
 
               <TabsContent value="details" className="space-y-4">
                 {canEditStaff ? (
@@ -356,7 +357,7 @@ function EditDetailsCard({ profile, currentRole, isSelf, isOwner, canChangeRole,
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">Edit information</CardTitle></CardHeader>
-      <CardContent className="grid grid-cols-2 gap-3">
+      <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1"><Label>First name</Label><Input value={first} onChange={(e) => setFirst(e.target.value)} /></div>
         <div className="space-y-1"><Label>Last name</Label><Input value={last} onChange={(e) => setLast(e.target.value)} /></div>
         <div className="space-y-1 col-span-2"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
@@ -371,7 +372,7 @@ function EditDetailsCard({ profile, currentRole, isSelf, isOwner, canChangeRole,
           {!canChangeRole && <p className="text-[10px] text-muted-foreground">Only owners or admins can change roles.</p>}
           {isSelf && currentRole === "owner" && <p className="text-[10px] text-muted-foreground">You can't demote yourself from owner.</p>}
         </div>
-        <div className="col-span-2 flex justify-end">
+        <div className="sm:col-span-2 flex justify-end">
           <Button onClick={() => m.mutate()} disabled={m.isPending}>
             {m.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : <Save className="size-4 mr-2" />}Save changes
           </Button>
@@ -385,7 +386,7 @@ function ReadOnlyDetails({ profile, role }: { profile: Profile; role: string }) 
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">Details</CardTitle></CardHeader>
-      <CardContent className="grid grid-cols-2 gap-3 text-sm">
+      <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
         <KV k="First name" v={profile.first_name ?? "—"} />
         <KV k="Last name" v={profile.last_name ?? "—"} />
         <KV k="Email" v={profile.email ?? "—"} />
