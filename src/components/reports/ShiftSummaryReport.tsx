@@ -59,6 +59,7 @@ export function ShiftSummaryReport({ sessionId }: { sessionId: string }) {
           <TaxDiscountSummary d={d} />
         </div>
         <RefundList d={d} />
+        <DrawerEvents d={d} />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <TopProducts d={d} />
           <EmployeePerformance d={d} />
@@ -107,11 +108,12 @@ function ShiftHeader({ d }: { d: ShiftSummary }) {
 }
 
 function CashReconciliation({ d }: { d: ShiftSummary }) {
-  const { session } = d;
+  const { session, approver, safeDropTotal } = d;
   const expected = Number(session.expected_cash ?? 0);
   const actual = Number(session.closing_cash ?? 0);
   const variance = session.closing_cash != null ? actual - expected : null;
   const varianceClass = variance == null ? "" : variance === 0 ? "text-success" : Math.abs(variance) > 5 ? "text-destructive" : "text-warning";
+  const remaining = actual - Number(session.safe_drop_amount ?? 0);
   return (
     <Card>
       <CardHeader><CardTitle>Cash Reconciliation</CardTitle></CardHeader>
@@ -119,6 +121,7 @@ function CashReconciliation({ d }: { d: ShiftSummary }) {
         <Row label="Opening cash" value={fmt(session.opening_cash)} />
         <Row label="Cash sales" value={fmt(session.cash_sales)} />
         <Row label="Cash refunds" value={`-${fmt(session.cash_refunds)}`} />
+        <Row label="Safe drops" value={`-${fmt(safeDropTotal)}`} />
         <div className="border-t pt-2"><Row label="Expected in drawer" value={fmt(expected)} bold /></div>
         <Row label="Actual counted" value={session.closing_cash != null ? fmt(actual) : "—"} bold />
         {variance !== null && (
@@ -129,6 +132,67 @@ function CashReconciliation({ d }: { d: ShiftSummary }) {
             </span>
             <span className={`font-bold tabular-nums ${varianceClass}`}>{variance > 0 ? "+" : ""}{fmt(variance)}</span>
           </div>
+        )}
+        {session.safe_drop_amount != null && Number(session.safe_drop_amount) > 0 && (
+          <>
+            <Row label="Safe drop at close" value={fmt(Number(session.safe_drop_amount))} />
+            <Row label="Cash remaining for next shift" value={fmt(remaining)} bold />
+          </>
+        )}
+        {approver && (
+          <Row label="Approved by" value={approver.full_name ?? approver.email ?? "—"} />
+        )}
+        {session.close_notes && (
+          <div className="text-xs text-muted-foreground border-t pt-2">Note: {session.close_notes}</div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DrawerEvents({ d }: { d: ShiftSummary }) {
+  const events = d.noSaleEvents;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <span>Cash Drawer Openings (no-sale)</span>
+          <span className="text-sm font-normal text-muted-foreground">{events.length} events</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {events.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No no-sale drawer openings for this shift.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs text-muted-foreground border-b">
+              <tr>
+                <th className="py-2">Time</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Approver</th>
+                <th>Note</th>
+                <th className="text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((e) => {
+                const det = (e.details ?? {}) as Record<string, unknown>;
+                return (
+                  <tr key={e.id} className="border-b last:border-0 align-top">
+                    <td className="py-2">{new Date(e.created_at).toLocaleTimeString()}</td>
+                    <td className="capitalize">{String(det.reason ?? "—").replace(/_/g, " ")}</td>
+                    <td className="capitalize">{String(det.status ?? "—")}</td>
+                    <td className="text-xs text-muted-foreground">{String(det.approver_name ?? "—")}</td>
+                    <td className="text-xs">{String(det.note ?? "")}</td>
+                    <td className="text-right tabular-nums">
+                      {det.safe_drop_amount != null ? fmt(Number(det.safe_drop_amount)) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </CardContent>
     </Card>

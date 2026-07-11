@@ -14,7 +14,9 @@ import {
   Receipt,
   Menu,
   ChevronRight,
+  DoorOpen,
 } from "lucide-react";
+import { OpenDrawerDialog } from "@/components/pos/OpenDrawerDialog";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -98,6 +100,7 @@ export function PosShell({ children }: { children: ReactNode }) {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [openShiftWarn, setOpenShiftWarn] = useState(false);
   const [managerGate, setManagerGate] = useState(false);
+  const [drawerDialog, setDrawerDialog] = useState(false);
 
   const doSignOut = async () => {
     await qc.cancelQueries();
@@ -160,6 +163,22 @@ export function PosShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+
+        {/* Cash drawer control — always visible above the cashier row per POS spec. */}
+        {openShift.data && (
+          <div className="p-2 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-center"
+              onClick={() => setDrawerDialog(true)}
+              aria-label="Open cash drawer"
+            >
+              <DoorOpen className="size-4 lg:mr-2" />
+              <span className="hidden lg:inline">Open Cash Drawer</span>
+            </Button>
+          </div>
+        )}
 
         {canDashboard && (
           <div className="p-2 border-t">
@@ -276,6 +295,13 @@ export function PosShell({ children }: { children: ReactNode }) {
             </div>
 
             <nav className="flex-1 overflow-y-auto px-2 pb-2">
+              {openShift.data && (
+                <MobileMenuRow
+                  icon={DoorOpen}
+                  label="Open cash drawer"
+                  onClick={() => { setMobileMenu(false); setDrawerDialog(true); }}
+                />
+              )}
               <MobileMenuRow
                 icon={Wallet}
                 label="Close shift"
@@ -375,6 +401,16 @@ export function PosShell({ children }: { children: ReactNode }) {
           store_id: storeId,
         }}
         onApprove={() => { setManagerGate(false); void doSignOut(); }}
+      />
+
+      <OpenDrawerDialog
+        open={drawerDialog}
+        onOpenChange={setDrawerDialog}
+        session={openShift.data ? { id: openShift.data.id, store_id: storeId ?? "" } : null}
+        storeId={storeId}
+        cashierId={me?.user?.id}
+        onCountShift={() => navigate({ to: "/register" })}
+        onSafeDropRecorded={() => { qc.invalidateQueries({ queryKey: ["register"] }); }}
       />
     </div>
   );

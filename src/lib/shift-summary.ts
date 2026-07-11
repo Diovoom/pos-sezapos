@@ -11,7 +11,7 @@ export async function fetchShiftSummary(sessionId: string) {
   const { data: session } = await sb.from("register_sessions").select("*").eq("id", sessionId).maybeSingle();
   if (!session) throw new Error("Shift not found");
 
-  const [store, cashier, sales, refunds, timeEntry, terminal] = await Promise.all([
+  const [store, cashier, sales, refunds, timeEntry, terminal, movements, noSales, approver] = await Promise.all([
     sb.from("stores").select("*").eq("id", session.store_id).maybeSingle(),
     sb.from("profiles").select("id, full_name, first_name, last_name, email, employee_id").eq("id", session.opened_by).maybeSingle(),
     sb.from("sales").select("id, receipt_number, cashier_id, subtotal, tax, discount, total, payment_method, amount_tendered, change_due, status, created_at, refunded_amount")
@@ -21,6 +21,11 @@ export async function fetchShiftSummary(sessionId: string) {
     session.opened_by ? sb.from("time_entries").select("*").eq("user_id", session.opened_by)
       .gte("clock_in", session.opened_at).order("clock_in").limit(1).maybeSingle() : Promise.resolve({ data: null }),
     session.terminal_id ? sb.from("payment_terminals").select("*").eq("id", session.terminal_id).maybeSingle() : Promise.resolve({ data: null }),
+    sb.from("cash_movements").select("id, type, amount, reason, notes, created_at, user_id")
+      .eq("register_session_id", sessionId).order("created_at"),
+    sb.from("audit_log").select("id, actor_id, actor_email, details, created_at")
+      .eq("action", "drawer.no_sale_open").eq("entity_id", sessionId).order("created_at"),
+    session.approver_id ? sb.from("profiles").select("id, full_name, email").eq("id", session.approver_id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
 
   const saleIds = (sales.data ?? []).map((s: { id: string }) => s.id);
@@ -99,17 +104,29 @@ export async function fetchShiftSummary(sessionId: string) {
   const end = session.closed_at ? new Date(session.closed_at).getTime() : Date.now();
   const durationMin = Math.round((end - start) / 60000);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const movs = (movements.data ?? []) as any[];
+  const safeDrops = movs.filter((m) => m.type === "safe_drop");
+  const safeDropTotal = safeDrops.reduce((a, m) => a + Number(m.amount || 0), 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const noSaleEvents = (noSales.data ?? []) as any[];
+
   return {
     session,
     store: store.data,
     cashier: cashier.data,
     terminal: terminal?.data ?? null,
     timeEntry: timeEntry?.data ?? null,
+    approver: approver?.data ?? null,
     durationMin,
     sales: completedSales,
     voidedSales,
     refunds: r,
     items: it,
+    movements: movs,
+    safeDrops,
+    safeDropTotal,
+    noSaleEvents,
     // sections
     salesSummary: {
       totalTx, totalItems, totalQty, grossSales, netSales, totalTax, totalDiscount,
