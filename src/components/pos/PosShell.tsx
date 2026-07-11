@@ -100,6 +100,7 @@ export function PosShell({ children }: { children: ReactNode }) {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [openShiftWarn, setOpenShiftWarn] = useState(false);
   const [managerGate, setManagerGate] = useState(false);
+  const [drawerDialog, setDrawerDialog] = useState(false);
 
   const doSignOut = async () => {
     await qc.cancelQueries();
