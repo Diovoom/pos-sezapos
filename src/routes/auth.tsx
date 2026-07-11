@@ -121,9 +121,9 @@ function AuthPage() {
           </CardHeader>
           <CardContent className="pt-4">
             {mode === "email" ? (
-              <EmailLogin onBack={() => setMode("pin")} />
+              <EmailLogin onBack={() => setMode("pin")} next={next} />
             ) : (
-              <PinLogin mode={mode} setMode={setMode} />
+              <PinLogin mode={mode} setMode={setMode} next={next} />
             )}
 
             {mode !== "email" && (
@@ -158,7 +158,7 @@ function AuthPage() {
 
 /* ------------------------------- PIN login ------------------------------- */
 
-function PinLogin({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }) {
+function PinLogin({ mode, setMode, next }: { mode: Mode; setMode: (m: Mode) => void; next?: string }) {
   const navigate = useNavigate();
   const [empId, setEmpId] = useState("");
   const [pin, setPin] = useState("");
