@@ -31,9 +31,29 @@ function goToLanding(navigate: (opts: { to: "/dashboard" | "/pos"; replace: true
   navigate({ to: dest, replace: true });
 }
 
+// Only same-origin relative paths are honored for `next` (defense against open-redirect).
+function safeNext(next: string | undefined): string | null {
+  if (!next) return null;
+  if (!next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
+function goAfterAuth(
+  navigate: (opts: { to: "/dashboard" | "/pos"; replace: true }) => void,
+  dest: "/dashboard" | "/pos",
+  next: string | undefined,
+) {
+  const safe = safeNext(next);
+  if (safe) {
+    window.location.replace(safe);
+    return;
+  }
+  goToLanding(navigate, dest);
+}
+
 
 type Mode = "pin" | "email" | "pin_with_id";
-type Search = { mode?: Mode };
+type Search = { mode?: Mode; next?: string };
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -49,6 +69,7 @@ export const Route = createFileRoute("/auth")({
   }),
   validateSearch: (s: Record<string, unknown>): Search => ({
     mode: s.mode === "email" ? "email" : s.mode === "pin_with_id" ? "pin_with_id" : "pin",
+    next: typeof s.next === "string" ? s.next : undefined,
   }),
   component: AuthPage,
 });
@@ -57,15 +78,16 @@ function AuthPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: "/auth" });
   const [mode, setMode] = useState<Mode>(search.mode ?? "pin");
+  const next = search.next;
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;
       const dest = await landingRouteForUser(data.session.user.id);
-      goToLanding(navigate, dest);
+      goAfterAuth(navigate, dest, next);
     })();
-  }, [navigate]);
+  }, [navigate, next]);
 
 
   const switchUser = async () => {
