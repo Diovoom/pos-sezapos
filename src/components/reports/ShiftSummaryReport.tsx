@@ -59,6 +59,7 @@ export function ShiftSummaryReport({ sessionId }: { sessionId: string }) {
           <TaxDiscountSummary d={d} />
         </div>
         <RefundList d={d} />
+        <DrawerEvents d={d} />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <TopProducts d={d} />
           <EmployeePerformance d={d} />
