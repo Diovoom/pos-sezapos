@@ -120,7 +120,7 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
           )}
           {status === "scanning" && showTip && (
             <div className="absolute bottom-2 left-2 right-2 rounded-md bg-black/60 text-white text-xs px-3 py-2 text-center">
-              {hint ?? "Hold the back of the ID 4–6 inches from the camera, barcode centered and well-lit."}
+              {hint ?? "Center the product barcode inside the frame."}
             </div>
           )}
           {status === "error" && (
