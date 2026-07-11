@@ -488,16 +488,18 @@ function PosPage() {
                   ⌘K
                 </kbd>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setScannerOpen(true)}
-                className="h-12 w-12 shrink-0"
-                title="Scan barcode with camera"
-                aria-label="Scan barcode"
-              >
-                <Camera className="size-5" />
-              </Button>
+              {showMobileCamera && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setScannerOpen(true)}
+                  className="h-12 w-12 shrink-0"
+                  title="Scan product barcode with camera"
+                  aria-label="Scan product barcode"
+                >
+                  <Camera className="size-5" />
+                </Button>
+              )}
             </div>
 
 
