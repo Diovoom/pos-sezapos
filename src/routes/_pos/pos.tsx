@@ -562,7 +562,7 @@ function PosPage() {
           </div>
         </section>
 
-        <section className="w-[420px] flex-none flex flex-col bg-card">
+        <section className="hidden md:flex w-[420px] flex-none flex-col bg-card">
           <div className="p-6 pb-3 flex items-center justify-between">
             <h2 className="font-semibold">Current Sale</h2>
             {cart.length > 0 && (
