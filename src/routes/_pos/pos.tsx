@@ -449,6 +449,147 @@ function PosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restrictedItems.length]);
 
+  const cartPanel = (
+    <>
+      <div className="p-4 md:p-6 pb-3 flex items-center justify-between">
+        <h2 className="font-semibold">Current Sale</h2>
+        {cart.length > 0 && (
+          <button onClick={clearCart} className="text-xs text-destructive font-medium hover:bg-destructive/10 px-2 py-1 rounded">
+            Clear
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 space-y-3">
+        {cart.length === 0 ? (
+          <div className="h-full grid place-items-center text-sm text-muted-foreground py-10">Cart is empty</div>
+        ) : (
+          cart.map((line) => (
+            <div key={line.product.id} className="flex items-start gap-3 group">
+              <div className="size-10 rounded-md bg-muted grid place-items-center text-xs font-mono font-bold shrink-0">
+                {line.qty}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{line.product.name}</p>
+                <p className="text-[10px] text-muted-foreground font-mono">
+                  {fmtCurrency(Number(line.product.price), currency)} ea
+                </p>
+                <div className="flex items-center gap-1 mt-1">
+                  <Button size="icon" variant="outline" className="size-6" onClick={() => setQty(line.product.id, line.qty - 1)}>
+                    <Minus className="size-3" />
+                  </Button>
+                  <Button size="icon" variant="outline" className="size-6" onClick={() => setQty(line.product.id, line.qty + 1)}>
+                    <Plus className="size-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 ml-1 text-destructive hover:bg-destructive/10 text-[11px] font-semibold"
+                    onClick={() => { setVoidReason(""); setVoidLine(line); }}
+                    aria-label="Void item"
+                  >
+                    <Trash2 className="size-3 mr-1" /> Void
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm font-mono font-semibold">
+                {fmtCurrency(line.product.price * line.qty, currency)}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="p-4 md:p-6 border-t bg-surface/40" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+        <div className="space-y-1.5 mb-4">
+          <Row label="Subtotal" value={fmtCurrency(subtotal, currency)} />
+          {discount && (
+            <div className="flex justify-between text-sm text-success">
+              <button className="underline underline-offset-2" onClick={() => setDiscountOpen(true)}>
+                Discount{discount.code ? ` (${discount.code})` : ""} ({discount.mode === "percent" ? `${discount.value}%` : fmtCurrency(discount.value, currency)})
+              </button>
+              <span className="font-mono">− {fmtCurrency(manualDiscount, currency)}</span>
+            </div>
+          )}
+          {effectiveLoyaltyRedemption > 0 && (
+            <div className="flex justify-between text-sm text-success">
+              <button className="underline underline-offset-2" onClick={() => setLoyaltyOpen(true)}>
+                Loyalty redeem
+              </button>
+              <span className="font-mono">− {fmtCurrency(effectiveLoyaltyRedemption, currency)}</span>
+            </div>
+          )}
+          <Row label={`Tax (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(tax, currency)} />
+          <div className="flex justify-between text-2xl font-bold pt-2 border-t border-dashed">
+            <span>Total</span>
+            <span className="font-mono">{fmtCurrency(total, currency)}</span>
+          </div>
+          {loyalty && loyaltyEarn > 0 && (
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>Loyalty · {loyalty.identifier}</span>
+              <span>+{loyaltyEarn} pts</span>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          {TENDER.map((t) => {
+            const Icon = t.icon;
+            const active = tender === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTender(t.id)}
+                className={cn(
+                  "h-12 border rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors",
+                  active ? "border-primary bg-primary/5 text-primary" : "bg-card hover:bg-accent",
+                )}
+              >
+                <Icon className="size-3.5" />
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {restrictedItems.length > 0 && (
+          <div
+            className={cn(
+              "mb-2 px-3 py-2 rounded-md text-xs font-medium flex items-center justify-between border",
+              ageVerification
+                ? "bg-success/10 border-success/30 text-success"
+                : "bg-warning/10 border-warning/40 text-warning",
+            )}
+          >
+            <span>
+              {ageVerification
+                ? `Age verified (${ageVerification.ageYears}+ · ${ageVerification.method === "override" ? "manager override" : ageVerification.method === "manual" ? "manual" : "ID scan"})`
+                : `${restrictedItems.length} age-restricted item${restrictedItems.length > 1 ? "s" : ""} — ID required`}
+            </span>
+            {!ageVerification && (
+              <button className="underline" onClick={() => setAgeOpen(true)}>
+                Verify now
+              </button>
+            )}
+          </div>
+        )}
+        <Button
+          onClick={openPayment}
+          disabled={cart.length === 0 || finalize.isPending}
+          className="w-full h-16 text-lg font-bold rounded-xl shadow-[var(--shadow-charge)]"
+        >
+          {finalize.isPending
+            ? <Loader2 className="size-5 animate-spin" />
+            : needsAgeVerification
+              ? <>Verify Age to Charge {fmtCurrency(total, currency)}</>
+              : <>Charge {fmtCurrency(total, currency)}</>}
+        </Button>
+      </div>
+    </>
+  );
+
+  const cartCount = cart.reduce((s, l) => s + l.qty, 0);
+
   return (
     <>
       <PageHeader
