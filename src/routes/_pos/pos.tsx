@@ -119,6 +119,16 @@ function PosPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const me = useMe();
   const canManage = (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager");
+  const isMobile = useIsMobile();
+  const [cartOpen, setCartOpen] = useState(false);
+  const [hasCameraCap, setHasCameraCap] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+    const hasMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    setHasCameraCap(coarse && hasMedia);
+  }, []);
+  const showMobileCamera = isMobile && hasCameraCap;
 
   const { data: store } = useQuery({
     queryKey: ["store"],
