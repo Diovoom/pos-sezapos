@@ -104,17 +104,29 @@ export async function fetchShiftSummary(sessionId: string) {
   const end = session.closed_at ? new Date(session.closed_at).getTime() : Date.now();
   const durationMin = Math.round((end - start) / 60000);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const movs = (movements.data ?? []) as any[];
+  const safeDrops = movs.filter((m) => m.type === "safe_drop");
+  const safeDropTotal = safeDrops.reduce((a, m) => a + Number(m.amount || 0), 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const noSaleEvents = (noSales.data ?? []) as any[];
+
   return {
     session,
     store: store.data,
     cashier: cashier.data,
     terminal: terminal?.data ?? null,
     timeEntry: timeEntry?.data ?? null,
+    approver: approver?.data ?? null,
     durationMin,
     sales: completedSales,
     voidedSales,
     refunds: r,
     items: it,
+    movements: movs,
+    safeDrops,
+    safeDropTotal,
+    noSaleEvents,
     // sections
     salesSummary: {
       totalTx, totalItems, totalQty, grossSales, netSales, totalTax, totalDiscount,
