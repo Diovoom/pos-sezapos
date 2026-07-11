@@ -39,6 +39,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as LegalIndexRouteImport } from './routes/legal.index'
 import { Route as RIdRouteImport } from './routes/r.$id'
 import { Route as LegalTermsRouteImport } from './routes/legal.terms'
+import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as LegalSlugRouteImport } from './routes/legal.$slug'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as PosTimeclockRouteImport } from './routes/_pos/timeclock'
@@ -213,6 +214,11 @@ const RIdRoute = RIdRouteImport.update({
 const LegalTermsRoute = LegalTermsRouteImport.update({
   id: '/legal/terms',
   path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal/privacy',
+  path: '/legal/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LegalSlugRoute = LegalSlugRouteImport.update({
@@ -399,6 +405,7 @@ export interface FileRoutesByFullPath {
   '/timeclock': typeof PosTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/legal/$slug': typeof LegalSlugRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/r/$id': typeof RIdRoute
   '/legal/': typeof LegalIndexRoute
@@ -456,6 +463,7 @@ export interface FileRoutesByTo {
   '/timeclock': typeof PosTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/legal/$slug': typeof LegalSlugRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/r/$id': typeof RIdRoute
   '/legal': typeof LegalIndexRoute
@@ -516,6 +524,7 @@ export interface FileRoutesById {
   '/_pos/timeclock': typeof PosTimeclockRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/legal/$slug': typeof LegalSlugRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/r/$id': typeof RIdRoute
   '/legal/': typeof LegalIndexRoute
@@ -575,6 +584,7 @@ export interface FileRouteTypes {
     | '/timeclock'
     | '/email/unsubscribe'
     | '/legal/$slug'
+    | '/legal/privacy'
     | '/legal/terms'
     | '/r/$id'
     | '/legal/'
@@ -632,6 +642,7 @@ export interface FileRouteTypes {
     | '/timeclock'
     | '/email/unsubscribe'
     | '/legal/$slug'
+    | '/legal/privacy'
     | '/legal/terms'
     | '/r/$id'
     | '/legal'
@@ -691,6 +702,7 @@ export interface FileRouteTypes {
     | '/_pos/timeclock'
     | '/email/unsubscribe'
     | '/legal/$slug'
+    | '/legal/privacy'
     | '/legal/terms'
     | '/r/$id'
     | '/legal/'
@@ -735,6 +747,7 @@ export interface RootRouteChildren {
   UnsubscribeRoute: typeof UnsubscribeRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   LegalSlugRoute: typeof LegalSlugRoute
+  LegalPrivacyRoute: typeof LegalPrivacyRoute
   LegalTermsRoute: typeof LegalTermsRoute
   RIdRoute: typeof RIdRoute
   LegalIndexRoute: typeof LegalIndexRoute
@@ -958,6 +971,13 @@ declare module '@tanstack/react-router' {
       path: '/legal/terms'
       fullPath: '/legal/terms'
       preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/privacy': {
+      id: '/legal/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/legal/$slug': {
@@ -1245,6 +1265,7 @@ const rootRouteChildren: RootRouteChildren = {
   UnsubscribeRoute: UnsubscribeRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   LegalSlugRoute: LegalSlugRoute,
+  LegalPrivacyRoute: LegalPrivacyRoute,
   LegalTermsRoute: LegalTermsRoute,
   RIdRoute: RIdRoute,
   LegalIndexRoute: LegalIndexRoute,
