@@ -154,8 +154,22 @@ function SettingsPage() {
     <>
       <PageHeader title="Settings" subtitle="Modes, hardware, staff, cash, reports, and account" />
       <div className="flex-1 overflow-hidden flex min-h-0">
-        <Tabs value={tab} onValueChange={setTab} orientation="vertical" className="flex flex-1 min-h-0">
-          <aside className="w-64 border-r bg-surface/40 overflow-y-auto shrink-0">
+        <Tabs value={tab} onValueChange={setTab} orientation="vertical" className="flex flex-1 min-h-0 flex-col md:flex-row">
+          {/* Mobile: category selector */}
+          <div className="md:hidden border-b p-3 bg-surface/40">
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Settings section</label>
+            <select
+              value={tab}
+              onChange={(e) => setTab(e.target.value)}
+              className="mt-1 w-full h-11 rounded-md border bg-background px-3 text-sm"
+            >
+              {GROUPS.flatMap((g) => g.items.filter((s) => !s.href).map((s) => (
+                <option key={s.id} value={s.id}>{g.label} — {s.label}</option>
+              )))}
+            </select>
+          </div>
+          {/* Desktop: vertical tabs sidebar */}
+          <aside className="hidden md:block w-64 border-r bg-surface/40 overflow-y-auto shrink-0">
             <TabsList className="flex flex-col h-auto items-stretch bg-transparent p-2 gap-0.5">
               {GROUPS.map((g) => (
                 <div key={g.id} className="mb-2">
@@ -187,7 +201,8 @@ function SettingsPage() {
             </TabsList>
           </aside>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-w-0">
+
             <TabsContent value="general" className="mt-0"><GeneralPanel canEdit={canEditSettings} /></TabsContent>
             <TabsContent value="billing" className="mt-0"><BillingPanel /></TabsContent>
             <TabsContent value="employees" className="mt-0"><EmployeesPanel /></TabsContent>
