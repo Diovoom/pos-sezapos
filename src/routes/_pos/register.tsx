@@ -11,13 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMe } from "@/hooks/useMe";
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Wallet, LockOpen, Lock, AlertTriangle, ArrowUpFromLine, ArrowDownToLine, DoorOpen } from "lucide-react";
+import { Loader2, Wallet, LockOpen, ArrowUpFromLine, ArrowDownToLine, DoorOpen, Clock, Lock } from "lucide-react";
 import { logAudit } from "@/lib/audit-log";
-import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
 import { openCashDrawer } from "@/lib/pos/hardware";
-import { usePermissions } from "@/hooks/usePermissions";
+import { CloseShiftDialog } from "@/components/pos/CloseShiftDialog";
+import { OpenDrawerDialog } from "@/components/pos/OpenDrawerDialog";
 
 export const Route = createFileRoute("/_pos/register")({
   head: () => ({ meta: [{ title: "Register — SEZA POS" }, { name: "description", content: "Open and close the cash register for the current shift with cash reconciliation." }] }),
