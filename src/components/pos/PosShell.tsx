@@ -295,6 +295,13 @@ export function PosShell({ children }: { children: ReactNode }) {
             </div>
 
             <nav className="flex-1 overflow-y-auto px-2 pb-2">
+              {openShift.data && (
+                <MobileMenuRow
+                  icon={DoorOpen}
+                  label="Open cash drawer"
+                  onClick={() => { setMobileMenu(false); setDrawerDialog(true); }}
+                />
+              )}
               <MobileMenuRow
                 icon={Wallet}
                 label="Close shift"
