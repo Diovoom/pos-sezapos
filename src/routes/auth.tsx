@@ -31,9 +31,29 @@ function goToLanding(navigate: (opts: { to: "/dashboard" | "/pos"; replace: true
   navigate({ to: dest, replace: true });
 }
 
+// Only same-origin relative paths are honored for `next` (defense against open-redirect).
+function safeNext(next: string | undefined): string | null {
+  if (!next) return null;
+  if (!next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
+function goAfterAuth(
+  navigate: (opts: { to: "/dashboard" | "/pos"; replace: true }) => void,
+  dest: "/dashboard" | "/pos",
+  next: string | undefined,
+) {
+  const safe = safeNext(next);
+  if (safe) {
+    window.location.replace(safe);
+    return;
+  }
+  goToLanding(navigate, dest);
+}
+
 
 type Mode = "pin" | "email" | "pin_with_id";
-type Search = { mode?: Mode };
+type Search = { mode?: Mode; next?: string };
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -49,6 +69,7 @@ export const Route = createFileRoute("/auth")({
   }),
   validateSearch: (s: Record<string, unknown>): Search => ({
     mode: s.mode === "email" ? "email" : s.mode === "pin_with_id" ? "pin_with_id" : "pin",
+    next: typeof s.next === "string" ? s.next : undefined,
   }),
   component: AuthPage,
 });
@@ -57,15 +78,16 @@ function AuthPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: "/auth" });
   const [mode, setMode] = useState<Mode>(search.mode ?? "pin");
+  const next = search.next;
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;
       const dest = await landingRouteForUser(data.session.user.id);
-      goToLanding(navigate, dest);
+      goAfterAuth(navigate, dest, next);
     })();
-  }, [navigate]);
+  }, [navigate, next]);
 
 
   const switchUser = async () => {
@@ -99,9 +121,9 @@ function AuthPage() {
           </CardHeader>
           <CardContent className="pt-4">
             {mode === "email" ? (
-              <EmailLogin onBack={() => setMode("pin")} />
+              <EmailLogin onBack={() => setMode("pin")} next={next} />
             ) : (
-              <PinLogin mode={mode} setMode={setMode} />
+              <PinLogin mode={mode} setMode={setMode} next={next} />
             )}
 
             {mode !== "email" && (
@@ -136,7 +158,7 @@ function AuthPage() {
 
 /* ------------------------------- PIN login ------------------------------- */
 
-function PinLogin({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }) {
+function PinLogin({ mode, setMode, next }: { mode: Mode; setMode: (m: Mode) => void; next?: string }) {
   const navigate = useNavigate();
   const [empId, setEmpId] = useState("");
   const [pin, setPin] = useState("");
@@ -209,7 +231,7 @@ function PinLogin({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void })
         type: "magiclink",
       });
       if (error) throw error;
-      goToLanding(navigate, "/pos");
+      goAfterAuth(navigate, "/pos", next);
     } catch (err) {
       const rawMsg = err instanceof Error ? err.message : String(err);
       if (rawMsg.startsWith("MULTIPLE_MATCHES:")) {
@@ -311,7 +333,7 @@ function KeyBtn({
 
 /* ------------------------------ Email login --------------------------- */
 
-function EmailLogin({ onBack }: { onBack: () => void }) {
+function EmailLogin({ onBack, next }: { onBack: () => void; next?: string }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -325,7 +347,7 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
       if (error) throw error;
       void import("@/lib/audit-log").then((m) => m.logAudit({ action: "login", details: { method: "password" } }));
       const dest = signIn.user ? await landingRouteForUser(signIn.user.id) : "/pos";
-      goToLanding(navigate, dest);
+      goAfterAuth(navigate, dest, next);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sign in failed");
     } finally {
@@ -333,23 +355,34 @@ function EmailLogin({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const oauthRedirect = () => {
+    const safe = safeNext(next);
+    // For social providers, always return to a public route. If `next` is set,
+    // return to /auth?next=... so this page can resume the redirect after the
+    // session hydrates. Otherwise return to the app origin.
+    return safe
+      ? `${window.location.origin}/auth?next=${encodeURIComponent(safe)}`
+      : window.location.origin;
+  };
+
   const handleGoogle = async () => {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: oauthRedirect() });
     if (result.error) { toast.error(result.error.message ?? "Google sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
     const { data: u } = await supabase.auth.getUser();
-    goToLanding(navigate, u.user ? await landingRouteForUser(u.user.id) : "/pos");
+    goAfterAuth(navigate, u.user ? await landingRouteForUser(u.user.id) : "/pos", next);
   };
 
   const handleApple = async () => {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("apple", { redirect_uri: window.location.origin });
+    const result = await lovable.auth.signInWithOAuth("apple", { redirect_uri: oauthRedirect() });
     if (result.error) { toast.error(result.error.message ?? "Apple sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
     const { data: u } = await supabase.auth.getUser();
-    goToLanding(navigate, u.user ? await landingRouteForUser(u.user.id) : "/pos");
+    goAfterAuth(navigate, u.user ? await landingRouteForUser(u.user.id) : "/pos", next);
   };
+
 
   return (
     <div className="space-y-4">
