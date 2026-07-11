@@ -47,7 +47,7 @@ type Session = {
 type CashMovement = {
   id: string;
   register_session_id: string;
-  type: "payout" | "deposit";
+  type: "payout" | "deposit" | "safe_drop";
   amount: number;
   reason: string;
   notes: string | null;
