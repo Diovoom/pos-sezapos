@@ -144,7 +144,8 @@ function PosPage() {
   }, []);
   const showMobileCamera = isMobile && hasCameraCap;
 
-  const { data: store } = useQuery({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: store } = useQuery<any>({
     queryKey: ["store"],
     queryFn: async () => {
       if (!navigator.onLine) return (await readMeta("store")) ?? null;
@@ -154,7 +155,8 @@ function PosPage() {
     },
   });
 
-  const { data: profile } = useQuery({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = useQuery<any>({
     queryKey: ["me-profile"],
     queryFn: async () => {
       if (!navigator.onLine) return (await readMeta("profile")) ?? null;
