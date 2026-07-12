@@ -322,6 +322,54 @@ function PosPage() {
   // Sale is written ONLY after payment is confirmed.
   const finalize = useMutation({
     mutationFn: async (payment: CompletedPayment) => {
+      // ---- OFFLINE CASH PATH ---------------------------------------------
+      // When offline, only cash is allowed. Save to IndexedDB, mark
+      // Pending sync, and produce a local receipt. Never call the network.
+      if (!navigator.onLine && payment.method === "cash") {
+        const { data: u } = await supabase.auth.getUser();
+        if (!u.user) throw new SaleError("auth", "Sign in required.");
+        const localId = crypto.randomUUID();
+        const seq = await nextSeq();
+        // Best-effort register session from cache (never fatal offline).
+        let registerSessionId: string | null = null;
+        try {
+          const rs = await readMeta<{ id: string } | null>("open_register_session");
+          registerSessionId = rs?.id ?? null;
+        } catch { /* noop */ }
+        await saveOfflineSale({
+          id: localId,
+          idempotency_key: localId,
+          store_id: store?.id ?? "",
+          register_session_id: registerSessionId,
+          cashier_id: u.user.id,
+          device_id: getDeviceId(),
+          local_seq: seq,
+          local_created_at: new Date().toISOString(),
+          status: "pending",
+          attempts: 0,
+          subtotal, tax, discount: discountAmount, total,
+          amount_tendered: payment.amountTendered,
+          change_due: payment.changeDue,
+          currency,
+          items: cart.map((l) => ({
+            product_id: l.product.id.startsWith("custom-") ? null : l.product.id,
+            product_name: l.product.name,
+            quantity: l.qty,
+            unit_price: l.product.price,
+            line_total: Math.round(l.product.price * l.qty * 100) / 100,
+          })),
+        });
+        return {
+          sale: {
+            id: localId,
+            receipt_number: `LOCAL-${seq}`,
+            created_at: new Date().toISOString(),
+            _offline: true,
+          },
+          payment,
+        };
+      }
+
       // 1. Auth
       const { data: u, error: authErr } = await supabase.auth.getUser();
       if (authErr || !u.user) {
