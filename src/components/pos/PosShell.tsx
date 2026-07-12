@@ -17,6 +17,7 @@ import {
   DoorOpen,
 } from "lucide-react";
 import { OpenDrawerDialog } from "@/components/pos/OpenDrawerDialog";
+import { OfflineIndicator } from "@/components/pos/OfflineIndicator";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
