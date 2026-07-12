@@ -638,17 +638,33 @@ function PosPage() {
           )}
         </div>
 
+        {!online && (
+          <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+            Offline mode — cash sales will be saved on this register and synced when connection returns. Card payments require an internet connection.
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-2 mb-3">
           {TENDER.map((t) => {
             const Icon = t.icon;
             const active = tender === t.id;
+            const disabled = !online && t.id !== "cash";
             return (
               <button
                 key={t.id}
-                onClick={() => setTender(t.id)}
+                onClick={() => {
+                  if (disabled) {
+                    toast.error("Card payments require an internet connection.");
+                    return;
+                  }
+                  setTender(t.id);
+                }}
+                disabled={disabled}
+                aria-disabled={disabled}
+                title={disabled ? "Card payments require an internet connection." : undefined}
                 className={cn(
                   "h-12 border rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors",
                   active ? "border-primary bg-primary/5 text-primary" : "bg-card hover:bg-accent",
+                  disabled && "opacity-40 cursor-not-allowed hover:bg-card",
                 )}
               >
                 <Icon className="size-3.5" />
