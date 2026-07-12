@@ -37,6 +37,7 @@ export type ReceiptData = {
   last4?: string | null;
   reference?: string | null;
   refund?: boolean;
+  pendingSync?: boolean;
 };
 
 /** 80mm thermal receipt — monospace, printer-friendly. */
