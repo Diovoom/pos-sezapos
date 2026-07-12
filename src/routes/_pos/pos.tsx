@@ -479,7 +479,8 @@ function PosPage() {
         changeDue: payment.changeDue,
         cardBrand: payment.cardBrand,
         last4: payment.last4,
-        reference: isOffline ? "PENDING SYNCHRONIZATION" : payment.reference,
+        reference: isOffline ? null : payment.reference,
+        pendingSync: isOffline,
       };
       setReceipt(rd);
       setReceiptOpen(true);
