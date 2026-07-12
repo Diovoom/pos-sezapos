@@ -67,6 +67,9 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
       {data.refund && (
         <div className="text-center font-bold text-[14px] mb-1">*** REFUND ***</div>
       )}
+      {data.pendingSync && (
+        <div className="text-center font-bold text-[13px] mb-1">*** PENDING SYNCHRONIZATION ***</div>
+      )}
 
       <Row l="Receipt #" r={String(data.receiptNumber)} />
       <Row l="Txn" r={data.transactionId.slice(0, 8).toUpperCase()} />
