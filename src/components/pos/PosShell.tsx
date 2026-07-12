@@ -337,6 +337,7 @@ export function PosShell({ children }: { children: ReactNode }) {
             </nav>
           </SheetContent>
         </Sheet>
+        </div>
       </header>
 
       <main className="flex-1 min-w-0 flex flex-col overflow-hidden pt-12 md:pt-0 pb-14 md:pb-0">{children}</main>
