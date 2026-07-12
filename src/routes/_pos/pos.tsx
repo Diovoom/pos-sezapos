@@ -25,6 +25,19 @@ import { useMe } from "@/hooks/useMe";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { logAudit } from "@/lib/audit-log";
+import { useOnline } from "@/lib/offline/useOnline";
+import {
+  cacheProducts,
+  loadCachedProducts,
+  saveOfflineSale,
+  nextSeq,
+  getDeviceId,
+  purgeIfStoreChanged,
+  cacheMeta,
+  readMeta,
+  type CachedProduct,
+} from "@/lib/offline/db";
+import { syncNow } from "@/lib/offline/sync";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
