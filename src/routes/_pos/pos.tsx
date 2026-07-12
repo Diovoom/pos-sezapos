@@ -455,6 +455,8 @@ function PosPage() {
       return { sale, payment };
     },
     onSuccess: ({ sale, payment }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isOffline = (sale as any)._offline === true;
       const rd: ReceiptData = {
         store: store ?? {},
         receiptNumber: sale.receipt_number ?? sale.id.slice(0, 8),
@@ -477,11 +479,15 @@ function PosPage() {
         changeDue: payment.changeDue,
         cardBrand: payment.cardBrand,
         last4: payment.last4,
-        reference: payment.reference,
+        reference: isOffline ? "PENDING SYNCHRONIZATION" : payment.reference,
       };
       setReceipt(rd);
       setReceiptOpen(true);
-      toast.success(`Sale completed · ${fmtCurrency(total, currency)}`);
+      toast.success(
+        isOffline
+          ? `Offline sale saved · ${fmtCurrency(total, currency)} — will sync when online`
+          : `Sale completed · ${fmtCurrency(total, currency)}`,
+      );
       if (loyalty) {
         if (effectiveLoyaltyRedemption > 0) {
           spendLoyaltyPoints(loyalty.identifier, Math.round(effectiveLoyaltyRedemption * 100));
@@ -491,18 +497,22 @@ function PosPage() {
           toast.info(`+${loyaltyEarn} loyalty points earned`);
         }
       }
-      // Fire-and-forget: audit log failure must NOT cancel the sale.
-      void import("@/lib/audit-log")
-        .then((m) => m.logAudit({
-          action: "sale.create", entity: "sale", entity_id: rd.transactionId,
-          details: { total, method: payment.method, items: cart.length },
-        }))
-        .catch((err) => console.warn("[sale] audit log failed (non-fatal):", err));
+      if (!isOffline) {
+        // Fire-and-forget: audit log failure must NOT cancel the sale.
+        void import("@/lib/audit-log")
+          .then((m) => m.logAudit({
+            action: "sale.create", entity: "sale", entity_id: rd.transactionId,
+            details: { total, method: payment.method, items: cart.length },
+          }))
+          .catch((err) => console.warn("[sale] audit log failed (non-fatal):", err));
+      }
       clearCart();
       setPayOpen(false);
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["products"] });
+      // If we came back online in the meantime, drain the queue.
+      if (navigator.onLine) void syncNow();
     },
     onError: (e) => {
       // Always log the real error for developers
