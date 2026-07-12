@@ -248,6 +248,8 @@ export function PosShell({ children }: { children: ReactNode }) {
           <Logo className="size-7 rounded-md" />
           <span className="text-sm font-semibold truncate">{me?.store?.name ?? "Store"}</span>
         </div>
+        <div className="flex items-center gap-2">
+          <OfflineIndicator />
         <Sheet open={mobileMenu} onOpenChange={setMobileMenu}>
           <SheetTrigger asChild>
             <Button
