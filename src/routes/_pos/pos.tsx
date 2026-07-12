@@ -25,6 +25,19 @@ import { useMe } from "@/hooks/useMe";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { logAudit } from "@/lib/audit-log";
+import { useOnline } from "@/lib/offline/useOnline";
+import {
+  cacheProducts,
+  loadCachedProducts,
+  saveOfflineSale,
+  nextSeq,
+  getDeviceId,
+  purgeIfStoreChanged,
+  cacheMeta,
+  readMeta,
+  type CachedProduct,
+} from "@/lib/offline/db";
+import { syncNow } from "@/lib/offline/sync";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
@@ -120,6 +133,7 @@ function PosPage() {
   const me = useMe();
   const canManage = (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager");
   const isMobile = useIsMobile();
+  const online = useOnline();
   const [cartOpen, setCartOpen] = useState(false);
   const [hasCameraCap, setHasCameraCap] = useState(false);
   useEffect(() => {
@@ -130,17 +144,26 @@ function PosPage() {
   }, []);
   const showMobileCamera = isMobile && hasCameraCap;
 
-  const { data: store } = useQuery({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: store } = useQuery<any>({
     queryKey: ["store"],
-    queryFn: async () => (await supabase.from("stores").select("*").limit(1).maybeSingle()).data,
+    queryFn: async () => {
+      if (!navigator.onLine) return (await readMeta("store")) ?? null;
+      const { data } = await supabase.from("stores").select("*").limit(1).maybeSingle();
+      if (data) await cacheMeta("store", data);
+      return data;
+    },
   });
 
-  const { data: profile } = useQuery({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = useQuery<any>({
     queryKey: ["me-profile"],
     queryFn: async () => {
+      if (!navigator.onLine) return (await readMeta("profile")) ?? null;
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return null;
       const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
+      if (data) await cacheMeta("profile", data);
       return data;
     },
   });
@@ -148,20 +171,36 @@ function PosPage() {
   const taxRate = Number(store?.tax_rate ?? 0.0825);
   const currency = store?.currency ?? "USD";
 
+  // Scope offline cache to this store — never leak another store's cache.
+  useEffect(() => { if (store?.id) void purgeIfStoreChanged(store.id); }, [store?.id]);
+
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["categories"],
-    queryFn: async () => (await supabase.from("categories").select("id,name").order("sort_order")).data ?? [],
+    queryFn: async () => {
+      if (!navigator.onLine) return (await readMeta<Category[]>("categories")) ?? [];
+      const { data } = await supabase.from("categories").select("id,name").order("sort_order");
+      const rows = data ?? [];
+      await cacheMeta("categories", rows);
+      return rows;
+    },
   });
 
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["products"],
     queryFn: async () => {
+      if (!navigator.onLine) {
+        const cached = await loadCachedProducts();
+        return cached as unknown as Product[];
+      }
       const { data } = await supabase
         .from("products")
         .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category")
         .eq("status", "active")
         .order("name");
-      return (data as Product[]) ?? [];
+      const rows = (data as Product[]) ?? [];
+      // Cache for offline reuse on this register.
+      void cacheProducts(rows as unknown as CachedProduct[]);
+      return rows;
     },
   });
 
@@ -283,6 +322,54 @@ function PosPage() {
   // Sale is written ONLY after payment is confirmed.
   const finalize = useMutation({
     mutationFn: async (payment: CompletedPayment) => {
+      // ---- OFFLINE CASH PATH ---------------------------------------------
+      // When offline, only cash is allowed. Save to IndexedDB, mark
+      // Pending sync, and produce a local receipt. Never call the network.
+      if (!navigator.onLine && payment.method === "cash") {
+        const { data: u } = await supabase.auth.getUser();
+        if (!u.user) throw new SaleError("auth", "Sign in required.");
+        const localId = crypto.randomUUID();
+        const seq = await nextSeq();
+        // Best-effort register session from cache (never fatal offline).
+        let registerSessionId: string | null = null;
+        try {
+          const rs = await readMeta<{ id: string } | null>("open_register_session");
+          registerSessionId = rs?.id ?? null;
+        } catch { /* noop */ }
+        await saveOfflineSale({
+          id: localId,
+          idempotency_key: localId,
+          store_id: store?.id ?? "",
+          register_session_id: registerSessionId,
+          cashier_id: u.user.id,
+          device_id: getDeviceId(),
+          local_seq: seq,
+          local_created_at: new Date().toISOString(),
+          status: "pending",
+          attempts: 0,
+          subtotal, tax, discount: discountAmount, total,
+          amount_tendered: payment.amountTendered,
+          change_due: payment.changeDue,
+          currency,
+          items: cart.map((l) => ({
+            product_id: l.product.id.startsWith("custom-") ? null : l.product.id,
+            product_name: l.product.name,
+            quantity: l.qty,
+            unit_price: l.product.price,
+            line_total: Math.round(l.product.price * l.qty * 100) / 100,
+          })),
+        });
+        return {
+          sale: {
+            id: localId,
+            receipt_number: `LOCAL-${seq}`,
+            created_at: new Date().toISOString(),
+            _offline: true,
+          },
+          payment,
+        };
+      }
+
       // 1. Auth
       const { data: u, error: authErr } = await supabase.auth.getUser();
       if (authErr || !u.user) {
@@ -368,6 +455,8 @@ function PosPage() {
       return { sale, payment };
     },
     onSuccess: ({ sale, payment }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isOffline = (sale as any)._offline === true;
       const rd: ReceiptData = {
         store: store ?? {},
         receiptNumber: sale.receipt_number ?? sale.id.slice(0, 8),
@@ -390,11 +479,16 @@ function PosPage() {
         changeDue: payment.changeDue,
         cardBrand: payment.cardBrand,
         last4: payment.last4,
-        reference: payment.reference,
+        reference: isOffline ? null : payment.reference,
+        pendingSync: isOffline,
       };
       setReceipt(rd);
       setReceiptOpen(true);
-      toast.success(`Sale completed · ${fmtCurrency(total, currency)}`);
+      toast.success(
+        isOffline
+          ? `Offline sale saved · ${fmtCurrency(total, currency)} — will sync when online`
+          : `Sale completed · ${fmtCurrency(total, currency)}`,
+      );
       if (loyalty) {
         if (effectiveLoyaltyRedemption > 0) {
           spendLoyaltyPoints(loyalty.identifier, Math.round(effectiveLoyaltyRedemption * 100));
@@ -404,18 +498,22 @@ function PosPage() {
           toast.info(`+${loyaltyEarn} loyalty points earned`);
         }
       }
-      // Fire-and-forget: audit log failure must NOT cancel the sale.
-      void import("@/lib/audit-log")
-        .then((m) => m.logAudit({
-          action: "sale.create", entity: "sale", entity_id: rd.transactionId,
-          details: { total, method: payment.method, items: cart.length },
-        }))
-        .catch((err) => console.warn("[sale] audit log failed (non-fatal):", err));
+      if (!isOffline) {
+        // Fire-and-forget: audit log failure must NOT cancel the sale.
+        void import("@/lib/audit-log")
+          .then((m) => m.logAudit({
+            action: "sale.create", entity: "sale", entity_id: rd.transactionId,
+            details: { total, method: payment.method, items: cart.length },
+          }))
+          .catch((err) => console.warn("[sale] audit log failed (non-fatal):", err));
+      }
       clearCart();
       setPayOpen(false);
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["products"] });
+      // If we came back online in the meantime, drain the queue.
+      if (navigator.onLine) void syncNow();
     },
     onError: (e) => {
       // Always log the real error for developers
@@ -431,9 +529,18 @@ function PosPage() {
   });
 
 
+  // Force cash tender while offline (card, tap, wallets need connectivity).
+  useEffect(() => {
+    if (!online && tender !== "cash") setTender("cash");
+  }, [online, tender]);
+
   const openPayment = () => {
     if (cart.length === 0) {
       toast.error("Cart is empty");
+      return;
+    }
+    if (!online && tender !== "cash") {
+      toast.error("Card payments require an internet connection.");
       return;
     }
     if (needsAgeVerification) {
@@ -532,17 +639,33 @@ function PosPage() {
           )}
         </div>
 
+        {!online && (
+          <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+            Offline mode — cash sales will be saved on this register and synced when connection returns. Card payments require an internet connection.
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-2 mb-3">
           {TENDER.map((t) => {
             const Icon = t.icon;
             const active = tender === t.id;
+            const disabled = !online && t.id !== "cash";
             return (
               <button
                 key={t.id}
-                onClick={() => setTender(t.id)}
+                onClick={() => {
+                  if (disabled) {
+                    toast.error("Card payments require an internet connection.");
+                    return;
+                  }
+                  setTender(t.id);
+                }}
+                disabled={disabled}
+                aria-disabled={disabled}
+                title={disabled ? "Card payments require an internet connection." : undefined}
                 className={cn(
                   "h-12 border rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors",
                   active ? "border-primary bg-primary/5 text-primary" : "bg-card hover:bg-accent",
+                  disabled && "opacity-40 cursor-not-allowed hover:bg-card",
                 )}
               >
                 <Icon className="size-3.5" />

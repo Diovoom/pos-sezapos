@@ -37,6 +37,7 @@ export type ReceiptData = {
   last4?: string | null;
   reference?: string | null;
   refund?: boolean;
+  pendingSync?: boolean;
 };
 
 /** 80mm thermal receipt — monospace, printer-friendly. */
@@ -65,6 +66,9 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
 
       {data.refund && (
         <div className="text-center font-bold text-[14px] mb-1">*** REFUND ***</div>
+      )}
+      {data.pendingSync && (
+        <div className="text-center font-bold text-[13px] mb-1">*** PENDING SYNCHRONIZATION ***</div>
       )}
 
       <Row l="Receipt #" r={String(data.receiptNumber)} />

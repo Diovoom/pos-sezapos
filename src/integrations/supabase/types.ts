@@ -144,6 +144,7 @@ export type Database = {
           amount: number
           created_at: string
           id: string
+          idempotency_key: string | null
           notes: string | null
           reason: string
           register_session_id: string
@@ -155,6 +156,7 @@ export type Database = {
           amount: number
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           notes?: string | null
           reason: string
           register_session_id: string
@@ -166,6 +168,7 @@ export type Database = {
           amount?: number
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           notes?: string | null
           reason?: string
           register_session_id?: string
@@ -982,7 +985,9 @@ export type Database = {
           customer_phone: string | null
           discount: number
           id: string
+          idempotency_key: string | null
           notes: string | null
+          offline_created_at: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           receipt_number: number | null
           refund_status: string
@@ -991,6 +996,7 @@ export type Database = {
           status: string
           store_id: string | null
           subtotal: number
+          synced_from_offline: boolean
           tax: number
           terminal_ref: string | null
           total: number
@@ -1005,7 +1011,9 @@ export type Database = {
           customer_phone?: string | null
           discount?: number
           id?: string
+          idempotency_key?: string | null
           notes?: string | null
+          offline_created_at?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           receipt_number?: number | null
           refund_status?: string
@@ -1014,6 +1022,7 @@ export type Database = {
           status?: string
           store_id?: string | null
           subtotal?: number
+          synced_from_offline?: boolean
           tax?: number
           terminal_ref?: string | null
           total?: number
@@ -1028,7 +1037,9 @@ export type Database = {
           customer_phone?: string | null
           discount?: number
           id?: string
+          idempotency_key?: string | null
           notes?: string | null
+          offline_created_at?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           receipt_number?: number | null
           refund_status?: string
@@ -1037,6 +1048,7 @@ export type Database = {
           status?: string
           store_id?: string | null
           subtotal?: number
+          synced_from_offline?: boolean
           tax?: number
           terminal_ref?: string | null
           total?: number

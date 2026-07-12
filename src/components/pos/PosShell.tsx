@@ -17,6 +17,7 @@ import {
   DoorOpen,
 } from "lucide-react";
 import { OpenDrawerDialog } from "@/components/pos/OpenDrawerDialog";
+import { OfflineIndicator } from "@/components/pos/OfflineIndicator";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -247,6 +248,8 @@ export function PosShell({ children }: { children: ReactNode }) {
           <Logo className="size-7 rounded-md" />
           <span className="text-sm font-semibold truncate">{me?.store?.name ?? "Store"}</span>
         </div>
+        <div className="flex items-center gap-2">
+          <OfflineIndicator />
         <Sheet open={mobileMenu} onOpenChange={setMobileMenu}>
           <SheetTrigger asChild>
             <Button
@@ -334,6 +337,7 @@ export function PosShell({ children }: { children: ReactNode }) {
             </nav>
           </SheetContent>
         </Sheet>
+        </div>
       </header>
 
       <main className="flex-1 min-w-0 flex flex-col overflow-hidden pt-12 md:pt-0 pb-14 md:pb-0">{children}</main>
