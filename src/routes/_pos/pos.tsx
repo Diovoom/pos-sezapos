@@ -146,15 +146,22 @@ function PosPage() {
 
   const { data: store } = useQuery({
     queryKey: ["store"],
-    queryFn: async () => (await supabase.from("stores").select("*").limit(1).maybeSingle()).data,
+    queryFn: async () => {
+      if (!navigator.onLine) return (await readMeta("store")) ?? null;
+      const { data } = await supabase.from("stores").select("*").limit(1).maybeSingle();
+      if (data) await cacheMeta("store", data);
+      return data;
+    },
   });
 
   const { data: profile } = useQuery({
     queryKey: ["me-profile"],
     queryFn: async () => {
+      if (!navigator.onLine) return (await readMeta("profile")) ?? null;
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return null;
       const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
+      if (data) await cacheMeta("profile", data);
       return data;
     },
   });
@@ -162,20 +169,36 @@ function PosPage() {
   const taxRate = Number(store?.tax_rate ?? 0.0825);
   const currency = store?.currency ?? "USD";
 
+  // Scope offline cache to this store — never leak another store's cache.
+  useEffect(() => { if (store?.id) void purgeIfStoreChanged(store.id); }, [store?.id]);
+
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["categories"],
-    queryFn: async () => (await supabase.from("categories").select("id,name").order("sort_order")).data ?? [],
+    queryFn: async () => {
+      if (!navigator.onLine) return (await readMeta<Category[]>("categories")) ?? [];
+      const { data } = await supabase.from("categories").select("id,name").order("sort_order");
+      const rows = data ?? [];
+      await cacheMeta("categories", rows);
+      return rows;
+    },
   });
 
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["products"],
     queryFn: async () => {
+      if (!navigator.onLine) {
+        const cached = await loadCachedProducts();
+        return cached as unknown as Product[];
+      }
       const { data } = await supabase
         .from("products")
         .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category")
         .eq("status", "active")
         .order("name");
-      return (data as Product[]) ?? [];
+      const rows = (data as Product[]) ?? [];
+      // Cache for offline reuse on this register.
+      void cacheProducts(rows as unknown as CachedProduct[]);
+      return rows;
     },
   });
 
