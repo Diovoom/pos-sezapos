@@ -528,9 +528,18 @@ function PosPage() {
   });
 
 
+  // Force cash tender while offline (card, tap, wallets need connectivity).
+  useEffect(() => {
+    if (!online && tender !== "cash") setTender("cash");
+  }, [online, tender]);
+
   const openPayment = () => {
     if (cart.length === 0) {
       toast.error("Cart is empty");
+      return;
+    }
+    if (!online && tender !== "cash") {
+      toast.error("Card payments require an internet connection.");
       return;
     }
     if (needsAgeVerification) {
