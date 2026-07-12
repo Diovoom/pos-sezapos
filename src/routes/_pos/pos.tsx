@@ -133,6 +133,7 @@ function PosPage() {
   const me = useMe();
   const canManage = (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager");
   const isMobile = useIsMobile();
+  const online = useOnline();
   const [cartOpen, setCartOpen] = useState(false);
   const [hasCameraCap, setHasCameraCap] = useState(false);
   useEffect(() => {
