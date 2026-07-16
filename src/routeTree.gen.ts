@@ -68,6 +68,7 @@ import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]
 import { Route as LovableSmsSendRouteImport } from './routes/lovable/sms/send'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as DashboardEmployeesIdRouteImport } from './routes/_dashboard/employees.$id'
+import { Route as AdminAppAdminSubscriptionsRouteImport } from './routes/_adminApp/admin.subscriptions'
 import { Route as AdminAppAdminBusinessesRouteImport } from './routes/_adminApp/admin.businesses'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -373,6 +374,12 @@ const DashboardEmployeesIdRoute = DashboardEmployeesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => DashboardEmployeesRoute,
 } as any)
+const AdminAppAdminSubscriptionsRoute =
+  AdminAppAdminSubscriptionsRouteImport.update({
+    id: '/subscriptions',
+    path: '/subscriptions',
+    getParentRoute: () => AdminAppAdminRoute,
+  } as any)
 const AdminAppAdminBusinessesRoute = AdminAppAdminBusinessesRouteImport.update({
   id: '/businesses',
   path: '/businesses',
@@ -487,6 +494,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
+  '/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
   '/employees/$id': typeof DashboardEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
@@ -555,6 +563,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
+  '/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
   '/employees/$id': typeof DashboardEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
@@ -627,6 +636,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_adminApp/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
+  '/_adminApp/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
   '/_dashboard/employees/$id': typeof DashboardEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
@@ -697,6 +707,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/admin/businesses'
+    | '/admin/subscriptions'
     | '/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
@@ -765,6 +776,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/admin/businesses'
+    | '/admin/subscriptions'
     | '/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
@@ -836,6 +848,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_adminApp/admin/businesses'
+    | '/_adminApp/admin/subscriptions'
     | '/_dashboard/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
@@ -1315,6 +1328,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardEmployeesIdRouteImport
       parentRoute: typeof DashboardEmployeesRoute
     }
+    '/_adminApp/admin/subscriptions': {
+      id: '/_adminApp/admin/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminAppAdminSubscriptionsRouteImport
+      parentRoute: typeof AdminAppAdminRoute
+    }
     '/_adminApp/admin/businesses': {
       id: '/_adminApp/admin/businesses'
       path: '/businesses'
@@ -1404,10 +1424,12 @@ const AdminAppAdminBusinessesRouteWithChildren =
 
 interface AdminAppAdminRouteChildren {
   AdminAppAdminBusinessesRoute: typeof AdminAppAdminBusinessesRouteWithChildren
+  AdminAppAdminSubscriptionsRoute: typeof AdminAppAdminSubscriptionsRoute
 }
 
 const AdminAppAdminRouteChildren: AdminAppAdminRouteChildren = {
   AdminAppAdminBusinessesRoute: AdminAppAdminBusinessesRouteWithChildren,
+  AdminAppAdminSubscriptionsRoute: AdminAppAdminSubscriptionsRoute,
 }
 
 const AdminAppAdminRouteWithChildren = AdminAppAdminRoute._addFileChildren(
