@@ -36,6 +36,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as PosRouteRouteImport } from './routes/_pos/route'
 import { Route as DashboardRouteRouteImport } from './routes/_dashboard/route'
+import { Route as AdminAppRouteRouteImport } from './routes/_adminApp/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LegalIndexRouteImport } from './routes/legal.index'
 import { Route as RIdRouteImport } from './routes/r.$id'
@@ -44,6 +45,7 @@ import { Route as LegalRefundRouteImport } from './routes/legal.refund'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as LegalSlugRouteImport } from './routes/legal.$slug'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
+import { Route as AdminAuthRouteImport } from './routes/admin.auth'
 import { Route as PosTimeclockRouteImport } from './routes/_pos/timeclock'
 import { Route as PosRegisterRouteImport } from './routes/_pos/register'
 import { Route as PosRefundsRouteImport } from './routes/_pos/refunds'
@@ -60,6 +62,7 @@ import { Route as DashboardInventoryRouteImport } from './routes/_dashboard/inve
 import { Route as DashboardEmployeesRouteImport } from './routes/_dashboard/employees'
 import { Route as DashboardDashboardRouteImport } from './routes/_dashboard/dashboard'
 import { Route as DashboardCustomersRouteImport } from './routes/_dashboard/customers'
+import { Route as AdminAppAdminRouteImport } from './routes/_adminApp/admin'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as LovableSmsSendRouteImport } from './routes/lovable/sms/send'
@@ -207,6 +210,10 @@ const DashboardRouteRoute = DashboardRouteRouteImport.update({
   id: '/_dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAppRouteRoute = AdminAppRouteRouteImport.update({
+  id: '/_adminApp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -245,6 +252,11 @@ const LegalSlugRoute = LegalSlugRouteImport.update({
 const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
   id: '/email/unsubscribe',
   path: '/email/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAuthRoute = AdminAuthRouteImport.update({
+  id: '/admin/auth',
+  path: '/admin/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PosTimeclockRoute = PosTimeclockRouteImport.update({
@@ -326,6 +338,11 @@ const DashboardCustomersRoute = DashboardCustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
   getParentRoute: () => DashboardRouteRoute,
+} as any)
+const AdminAppAdminRoute = AdminAppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AdminAppRouteRoute,
 } as any)
 const Char91DotwellKnownChar93OauthProtectedResourceRoute =
   Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
@@ -429,6 +446,7 @@ export interface FileRoutesByFullPath {
   '/unsubscribe': typeof UnsubscribeRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/admin': typeof AdminAppAdminRoute
   '/customers': typeof DashboardCustomersRoute
   '/dashboard': typeof DashboardDashboardRoute
   '/employees': typeof DashboardEmployeesRouteWithChildren
@@ -445,6 +463,7 @@ export interface FileRoutesByFullPath {
   '/refunds': typeof PosRefundsRoute
   '/register': typeof PosRegisterRoute
   '/timeclock': typeof PosTimeclockRoute
+  '/admin/auth': typeof AdminAuthRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/legal/privacy': typeof LegalPrivacyRoute
@@ -493,6 +512,7 @@ export interface FileRoutesByTo {
   '/unsubscribe': typeof UnsubscribeRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/admin': typeof AdminAppAdminRoute
   '/customers': typeof DashboardCustomersRoute
   '/dashboard': typeof DashboardDashboardRoute
   '/employees': typeof DashboardEmployeesRouteWithChildren
@@ -509,6 +529,7 @@ export interface FileRoutesByTo {
   '/refunds': typeof PosRefundsRoute
   '/register': typeof PosRegisterRoute
   '/timeclock': typeof PosTimeclockRoute
+  '/admin/auth': typeof AdminAuthRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/legal/privacy': typeof LegalPrivacyRoute
@@ -531,6 +552,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_adminApp': typeof AdminAppRouteRouteWithChildren
   '/_dashboard': typeof DashboardRouteRouteWithChildren
   '/_pos': typeof PosRouteRouteWithChildren
   '/about': typeof AboutRoute
@@ -560,6 +582,7 @@ export interface FileRoutesById {
   '/unsubscribe': typeof UnsubscribeRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/_adminApp/admin': typeof AdminAppAdminRoute
   '/_dashboard/customers': typeof DashboardCustomersRoute
   '/_dashboard/dashboard': typeof DashboardDashboardRoute
   '/_dashboard/employees': typeof DashboardEmployeesRouteWithChildren
@@ -576,6 +599,7 @@ export interface FileRoutesById {
   '/_pos/refunds': typeof PosRefundsRoute
   '/_pos/register': typeof PosRegisterRoute
   '/_pos/timeclock': typeof PosTimeclockRoute
+  '/admin/auth': typeof AdminAuthRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/legal/privacy': typeof LegalPrivacyRoute
@@ -626,6 +650,7 @@ export interface FileRouteTypes {
     | '/unsubscribe'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/admin'
     | '/customers'
     | '/dashboard'
     | '/employees'
@@ -642,6 +667,7 @@ export interface FileRouteTypes {
     | '/refunds'
     | '/register'
     | '/timeclock'
+    | '/admin/auth'
     | '/email/unsubscribe'
     | '/legal/$slug'
     | '/legal/privacy'
@@ -690,6 +716,7 @@ export interface FileRouteTypes {
     | '/unsubscribe'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/admin'
     | '/customers'
     | '/dashboard'
     | '/employees'
@@ -706,6 +733,7 @@ export interface FileRouteTypes {
     | '/refunds'
     | '/register'
     | '/timeclock'
+    | '/admin/auth'
     | '/email/unsubscribe'
     | '/legal/$slug'
     | '/legal/privacy'
@@ -727,6 +755,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/_adminApp'
     | '/_dashboard'
     | '/_pos'
     | '/about'
@@ -756,6 +785,7 @@ export interface FileRouteTypes {
     | '/unsubscribe'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/_adminApp/admin'
     | '/_dashboard/customers'
     | '/_dashboard/dashboard'
     | '/_dashboard/employees'
@@ -772,6 +802,7 @@ export interface FileRouteTypes {
     | '/_pos/refunds'
     | '/_pos/register'
     | '/_pos/timeclock'
+    | '/admin/auth'
     | '/email/unsubscribe'
     | '/legal/$slug'
     | '/legal/privacy'
@@ -794,6 +825,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminAppRouteRoute: typeof AdminAppRouteRouteWithChildren
   DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
   PosRouteRoute: typeof PosRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
@@ -823,6 +855,7 @@ export interface RootRouteChildren {
   UnsubscribeRoute: typeof UnsubscribeRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  AdminAuthRoute: typeof AdminAuthRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   LegalSlugRoute: typeof LegalSlugRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
@@ -1033,6 +1066,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_adminApp': {
+      id: '/_adminApp'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AdminAppRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -1087,6 +1127,13 @@ declare module '@tanstack/react-router' {
       path: '/email/unsubscribe'
       fullPath: '/email/unsubscribe'
       preLoaderRoute: typeof EmailUnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/auth': {
+      id: '/admin/auth'
+      path: '/admin/auth'
+      fullPath: '/admin/auth'
+      preLoaderRoute: typeof AdminAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_pos/timeclock': {
@@ -1201,6 +1248,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardCustomersRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/_adminApp/admin': {
+      id: '/_adminApp/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminAppAdminRouteImport
+      parentRoute: typeof AdminAppRouteRoute
+    }
     '/.well-known/oauth-protected-resource': {
       id: '/.well-known/oauth-protected-resource'
       path: '/.well-known/oauth-protected-resource'
@@ -1295,6 +1349,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminAppRouteRouteChildren {
+  AdminAppAdminRoute: typeof AdminAppAdminRoute
+}
+
+const AdminAppRouteRouteChildren: AdminAppRouteRouteChildren = {
+  AdminAppAdminRoute: AdminAppAdminRoute,
+}
+
+const AdminAppRouteRouteWithChildren = AdminAppRouteRoute._addFileChildren(
+  AdminAppRouteRouteChildren,
+)
+
 interface DashboardEmployeesRouteChildren {
   DashboardEmployeesIdRoute: typeof DashboardEmployeesIdRoute
 }
@@ -1360,6 +1426,7 @@ const PosRouteRouteWithChildren = PosRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminAppRouteRoute: AdminAppRouteRouteWithChildren,
   DashboardRouteRoute: DashboardRouteRouteWithChildren,
   PosRouteRoute: PosRouteRouteWithChildren,
   AboutRoute: AboutRoute,
@@ -1390,6 +1457,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  AdminAuthRoute: AdminAuthRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   LegalSlugRoute: LegalSlugRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
