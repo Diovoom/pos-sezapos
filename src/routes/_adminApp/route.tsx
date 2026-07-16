@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-export const Route = createFileRoute("/_admin")({
+export const Route = createFileRoute("/_adminApp")({
   ssr: false,
   head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }, { title: "SEZA Admin" }] }),
   beforeLoad: async () => {

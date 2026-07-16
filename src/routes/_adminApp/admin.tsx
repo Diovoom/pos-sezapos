@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Building2, CreditCard, Monitor, LifeBuoy, ScrollText, Settings as SettingsIcon } from "lucide-react";
 
-export const Route = createFileRoute("/_admin/")({
+export const Route = createFileRoute("/_adminApp/admin")({
   head: () => ({ meta: [{ title: "Overview — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }] }),
   component: AdminOverview,
 });
