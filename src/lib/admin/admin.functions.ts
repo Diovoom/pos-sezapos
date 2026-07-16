@@ -493,7 +493,7 @@ export const adminResendVerification = createServerFn({ method: "POST" })
     const { data: u, error: uErr } = await supabaseAdmin.auth.admin.getUserById(data.userId);
     if (uErr || !u?.user?.email) throw new Error("User not found");
     const { error } = await supabaseAdmin.auth.admin.generateLink({
-      type: "signup" as any,
+      type: "magiclink",
       email: u.user.email,
     });
     if (error) throw new Error(error.message);
