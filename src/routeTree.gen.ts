@@ -70,6 +70,7 @@ import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/em
 import { Route as DashboardEmployeesIdRouteImport } from './routes/_dashboard/employees.$id'
 import { Route as AdminAppAdminSupportRouteImport } from './routes/_adminApp/admin.support'
 import { Route as AdminAppAdminSubscriptionsRouteImport } from './routes/_adminApp/admin.subscriptions'
+import { Route as AdminAppAdminSettingsRouteImport } from './routes/_adminApp/admin.settings'
 import { Route as AdminAppAdminDevicesRouteImport } from './routes/_adminApp/admin.devices'
 import { Route as AdminAppAdminBusinessesRouteImport } from './routes/_adminApp/admin.businesses'
 import { Route as AdminAppAdminAuditLogsRouteImport } from './routes/_adminApp/admin.audit-logs'
@@ -389,6 +390,11 @@ const AdminAppAdminSubscriptionsRoute =
     path: '/subscriptions',
     getParentRoute: () => AdminAppAdminRoute,
   } as any)
+const AdminAppAdminSettingsRoute = AdminAppAdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminAppAdminRoute,
+} as any)
 const AdminAppAdminDevicesRoute = AdminAppAdminDevicesRouteImport.update({
   id: '/devices',
   path: '/devices',
@@ -521,6 +527,7 @@ export interface FileRoutesByFullPath {
   '/admin/audit-logs': typeof AdminAppAdminAuditLogsRoute
   '/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
   '/admin/devices': typeof AdminAppAdminDevicesRoute
+  '/admin/settings': typeof AdminAppAdminSettingsRoute
   '/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
   '/admin/support': typeof AdminAppAdminSupportRouteWithChildren
   '/employees/$id': typeof DashboardEmployeesIdRoute
@@ -594,6 +601,7 @@ export interface FileRoutesByTo {
   '/admin/audit-logs': typeof AdminAppAdminAuditLogsRoute
   '/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
   '/admin/devices': typeof AdminAppAdminDevicesRoute
+  '/admin/settings': typeof AdminAppAdminSettingsRoute
   '/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
   '/admin/support': typeof AdminAppAdminSupportRouteWithChildren
   '/employees/$id': typeof DashboardEmployeesIdRoute
@@ -671,6 +679,7 @@ export interface FileRoutesById {
   '/_adminApp/admin/audit-logs': typeof AdminAppAdminAuditLogsRoute
   '/_adminApp/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
   '/_adminApp/admin/devices': typeof AdminAppAdminDevicesRoute
+  '/_adminApp/admin/settings': typeof AdminAppAdminSettingsRoute
   '/_adminApp/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
   '/_adminApp/admin/support': typeof AdminAppAdminSupportRouteWithChildren
   '/_dashboard/employees/$id': typeof DashboardEmployeesIdRoute
@@ -746,6 +755,7 @@ export interface FileRouteTypes {
     | '/admin/audit-logs'
     | '/admin/businesses'
     | '/admin/devices'
+    | '/admin/settings'
     | '/admin/subscriptions'
     | '/admin/support'
     | '/employees/$id'
@@ -819,6 +829,7 @@ export interface FileRouteTypes {
     | '/admin/audit-logs'
     | '/admin/businesses'
     | '/admin/devices'
+    | '/admin/settings'
     | '/admin/subscriptions'
     | '/admin/support'
     | '/employees/$id'
@@ -895,6 +906,7 @@ export interface FileRouteTypes {
     | '/_adminApp/admin/audit-logs'
     | '/_adminApp/admin/businesses'
     | '/_adminApp/admin/devices'
+    | '/_adminApp/admin/settings'
     | '/_adminApp/admin/subscriptions'
     | '/_adminApp/admin/support'
     | '/_dashboard/employees/$id'
@@ -1391,6 +1403,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAppAdminSubscriptionsRouteImport
       parentRoute: typeof AdminAppAdminRoute
     }
+    '/_adminApp/admin/settings': {
+      id: '/_adminApp/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminAppAdminSettingsRouteImport
+      parentRoute: typeof AdminAppAdminRoute
+    }
     '/_adminApp/admin/devices': {
       id: '/_adminApp/admin/devices'
       path: '/devices'
@@ -1514,6 +1533,7 @@ interface AdminAppAdminRouteChildren {
   AdminAppAdminAuditLogsRoute: typeof AdminAppAdminAuditLogsRoute
   AdminAppAdminBusinessesRoute: typeof AdminAppAdminBusinessesRouteWithChildren
   AdminAppAdminDevicesRoute: typeof AdminAppAdminDevicesRoute
+  AdminAppAdminSettingsRoute: typeof AdminAppAdminSettingsRoute
   AdminAppAdminSubscriptionsRoute: typeof AdminAppAdminSubscriptionsRoute
   AdminAppAdminSupportRoute: typeof AdminAppAdminSupportRouteWithChildren
 }
@@ -1522,6 +1542,7 @@ const AdminAppAdminRouteChildren: AdminAppAdminRouteChildren = {
   AdminAppAdminAuditLogsRoute: AdminAppAdminAuditLogsRoute,
   AdminAppAdminBusinessesRoute: AdminAppAdminBusinessesRouteWithChildren,
   AdminAppAdminDevicesRoute: AdminAppAdminDevicesRoute,
+  AdminAppAdminSettingsRoute: AdminAppAdminSettingsRoute,
   AdminAppAdminSubscriptionsRoute: AdminAppAdminSubscriptionsRoute,
   AdminAppAdminSupportRoute: AdminAppAdminSupportRouteWithChildren,
 }
