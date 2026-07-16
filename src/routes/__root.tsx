@@ -182,6 +182,19 @@ function RootComponent() {
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
 
+  // admin.sezapos.com is the private platform admin surface — never serve
+  // marketing or the merchant dashboard on that host.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const host = window.location.hostname;
+    const path = window.location.pathname;
+    const isAdminHost = host === "admin.sezapos.com" || host.startsWith("admin.");
+    if (!isAdminHost) return;
+    if (path === "/" || (!path.startsWith("/admin") && !path.startsWith("/reset-password"))) {
+      window.location.replace("/admin");
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <PaymentTestModeBanner />
