@@ -380,12 +380,12 @@ export const adminUpdateBusinessContact = createServerFn({ method: "POST" })
     const reason = requireReason(data.reason);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await loadStoreOrThrow(supabaseAdmin, data.storeId);
-    const patch: Record<string, unknown> = {};
+    const patch: Record<string, any> = {};
     for (const k of ["name", "email", "phone", "website", "address", "city", "state", "zip"] as const) {
       if (data[k] !== undefined) patch[k] = data[k];
     }
     if (Object.keys(patch).length === 0) throw new Error("Nothing to update");
-    const { error } = await supabaseAdmin.from("stores").update(patch).eq("id", data.storeId);
+    const { error } = await supabaseAdmin.from("stores").update(patch as any).eq("id", data.storeId);
     if (error) throw new Error(error.message);
     await writeAudit(supabaseAdmin, {
       actor_id: context.userId,
@@ -417,7 +417,7 @@ export const adminExtendTrial = createServerFn({ method: "POST" })
       .eq("id", data.storeId);
     if (error) throw new Error(error.message);
     // Recompute plan derived state
-    await supabaseAdmin.rpc("recompute_store_plan", { _store_id: data.storeId }).catch(() => {});
+    try { await supabaseAdmin.rpc("recompute_store_plan", { _store_id: data.storeId }); } catch {}
     await writeAudit(supabaseAdmin, {
       actor_id: context.userId,
       actor_email: admin.email,
@@ -441,7 +441,7 @@ export const adminEndTrial = createServerFn({ method: "POST" })
     const past = new Date(Date.now() - 60_000).toISOString();
     const { error } = await supabaseAdmin.from("stores").update({ trial_ends_at: past }).eq("id", data.storeId);
     if (error) throw new Error(error.message);
-    await supabaseAdmin.rpc("recompute_store_plan", { _store_id: data.storeId }).catch(() => {});
+    try { await supabaseAdmin.rpc("recompute_store_plan", { _store_id: data.storeId }); } catch {}
     await writeAudit(supabaseAdmin, {
       actor_id: context.userId,
       actor_email: admin.email,
@@ -493,7 +493,7 @@ export const adminResendVerification = createServerFn({ method: "POST" })
     const { data: u, error: uErr } = await supabaseAdmin.auth.admin.getUserById(data.userId);
     if (uErr || !u?.user?.email) throw new Error("User not found");
     const { error } = await supabaseAdmin.auth.admin.generateLink({
-      type: "signup",
+      type: "signup" as any,
       email: u.user.email,
     });
     if (error) throw new Error(error.message);
@@ -803,7 +803,7 @@ export const adminRefreshSubscription = createServerFn({ method: "POST" })
         })
         .eq("id", data.subscriptionId);
       if (sub.store_id) {
-        await supabaseAdmin.rpc("recompute_store_plan", { _store_id: sub.store_id }).catch(() => {});
+        try { await supabaseAdmin.rpc("recompute_store_plan", { _store_id: sub.store_id }); } catch {}
       }
       await writeAudit(supabaseAdmin, {
         actor_id: context.userId,
@@ -1030,13 +1030,13 @@ export const adminUpdateTicket = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const patch: Record<string, unknown> = {};
+    const patch: Record<string, any> = {};
     for (const k of ["status", "priority", "category", "assigned_admin_id", "resolution"] as const) {
       if (data[k] !== undefined) patch[k] = data[k];
     }
     if (Object.keys(patch).length === 0) throw new Error("Nothing to update");
     const { data: t } = await supabaseAdmin.from("support_tickets").select("store_id").eq("id", data.ticketId).maybeSingle();
-    const { error } = await supabaseAdmin.from("support_tickets").update(patch).eq("id", data.ticketId);
+    const { error } = await supabaseAdmin.from("support_tickets").update(patch as any).eq("id", data.ticketId);
     if (error) throw new Error(error.message);
     await writeAudit(supabaseAdmin, {
       actor_id: context.userId,
