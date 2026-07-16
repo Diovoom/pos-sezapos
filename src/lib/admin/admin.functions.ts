@@ -1,0 +1,1198 @@
+import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  createStripeClient,
+  getStripeErrorMessage,
+  type StripeEnv,
+} from "@/lib/stripe.server";
+
+// ============================================================================
+// Shared helpers
+// ============================================================================
+
+async function ensureSuperAdmin(context: {
+  supabase: any;
+  userId: string;
+}): Promise<{ email: string | null }> {
+  const { data, error } = await context.supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", context.userId);
+  if (error) throw new Error("Authorization check failed");
+  const isSuper = (data ?? []).some((r: { role: string }) => r.role === "super_admin");
+  if (!isSuper) throw new Error("Forbidden: super_admin required");
+  const { data: user } = await context.supabase.auth.getUser();
+  return { email: user?.user?.email ?? null };
+}
+
+async function writeAudit(
+  supabaseAdmin: any,
+  entry: {
+    actor_id: string;
+    actor_email: string | null;
+    store_id?: string | null;
+    action: string;
+    entity?: string;
+    entity_id?: string;
+    details?: Record<string, unknown>;
+  },
+) {
+  await supabaseAdmin.from("audit_log").insert({
+    actor_id: entry.actor_id,
+    actor_email: entry.actor_email,
+    store_id: entry.store_id ?? null,
+    action: entry.action,
+    entity: entry.entity ?? null,
+    entity_id: entry.entity_id ?? null,
+    details: entry.details ?? {},
+  });
+}
+
+function requireReason(reason: string | undefined | null, min = 4): string {
+  const t = (reason ?? "").trim();
+  if (t.length < min) throw new Error("A reason of at least 4 characters is required");
+  return t;
+}
+
+// ============================================================================
+// Overview stats
+// ============================================================================
+
+export const adminOverviewStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const [
+      stores,
+      trialing,
+      active,
+      pastDue,
+      suspended,
+      terminals,
+      offlineTerminals,
+      openTickets,
+      recentErrors,
+    ] = await Promise.all([
+      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }).eq("plan_status", "trialing"),
+      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }).eq("plan_status", "active"),
+      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }).eq("plan_status", "past_due"),
+      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }).not("suspended_at", "is", null),
+      supabaseAdmin.from("payment_terminals").select("*", { count: "exact", head: true }),
+      supabaseAdmin
+        .from("payment_terminals")
+        .select("*", { count: "exact", head: true })
+        .or("last_seen_at.is.null,last_seen_at.lt." + new Date(Date.now() - 24 * 3600_000).toISOString()),
+      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).in("status", ["open", "investigating"]),
+      supabaseAdmin
+        .from("audit_log")
+        .select("*", { count: "exact", head: true })
+        .eq("action", "system.error")
+        .gte("created_at", new Date(Date.now() - 7 * 24 * 3600_000).toISOString()),
+    ]);
+
+    const { data: recent } = await supabaseAdmin
+      .from("audit_log")
+      .select("id, action, actor_email, entity, entity_id, store_id, created_at, details")
+      .order("created_at", { ascending: false })
+      .limit(15);
+
+    return {
+      totals: {
+        businesses: stores.count ?? 0,
+        trialing: trialing.count ?? 0,
+        active: active.count ?? 0,
+        past_due: pastDue.count ?? 0,
+        suspended: suspended.count ?? 0,
+        devices: terminals.count ?? 0,
+        offline_devices: offlineTerminals.count ?? 0,
+        open_tickets: openTickets.count ?? 0,
+        recent_errors: recentErrors.count ?? 0,
+      },
+      recent: recent ?? [],
+    };
+  });
+
+// ============================================================================
+// Global search
+// ============================================================================
+
+export const adminGlobalSearch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { query: string }) => data)
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context);
+    if (!data.query || data.query.trim().length < 1) return { results: [] };
+    const { data: results, error } = await context.supabase.rpc("admin_global_search", {
+      _q: data.query.trim(),
+      _limit: 25,
+    });
+    if (error) throw new Error(error.message);
+    return { results: results ?? [] };
+  });
+
+// ============================================================================
+// Businesses
+// ============================================================================
+
+export const adminListBusinesses = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      filter?: string;
+      search?: string;
+      page?: number;
+      pageSize?: number;
+    }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const page = Math.max(1, data.page ?? 1);
+    const pageSize = Math.min(100, data.pageSize ?? 25);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let q = supabaseAdmin
+      .from("stores")
+      .select(
+        "id, name, email, phone, city, country, store_code, plan_tier, plan_status, plan_period_end, trial_ends_at, suspended_at, created_at, updated_at",
+        { count: "exact" },
+      )
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    switch (data.filter) {
+      case "active":
+        q = q.eq("plan_status", "active");
+        break;
+      case "trial":
+        q = q.eq("plan_status", "trialing");
+        break;
+      case "past_due":
+        q = q.eq("plan_status", "past_due");
+        break;
+      case "expired":
+        q = q.eq("plan_status", "expired");
+        break;
+      case "canceled":
+        q = q.eq("plan_status", "canceled");
+        break;
+      case "suspended":
+        q = q.not("suspended_at", "is", null);
+        break;
+    }
+    if (data.search && data.search.trim()) {
+      const s = data.search.trim();
+      q = q.or(`name.ilike.%${s}%,email.ilike.%${s}%,store_code.ilike.%${s}%,phone.ilike.%${s}%`);
+    }
+
+    const { data: rows, count, error } = await q;
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [], count: count ?? 0, page, pageSize };
+  });
+
+export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { storeId: string }) => data)
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const storeId = data.storeId;
+
+    const [store, employees, products, terminals, openShifts, sub, sales, recentActivity, recentIssues, tickets] =
+      await Promise.all([
+        supabaseAdmin.from("stores").select("*").eq("id", storeId).maybeSingle(),
+        supabaseAdmin
+          .from("profiles")
+          .select("id, full_name, email, phone, status, employee_id, created_at, updated_at")
+          .eq("store_id", storeId),
+        supabaseAdmin.from("products").select("*", { count: "exact", head: true }).eq("store_id", storeId),
+        supabaseAdmin
+          .from("payment_terminals")
+          .select("*")
+          .eq("store_id", storeId)
+          .order("created_at", { ascending: false }),
+        supabaseAdmin
+          .from("register_sessions")
+          .select("id, opened_at, opened_by, status")
+          .eq("store_id", storeId)
+          .eq("status", "open"),
+        supabaseAdmin
+          .from("subscriptions")
+          .select("*")
+          .eq("store_id", storeId)
+          .order("created_at", { ascending: false }),
+        supabaseAdmin
+          .from("sales")
+          .select("id, total, status, created_at, payment_method, receipt_number, refund_status")
+          .eq("store_id", storeId)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabaseAdmin
+          .from("audit_log")
+          .select("id, action, actor_email, entity, entity_id, created_at, details")
+          .eq("store_id", storeId)
+          .order("created_at", { ascending: false })
+          .limit(50),
+        supabaseAdmin
+          .from("payment_attempts")
+          .select("id, method, status, message, amount, created_at")
+          .eq("store_id", storeId)
+          .in("status", ["declined", "failed", "error"])
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabaseAdmin
+          .from("support_tickets")
+          .select("id, ticket_number, subject, status, priority, created_at, updated_at")
+          .eq("store_id", storeId)
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
+
+    if (!store.data) throw new Error("Business not found");
+
+    const ownerRoles = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id, role")
+      .eq("store_id", storeId)
+      .in("role", ["owner", "admin"]);
+    const ownerIds = (ownerRoles.data ?? []).map((r: any) => r.user_id);
+    const ownerProfiles =
+      ownerIds.length > 0
+        ? await supabaseAdmin.from("profiles").select("id, full_name, email, phone").in("id", ownerIds)
+        : { data: [] };
+
+    // Last activity: most recent sale or audit event.
+    const lastSale = sales.data?.[0]?.created_at ?? null;
+    const lastAudit = recentActivity.data?.[0]?.created_at ?? null;
+    const lastActivity = [lastSale, lastAudit].filter(Boolean).sort().reverse()[0] ?? null;
+
+    // Failed sync check via terminals last_seen_at within 24h
+    const now = Date.now();
+    const offlineTerminals = (terminals.data ?? []).filter(
+      (t: any) => !t.last_seen_at || new Date(t.last_seen_at).getTime() < now - 24 * 3600_000,
+    );
+
+    return {
+      store: store.data,
+      owners: ownerProfiles.data ?? [],
+      counts: {
+        employees: (employees.data ?? []).length,
+        products: products.count ?? 0,
+        terminals: (terminals.data ?? []).length,
+        open_shifts: (openShifts.data ?? []).length,
+      },
+      employees: employees.data ?? [],
+      terminals: terminals.data ?? [],
+      offline_terminals: offlineTerminals.length,
+      subscription: sub.data?.[0] ?? null,
+      subscriptions: sub.data ?? [],
+      recent_sales: sales.data ?? [],
+      recent_activity: recentActivity.data ?? [],
+      recent_issues: recentIssues.data ?? [],
+      tickets: tickets.data ?? [],
+      last_activity: lastActivity,
+    };
+  });
+
+// ============================================================================
+// Businesses — safe mutations
+// ============================================================================
+
+async function loadStoreOrThrow(supabaseAdmin: any, id: string) {
+  const { data, error } = await supabaseAdmin.from("stores").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Business not found");
+  return data;
+}
+
+export const adminSuspendBusiness = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { storeId: string; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await loadStoreOrThrow(supabaseAdmin, data.storeId);
+    const { error } = await supabaseAdmin
+      .from("stores")
+      .update({ suspended_at: new Date().toISOString(), suspended_reason: reason })
+      .eq("id", data.storeId);
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: data.storeId,
+      action: "admin.business.suspend",
+      entity: "store",
+      entity_id: data.storeId,
+      details: { reason },
+    });
+    return { ok: true };
+  });
+
+export const adminUnsuspendBusiness = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { storeId: string; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await loadStoreOrThrow(supabaseAdmin, data.storeId);
+    const { error } = await supabaseAdmin
+      .from("stores")
+      .update({ suspended_at: null, suspended_reason: null })
+      .eq("id", data.storeId);
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: data.storeId,
+      action: "admin.business.unsuspend",
+      entity: "store",
+      entity_id: data.storeId,
+      details: { reason },
+    });
+    return { ok: true };
+  });
+
+export const adminUpdateBusinessContact = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      storeId: string;
+      reason: string;
+      name?: string;
+      email?: string;
+      phone?: string;
+      website?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      zip?: string;
+    }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await loadStoreOrThrow(supabaseAdmin, data.storeId);
+    const patch: Record<string, unknown> = {};
+    for (const k of ["name", "email", "phone", "website", "address", "city", "state", "zip"] as const) {
+      if (data[k] !== undefined) patch[k] = data[k];
+    }
+    if (Object.keys(patch).length === 0) throw new Error("Nothing to update");
+    const { error } = await supabaseAdmin.from("stores").update(patch).eq("id", data.storeId);
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: data.storeId,
+      action: "admin.business.update_contact",
+      entity: "store",
+      entity_id: data.storeId,
+      details: { reason, patch },
+    });
+    return { ok: true };
+  });
+
+export const adminExtendTrial = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { storeId: string; days: number; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    if (!Number.isFinite(data.days) || data.days <= 0 || data.days > 365)
+      throw new Error("Invalid extension length");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const store = await loadStoreOrThrow(supabaseAdmin, data.storeId);
+    const base = store.trial_ends_at ? new Date(store.trial_ends_at) : new Date();
+    const newEnd = new Date(Math.max(base.getTime(), Date.now()) + data.days * 24 * 3600_000);
+    const { error } = await supabaseAdmin
+      .from("stores")
+      .update({ trial_ends_at: newEnd.toISOString() })
+      .eq("id", data.storeId);
+    if (error) throw new Error(error.message);
+    // Recompute plan derived state
+    await supabaseAdmin.rpc("recompute_store_plan", { _store_id: data.storeId }).catch(() => {});
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: data.storeId,
+      action: "admin.trial.extend",
+      entity: "store",
+      entity_id: data.storeId,
+      details: { reason, days: data.days, new_end: newEnd.toISOString() },
+    });
+    return { ok: true, trial_ends_at: newEnd.toISOString() };
+  });
+
+export const adminEndTrial = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { storeId: string; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await loadStoreOrThrow(supabaseAdmin, data.storeId);
+    const past = new Date(Date.now() - 60_000).toISOString();
+    const { error } = await supabaseAdmin.from("stores").update({ trial_ends_at: past }).eq("id", data.storeId);
+    if (error) throw new Error(error.message);
+    await supabaseAdmin.rpc("recompute_store_plan", { _store_id: data.storeId }).catch(() => {});
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: data.storeId,
+      action: "admin.trial.end",
+      entity: "store",
+      entity_id: data.storeId,
+      details: { reason },
+    });
+    return { ok: true };
+  });
+
+// ============================================================================
+// Auth actions (password reset, resend verification, revoke sessions)
+// ============================================================================
+
+export const adminSendPasswordReset = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { userId: string; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: u, error: uErr } = await supabaseAdmin.auth.admin.getUserById(data.userId);
+    if (uErr || !u?.user?.email) throw new Error("User not found");
+    const { error } = await supabaseAdmin.auth.admin.generateLink({
+      type: "recovery",
+      email: u.user.email,
+    });
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      action: "admin.user.password_reset",
+      entity: "user",
+      entity_id: data.userId,
+      details: { reason, email: u.user.email },
+    });
+    return { ok: true };
+  });
+
+export const adminResendVerification = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { userId: string; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: u, error: uErr } = await supabaseAdmin.auth.admin.getUserById(data.userId);
+    if (uErr || !u?.user?.email) throw new Error("User not found");
+    const { error } = await supabaseAdmin.auth.admin.generateLink({
+      type: "signup",
+      email: u.user.email,
+    });
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      action: "admin.user.resend_verification",
+      entity: "user",
+      entity_id: data.userId,
+      details: { reason, email: u.user.email },
+    });
+    return { ok: true };
+  });
+
+export const adminRevokeSessions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { userId: string; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.signOut(data.userId, "global");
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      action: "admin.user.revoke_sessions",
+      entity: "user",
+      entity_id: data.userId,
+      details: { reason },
+    });
+    return { ok: true };
+  });
+
+// ============================================================================
+// Employees
+// ============================================================================
+
+export const adminSetEmployeeStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { userId: string; status: "active" | "disabled"; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    if (data.status !== "active" && data.status !== "disabled") throw new Error("Invalid status");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profile } = await supabaseAdmin.from("profiles").select("store_id").eq("id", data.userId).maybeSingle();
+    const { error } = await supabaseAdmin.from("profiles").update({ status: data.status }).eq("id", data.userId);
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: profile?.store_id ?? null,
+      action: data.status === "disabled" ? "admin.employee.disable" : "admin.employee.reactivate",
+      entity: "user",
+      entity_id: data.userId,
+      details: { reason },
+    });
+    return { ok: true };
+  });
+
+export const adminResetEmployeePin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { userId: string; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profile } = await supabaseAdmin.from("profiles").select("store_id").eq("id", data.userId).maybeSingle();
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({ pin_hash: null, must_change_pin: true })
+      .eq("id", data.userId);
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: profile?.store_id ?? null,
+      action: "admin.employee.reset_pin",
+      entity: "user",
+      entity_id: data.userId,
+      details: { reason },
+    });
+    return { ok: true };
+  });
+
+export const adminChangeEmployeeRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      userId: string;
+      storeId: string;
+      role: "owner" | "admin" | "manager" | "cashier";
+      reason: string;
+    }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const allowed = ["owner", "admin", "manager", "cashier"];
+    if (!allowed.includes(data.role)) throw new Error("Invalid role");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Remove other roles for this user in this store, then insert the new role.
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId).eq("store_id", data.storeId);
+    const { error } = await supabaseAdmin
+      .from("user_roles")
+      .insert({ user_id: data.userId, role: data.role, store_id: data.storeId });
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: data.storeId,
+      action: "admin.employee.change_role",
+      entity: "user",
+      entity_id: data.userId,
+      details: { reason, role: data.role },
+    });
+    return { ok: true };
+  });
+
+// ============================================================================
+// Devices / terminals
+// ============================================================================
+
+export const adminRenameTerminal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { terminalId: string; label: string; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    if (!data.label.trim()) throw new Error("Label is required");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: term } = await supabaseAdmin.from("payment_terminals").select("store_id").eq("id", data.terminalId).maybeSingle();
+    const { error } = await supabaseAdmin
+      .from("payment_terminals")
+      .update({ label: data.label.trim() })
+      .eq("id", data.terminalId);
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: term?.store_id ?? null,
+      action: "admin.terminal.rename",
+      entity: "terminal",
+      entity_id: data.terminalId,
+      details: { reason, label: data.label.trim() },
+    });
+    return { ok: true };
+  });
+
+export const adminSetTerminalStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { terminalId: string; status: "active" | "inactive"; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    if (data.status !== "active" && data.status !== "inactive") throw new Error("Invalid status");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: term } = await supabaseAdmin.from("payment_terminals").select("store_id").eq("id", data.terminalId).maybeSingle();
+    const { error } = await supabaseAdmin
+      .from("payment_terminals")
+      .update({ status: data.status })
+      .eq("id", data.terminalId);
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: term?.store_id ?? null,
+      action: data.status === "inactive" ? "admin.terminal.deactivate" : "admin.terminal.activate",
+      entity: "terminal",
+      entity_id: data.terminalId,
+      details: { reason },
+    });
+    return { ok: true };
+  });
+
+export const adminRevokeTerminal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { terminalId: string; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: term } = await supabaseAdmin.from("payment_terminals").select("store_id, label").eq("id", data.terminalId).maybeSingle();
+    const { error } = await supabaseAdmin
+      .from("payment_terminals")
+      .update({ status: "revoked", config: {} })
+      .eq("id", data.terminalId);
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: term?.store_id ?? null,
+      action: "admin.terminal.revoke",
+      entity: "terminal",
+      entity_id: data.terminalId,
+      details: { reason, label: term?.label },
+    });
+    return { ok: true };
+  });
+
+export const adminListDevices = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { filter?: string; page?: number; pageSize?: number }) => data)
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const page = Math.max(1, data.page ?? 1);
+    const pageSize = Math.min(100, data.pageSize ?? 50);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    let q = supabaseAdmin
+      .from("payment_terminals")
+      .select("id, store_id, label, provider, serial, status, last_seen_at, created_at, config", { count: "exact" })
+      .order("last_seen_at", { ascending: false, nullsFirst: false })
+      .range(from, to);
+    if (data.filter === "offline") {
+      const cutoff = new Date(Date.now() - 24 * 3600_000).toISOString();
+      q = q.or(`last_seen_at.is.null,last_seen_at.lt.${cutoff}`);
+    }
+    const { data: rows, count, error } = await q;
+    if (error) throw new Error(error.message);
+    // fetch store names
+    const storeIds = Array.from(new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean)));
+    const storesMap = new Map<string, string>();
+    if (storeIds.length) {
+      const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
+      (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
+    }
+    return {
+      rows: (rows ?? []).map((r: any) => ({ ...r, store_name: storesMap.get(r.store_id) ?? "—" })),
+      count: count ?? 0,
+      page,
+      pageSize,
+    };
+  });
+
+// ============================================================================
+// Subscriptions
+// ============================================================================
+
+export const adminListSubscriptions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { filter?: string; page?: number; pageSize?: number }) => data)
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const page = Math.max(1, data.page ?? 1);
+    const pageSize = Math.min(100, data.pageSize ?? 50);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    let q = supabaseAdmin
+      .from("subscriptions")
+      .select(
+        "id, store_id, user_id, price_id, status, current_period_start, current_period_end, cancel_at_period_end, environment, stripe_customer_id, stripe_subscription_id, updated_at",
+        { count: "exact" },
+      )
+      .order("updated_at", { ascending: false })
+      .range(from, to);
+    if (data.filter && data.filter !== "all") q = q.eq("status", data.filter);
+    const { data: rows, count, error } = await q;
+    if (error) throw new Error(error.message);
+    const storeIds = Array.from(new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean)));
+    const storesMap = new Map<string, { name: string; email: string | null }>();
+    if (storeIds.length) {
+      const { data: stores } = await supabaseAdmin.from("stores").select("id, name, email").in("id", storeIds);
+      (stores ?? []).forEach((s: any) => storesMap.set(s.id, { name: s.name, email: s.email }));
+    }
+    return {
+      rows: (rows ?? []).map((r: any) => ({
+        ...r,
+        store_name: storesMap.get(r.store_id)?.name ?? "—",
+        store_email: storesMap.get(r.store_id)?.email ?? null,
+      })),
+      count: count ?? 0,
+      page,
+      pageSize,
+    };
+  });
+
+export const adminRefreshSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { subscriptionId: string; environment: StripeEnv }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("id, store_id, stripe_subscription_id, environment")
+      .eq("id", data.subscriptionId)
+      .maybeSingle();
+    if (!sub?.stripe_subscription_id) throw new Error("Subscription not linked to Stripe");
+    try {
+      const stripe = createStripeClient(data.environment);
+      const s = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+      const item = s.items?.data?.[0];
+      const periodEnd = (item as any)?.current_period_end ?? (s as any).current_period_end;
+      const periodStart = (item as any)?.current_period_start ?? (s as any).current_period_start;
+      await supabaseAdmin
+        .from("subscriptions")
+        .update({
+          status: s.status,
+          current_period_start: periodStart ? new Date(periodStart * 1000).toISOString() : null,
+          current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+          cancel_at_period_end: s.cancel_at_period_end ?? false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", data.subscriptionId);
+      if (sub.store_id) {
+        await supabaseAdmin.rpc("recompute_store_plan", { _store_id: sub.store_id }).catch(() => {});
+      }
+      await writeAudit(supabaseAdmin, {
+        actor_id: context.userId,
+        actor_email: admin.email,
+        store_id: sub.store_id ?? null,
+        action: "admin.subscription.refresh",
+        entity: "subscription",
+        entity_id: data.subscriptionId,
+        details: { stripe_status: s.status },
+      });
+      return { ok: true, status: s.status };
+    } catch (error) {
+      return { error: getStripeErrorMessage(error) };
+    }
+  });
+
+export const adminCancelSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { subscriptionId: string; environment: StripeEnv; reason: string; atPeriodEnd: boolean }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("id, store_id, stripe_subscription_id")
+      .eq("id", data.subscriptionId)
+      .maybeSingle();
+    if (!sub?.stripe_subscription_id) throw new Error("Subscription not linked to Stripe");
+    try {
+      const stripe = createStripeClient(data.environment);
+      const updated = data.atPeriodEnd
+        ? await stripe.subscriptions.update(sub.stripe_subscription_id, { cancel_at_period_end: true })
+        : await stripe.subscriptions.cancel(sub.stripe_subscription_id);
+      await supabaseAdmin
+        .from("subscriptions")
+        .update({
+          status: updated.status,
+          cancel_at_period_end: updated.cancel_at_period_end ?? false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", data.subscriptionId);
+      await writeAudit(supabaseAdmin, {
+        actor_id: context.userId,
+        actor_email: admin.email,
+        store_id: sub.store_id ?? null,
+        action: data.atPeriodEnd ? "admin.subscription.cancel_at_period_end" : "admin.subscription.cancel_now",
+        entity: "subscription",
+        entity_id: data.subscriptionId,
+        details: { reason },
+      });
+      return { ok: true, status: updated.status };
+    } catch (error) {
+      return { error: getStripeErrorMessage(error) };
+    }
+  });
+
+export const adminRestoreSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { subscriptionId: string; environment: StripeEnv; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("id, store_id, stripe_subscription_id")
+      .eq("id", data.subscriptionId)
+      .maybeSingle();
+    if (!sub?.stripe_subscription_id) throw new Error("Subscription not linked to Stripe");
+    try {
+      const stripe = createStripeClient(data.environment);
+      const updated = await stripe.subscriptions.update(sub.stripe_subscription_id, {
+        cancel_at_period_end: false,
+      });
+      await supabaseAdmin
+        .from("subscriptions")
+        .update({
+          status: updated.status,
+          cancel_at_period_end: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", data.subscriptionId);
+      await writeAudit(supabaseAdmin, {
+        actor_id: context.userId,
+        actor_email: admin.email,
+        store_id: sub.store_id ?? null,
+        action: "admin.subscription.restore",
+        entity: "subscription",
+        entity_id: data.subscriptionId,
+        details: { reason },
+      });
+      return { ok: true, status: updated.status };
+    } catch (error) {
+      return { error: getStripeErrorMessage(error) };
+    }
+  });
+
+// ============================================================================
+// Support tickets
+// ============================================================================
+
+export const adminListTickets = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { status?: string; storeId?: string; page?: number; pageSize?: number }) => data)
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const page = Math.max(1, data.page ?? 1);
+    const pageSize = Math.min(100, data.pageSize ?? 50);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    let q = supabaseAdmin
+      .from("support_tickets")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+    if (data.status && data.status !== "all") q = q.eq("status", data.status);
+    if (data.storeId) q = q.eq("store_id", data.storeId);
+    const { data: rows, count, error } = await q;
+    if (error) throw new Error(error.message);
+    const storeIds = Array.from(new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean)));
+    const storesMap = new Map<string, string>();
+    if (storeIds.length) {
+      const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
+      (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
+    }
+    return {
+      rows: (rows ?? []).map((r: any) => ({ ...r, store_name: storesMap.get(r.store_id) ?? null })),
+      count: count ?? 0,
+      page,
+      pageSize,
+    };
+  });
+
+export const adminGetTicket = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { ticketId: string }) => data)
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: ticket, error } = await supabaseAdmin
+      .from("support_tickets")
+      .select("*")
+      .eq("id", data.ticketId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!ticket) throw new Error("Ticket not found");
+    const { data: notes } = await supabaseAdmin
+      .from("support_ticket_notes")
+      .select("*")
+      .eq("ticket_id", data.ticketId)
+      .order("created_at", { ascending: true });
+    let store = null;
+    if (ticket.store_id) {
+      const { data: s } = await supabaseAdmin.from("stores").select("id, name, email").eq("id", ticket.store_id).maybeSingle();
+      store = s ?? null;
+    }
+    return { ticket, notes: notes ?? [], store };
+  });
+
+export const adminCreateTicket = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      storeId?: string;
+      subject: string;
+      category?: string;
+      priority?: string;
+      body?: string;
+    }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    if (!data.subject.trim()) throw new Error("Subject required");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: t, error } = await supabaseAdmin
+      .from("support_tickets")
+      .insert({
+        store_id: data.storeId ?? null,
+        subject: data.subject.trim(),
+        category: data.category ?? "general",
+        priority: data.priority ?? "normal",
+        status: "open",
+        assigned_admin_id: context.userId,
+        requester_email: admin.email,
+      })
+      .select("id, ticket_number")
+      .single();
+    if (error) throw new Error(error.message);
+    if (data.body?.trim()) {
+      await supabaseAdmin.from("support_ticket_notes").insert({
+        ticket_id: t.id,
+        author_id: context.userId,
+        author_email: admin.email,
+        body: data.body.trim(),
+        internal: false,
+      });
+    }
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: data.storeId ?? null,
+      action: "admin.ticket.create",
+      entity: "ticket",
+      entity_id: t.id,
+      details: { subject: data.subject, priority: data.priority ?? "normal" },
+    });
+    return { ok: true, id: t.id, ticket_number: t.ticket_number };
+  });
+
+export const adminUpdateTicket = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      ticketId: string;
+      status?: string;
+      priority?: string;
+      category?: string;
+      assigned_admin_id?: string | null;
+      resolution?: string;
+    }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const patch: Record<string, unknown> = {};
+    for (const k of ["status", "priority", "category", "assigned_admin_id", "resolution"] as const) {
+      if (data[k] !== undefined) patch[k] = data[k];
+    }
+    if (Object.keys(patch).length === 0) throw new Error("Nothing to update");
+    const { data: t } = await supabaseAdmin.from("support_tickets").select("store_id").eq("id", data.ticketId).maybeSingle();
+    const { error } = await supabaseAdmin.from("support_tickets").update(patch).eq("id", data.ticketId);
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: t?.store_id ?? null,
+      action: "admin.ticket.update",
+      entity: "ticket",
+      entity_id: data.ticketId,
+      details: patch,
+    });
+    return { ok: true };
+  });
+
+export const adminAddTicketNote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { ticketId: string; body: string; internal: boolean }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    if (!data.body.trim()) throw new Error("Note body required");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("support_ticket_notes").insert({
+      ticket_id: data.ticketId,
+      author_id: context.userId,
+      author_email: admin.email,
+      body: data.body.trim(),
+      internal: data.internal,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ============================================================================
+// Audit logs
+// ============================================================================
+
+export const adminListAuditLogs = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: { storeId?: string; action?: string; actorEmail?: string; page?: number; pageSize?: number }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const page = Math.max(1, data.page ?? 1);
+    const pageSize = Math.min(200, data.pageSize ?? 100);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    let q = supabaseAdmin
+      .from("audit_log")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+    if (data.storeId) q = q.eq("store_id", data.storeId);
+    if (data.action) q = q.ilike("action", `%${data.action}%`);
+    if (data.actorEmail) q = q.ilike("actor_email", `%${data.actorEmail}%`);
+    const { data: rows, count, error } = await q;
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [], count: count ?? 0, page, pageSize };
+  });
+
+// ============================================================================
+// Support view sessions
+// ============================================================================
+
+export const adminStartSupportSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { storeId: string; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const reason = requireReason(data.reason);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const expires = new Date(Date.now() + 30 * 60_000).toISOString();
+    const { data: row, error } = await supabaseAdmin
+      .from("admin_support_sessions")
+      .insert({
+        admin_id: context.userId,
+        admin_email: admin.email,
+        store_id: data.storeId,
+        reason,
+        expires_at: expires,
+      })
+      .select("id, expires_at")
+      .single();
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: data.storeId,
+      action: "admin.support_view.start",
+      entity: "support_session",
+      entity_id: row.id,
+      details: { reason },
+    });
+    return { ok: true, id: row.id, expires_at: row.expires_at };
+  });
+
+export const adminEndSupportSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { sessionId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: sess } = await supabaseAdmin
+      .from("admin_support_sessions")
+      .select("store_id")
+      .eq("id", data.sessionId)
+      .maybeSingle();
+    const { error } = await supabaseAdmin
+      .from("admin_support_sessions")
+      .update({ ended_at: new Date().toISOString() })
+      .eq("id", data.sessionId)
+      .is("ended_at", null);
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: sess?.store_id ?? null,
+      action: "admin.support_view.end",
+      entity: "support_session",
+      entity_id: data.sessionId,
+    });
+    return { ok: true };
+  });
+
+export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("admin_support_sessions")
+      .select("id, store_id, started_at, expires_at, reason")
+      .eq("admin_id", context.userId)
+      .is("ended_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return { session: data ?? null };
+  });
+
+// ============================================================================
+// Platform health
+// ============================================================================
+
+export const adminPlatformHealth = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const dbOk = await supabaseAdmin.from("stores").select("id", { head: true, count: "exact" }).limit(1);
+    return {
+      database: dbOk.error ? { ok: false, error: dbOk.error.message } : { ok: true },
+      stripe_sandbox: { configured: !!process.env.STRIPE_SANDBOX_API_KEY },
+      stripe_live: { configured: !!process.env.STRIPE_LIVE_API_KEY },
+      email: { configured: true },
+      app_version: process.env.LOVABLE_BUILD_ID ?? "dev",
+    };
+  });
