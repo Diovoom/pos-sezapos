@@ -1,47 +1,110 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { adminOverviewStats } from "@/lib/admin/admin.functions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Building2, CreditCard, Monitor, LifeBuoy, ScrollText, Settings as SettingsIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { Building2, CreditCard, Monitor, LifeBuoy, ScrollText, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/_adminApp/admin")({
   head: () => ({ meta: [{ title: "Overview — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }] }),
   component: AdminOverview,
 });
 
-const SECTIONS = [
-  { title: "Businesses", desc: "Merchants, stores, owners.", icon: Building2 },
-  { title: "Subscriptions", desc: "Plans, billing status, trials.", icon: CreditCard },
-  { title: "Devices", desc: "Registers, terminals, printers.", icon: Monitor },
-  { title: "Support", desc: "Tickets and merchant assistance.", icon: LifeBuoy },
-  { title: "Audit Logs", desc: "Platform-wide activity.", icon: ScrollText },
-  { title: "Settings", desc: "Platform configuration.", icon: SettingsIcon },
-];
+function StatCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: any; tone?: string }) {
+  return (
+    <Card>
+      <CardContent className="p-4 flex items-center justify-between">
+        <div>
+          <div className="text-2xl font-bold">{value.toLocaleString()}</div>
+          <div className="text-xs text-muted-foreground">{label}</div>
+        </div>
+        <Icon className={`h-8 w-8 ${tone ?? "text-primary"}`} />
+      </CardContent>
+    </Card>
+  );
+}
 
 function AdminOverview() {
+  const fetchStats = useServerFn(adminOverviewStats);
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin_overview_stats"],
+    queryFn: () => fetchStats(),
+    refetchInterval: 30_000,
+  });
+
+  const t = data?.totals;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
-        <p className="text-sm text-muted-foreground">Welcome to the SEZA platform admin console.</p>
+        <p className="text-sm text-muted-foreground">Live platform totals from production data.</p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {SECTIONS.map((s) => {
-          const Icon = s.icon;
-          return (
-            <Card key={s.title}>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Icon className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base">{s.title}</CardTitle>
+
+      {isLoading || !t ? (
+        <div className="text-sm text-muted-foreground">Loading…</div>
+      ) : (
+        <>
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            <StatCard label="Businesses" value={t.businesses} icon={Building2} />
+            <StatCard label="Active" value={t.active} icon={CheckCircle2} tone="text-green-600" />
+            <StatCard label="Trials" value={t.trialing} icon={Clock} tone="text-blue-600" />
+            <StatCard label="Past due" value={t.past_due} icon={AlertTriangle} tone="text-amber-600" />
+            <StatCard label="Suspended" value={t.suspended} icon={AlertTriangle} tone="text-red-600" />
+            <StatCard label="Devices" value={t.devices} icon={Monitor} />
+            <StatCard label="Offline devices" value={t.offline_devices} icon={Monitor} tone="text-amber-600" />
+            <StatCard label="Open tickets" value={t.open_tickets} icon={LifeBuoy} />
+            <StatCard label="Errors (7d)" value={t.recent_errors} icon={AlertTriangle} tone="text-red-600" />
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent platform activity</CardTitle>
+              <CardDescription>Latest audit events across all businesses.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(data.recent ?? []).length === 0 ? (
+                <div className="text-sm text-muted-foreground py-6 text-center">No recent activity.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="p-2 w-40">When</th>
+                        <th className="p-2">Actor</th>
+                        <th className="p-2">Action</th>
+                        <th className="p-2">Store</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.recent.map((r: any) => (
+                        <tr key={r.id} className="border-b last:border-b-0">
+                          <td className="p-2 font-mono text-xs whitespace-nowrap">
+                            {format(new Date(r.created_at), "MMM d, HH:mm:ss")}
+                          </td>
+                          <td className="p-2 text-xs">{r.actor_email ?? "system"}</td>
+                          <td className="p-2">
+                            <Badge variant="outline" className="font-mono text-xs">{r.action}</Badge>
+                          </td>
+                          <td className="p-2 text-xs font-mono">
+                            {r.store_id ? (
+                              <Link to="/admin/businesses/$storeId" params={{ storeId: r.store_id }} className="text-primary hover:underline">
+                                {r.store_id.slice(0, 8)}
+                              </Link>
+                            ) : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <CardDescription>{s.desc}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground">Coming soon.</p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
