@@ -80,6 +80,7 @@ import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/e
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
+import { Route as AdminAppAdminSupportTicketIdRouteImport } from './routes/_adminApp/admin.support.$ticketId'
 import { Route as AdminAppAdminBusinessesStoreIdRouteImport } from './routes/_adminApp/admin.businesses.$storeId'
 
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
@@ -442,6 +443,12 @@ const ApiPublicPaymentsWebhookRoute =
     path: '/api/public/payments/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdminAppAdminSupportTicketIdRoute =
+  AdminAppAdminSupportTicketIdRouteImport.update({
+    id: '/$ticketId',
+    path: '/$ticketId',
+    getParentRoute: () => AdminAppAdminSupportRoute,
+  } as any)
 const AdminAppAdminBusinessesStoreIdRoute =
   AdminAppAdminBusinessesStoreIdRouteImport.update({
     id: '/$storeId',
@@ -508,11 +515,12 @@ export interface FileRoutesByFullPath {
   '/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
   '/admin/devices': typeof AdminAppAdminDevicesRoute
   '/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
-  '/admin/support': typeof AdminAppAdminSupportRoute
+  '/admin/support': typeof AdminAppAdminSupportRouteWithChildren
   '/employees/$id': typeof DashboardEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/admin/businesses/$storeId': typeof AdminAppAdminBusinessesStoreIdRoute
+  '/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -579,11 +587,12 @@ export interface FileRoutesByTo {
   '/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
   '/admin/devices': typeof AdminAppAdminDevicesRoute
   '/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
-  '/admin/support': typeof AdminAppAdminSupportRoute
+  '/admin/support': typeof AdminAppAdminSupportRouteWithChildren
   '/employees/$id': typeof DashboardEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/admin/businesses/$storeId': typeof AdminAppAdminBusinessesStoreIdRoute
+  '/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -654,11 +663,12 @@ export interface FileRoutesById {
   '/_adminApp/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
   '/_adminApp/admin/devices': typeof AdminAppAdminDevicesRoute
   '/_adminApp/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
-  '/_adminApp/admin/support': typeof AdminAppAdminSupportRoute
+  '/_adminApp/admin/support': typeof AdminAppAdminSupportRouteWithChildren
   '/_dashboard/employees/$id': typeof DashboardEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/_adminApp/admin/businesses/$storeId': typeof AdminAppAdminBusinessesStoreIdRoute
+  '/_adminApp/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -732,6 +742,7 @@ export interface FileRouteTypes {
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/admin/businesses/$storeId'
+    | '/admin/support/$ticketId'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -803,6 +814,7 @@ export interface FileRouteTypes {
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/admin/businesses/$storeId'
+    | '/admin/support/$ticketId'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -877,6 +889,7 @@ export interface FileRouteTypes {
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/_adminApp/admin/businesses/$storeId'
+    | '/_adminApp/admin/support/$ticketId'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -1436,6 +1449,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_adminApp/admin/support/$ticketId': {
+      id: '/_adminApp/admin/support/$ticketId'
+      path: '/$ticketId'
+      fullPath: '/admin/support/$ticketId'
+      preLoaderRoute: typeof AdminAppAdminSupportTicketIdRouteImport
+      parentRoute: typeof AdminAppAdminSupportRoute
+    }
     '/_adminApp/admin/businesses/$storeId': {
       id: '/_adminApp/admin/businesses/$storeId'
       path: '/$storeId'
@@ -1460,18 +1480,29 @@ const AdminAppAdminBusinessesRouteWithChildren =
     AdminAppAdminBusinessesRouteChildren,
   )
 
+interface AdminAppAdminSupportRouteChildren {
+  AdminAppAdminSupportTicketIdRoute: typeof AdminAppAdminSupportTicketIdRoute
+}
+
+const AdminAppAdminSupportRouteChildren: AdminAppAdminSupportRouteChildren = {
+  AdminAppAdminSupportTicketIdRoute: AdminAppAdminSupportTicketIdRoute,
+}
+
+const AdminAppAdminSupportRouteWithChildren =
+  AdminAppAdminSupportRoute._addFileChildren(AdminAppAdminSupportRouteChildren)
+
 interface AdminAppAdminRouteChildren {
   AdminAppAdminBusinessesRoute: typeof AdminAppAdminBusinessesRouteWithChildren
   AdminAppAdminDevicesRoute: typeof AdminAppAdminDevicesRoute
   AdminAppAdminSubscriptionsRoute: typeof AdminAppAdminSubscriptionsRoute
-  AdminAppAdminSupportRoute: typeof AdminAppAdminSupportRoute
+  AdminAppAdminSupportRoute: typeof AdminAppAdminSupportRouteWithChildren
 }
 
 const AdminAppAdminRouteChildren: AdminAppAdminRouteChildren = {
   AdminAppAdminBusinessesRoute: AdminAppAdminBusinessesRouteWithChildren,
   AdminAppAdminDevicesRoute: AdminAppAdminDevicesRoute,
   AdminAppAdminSubscriptionsRoute: AdminAppAdminSubscriptionsRoute,
-  AdminAppAdminSupportRoute: AdminAppAdminSupportRoute,
+  AdminAppAdminSupportRoute: AdminAppAdminSupportRouteWithChildren,
 }
 
 const AdminAppAdminRouteWithChildren = AdminAppAdminRoute._addFileChildren(
