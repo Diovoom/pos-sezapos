@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_support_sessions: {
+        Row: {
+          admin_email: string | null
+          admin_id: string
+          ended_at: string | null
+          expires_at: string
+          id: string
+          reason: string
+          started_at: string
+          store_id: string | null
+        }
+        Insert: {
+          admin_email?: string | null
+          admin_id: string
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          reason: string
+          started_at?: string
+          store_id?: string | null
+        }
+        Update: {
+          admin_email?: string | null
+          admin_id?: string
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          reason?: string
+          started_at?: string
+          store_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_support_sessions_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       age_verifications: {
         Row: {
           cashier_email: string | null
@@ -1181,6 +1222,7 @@ export type Database = {
         Row: {
           address: string | null
           address_format_override: Json | null
+          admin_notes: string | null
           age_verification_settings: Json
           business_hours: Json | null
           business_type: string | null
@@ -1216,6 +1258,8 @@ export type Database = {
           starting_cash_float: number
           state: string | null
           store_code: string | null
+          suspended_at: string | null
+          suspended_reason: string | null
           tax_id: string | null
           tax_inclusive: boolean
           tax_rate: number
@@ -1230,6 +1274,7 @@ export type Database = {
         Insert: {
           address?: string | null
           address_format_override?: Json | null
+          admin_notes?: string | null
           age_verification_settings?: Json
           business_hours?: Json | null
           business_type?: string | null
@@ -1265,6 +1310,8 @@ export type Database = {
           starting_cash_float?: number
           state?: string | null
           store_code?: string | null
+          suspended_at?: string | null
+          suspended_reason?: string | null
           tax_id?: string | null
           tax_inclusive?: boolean
           tax_rate?: number
@@ -1279,6 +1326,7 @@ export type Database = {
         Update: {
           address?: string | null
           address_format_override?: Json | null
+          admin_notes?: string | null
           age_verification_settings?: Json
           business_hours?: Json | null
           business_type?: string | null
@@ -1314,6 +1362,8 @@ export type Database = {
           starting_cash_float?: number
           state?: string | null
           store_code?: string | null
+          suspended_at?: string | null
+          suspended_reason?: string | null
           tax_id?: string | null
           tax_inclusive?: boolean
           tax_rate?: number
@@ -1387,6 +1437,100 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "subscriptions_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_ticket_notes: {
+        Row: {
+          author_email: string | null
+          author_id: string | null
+          body: string
+          created_at: string
+          id: string
+          internal: boolean
+          ticket_id: string
+        }
+        Insert: {
+          author_email?: string | null
+          author_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          internal?: boolean
+          ticket_id: string
+        }
+        Update: {
+          author_email?: string | null
+          author_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          internal?: boolean
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_notes_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          assigned_admin_id: string | null
+          category: string
+          created_at: string
+          id: string
+          priority: string
+          requester_email: string | null
+          requester_id: string | null
+          resolution: string | null
+          status: string
+          store_id: string | null
+          subject: string
+          ticket_number: number
+          updated_at: string
+        }
+        Insert: {
+          assigned_admin_id?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          priority?: string
+          requester_email?: string | null
+          requester_id?: string | null
+          resolution?: string | null
+          status?: string
+          store_id?: string | null
+          subject: string
+          ticket_number?: number
+          updated_at?: string
+        }
+        Update: {
+          assigned_admin_id?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          priority?: string
+          requester_email?: string | null
+          requester_id?: string | null
+          resolution?: string | null
+          status?: string
+          store_id?: string | null
+          subject?: string
+          ticket_number?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
@@ -1511,6 +1655,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_global_search: {
+        Args: { _limit?: number; _q: string }
+        Returns: {
+          id: string
+          kind: string
+          label: string
+          store_id: string
+          sublabel: string
+        }[]
+      }
       current_store_id: { Args: never; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
