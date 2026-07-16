@@ -72,6 +72,7 @@ import { Route as AdminAppAdminSupportRouteImport } from './routes/_adminApp/adm
 import { Route as AdminAppAdminSubscriptionsRouteImport } from './routes/_adminApp/admin.subscriptions'
 import { Route as AdminAppAdminDevicesRouteImport } from './routes/_adminApp/admin.devices'
 import { Route as AdminAppAdminBusinessesRouteImport } from './routes/_adminApp/admin.businesses'
+import { Route as AdminAppAdminAuditLogsRouteImport } from './routes/_adminApp/admin.audit-logs'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
@@ -398,6 +399,11 @@ const AdminAppAdminBusinessesRoute = AdminAppAdminBusinessesRouteImport.update({
   path: '/businesses',
   getParentRoute: () => AdminAppAdminRoute,
 } as any)
+const AdminAppAdminAuditLogsRoute = AdminAppAdminAuditLogsRouteImport.update({
+  id: '/audit-logs',
+  path: '/audit-logs',
+  getParentRoute: () => AdminAppAdminRoute,
+} as any)
 const Char91DotmcpChar93InvokeToolToolRoute =
   Char91DotmcpChar93InvokeToolToolRouteImport.update({
     id: '/.mcp/invoke-tool/$tool',
@@ -512,6 +518,7 @@ export interface FileRoutesByFullPath {
   '/legal/': typeof LegalIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/admin/audit-logs': typeof AdminAppAdminAuditLogsRoute
   '/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
   '/admin/devices': typeof AdminAppAdminDevicesRoute
   '/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
@@ -584,6 +591,7 @@ export interface FileRoutesByTo {
   '/legal': typeof LegalIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/admin/audit-logs': typeof AdminAppAdminAuditLogsRoute
   '/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
   '/admin/devices': typeof AdminAppAdminDevicesRoute
   '/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
@@ -660,6 +668,7 @@ export interface FileRoutesById {
   '/legal/': typeof LegalIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/_adminApp/admin/audit-logs': typeof AdminAppAdminAuditLogsRoute
   '/_adminApp/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
   '/_adminApp/admin/devices': typeof AdminAppAdminDevicesRoute
   '/_adminApp/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
@@ -734,6 +743,7 @@ export interface FileRouteTypes {
     | '/legal/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/admin/audit-logs'
     | '/admin/businesses'
     | '/admin/devices'
     | '/admin/subscriptions'
@@ -806,6 +816,7 @@ export interface FileRouteTypes {
     | '/legal'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/admin/audit-logs'
     | '/admin/businesses'
     | '/admin/devices'
     | '/admin/subscriptions'
@@ -881,6 +892,7 @@ export interface FileRouteTypes {
     | '/legal/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/_adminApp/admin/audit-logs'
     | '/_adminApp/admin/businesses'
     | '/_adminApp/admin/devices'
     | '/_adminApp/admin/subscriptions'
@@ -1393,6 +1405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAppAdminBusinessesRouteImport
       parentRoute: typeof AdminAppAdminRoute
     }
+    '/_adminApp/admin/audit-logs': {
+      id: '/_adminApp/admin/audit-logs'
+      path: '/audit-logs'
+      fullPath: '/admin/audit-logs'
+      preLoaderRoute: typeof AdminAppAdminAuditLogsRouteImport
+      parentRoute: typeof AdminAppAdminRoute
+    }
     '/.mcp/invoke-tool/$tool': {
       id: '/.mcp/invoke-tool/$tool'
       path: '/.mcp/invoke-tool/$tool'
@@ -1492,6 +1511,7 @@ const AdminAppAdminSupportRouteWithChildren =
   AdminAppAdminSupportRoute._addFileChildren(AdminAppAdminSupportRouteChildren)
 
 interface AdminAppAdminRouteChildren {
+  AdminAppAdminAuditLogsRoute: typeof AdminAppAdminAuditLogsRoute
   AdminAppAdminBusinessesRoute: typeof AdminAppAdminBusinessesRouteWithChildren
   AdminAppAdminDevicesRoute: typeof AdminAppAdminDevicesRoute
   AdminAppAdminSubscriptionsRoute: typeof AdminAppAdminSubscriptionsRoute
@@ -1499,6 +1519,7 @@ interface AdminAppAdminRouteChildren {
 }
 
 const AdminAppAdminRouteChildren: AdminAppAdminRouteChildren = {
+  AdminAppAdminAuditLogsRoute: AdminAppAdminAuditLogsRoute,
   AdminAppAdminBusinessesRoute: AdminAppAdminBusinessesRouteWithChildren,
   AdminAppAdminDevicesRoute: AdminAppAdminDevicesRoute,
   AdminAppAdminSubscriptionsRoute: AdminAppAdminSubscriptionsRoute,
