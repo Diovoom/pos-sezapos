@@ -369,6 +369,7 @@ function EmailLogin({ onBack, next }: { onBack: () => void; next?: string }) {
     try {
       const { data: signIn, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      if (signIn.user && (await rejectIfPlatformStaff(signIn.user.id))) return;
       void import("@/lib/audit-log").then((m) => m.logAudit({ action: "login", details: { method: "password" } }));
       const dest = signIn.user ? await landingRouteForUser(signIn.user.id) : "/pos";
       goAfterAuth(navigate, dest, next);
@@ -381,9 +382,6 @@ function EmailLogin({ onBack, next }: { onBack: () => void; next?: string }) {
 
   const oauthRedirect = () => {
     const safe = safeNext(next);
-    // For social providers, always return to a public route. If `next` is set,
-    // return to /auth?next=... so this page can resume the redirect after the
-    // session hydrates. Otherwise return to the app origin.
     return safe
       ? `${window.location.origin}/auth?next=${encodeURIComponent(safe)}`
       : window.location.origin;
@@ -395,6 +393,7 @@ function EmailLogin({ onBack, next }: { onBack: () => void; next?: string }) {
     if (result.error) { toast.error(result.error.message ?? "Google sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
     const { data: u } = await supabase.auth.getUser();
+    if (u.user && (await rejectIfPlatformStaff(u.user.id))) { setBusy(false); return; }
     goAfterAuth(navigate, u.user ? await landingRouteForUser(u.user.id) : "/pos", next);
   };
 
@@ -404,6 +403,7 @@ function EmailLogin({ onBack, next }: { onBack: () => void; next?: string }) {
     if (result.error) { toast.error(result.error.message ?? "Apple sign-in failed"); setBusy(false); return; }
     if (result.redirected) return;
     const { data: u } = await supabase.auth.getUser();
+    if (u.user && (await rejectIfPlatformStaff(u.user.id))) { setBusy(false); return; }
     goAfterAuth(navigate, u.user ? await landingRouteForUser(u.user.id) : "/pos", next);
   };
 
