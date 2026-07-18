@@ -114,9 +114,9 @@ function BusinessWorkspace() {
   const passwordReset = useServerFn(adminSendPasswordReset);
   const resendVerify = useServerFn(adminResendVerification);
   const revokeSessions = useServerFn(adminRevokeSessions);
-  const setEmpStatus = useServerFn(adminSetEmployeeStatus);
-  const resetPin = useServerFn(adminResetEmployeePin);
-  const changeRole = useServerFn(adminChangeEmployeeRole);
+  // Merchant employee management (role/PIN/status) is intentionally not wired here —
+  // that lives inside the Merchant Dashboard.
+
   const renameTerm = useServerFn(adminRenameTerminal);
   const setTermStatus = useServerFn(adminSetTerminalStatus);
   const revokeTerm = useServerFn(adminRevokeTerminal);
