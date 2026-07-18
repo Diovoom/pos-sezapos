@@ -229,18 +229,33 @@ function AdminLayout() {
         </header>
 
         {activeSession && (
-          <div className="bg-amber-500/15 border-b border-amber-500/40 px-4 py-2 flex items-center justify-between gap-3">
+          <div className={cn(
+            "border-b px-4 py-2 flex items-center justify-between gap-3",
+            activeSession.status === "pending"
+              ? "bg-blue-500/15 border-blue-500/40"
+              : "bg-amber-500/15 border-amber-500/40",
+          )}>
             <div className="flex items-center gap-2 text-sm">
-              <Eye className="h-4 w-4 text-amber-700 dark:text-amber-300" />
-              <span className="font-medium">SEZA Admin Support View</span>
+              <Eye className={cn(
+                "h-4 w-4",
+                activeSession.status === "pending" ? "text-blue-700 dark:text-blue-300" : "text-amber-700 dark:text-amber-300",
+              )} />
+              <span className="font-medium">
+                {activeSession.status === "pending"
+                  ? "Waiting for merchant to accept…"
+                  : "SEZA Admin Support View"}
+              </span>
               <span className="text-muted-foreground">
                 — store <span className="font-mono">{activeSession.store_id?.slice(0, 8)}</span> ·
                 expires {new Date(activeSession.expires_at).toLocaleTimeString()}
               </span>
             </div>
-            <Button size="sm" variant="outline" onClick={handleEndSupport}>Exit Support View</Button>
+            <Button size="sm" variant="outline" onClick={handleEndSupport}>
+              {activeSession.status === "pending" ? "Cancel request" : "Exit Support View"}
+            </Button>
           </div>
         )}
+
 
         <main className="flex-1 p-6 overflow-y-auto">
           <Outlet />
