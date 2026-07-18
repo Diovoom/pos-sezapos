@@ -1,8 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
-import { z } from "zod";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ArrowDown, ArrowUp, ArrowUpDown, Download, RefreshCw, Search, X } from "lucide-react";
@@ -16,14 +14,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
-const searchSchema = z.object({
-  q: fallback(z.string(), "").default(""),
-  filter: fallback(z.string(), "all").default("all"),
-  sortBy: fallback(z.string(), "created_at").default("created_at"),
-  sortDir: fallback(z.string(), "desc").default("desc"),
-  page: fallback(z.number().int(), 1).default(1),
-  pageSize: fallback(z.number().int(), 25).default(25),
-});
+type BusinessesSearch = {
+  q: string;
+  filter: string;
+  sortBy: string;
+  sortDir: "asc" | "desc";
+  page: number;
+  pageSize: number;
+};
+
+const DEFAULTS: BusinessesSearch = {
+  q: "",
+  filter: "all",
+  sortBy: "created_at",
+  sortDir: "desc",
+  page: 1,
+  pageSize: 25,
+};
 
 export const Route = createFileRoute("/_adminApp/admin/businesses")({
   head: () => ({
@@ -32,7 +39,14 @@ export const Route = createFileRoute("/_adminApp/admin/businesses")({
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
-  validateSearch: zodValidator(searchSchema),
+  validateSearch: (raw: Record<string, unknown>): BusinessesSearch => ({
+    q: typeof raw.q === "string" ? raw.q : DEFAULTS.q,
+    filter: typeof raw.filter === "string" ? raw.filter : DEFAULTS.filter,
+    sortBy: typeof raw.sortBy === "string" ? raw.sortBy : DEFAULTS.sortBy,
+    sortDir: raw.sortDir === "asc" ? "asc" : "desc",
+    page: Number.isFinite(Number(raw.page)) ? Math.max(1, Math.floor(Number(raw.page))) : DEFAULTS.page,
+    pageSize: Number.isFinite(Number(raw.pageSize)) ? Math.floor(Number(raw.pageSize)) : DEFAULTS.pageSize,
+  }),
   component: BusinessesPage,
 });
 
