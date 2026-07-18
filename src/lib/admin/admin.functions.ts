@@ -1422,7 +1422,7 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
       .order("requested_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (!data) return { session: null };
+    if (!data || !data.store_id) return { session: null };
 
     // Enrich with business + employee context for the admin banner.
     const [storeRes, employeeRes] = await Promise.all([
@@ -1431,6 +1431,7 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
         ? supabaseAdmin.from("profiles").select("id, full_name, email, employee_id").eq("id", data.decided_by).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
+
     return {
       session: {
         ...data,
