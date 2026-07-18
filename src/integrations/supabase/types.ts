@@ -1703,6 +1703,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_platform_staff: { Args: { _user_id: string }; Returns: boolean }
       is_read_only: { Args: { _store_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
@@ -1730,7 +1731,16 @@ export type Database = {
       tier_rank: { Args: { _tier: string }; Returns: number }
     }
     Enums: {
-      app_role: "owner" | "manager" | "cashier" | "admin" | "super_admin"
+      app_role:
+        | "owner"
+        | "manager"
+        | "cashier"
+        | "admin"
+        | "super_admin"
+        | "operations_admin"
+        | "support_admin"
+        | "billing_admin"
+        | "analyst"
       payment_method:
         | "cash"
         | "card"
@@ -1867,7 +1877,17 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["owner", "manager", "cashier", "admin", "super_admin"],
+      app_role: [
+        "owner",
+        "manager",
+        "cashier",
+        "admin",
+        "super_admin",
+        "operations_admin",
+        "support_admin",
+        "billing_admin",
+        "analyst",
+      ],
       payment_method: [
         "cash",
         "card",
