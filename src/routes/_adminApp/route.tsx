@@ -71,6 +71,8 @@ function AdminLayout() {
   const search = useServerFn(adminGlobalSearch);
   const getSession = useServerFn(adminMyActiveSupportSession);
   const endSession = useServerFn(adminEndSupportSession);
+  const cancelReq = useServerFn(adminCancelSupportRequest);
+
 
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
