@@ -42,11 +42,12 @@ function safeNext(next: string | undefined): string | null {
 }
 
 function goAfterAuth(
-  navigate: (opts: { to: "/dashboard" | "/pos"; replace: true }) => void,
-  dest: "/dashboard" | "/pos",
+  navigate: (opts: { to: "/dashboard" | "/pos" | "/admin"; replace: true }) => void,
+  dest: "/dashboard" | "/pos" | "/admin",
   next: string | undefined,
 ) {
-  const safe = safeNext(next);
+  // Platform staff must never be redirected into a merchant `next` URL.
+  const safe = dest === "/admin" ? null : safeNext(next);
   if (safe) {
     window.location.replace(safe);
     return;
