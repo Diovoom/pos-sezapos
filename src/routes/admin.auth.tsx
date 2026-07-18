@@ -45,7 +45,7 @@ function AdminAuthPage() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;
-      if (await isSuperAdmin(data.session.user.id)) {
+      if (await isPlatformStaff(data.session.user.id)) {
         navigate({ to: "/admin", replace: true });
       }
     })();
@@ -62,7 +62,7 @@ function AdminAuthPage() {
         toast.error(GENERIC_ERROR);
         return;
       }
-      const ok = await isSuperAdmin(data.session.user.id);
+      const ok = await isPlatformStaff(data.session.user.id);
       if (!ok) {
         await logAudit({ action: "override.denied", entity: "admin", details: { reason: "not_super_admin" } });
         await supabase.auth.signOut();
