@@ -25,6 +25,25 @@ async function ensureSuperAdmin(context: {
   return { email: user?.user?.email ?? null };
 }
 
+// Read-only gate — any SEZA platform-staff role may read admin data.
+// Mutations continue to use ensureSuperAdmin.
+async function ensurePlatformStaff(context: {
+  supabase: any;
+  userId: string;
+}): Promise<{ email: string | null; roles: string[] }> {
+  const { data, error } = await context.supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", context.userId);
+  if (error) throw new Error("Authorization check failed");
+  const roles = (data ?? []).map((r: { role: string }) => r.role);
+  const { PLATFORM_ROLES } = await import("@/lib/platform-roles");
+  const ok = roles.some((r: string) => (PLATFORM_ROLES as readonly string[]).includes(r));
+  if (!ok) throw new Error("Forbidden: platform staff required");
+  const { data: user } = await context.supabase.auth.getUser();
+  return { email: user?.user?.email ?? null, roles };
+}
+
 async function writeAudit(
   supabaseAdmin: any,
   entry: {
@@ -145,23 +164,44 @@ export const adminListBusinesses = createServerFn({ method: "POST" })
       search?: string;
       page?: number;
       pageSize?: number;
+      sortBy?: string;
+      sortDir?: "asc" | "desc";
     }) => data,
   )
   .handler(async ({ data, context }) => {
-    await ensureSuperAdmin(context);
+    await ensurePlatformStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const page = Math.max(1, data.page ?? 1);
-    const pageSize = Math.min(100, data.pageSize ?? 25);
+    const pageSize = Math.min(100, Math.max(1, data.pageSize ?? 25));
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
+
+    // Whitelist sortable columns to prevent injection via order string.
+    const SORTABLE = new Set([
+      "created_at",
+      "updated_at",
+      "name",
+      "plan_status",
+      "plan_tier",
+      "trial_ends_at",
+      "plan_period_end",
+      "suspended_at",
+    ]);
+    const sortBy = data.sortBy && SORTABLE.has(data.sortBy) ? data.sortBy : "created_at";
+    const sortDir: "asc" | "desc" = data.sortDir === "asc" ? "asc" : "desc";
+
+    // Skip select-string type-parsing to keep tsc fast.
+    const sel = (s: string): string => s;
 
     let q = supabaseAdmin
       .from("stores")
       .select(
-        "id, name, email, phone, city, country, store_code, plan_tier, plan_status, plan_period_end, trial_ends_at, suspended_at, created_at, updated_at",
+        sel(
+          "id, name, email, phone, city, country, store_code, plan_tier, plan_status, plan_period_end, trial_ends_at, suspended_at, created_at, updated_at",
+        ),
         { count: "exact" },
       )
-      .order("created_at", { ascending: false })
+      .order(sortBy, { ascending: sortDir === "asc", nullsFirst: false })
       .range(from, to);
 
     switch (data.filter) {
@@ -185,13 +225,25 @@ export const adminListBusinesses = createServerFn({ method: "POST" })
         break;
     }
     if (data.search && data.search.trim()) {
-      const s = data.search.trim();
-      q = q.or(`name.ilike.%${s}%,email.ilike.%${s}%,store_code.ilike.%${s}%,phone.ilike.%${s}%`);
+      // Escape PostgREST `or` metacharacters (commas, parens) in user input
+      // to prevent filter injection.
+      const raw = data.search.trim().slice(0, 100);
+      const s = raw.replace(/[,()]/g, " ").replace(/\s+/g, " ");
+      q = q.or(
+        `name.ilike.%${s}%,email.ilike.%${s}%,store_code.ilike.%${s}%,phone.ilike.%${s}%,city.ilike.%${s}%`,
+      );
     }
 
     const { data: rows, count, error } = await q;
     if (error) throw new Error(error.message);
-    return { rows: rows ?? [], count: count ?? 0, page, pageSize };
+    return {
+      rows: rows ?? [],
+      count: count ?? 0,
+      page,
+      pageSize,
+      sortBy,
+      sortDir,
+    };
   });
 
 export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
