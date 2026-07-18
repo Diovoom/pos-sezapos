@@ -977,42 +977,119 @@ export const adminRestoreSubscription = createServerFn({ method: "POST" })
 
 export const adminListTickets = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { status?: string; storeId?: string; page?: number; pageSize?: number }) => data)
+  .inputValidator(
+    (data: {
+      status?: string;
+      priority?: string;
+      assignee?: string; // "me" | "unassigned" | "any" | uuid
+      storeId?: string;
+      q?: string;
+      sort?: string; // updated_at | created_at | priority
+      dir?: "asc" | "desc";
+      page?: number;
+      pageSize?: number;
+    }) => data,
+  )
   .handler(async ({ data, context }) => {
-    await ensureSuperAdmin(context);
+    await ensureSupportStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const page = Math.max(1, data.page ?? 1);
-    const pageSize = Math.min(100, data.pageSize ?? 50);
+    const pageSize = Math.min(100, data.pageSize ?? 25);
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
+    const sortCol = ["updated_at", "created_at", "priority", "status"].includes(data.sort ?? "")
+      ? (data.sort as string)
+      : "updated_at";
+    const ascending = data.dir === "asc";
     let q = supabaseAdmin
       .from("support_tickets")
       .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
+      .order(sortCol, { ascending })
       .range(from, to);
     if (data.status && data.status !== "all") q = q.eq("status", data.status);
+    if (data.priority && data.priority !== "all") q = q.eq("priority", data.priority);
     if (data.storeId) q = q.eq("store_id", data.storeId);
+    if (data.assignee === "me") q = q.eq("assigned_admin_id", context.userId);
+    else if (data.assignee === "unassigned") q = q.is("assigned_admin_id", null);
+    else if (data.assignee && data.assignee !== "any") q = q.eq("assigned_admin_id", data.assignee);
+    if (data.q?.trim()) {
+      const term = data.q.trim().replace(/[%,()]/g, "");
+      q = q.or(`subject.ilike.%${term}%,requester_email.ilike.%${term}%`);
+    }
     const { data: rows, count, error } = await q;
     if (error) throw new Error(error.message);
     const storeIds = Array.from(new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean)));
+    const assigneeIds = Array.from(new Set((rows ?? []).map((r: any) => r.assigned_admin_id).filter(Boolean)));
     const storesMap = new Map<string, string>();
+    const agentsMap = new Map<string, string>();
     if (storeIds.length) {
       const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
       (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
     }
+    if (assigneeIds.length) {
+      const { data: agents } = await supabaseAdmin.from("profiles").select("id, email, full_name").in("id", assigneeIds);
+      (agents ?? []).forEach((a: any) => agentsMap.set(a.id, a.full_name || a.email));
+    }
     return {
-      rows: (rows ?? []).map((r: any) => ({ ...r, store_name: storesMap.get(r.store_id) ?? null })),
+      rows: (rows ?? []).map((r: any) => ({
+        ...r,
+        store_name: storesMap.get(r.store_id) ?? null,
+        assignee_name: r.assigned_admin_id ? agentsMap.get(r.assigned_admin_id) ?? null : null,
+      })),
       count: count ?? 0,
       page,
       pageSize,
     };
   });
 
+export const adminTicketCounts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureSupportStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const statuses = ["open", "investigating", "waiting_for_merchant", "resolved", "closed"];
+    const counts: Record<string, number> = { all: 0, mine: 0, unassigned: 0, urgent: 0 };
+    for (const s of statuses) counts[s] = 0;
+    const [{ count: total }, { count: mine }, { count: unassigned }, { count: urgent }] = await Promise.all([
+      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).eq("assigned_admin_id", context.userId).not("status", "in", "(resolved,closed)"),
+      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).is("assigned_admin_id", null).not("status", "in", "(resolved,closed)"),
+      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).eq("priority", "urgent").not("status", "in", "(resolved,closed)"),
+    ]);
+    counts.all = total ?? 0;
+    counts.mine = mine ?? 0;
+    counts.unassigned = unassigned ?? 0;
+    counts.urgent = urgent ?? 0;
+    for (const s of statuses) {
+      const { count } = await supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).eq("status", s);
+      counts[s] = count ?? 0;
+    }
+    return counts;
+  });
+
+export const adminListSupportAgents = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureSupportStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: roleRows } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id, role")
+      .in("role", ["super_admin", "operations_admin", "support_admin"]);
+    const ids = Array.from(new Set((roleRows ?? []).map((r: any) => r.user_id)));
+    if (!ids.length) return [];
+    const { data: profs } = await supabaseAdmin
+      .from("profiles")
+      .select("id, email, full_name")
+      .in("id", ids);
+    return (profs ?? []).map((p: any) => ({ id: p.id, email: p.email, name: p.full_name || p.email }));
+  });
+
 export const adminGetTicket = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { ticketId: string }) => data)
   .handler(async ({ data, context }) => {
-    await ensureSuperAdmin(context);
+    await ensureSupportStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: ticket, error } = await supabaseAdmin
       .from("support_tickets")
@@ -1031,7 +1108,12 @@ export const adminGetTicket = createServerFn({ method: "POST" })
       const { data: s } = await supabaseAdmin.from("stores").select("id, name, email").eq("id", ticket.store_id).maybeSingle();
       store = s ?? null;
     }
-    return { ticket, notes: notes ?? [], store };
+    let assignee = null;
+    if (ticket.assigned_admin_id) {
+      const { data: a } = await supabaseAdmin.from("profiles").select("id, email, full_name").eq("id", ticket.assigned_admin_id).maybeSingle();
+      assignee = a ?? null;
+    }
+    return { ticket, notes: notes ?? [], store, assignee };
   });
 
 export const adminCreateTicket = createServerFn({ method: "POST" })
@@ -1046,7 +1128,7 @@ export const adminCreateTicket = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data, context }) => {
-    const admin = await ensureSuperAdmin(context);
+    const admin = await ensureSupportStaff(context);
     if (!data.subject.trim()) throw new Error("Subject required");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: t, error } = await supabaseAdmin
@@ -1097,7 +1179,7 @@ export const adminUpdateTicket = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data, context }) => {
-    const admin = await ensureSuperAdmin(context);
+    const admin = await ensureSupportStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const patch: Record<string, any> = {};
     for (const k of ["status", "priority", "category", "assigned_admin_id", "resolution"] as const) {
@@ -1119,11 +1201,32 @@ export const adminUpdateTicket = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adminClaimTicket = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { ticketId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSupportStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("support_tickets")
+      .update({ assigned_admin_id: context.userId, status: "investigating" })
+      .eq("id", data.ticketId);
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      action: "admin.ticket.claim",
+      entity: "ticket",
+      entity_id: data.ticketId,
+    });
+    return { ok: true };
+  });
+
 export const adminAddTicketNote = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { ticketId: string; body: string; internal: boolean }) => data)
   .handler(async ({ data, context }) => {
-    const admin = await ensureSuperAdmin(context);
+    const admin = await ensureSupportStaff(context);
     if (!data.body.trim()) throw new Error("Note body required");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("support_ticket_notes").insert({
