@@ -108,13 +108,19 @@ function AdminLayout() {
   async function handleEndSupport() {
     if (!activeSession) return;
     try {
-      await endSession({ data: { sessionId: activeSession.id } });
-      toast.success("Support view ended");
+      if (activeSession.status === "pending") {
+        await cancelReq({ data: { sessionId: activeSession.id } });
+        toast.success("Support request canceled");
+      } else {
+        await endSession({ data: { sessionId: activeSession.id } });
+        toast.success("Support view ended");
+      }
       qc.invalidateQueries({ queryKey: ["admin_support_session_active"] });
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to end support view");
+      toast.error(e?.message ?? "Failed");
     }
   }
+
 
   return (
     <div className="min-h-screen flex bg-surface text-foreground">
