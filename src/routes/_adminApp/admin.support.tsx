@@ -78,7 +78,7 @@ function SupportPage() {
   useEffect(() => {
     const t = setTimeout(() => {
       if (qLocal !== search.q) {
-        navigate({ search: (prev) => ({ ...prev, q: qLocal, page: 1 }) });
+        navigate({ search: (prev: any) => ({ ...prev, q: qLocal, page: 1 }) });
       }
     }, 300);
     return () => clearTimeout(t);
@@ -156,7 +156,7 @@ function SupportPage() {
 
   const toggleSort = (col: string) => {
     navigate({
-      search: (prev) => ({
+      search: (prev: any) => ({
         ...prev,
         sort: col,
         dir: prev.sort === col && prev.dir === "desc" ? "asc" : "desc",
@@ -186,7 +186,7 @@ function SupportPage() {
           active={search.assignee === "me"}
           onClick={() =>
             navigate({
-              search: (prev) => ({ ...prev, assignee: "me", status: "all", page: 1 }),
+              search: (prev: any) => ({ ...prev, assignee: "me", status: "all", page: 1 }),
             })
           }
         />
@@ -197,7 +197,7 @@ function SupportPage() {
           active={search.assignee === "unassigned"}
           onClick={() =>
             navigate({
-              search: (prev) => ({
+              search: (prev: any) => ({
                 ...prev,
                 assignee: "unassigned",
                 status: "all",
@@ -213,7 +213,7 @@ function SupportPage() {
           active={search.priority === "urgent"}
           onClick={() =>
             navigate({
-              search: (prev) => ({
+              search: (prev: any) => ({
                 ...prev,
                 priority: "urgent",
                 status: "all",
@@ -233,7 +233,7 @@ function SupportPage() {
           }
           onClick={() =>
             navigate({
-              search: (prev) => ({
+              search: (prev: any) => ({
                 ...prev,
                 assignee: "any",
                 priority: "all",
@@ -258,7 +258,7 @@ function SupportPage() {
           <button
             key={val}
             onClick={() =>
-              navigate({ search: (prev) => ({ ...prev, status: val, page: 1 }) })
+              navigate({ search: (prev: any) => ({ ...prev, status: val, page: 1 }) })
             }
             className={`px-3 py-2 text-sm border-b-2 -mb-px transition-colors ${
               search.status === val
@@ -290,7 +290,7 @@ function SupportPage() {
         <Select
           value={search.priority}
           onValueChange={(v) =>
-            navigate({ search: (prev) => ({ ...prev, priority: v, page: 1 }) })
+            navigate({ search: (prev: any) => ({ ...prev, priority: v, page: 1 }) })
           }
         >
           <SelectTrigger className="w-36">
@@ -307,7 +307,7 @@ function SupportPage() {
         <Select
           value={search.assignee}
           onValueChange={(v) =>
-            navigate({ search: (prev) => ({ ...prev, assignee: v, page: 1 }) })
+            navigate({ search: (prev: any) => ({ ...prev, assignee: v, page: 1 }) })
           }
         >
           <SelectTrigger className="w-44">
@@ -440,7 +440,7 @@ function SupportPage() {
             size="sm"
             disabled={search.page <= 1}
             onClick={() =>
-              navigate({ search: (prev) => ({ ...prev, page: prev.page - 1 }) })
+              navigate({ search: (prev: any) => ({ ...prev, page: prev.page - 1 }) })
             }
           >
             Prev
@@ -450,7 +450,7 @@ function SupportPage() {
             size="sm"
             disabled={search.page >= pageCount}
             onClick={() =>
-              navigate({ search: (prev) => ({ ...prev, page: prev.page + 1 }) })
+              navigate({ search: (prev: any) => ({ ...prev, page: prev.page + 1 }) })
             }
           >
             Next
