@@ -16,10 +16,13 @@ import { Logo } from "@/components/brand/Logo";
 
 const MANAGER_ROLES = new Set(["owner", "admin", "manager"]);
 
-async function landingRouteForUser(userId: string): Promise<"/dashboard" | "/pos"> {
+import { hasAnyPlatformRole } from "@/lib/platform-roles";
+
+async function landingRouteForUser(userId: string): Promise<"/dashboard" | "/pos" | "/admin"> {
   try {
     const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const roles = (data ?? []).map((r) => r.role as string);
+    if (hasAnyPlatformRole(roles)) return "/admin";
     return roles.some((r) => MANAGER_ROLES.has(r)) ? "/dashboard" : "/pos";
   } catch {
     return "/pos";
@@ -27,7 +30,7 @@ async function landingRouteForUser(userId: string): Promise<"/dashboard" | "/pos
 }
 
 // Single-domain navigation after auth.
-function goToLanding(navigate: (opts: { to: "/dashboard" | "/pos"; replace: true }) => void, dest: "/dashboard" | "/pos") {
+function goToLanding(navigate: (opts: { to: "/dashboard" | "/pos" | "/admin"; replace: true }) => void, dest: "/dashboard" | "/pos" | "/admin") {
   navigate({ to: dest, replace: true });
 }
 
