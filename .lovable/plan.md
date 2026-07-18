@@ -1,127 +1,146 @@
-## Feature: Cash Drawer Control + Cashier Shift Review
+# SEZA Platform Admin — Production Hardening Plan
 
-One connected workflow. Reuses existing `register_sessions`, `cash_movements`, `audit_log`, `openCashDrawer` bridge, `ManagerOverrideDialog`, `fetchShiftSummary`, and `/shifts` owner page. No parallel shift system.
+## Root cause of "admin becomes cashier"
 
----
+`handle_new_user()` (DB trigger on `auth.users`) inserts every new signup into `public.profiles` with a `store_id` and into `public.user_roles` as either `owner` (if `business_name` in metadata or first user) or **`cashier`** as a fallback. The current super_admin user was created through this path, so they carry BOTH `super_admin` and `cashier` rows in `user_roles`, plus a `profiles.store_id` pointing at a merchant store.
 
-### 1. Database — smallest necessary migration
+Downstream:
+- `useMe()` reads all roles → merchant surfaces (`_pos/route.tsx`, `_dashboard/route.tsx`) see `cashier`/`owner` and let the admin in.
+- `admin.auth.tsx` only checks `super_admin` presence, not exclusivity.
+- No guard rejects platform staff from merchant contexts.
 
-Extend existing tables; no new tables.
-
-**`register_sessions`** — add closing snapshot columns:
-- `safe_drop_amount numeric default 0`
-- `denominations jsonb` (per-denom counts if used)
-- `approver_id uuid references auth.users`
-- `close_notes text`
-
-**`cash_movements`** — extend `type` check to include `safe_drop`; keep `deposit`/`payout`. Safe drops are recorded as `cash_movements` (type=`safe_drop`) linked to `register_session_id`, so expected-cash math already picks them up.
-
-**Reuse `audit_log`** for `NO_SALE_DRAWER_OPEN` events. Action string `drawer.no_sale_open`; `entity='register_session'`; `entity_id=session.id`; `details` jsonb holds: `{ reason, note, register_id, cashier_id, status: 'requested'|'unavailable'|'opened'|'failed', drawer_simulated, safe_drop_amount, approver_id, approver_name, client_dedupe_id }`. `audit_log` already scopes to store and blocks user deletes (no DELETE policy for authenticated) — immutable per spec.
-
-Server-side idempotency: RPC `close_register_session(session_id, payload)` — `UPDATE ... WHERE id=? AND status='open'` returning the row; second call returns nothing → treated as no-op. Same guard on safe-drop insert via `client_dedupe_id` unique per session.
+**Fix**: (a) treat platform roles as mutually exclusive with merchant roles — a user with any platform role must not have a `store_id` or merchant role; (b) change `handle_new_user()` so it skips profile/role provisioning when the new user is marked platform staff (via metadata) or already has a platform role; (c) add positive guards on `_dashboard` and `_pos` layouts that redirect platform staff to `/admin`; (d) purge merchant rows for existing super_admins in a migration.
 
 ---
 
-### 2. Open Cash Drawer button (desktop + mobile)
+## Phase 1 — Auth & session separation (do first, ship, verify)
 
-**Desktop** — `src/components/pos/PosShell.tsx` left checkout panel, above the cashier-name row / divider, only when active cashier + open register. Cash-drawer icon (`DoorOpen`), full-width outline button. Not in overflow menu, not with payment buttons.
+**DB migration**
+- Extend `app_role` enum: add `operations_admin`, `support_admin`, `billing_admin`, `analyst`.
+- Add helper `public.is_platform_staff(uuid)` returning true if the user has any of the 5 platform roles.
+- Update `handle_new_user()`: if `raw_user_meta_data->>'platform_staff' = 'true'` OR user already has a platform role → do NOT insert into `profiles`/`user_roles`.
+- Add trigger `tg_enforce_role_exclusivity` on `user_roles` INSERT/UPDATE: reject inserting a merchant role for a user who has any platform role, and vice versa.
+- Data cleanup: delete `profiles` and merchant `user_roles` rows for existing users who have a platform role (super_admin bootstrap included).
+- Tighten `has_role`/`has_any_role` so platform-role checks don't leak merchant permissions (they already scope by store, but audit).
 
-**Mobile** — same shell, add row inside the existing mobile Sheet menu (already there from prior slice), only when register is open. Verified at 375px.
+**Frontend**
+- `src/routes/_dashboard/route.tsx` + `src/routes/_pos/route.tsx`: after `useMe()` loads, if `roles` includes any platform role → `navigate("/admin", replace: true)` and return.
+- `src/routes/index.tsx` (and any post-login redirect in `auth.tsx`): if platform staff, redirect to `/admin`.
+- `_adminApp/route.tsx`: accept any of the 5 platform roles, not just `super_admin` (super_admin remains required for Settings).
+- Add `usePlatformRole()` helper for permission gating in admin pages.
 
-Both open the same `<OpenDrawerDialog />`.
-
----
-
-### 3. Open Drawer dialog
-
-New component `src/components/pos/OpenDrawerDialog.tsx`. Radio group:
-- Make Change
-- Count Shift
-- Cash Pickup / Safe Drop  → reveals amount input, optional note
-- Manager Request           → triggers `ManagerOverrideDialog` (existing)
-- Other                     → note required
-
-Buttons: Cancel · Request Drawer Open. Submit button disabled during pending mutation to block double-click; also debounced via `client_dedupe_id` (uuid generated per dialog-open).
-
-Confirmed submit flow:
-1. Insert one `audit_log` row (`drawer.no_sale_open`, status=`requested`).
-2. If reason = Cash Pickup/Safe Drop → also insert a `cash_movements` row (`type=safe_drop`, `amount`, `reason='Safe drop'`) — same `client_dedupe_id` guards duplicates.
-3. If reason = Manager Request → require `ManagerOverrideDialog` PIN first; store approver id/name in details.
-4. Call `openCashDrawer(reason)` (existing bridge). If `getDevice('drawer') || getDevice('printer')` is missing → treat as unavailable: update audit row `details.status='unavailable'`, toast: "Cash drawer unavailable. Connect a supported register bridge or receipt printer." No fake success. If bridge present → update to `opened`.
-
-No sale/refund/payment side-effects.
-
-Opening with no active shift → forces `ManagerOverrideDialog` before recording the event.
-
-PINs never logged (audit `details` never includes PIN; existing `ManagerOverrideDialog` already returns only `manager_id`/`manager_name`).
+**Verify**: sign in on `/admin/auth` → land on `/admin`; manually visit `/pos`, `/dashboard` → bounced to `/admin`; merchant owner visiting `/admin` → bounced to `/admin/auth`; refresh on `/admin/*` stays put.
 
 ---
 
-### 4. Cashier Shift page (reuse existing `/register`)
+## Phase 2 — Businesses
 
-`src/routes/_pos/register.tsx` — extend the `OpenSessionCard` header block, no new route:
-- Cashier name, register name, status badge, opening date/time, opening cash (already shown)
-- Add: time worked (live from `opened_at`)
-- Sales summary (already there)
-- No-sale drawer-opening count (count from `audit_log` where action=`drawer.no_sale_open` for this session)
-- Safe drops list + total (from `cash_movements` type=`safe_drop`)
-- Replace/rename "Close Register" primary CTA to **Review & Close Shift** → opens stepped dialog
-
-Mobile: convert the 6-col stat grid to 2-col at `<sm`, stack action buttons. Same page at all breakpoints — no duplicate.
+Existing: `admin.businesses.tsx` list + `admin.businesses.$storeId.tsx` workspace already partially exist. Fill gaps:
+- Extend `adminListBusinesses` server fn: add sort (newest/oldest/name/last_activity), owner-name/email search, real device count, real user count.
+- Business Detail: wire Overview, Owner, Stores, Employees, Devices, Subscription, Sales summary, Recent shifts, Support, Screen-sharing history, Internal notes, Audit history — one server fn per section, all under super_admin/ops_admin RLS.
+- Actions: Suspend (already exists) — require reason + confirm; Reactivate; Add internal note; Open support ticket. All audited.
 
 ---
 
-### 5. Review & Close Shift — stepped dialog
+## Phase 3 — Support (real, end-to-end)
 
-New `src/components/pos/CloseShiftDialog.tsx` with 5 stepper panels; shares the same expected-cash formula.
+Existing tables: `support_tickets`, `support_ticket_notes`, `admin_support_sessions`. Extend/reuse; don't duplicate.
 
-**Step 1 — Activity:** completed sales count, gross, discounts, refunds, voids, cash sales, card sales, other, no-sale count, safe drops. Reuse `fetchShiftSummary`.
+**DB**
+- Add `support_ticket_messages` (merchant ↔ admin chat, distinct from internal notes which stay in `support_ticket_notes`).
+- Enable Realtime on `support_tickets`, `support_ticket_messages`, `support_ticket_notes`.
+- RLS: merchants see only their store's tickets; platform staff with `support_admin`/`super_admin` see all.
 
-**Step 2 — Count cash:** toggle between "Enter total" and "Count by denomination" ($100/$50/$20/$10/$5/$1/25¢/10¢/5¢/1¢). Denom sum auto-fills total. Expected cash hidden here unless store setting `show_expected_before_count` is on (store-level pref stored in existing `stores` settings jsonb — no schema change needed if column exists; otherwise store in existing `pos:prefs:register` localStorage mirror + a boolean column already available via settings screen. **If no suitable existing column, add `show_expected_before_count boolean default false` to `stores`.**)
+**Merchant UI**
+- New route `src/routes/_dashboard/support.tsx` and entry in POS settings menu: list own tickets, create ticket (category, subject, priority, description, attachments via `product-images` bucket subpath), view thread, reply, request screen share.
 
-**Step 3 — Variance (server-computed):** on advance, call server fn `computeShiftClose({ sessionId, countedCash })` returning `{ expected, counted, variance, status: over|short|balanced }`. Formula:
-
-```
-expected = opening_cash
-         + sum(sales.total where payment_method='cash' AND status='completed')
-         + sum(cash_movements.amount where type='deposit')
-         - sum(refunds.total where payment_method='cash' AND status='completed')
-         - sum(cash_movements.amount where type IN ('payout','safe_drop'))
-```
-
-Card/other excluded. Count is not mutated.
-
-**Step 4 — Safe drop:** suggested = `counted - store.starting_cash_float`; input clamped `0 ≤ amount ≤ counted`; shows remaining. Copy: "Place the removed cash and shift report in the assigned cash bag or envelope, then secure it in the safe." Saved as `cash_movements(type=safe_drop)` with `client_dedupe_id`.
-
-**Step 5 — Final review + close:** shows all figures, mandatory checkbox "I confirm that I counted the drawer and secured the removed cash." Final button "Close Shift & Sign Out". Excess variance → `ManagerOverrideDialog` first; approver_id stored on session; cashier cannot self-approve unless they hold owner/admin/manager role (existing `usePermissions().isSuper` check).
-
-On submit: server RPC `close_register_session` (single UPDATE with `WHERE status='open'`), then `supabase.auth.signOut()`, navigate `/auth?mode=pin`. Button disabled while pending → no double-close, no duplicate safe-drop.
+**Admin UI**
+- Rebuild `admin.support.tsx` list with real filters (status, priority, assignee, business).
+- `admin.support.$ticketId.tsx`: full thread, reply, internal notes, status/priority/assignee controls, link to business/store, screen-share join button.
 
 ---
 
-### 6. Owner review — extend `/shifts`
+## Phase 4 — Merchant-authorized screen sharing (WebRTC, view-only)
 
-`src/routes/_dashboard/shifts.tsx` + `src/components/reports/ShiftSummaryReport.tsx`:
-- Session detail drawer already exists; add rows: safe drops list, no-sale drawer-opening count with expandable reason/note/approver list (queried from `audit_log`), approver info, close notes, cash remaining.
-- Print/PDF path already in `ShiftSummaryReport` — new rows print through automatically.
-- No new route.
+**DB**
+- New table `screen_share_sessions`: id, ticket_id, business_id, store_id, merchant_user_id, admin_user_id, status (requested/waiting_for_admin/active/ended/declined/expired/failed), created_at, started_at, ended_at, end_reason, expires_at.
+- New table `screen_share_signals`: session_id, from_user_id, kind (offer/answer/ice), payload jsonb, created_at — auto-purged on session end.
+- RLS: merchant sees own sessions; admin sees only sessions where they're the assigned admin OR the ticket is unassigned and they have `support_admin`.
+- Enable Realtime on both tables.
 
-Immutability: `register_sessions` UPDATE policy stays; adjustments must be new audit rows (out of scope beyond preserving current no-DELETE stance).
+**Merchant flow**
+- Button in support ticket + POS help menu: "Share screen with SEZA Support".
+- Consent dialog → `navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })` → insert `screen_share_sessions` row (status=waiting_for_admin, expires_at=+10min).
+- Persistent banner "Your screen is being shared" with Stop button + admin name once joined.
+- On tab close / stream ended → mark session ended.
+
+**Admin flow**
+- Realtime alert in admin Support page + on Business Detail when a session is pending.
+- "Join Screen Share" button → creates WebRTC peer connection, exchanges offer/answer/ICE via `screen_share_signals` (Supabase Realtime channel).
+- Viewer component (video element) with duration, End Session button.
+- No recording, no screenshots, no audio, no remote control.
+
+**Cleanup**
+- Client `beforeunload` and periodic heartbeat; server-side cron (`pg_net` → server route) marks sessions expired after inactivity.
+- All lifecycle events audited (requested/joined/left/ended/expired/failed) — metadata only.
 
 ---
 
-### 7. Files to change
+## Phase 5 — Devices
 
-- `supabase/migrations/*` — new migration (columns + type check + optional `show_expected_before_count`)
-- `src/components/pos/PosShell.tsx` — desktop button placement + mobile Sheet row
-- `src/components/pos/OpenDrawerDialog.tsx` — new
-- `src/components/pos/CloseShiftDialog.tsx` — new (stepper)
-- `src/lib/pos/shift-close.functions.ts` — new server fns: `computeShiftClose`, `closeRegisterSession` (requireSupabaseAuth; atomic UPDATE with status guard)
-- `src/lib/pos/drawer-events.ts` — new tiny helper: `recordNoSaleOpen({...})` wraps audit insert + optional cash_movement, dedupes by `client_dedupe_id`
-- `src/routes/_pos/register.tsx` — swap inline close UI to `CloseShiftDialog`, add no-sale count + safe-drop list + time worked; mobile grid tweaks
-- `src/routes/_dashboard/shifts.tsx` — surface no-sale list, safe drops, approver in existing drawer
-- `src/components/reports/ShiftSummaryReport.tsx` — render new fields (safe drops, no-sale count, approver, cash remaining)
+Existing `payment_terminals` + `register_sessions` provide device+heartbeat data.
+- Rebuild `admin.devices.tsx` list: real terminals + registers, filter by business/store/status, last activity from `register_sessions.opened_at`/`sales.created_at`.
+- Device Detail modal/page: overview, recent sessions, recent sales, recent shifts, support tickets referencing device, screen-share sessions, audit.
+- Actions: rename, reassign, deactivate/reactivate — audited.
+- Status: derive "active recently" (< 24h activity), "inactive", "unknown" — no fake "online".
 
-### 8. Test matrix (all 19 spec tests)
+---
 
-Manual pass on desktop + 375px mobile after build: button placement, reason dialog, single audit event per confirm, unavailable state (no hardware), Count Shift → review dialog, mobile stepper usable, expected formula excludes card, cash refunds + safe drops reduce expected, denom + manual counting, over/short/balanced, excess-variance approval, safe-drop clamp, no-sale in owner report, double-click idempotency (dialog disable + server WHERE guard + dedupe id), sign-out on close, `/shifts` visibility, historical sales untouched.
+## Phase 6 — Subscriptions
+
+Existing `subscriptions` table + Stripe integration via `stripe.server.ts`.
+- Rebuild `admin.subscriptions.tsx`: list with plan/status/trial/period/cancellation/stripe refs. Filters by status.
+- Subscription Detail: current plan, trial, billing period, invoice history (Stripe API list), Stripe event history if stored, related tickets, audit.
+- Admin actions gated by `billing_admin`/`super_admin`: cancel at period end, extend trial (already exists), refresh from Stripe. All require confirmation dialog with effect description; all audited. NO auto-charge, no manual refunds in v1 (deferred).
+
+---
+
+## Phase 7 — Audit Logs
+
+Existing `audit_log` table.
+- Rebuild `admin.audit-logs.tsx`: filters (date range, actor, actor role, business, store, action, entity type, success/failure), search, pagination (already partial).
+- Ensure new phase events are logged (business actions, support actions, screen-share lifecycle, subscription actions, settings changes, admin login/failed access).
+- RLS: super_admin read; no UPDATE/DELETE from any role except service_role.
+- Redact secrets/tokens/PINs in `details` at write time (helper wrapper).
+
+---
+
+## Phase 8 — Settings (super_admin only)
+
+New table `platform_settings` (single-row keyed config) with sections: platform info, support, trial, operational, feature defaults. Never expose secrets. Every change audited with before/after.
+
+---
+
+## Phase 9 — Regression & delivery
+
+After each phase: build, fix errors, spot-check merchant signup/login/POS sale/PIN clock-in flows still work.
+
+---
+
+## Scope & delivery model
+
+This is 40–60+ files, 6–8 migrations, and a WebRTC integration. I cannot ship all 9 phases in one turn without producing something half-broken. Proposed delivery:
+
+- **This session**: Phase 1 (auth separation + migration + guards + verification) end-to-end. This is the security-critical piece and unblocks everything else.
+- **Follow-up turns**: one phase per turn, with a build check and short verification report after each.
+
+Reply "approved" (or "approved, do phase 1") to start, or edit any phase before I begin.
+
+## Technical details (for reference)
+
+- Enum expansion needs `ALTER TYPE app_role ADD VALUE` in its own migration (Postgres constraint on new enum values used in same tx).
+- Role-exclusivity trigger must be `SECURITY DEFINER` and check the OTHER role class via `has_role`.
+- Realtime channels for screen-share signaling must filter by `session_id` on both sides; RLS enforces access.
+- WebRTC uses free public STUN (`stun.l.google.com:19302`); no TURN in v1 — sessions on symmetric NAT will fail with "connection failed" audit + fallback message to merchant.
+- `getDisplayMedia` requires HTTPS; already true on `.lovable.app` and `admin.sezapos.com`.
+- No new secrets required; reuses existing Supabase + Stripe.

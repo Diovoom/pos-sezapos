@@ -20,15 +20,17 @@ export const Route = createFileRoute("/admin/auth")({
   component: AdminAuthPage,
 });
 
+import { PLATFORM_ROLES } from "@/lib/platform-roles";
+
 const GENERIC_ERROR = "Invalid credentials or insufficient permissions.";
 
-async function isSuperAdmin(userId: string): Promise<boolean> {
+async function isPlatformStaff(userId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from("user_roles")
     .select("role")
     .eq("user_id", userId);
   if (error) return false;
-  return (data ?? []).some((r) => (r.role as string) === "super_admin");
+  return (data ?? []).some((r) => (PLATFORM_ROLES as readonly string[]).includes(r.role as string));
 }
 
 function AdminAuthPage() {
@@ -43,7 +45,7 @@ function AdminAuthPage() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;
-      if (await isSuperAdmin(data.session.user.id)) {
+      if (await isPlatformStaff(data.session.user.id)) {
         navigate({ to: "/admin", replace: true });
       }
     })();
@@ -60,7 +62,7 @@ function AdminAuthPage() {
         toast.error(GENERIC_ERROR);
         return;
       }
-      const ok = await isSuperAdmin(data.session.user.id);
+      const ok = await isPlatformStaff(data.session.user.id);
       if (!ok) {
         await logAudit({ action: "override.denied", entity: "admin", details: { reason: "not_super_admin" } });
         await supabase.auth.signOut();

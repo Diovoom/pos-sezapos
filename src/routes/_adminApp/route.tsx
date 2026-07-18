@@ -26,6 +26,8 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { PLATFORM_ROLES } from "@/lib/platform-roles";
+
 export const Route = createFileRoute("/_adminApp")({
   ssr: false,
   head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }, { title: "SEZA Admin" }] }),
@@ -36,9 +38,11 @@ export const Route = createFileRoute("/_adminApp")({
       .from("user_roles")
       .select("role")
       .eq("user_id", data.user.id);
-    const isSuper = !rolesErr && (roles ?? []).some((r) => (r.role as string) === "super_admin");
-    if (!isSuper) {
-      await logAudit({ action: "override.denied", entity: "admin", details: { path: "/admin", reason: "not_super_admin" } }).catch(() => {});
+    const isPlatform =
+      !rolesErr && (roles ?? []).some((r) => (PLATFORM_ROLES as readonly string[]).includes(r.role as string));
+    if (!isPlatform) {
+      await logAudit({ action: "override.denied", entity: "admin", details: { path: "/admin", reason: "not_platform_staff" } }).catch(() => {});
+      await supabase.auth.signOut();
       throw redirect({ to: "/admin/auth" });
     }
     return { user: data.user };
