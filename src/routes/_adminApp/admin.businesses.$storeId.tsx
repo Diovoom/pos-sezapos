@@ -144,12 +144,13 @@ function BusinessWorkspace() {
   const { store, owners, counts, employees, terminals, subscription, subscriptions, recent_sales, recent_activity, recent_issues, tickets, offline_terminals, last_activity } = data;
 
   async function openSupport() {
-    ask("Open Support View", "Read-only view of merchant data. Expires in 30 minutes.", async (reason) => {
+    ask("Request Support View", "The merchant will be notified and must accept before you can view their data. Expires in 30 minutes.", async (reason) => {
       await startSupport({ data: { storeId, reason } });
-      toast.success("Support view started");
+      toast.success("Request sent — waiting for merchant to accept");
       qc.invalidateQueries({ queryKey: ["admin_support_session_active"] });
     });
   }
+
 
   async function doSuspend() {
     ask("Suspend business", `Prevents ${store.name} operations until unsuspended.`, async (reason) => {
