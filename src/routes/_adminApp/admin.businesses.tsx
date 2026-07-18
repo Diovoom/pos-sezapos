@@ -128,7 +128,7 @@ function BusinessesPage() {
     const t = window.setTimeout(() => {
       if (searchInput === q) return;
       navigate({
-        search: (prev) => ({ ...prev, q: searchInput, page: 1 }),
+        search: (prev: BusinessesSearch) => ({ ...prev, q: searchInput, page: 1 }),
         replace: true,
       });
     }, 300);
@@ -143,7 +143,7 @@ function BusinessesPage() {
     staleTime: 15_000,
   });
 
-  const rows = (query.data?.rows ?? []) as BusinessRow[];
+  const rows = (query.data?.rows ?? []) as unknown as BusinessRow[];
   const total = query.data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const pageStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -151,7 +151,7 @@ function BusinessesPage() {
 
   const setSort = (key: string) => {
     navigate({
-      search: (prev) => ({
+      search: (prev: BusinessesSearch) => ({
         ...prev,
         sortBy: key,
         sortDir: prev.sortBy === key && prev.sortDir === "desc" ? "asc" : "desc",
@@ -162,15 +162,15 @@ function BusinessesPage() {
   };
 
   const setFilter = (v: string) => {
-    navigate({ search: (prev) => ({ ...prev, filter: v, page: 1 }), replace: true });
+    navigate({ search: (prev: BusinessesSearch) => ({ ...prev, filter: v, page: 1 }), replace: true });
   };
 
   const setPage = (p: number) => {
-    navigate({ search: (prev) => ({ ...prev, page: p }), replace: true });
+    navigate({ search: (prev: BusinessesSearch) => ({ ...prev, page: p }), replace: true });
   };
 
   const setPageSize = (n: number) => {
-    navigate({ search: (prev) => ({ ...prev, pageSize: n, page: 1 }), replace: true });
+    navigate({ search: (prev: BusinessesSearch) => ({ ...prev, pageSize: n, page: 1 }), replace: true });
   };
 
   const clearAll = () => {
@@ -294,7 +294,7 @@ function BusinessesPage() {
             onValueChange={(v) => {
               const [key, dir] = v.split(":");
               navigate({
-                search: (prev) => ({ ...prev, sortBy: key, sortDir: dir as "asc" | "desc", page: 1 }),
+                search: (prev: BusinessesSearch) => ({ ...prev, sortBy: key, sortDir: dir as "asc" | "desc", page: 1 }),
                 replace: true,
               });
             }}
