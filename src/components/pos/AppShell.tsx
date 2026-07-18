@@ -30,6 +30,8 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { SupportRequestListener } from "@/components/SupportRequestListener";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
