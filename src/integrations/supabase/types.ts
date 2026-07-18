@@ -18,31 +18,46 @@ export type Database = {
         Row: {
           admin_email: string | null
           admin_id: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
           ended_at: string | null
           expires_at: string
           id: string
           reason: string
+          requested_at: string
           started_at: string
+          status: string
           store_id: string | null
         }
         Insert: {
           admin_email?: string | null
           admin_id: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
           ended_at?: string | null
           expires_at?: string
           id?: string
           reason: string
+          requested_at?: string
           started_at?: string
+          status?: string
           store_id?: string | null
         }
         Update: {
           admin_email?: string | null
           admin_id?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
           ended_at?: string | null
           expires_at?: string
           id?: string
           reason?: string
+          requested_at?: string
           started_at?: string
+          status?: string
           store_id?: string | null
         }
         Relationships: [

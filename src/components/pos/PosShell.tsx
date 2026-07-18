@@ -3,6 +3,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
+import { SupportRequestListener } from "@/components/SupportRequestListener";
+
 import {
   ScanBarcode,
   Wallet,
@@ -340,7 +342,9 @@ export function PosShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
+      <SupportRequestListener />
       <main className="flex-1 min-w-0 flex flex-col overflow-hidden pt-12 md:pt-0 pb-14 md:pb-0">{children}</main>
+
 
       {/* Mobile POS bottom nav */}
       <nav

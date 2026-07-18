@@ -30,6 +30,8 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { SupportRequestListener } from "@/components/SupportRequestListener";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -220,7 +222,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </DropdownMenu>
         </div>
 
+        <SupportRequestListener />
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden pb-16 md:pb-0">{children}</div>
+
 
         {/* Mobile bottom nav */}
         <nav

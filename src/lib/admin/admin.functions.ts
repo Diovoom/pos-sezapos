@@ -1360,6 +1360,15 @@ export const adminStartSupportSession = createServerFn({ method: "POST" })
     const admin = await ensureSuperAdmin(context);
     const reason = requireReason(data.reason);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Cancel any pre-existing pending request from this admin for this store.
+    await supabaseAdmin
+      .from("admin_support_sessions")
+      .update({ status: "ended", ended_at: new Date().toISOString() })
+      .eq("admin_id", context.userId)
+      .eq("store_id", data.storeId)
+      .eq("status", "pending");
+
     const expires = new Date(Date.now() + 30 * 60_000).toISOString();
     const { data: row, error } = await supabaseAdmin
       .from("admin_support_sessions")
@@ -1369,20 +1378,51 @@ export const adminStartSupportSession = createServerFn({ method: "POST" })
         store_id: data.storeId,
         reason,
         expires_at: expires,
+        status: "pending",
+        requested_at: new Date().toISOString(),
       })
-      .select("id, expires_at")
+      .select("id, expires_at, status")
       .single();
     if (error) throw new Error(error.message);
     await writeAudit(supabaseAdmin, {
       actor_id: context.userId,
       actor_email: admin.email,
       store_id: data.storeId,
-      action: "admin.support_view.start",
+      action: "admin.support_view.request",
       entity: "support_session",
       entity_id: row.id,
       details: { reason },
     });
-    return { ok: true, id: row.id, expires_at: row.expires_at };
+    return { ok: true, id: row.id, expires_at: row.expires_at, status: row.status };
+  });
+
+export const adminCancelSupportRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { sessionId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const admin = await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: sess } = await supabaseAdmin
+      .from("admin_support_sessions")
+      .select("store_id, status")
+      .eq("id", data.sessionId)
+      .maybeSingle();
+    if (!sess || sess.status !== "pending") return { ok: true };
+    const { error } = await supabaseAdmin
+      .from("admin_support_sessions")
+      .update({ status: "ended", ended_at: new Date().toISOString() })
+      .eq("id", data.sessionId)
+      .eq("status", "pending");
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: admin.email,
+      store_id: sess.store_id,
+      action: "admin.support_view.cancel",
+      entity: "support_session",
+      entity_id: data.sessionId,
+    });
+    return { ok: true };
   });
 
 export const adminEndSupportSession = createServerFn({ method: "POST" })
@@ -1398,7 +1438,7 @@ export const adminEndSupportSession = createServerFn({ method: "POST" })
       .maybeSingle();
     const { error } = await supabaseAdmin
       .from("admin_support_sessions")
-      .update({ ended_at: new Date().toISOString() })
+      .update({ ended_at: new Date().toISOString(), status: "ended" })
       .eq("id", data.sessionId)
       .is("ended_at", null);
     if (error) throw new Error(error.message);
@@ -1420,15 +1460,16 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
       .from("admin_support_sessions")
-      .select("id, store_id, started_at, expires_at, reason")
+      .select("id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at")
       .eq("admin_id", context.userId)
-      .is("ended_at", null)
+      .in("status", ["pending", "active"])
       .gt("expires_at", new Date().toISOString())
-      .order("started_at", { ascending: false })
+      .order("requested_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     return { session: data ?? null };
   });
+
 
 // ============================================================================
 // Platform health
