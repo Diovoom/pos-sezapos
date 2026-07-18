@@ -18,11 +18,31 @@ const MANAGER_ROLES = new Set(["owner", "admin", "manager"]);
 
 import { hasAnyPlatformRole } from "@/lib/platform-roles";
 
-async function landingRouteForUser(userId: string): Promise<"/dashboard" | "/pos" | "/admin"> {
+const PLATFORM_STAFF_MSG =
+  "Platform Administrators cannot sign in here. Use admin.sezapos.com.";
+
+// If a platform-staff account signs in on the merchant page, sign them out
+// immediately and surface a message. Platform Admin has its own isolated
+// session on admin.sezapos.com — it must NEVER hold a merchant session.
+async function rejectIfPlatformStaff(userId: string): Promise<boolean> {
   try {
     const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const roles = (data ?? []).map((r) => r.role as string);
-    if (hasAnyPlatformRole(roles)) return "/admin";
+    if (hasAnyPlatformRole(roles)) {
+      await supabase.auth.signOut();
+      toast.error(PLATFORM_STAFF_MSG);
+      return true;
+    }
+  } catch {
+    /* fall through */
+  }
+  return false;
+}
+
+async function landingRouteForUser(userId: string): Promise<"/dashboard" | "/pos"> {
+  try {
+    const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    const roles = (data ?? []).map((r) => r.role as string);
     return roles.some((r) => MANAGER_ROLES.has(r)) ? "/dashboard" : "/pos";
   } catch {
     return "/pos";
@@ -30,7 +50,7 @@ async function landingRouteForUser(userId: string): Promise<"/dashboard" | "/pos
 }
 
 // Single-domain navigation after auth.
-function goToLanding(navigate: (opts: { to: "/dashboard" | "/pos" | "/admin"; replace: true }) => void, dest: "/dashboard" | "/pos" | "/admin") {
+function goToLanding(navigate: (opts: { to: "/dashboard" | "/pos"; replace: true }) => void, dest: "/dashboard" | "/pos") {
   navigate({ to: dest, replace: true });
 }
 
@@ -42,12 +62,11 @@ function safeNext(next: string | undefined): string | null {
 }
 
 function goAfterAuth(
-  navigate: (opts: { to: "/dashboard" | "/pos" | "/admin"; replace: true }) => void,
-  dest: "/dashboard" | "/pos" | "/admin",
+  navigate: (opts: { to: "/dashboard" | "/pos"; replace: true }) => void,
+  dest: "/dashboard" | "/pos",
   next: string | undefined,
 ) {
-  // Platform staff must never be redirected into a merchant `next` URL.
-  const safe = dest === "/admin" ? null : safeNext(next);
+  const safe = safeNext(next);
   if (safe) {
     window.location.replace(safe);
     return;
