@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { logAudit } from "@/lib/audit-log";
-import { adminGlobalSearch, adminMyActiveSupportSession, adminEndSupportSession } from "@/lib/admin/admin.functions";
+import { adminGlobalSearch, adminMyActiveSupportSession, adminEndSupportSession, adminCancelSupportRequest } from "@/lib/admin/admin.functions";
 import {
   LayoutDashboard,
   Building2,
