@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { useMe } from "@/hooks/useMe";
@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { MerchantScreenShare } from "@/components/support/MerchantScreenShare";
 
 type SupportRequest = {
   id: string;
@@ -29,8 +30,9 @@ type SupportRequest = {
 
 /**
  * Listens for pending SEZA support view requests targeted at the current merchant's store,
- * and shows an Accept / Decline dialog. Also shows a persistent banner while a support session
- * is active on this store. Accept / decline / end are audited server-side.
+ * and shows an Accept / Decline dialog. On Accept, prompts the browser's native screen-share
+ * picker in the same user gesture and mounts <MerchantScreenShare/> to stream to the
+ * platform admin via WebRTC. Accept / decline / end are audited server-side.
  */
 export function SupportRequestListener() {
   const me = useMe();
@@ -42,6 +44,10 @@ export function SupportRequestListener() {
   const [pending, setPending] = useState<SupportRequest | null>(null);
   const [active, setActive] = useState<SupportRequest | null>(null);
   const [busy, setBusy] = useState(false);
+  const [captureStream, setCaptureStream] = useState<MediaStream | null>(null);
+  // Keep the stream mount tied to the accepted session — clear it if a new
+  // session arrives, if the current one ends, or on unmount.
+  const streamSessionIdRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!storeId) return;
@@ -76,29 +82,112 @@ export function SupportRequestListener() {
     };
   }, [storeId, refresh]);
 
+  // Tear down any stream if the active session goes away or changes.
+  useEffect(() => {
+    if (!active || active.id !== streamSessionIdRef.current) {
+      if (captureStream) {
+        try {
+          captureStream.getTracks().forEach((t) => t.stop());
+        } catch {
+          /* noop */
+        }
+        setCaptureStream(null);
+        streamSessionIdRef.current = null;
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active?.id]);
+
   async function decide(decision: "accept" | "decline") {
     if (!pending) return;
     setBusy(true);
-    try {
-      await respond({ data: { sessionId: pending.id, decision } });
-      toast[decision === "accept" ? "success" : "message"](
-        decision === "accept"
-          ? "SEZA Support can now view your screen"
-          : "Support request declined",
-      );
+    const target = pending;
+
+    if (decision === "decline") {
+      try {
+        await respond({ data: { sessionId: target.id, decision: "decline" } });
+        toast.message("Support request declined");
+        setPending(null);
+        refresh();
+      } catch (e: any) {
+        toast.error(e?.message ?? "Failed to respond");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
+    // Accept path: prompt the browser's screen picker WITHIN this user gesture.
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== "function") {
+      toast.error("Your browser doesn't support screen sharing.");
+      try {
+        await respond({
+          data: { sessionId: target.id, decision: "decline", note: "screen_share_unsupported" },
+        });
+      } catch {
+        /* noop */
+      }
       setPending(null);
       refresh();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to respond");
-    } finally {
       setBusy(false);
+      return;
     }
+
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: 15 },
+        audio: false,
+      });
+    } catch (e: any) {
+      toast.error("Screen sharing was cancelled or blocked");
+      try {
+        await respond({
+          data: { sessionId: target.id, decision: "decline", note: "screen_share_denied" },
+        });
+      } catch {
+        /* noop */
+      }
+      setPending(null);
+      refresh();
+      setBusy(false);
+      return;
+    }
+
+    try {
+      await respond({ data: { sessionId: target.id, decision: "accept" } });
+    } catch (e: any) {
+      try {
+        stream.getTracks().forEach((t) => t.stop());
+      } catch {
+        /* noop */
+      }
+      toast.error(e?.message ?? "Failed to accept");
+      setBusy(false);
+      return;
+    }
+
+    streamSessionIdRef.current = target.id;
+    setCaptureStream(stream);
+    toast.success("SEZA Support can now view your screen");
+    setPending(null);
+    refresh();
+    setBusy(false);
   }
 
   async function endActive() {
     if (!active) return;
     try {
       await endFn({ data: { sessionId: active.id } });
+      if (captureStream) {
+        try {
+          captureStream.getTracks().forEach((t) => t.stop());
+        } catch {
+          /* noop */
+        }
+        setCaptureStream(null);
+        streamSessionIdRef.current = null;
+      }
       refresh();
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to end session");
@@ -125,6 +214,28 @@ export function SupportRequestListener() {
         </div>
       )}
 
+      {active && captureStream && streamSessionIdRef.current === active.id && (
+        <MerchantScreenShare
+          sessionId={active.id}
+          stream={captureStream}
+          onEnded={async (reason) => {
+            setCaptureStream(null);
+            streamSessionIdRef.current = null;
+            // If the stream died on its own (user hit "Stop sharing", or
+            // the connection dropped), close the session too so both sides
+            // get audited and the admin banner clears.
+            if (active) {
+              try {
+                await endFn({ data: { sessionId: active.id, note: reason } });
+              } catch {
+                /* noop — server may have already ended it */
+              }
+              refresh();
+            }
+          }}
+        />
+      )}
+
       <AlertDialog open={!!pending}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -144,6 +255,9 @@ export function SupportRequestListener() {
                     <div>{pending.reason}</div>
                   </div>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  After you tap Accept, your browser will ask which screen, window, or tab to share.
+                </p>
                 <div className="flex items-center gap-2 pt-1">
                   <Badge variant="outline">Read-only</Badge>
                   <Badge variant="outline">You can end it anytime</Badge>
@@ -156,7 +270,7 @@ export function SupportRequestListener() {
               Decline
             </AlertDialogCancel>
             <AlertDialogAction disabled={busy} onClick={() => decide("accept")}>
-              Accept
+              Accept & Share Screen
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
