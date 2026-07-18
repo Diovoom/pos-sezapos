@@ -32,7 +32,7 @@ const DEFAULTS: BusinessesSearch = {
   pageSize: 25,
 };
 
-export const Route = createFileRoute("/_adminApp/admin/businesses")({
+export const Route = createFileRoute("/_adminApp/admin/businesses/")({
   head: () => ({
     meta: [
       { title: "Businesses — SEZA Admin" },
