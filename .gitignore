@@ -33,5 +33,3 @@ dist-ssr
 .env
 .env.*
 !.env.example
-# Capacitor
-android/
