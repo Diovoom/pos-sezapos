@@ -62,9 +62,9 @@ import { Route as DashboardInventoryRouteImport } from './routes/_dashboard/inve
 import { Route as DashboardEmployeesRouteImport } from './routes/_dashboard/employees'
 import { Route as DashboardDashboardRouteImport } from './routes/_dashboard/dashboard'
 import { Route as DashboardCustomersRouteImport } from './routes/_dashboard/customers'
-import { Route as AdminAppAdminRouteImport } from './routes/_adminApp/admin'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
+import { Route as AdminAppAdminIndexRouteImport } from './routes/_adminApp/admin.index'
 import { Route as LovableSmsSendRouteImport } from './routes/lovable/sms/send'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as DashboardEmployeesIdRouteImport } from './routes/_dashboard/employees.$id'
@@ -347,11 +347,6 @@ const DashboardCustomersRoute = DashboardCustomersRouteImport.update({
   path: '/customers',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const AdminAppAdminRoute = AdminAppAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AdminAppRouteRoute,
-} as any)
 const Char91DotwellKnownChar93OauthProtectedResourceRoute =
   Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
     id: '/.well-known/oauth-protected-resource',
@@ -364,6 +359,11 @@ const Char91DotmcpChar93ListToolsRoute =
     path: '/.mcp/list-tools',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdminAppAdminIndexRoute = AdminAppAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => AdminAppRouteRoute,
+} as any)
 const LovableSmsSendRoute = LovableSmsSendRouteImport.update({
   id: '/lovable/sms/send',
   path: '/lovable/sms/send',
@@ -380,35 +380,35 @@ const DashboardEmployeesIdRoute = DashboardEmployeesIdRouteImport.update({
   getParentRoute: () => DashboardEmployeesRoute,
 } as any)
 const AdminAppAdminSupportRoute = AdminAppAdminSupportRouteImport.update({
-  id: '/support',
-  path: '/support',
-  getParentRoute: () => AdminAppAdminRoute,
+  id: '/admin/support',
+  path: '/admin/support',
+  getParentRoute: () => AdminAppRouteRoute,
 } as any)
 const AdminAppAdminSubscriptionsRoute =
   AdminAppAdminSubscriptionsRouteImport.update({
-    id: '/subscriptions',
-    path: '/subscriptions',
-    getParentRoute: () => AdminAppAdminRoute,
+    id: '/admin/subscriptions',
+    path: '/admin/subscriptions',
+    getParentRoute: () => AdminAppRouteRoute,
   } as any)
 const AdminAppAdminSettingsRoute = AdminAppAdminSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AdminAppAdminRoute,
+  id: '/admin/settings',
+  path: '/admin/settings',
+  getParentRoute: () => AdminAppRouteRoute,
 } as any)
 const AdminAppAdminDevicesRoute = AdminAppAdminDevicesRouteImport.update({
-  id: '/devices',
-  path: '/devices',
-  getParentRoute: () => AdminAppAdminRoute,
+  id: '/admin/devices',
+  path: '/admin/devices',
+  getParentRoute: () => AdminAppRouteRoute,
 } as any)
 const AdminAppAdminBusinessesRoute = AdminAppAdminBusinessesRouteImport.update({
-  id: '/businesses',
-  path: '/businesses',
-  getParentRoute: () => AdminAppAdminRoute,
+  id: '/admin/businesses',
+  path: '/admin/businesses',
+  getParentRoute: () => AdminAppRouteRoute,
 } as any)
 const AdminAppAdminAuditLogsRoute = AdminAppAdminAuditLogsRouteImport.update({
-  id: '/audit-logs',
-  path: '/audit-logs',
-  getParentRoute: () => AdminAppAdminRoute,
+  id: '/admin/audit-logs',
+  path: '/admin/audit-logs',
+  getParentRoute: () => AdminAppRouteRoute,
 } as any)
 const Char91DotmcpChar93InvokeToolToolRoute =
   Char91DotmcpChar93InvokeToolToolRouteImport.update({
@@ -497,7 +497,6 @@ export interface FileRoutesByFullPath {
   '/unsubscribe': typeof UnsubscribeRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
-  '/admin': typeof AdminAppAdminRouteWithChildren
   '/customers': typeof DashboardCustomersRoute
   '/dashboard': typeof DashboardDashboardRoute
   '/employees': typeof DashboardEmployeesRouteWithChildren
@@ -533,6 +532,7 @@ export interface FileRoutesByFullPath {
   '/employees/$id': typeof DashboardEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
+  '/admin/': typeof AdminAppAdminIndexRoute
   '/admin/businesses/$storeId': typeof AdminAppAdminBusinessesStoreIdRoute
   '/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -571,7 +571,6 @@ export interface FileRoutesByTo {
   '/unsubscribe': typeof UnsubscribeRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
-  '/admin': typeof AdminAppAdminRouteWithChildren
   '/customers': typeof DashboardCustomersRoute
   '/dashboard': typeof DashboardDashboardRoute
   '/employees': typeof DashboardEmployeesRouteWithChildren
@@ -607,6 +606,7 @@ export interface FileRoutesByTo {
   '/employees/$id': typeof DashboardEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
+  '/admin': typeof AdminAppAdminIndexRoute
   '/admin/businesses/$storeId': typeof AdminAppAdminBusinessesStoreIdRoute
   '/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -649,7 +649,6 @@ export interface FileRoutesById {
   '/unsubscribe': typeof UnsubscribeRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
-  '/_adminApp/admin': typeof AdminAppAdminRouteWithChildren
   '/_dashboard/customers': typeof DashboardCustomersRoute
   '/_dashboard/dashboard': typeof DashboardDashboardRoute
   '/_dashboard/employees': typeof DashboardEmployeesRouteWithChildren
@@ -685,6 +684,7 @@ export interface FileRoutesById {
   '/_dashboard/employees/$id': typeof DashboardEmployeesIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
+  '/_adminApp/admin/': typeof AdminAppAdminIndexRoute
   '/_adminApp/admin/businesses/$storeId': typeof AdminAppAdminBusinessesStoreIdRoute
   '/_adminApp/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -725,7 +725,6 @@ export interface FileRouteTypes {
     | '/unsubscribe'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
-    | '/admin'
     | '/customers'
     | '/dashboard'
     | '/employees'
@@ -761,6 +760,7 @@ export interface FileRouteTypes {
     | '/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
+    | '/admin/'
     | '/admin/businesses/$storeId'
     | '/admin/support/$ticketId'
     | '/api/public/payments/webhook'
@@ -799,7 +799,6 @@ export interface FileRouteTypes {
     | '/unsubscribe'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
-    | '/admin'
     | '/customers'
     | '/dashboard'
     | '/employees'
@@ -835,6 +834,7 @@ export interface FileRouteTypes {
     | '/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
+    | '/admin'
     | '/admin/businesses/$storeId'
     | '/admin/support/$ticketId'
     | '/api/public/payments/webhook'
@@ -876,7 +876,6 @@ export interface FileRouteTypes {
     | '/unsubscribe'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
-    | '/_adminApp/admin'
     | '/_dashboard/customers'
     | '/_dashboard/dashboard'
     | '/_dashboard/employees'
@@ -912,6 +911,7 @@ export interface FileRouteTypes {
     | '/_dashboard/employees/$id'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
+    | '/_adminApp/admin/'
     | '/_adminApp/admin/businesses/$storeId'
     | '/_adminApp/admin/support/$ticketId'
     | '/api/public/payments/webhook'
@@ -1347,13 +1347,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardCustomersRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/_adminApp/admin': {
-      id: '/_adminApp/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminAppAdminRouteImport
-      parentRoute: typeof AdminAppRouteRoute
-    }
     '/.well-known/oauth-protected-resource': {
       id: '/.well-known/oauth-protected-resource'
       path: '/.well-known/oauth-protected-resource'
@@ -1367,6 +1360,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/.mcp/list-tools'
       preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_adminApp/admin/': {
+      id: '/_adminApp/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminAppAdminIndexRouteImport
+      parentRoute: typeof AdminAppRouteRoute
     }
     '/lovable/sms/send': {
       id: '/lovable/sms/send'
@@ -1391,45 +1391,45 @@ declare module '@tanstack/react-router' {
     }
     '/_adminApp/admin/support': {
       id: '/_adminApp/admin/support'
-      path: '/support'
+      path: '/admin/support'
       fullPath: '/admin/support'
       preLoaderRoute: typeof AdminAppAdminSupportRouteImport
-      parentRoute: typeof AdminAppAdminRoute
+      parentRoute: typeof AdminAppRouteRoute
     }
     '/_adminApp/admin/subscriptions': {
       id: '/_adminApp/admin/subscriptions'
-      path: '/subscriptions'
+      path: '/admin/subscriptions'
       fullPath: '/admin/subscriptions'
       preLoaderRoute: typeof AdminAppAdminSubscriptionsRouteImport
-      parentRoute: typeof AdminAppAdminRoute
+      parentRoute: typeof AdminAppRouteRoute
     }
     '/_adminApp/admin/settings': {
       id: '/_adminApp/admin/settings'
-      path: '/settings'
+      path: '/admin/settings'
       fullPath: '/admin/settings'
       preLoaderRoute: typeof AdminAppAdminSettingsRouteImport
-      parentRoute: typeof AdminAppAdminRoute
+      parentRoute: typeof AdminAppRouteRoute
     }
     '/_adminApp/admin/devices': {
       id: '/_adminApp/admin/devices'
-      path: '/devices'
+      path: '/admin/devices'
       fullPath: '/admin/devices'
       preLoaderRoute: typeof AdminAppAdminDevicesRouteImport
-      parentRoute: typeof AdminAppAdminRoute
+      parentRoute: typeof AdminAppRouteRoute
     }
     '/_adminApp/admin/businesses': {
       id: '/_adminApp/admin/businesses'
-      path: '/businesses'
+      path: '/admin/businesses'
       fullPath: '/admin/businesses'
       preLoaderRoute: typeof AdminAppAdminBusinessesRouteImport
-      parentRoute: typeof AdminAppAdminRoute
+      parentRoute: typeof AdminAppRouteRoute
     }
     '/_adminApp/admin/audit-logs': {
       id: '/_adminApp/admin/audit-logs'
-      path: '/audit-logs'
+      path: '/admin/audit-logs'
       fullPath: '/admin/audit-logs'
       preLoaderRoute: typeof AdminAppAdminAuditLogsRouteImport
-      parentRoute: typeof AdminAppAdminRoute
+      parentRoute: typeof AdminAppRouteRoute
     }
     '/.mcp/invoke-tool/$tool': {
       id: '/.mcp/invoke-tool/$tool'
@@ -1529,34 +1529,24 @@ const AdminAppAdminSupportRouteChildren: AdminAppAdminSupportRouteChildren = {
 const AdminAppAdminSupportRouteWithChildren =
   AdminAppAdminSupportRoute._addFileChildren(AdminAppAdminSupportRouteChildren)
 
-interface AdminAppAdminRouteChildren {
+interface AdminAppRouteRouteChildren {
   AdminAppAdminAuditLogsRoute: typeof AdminAppAdminAuditLogsRoute
   AdminAppAdminBusinessesRoute: typeof AdminAppAdminBusinessesRouteWithChildren
   AdminAppAdminDevicesRoute: typeof AdminAppAdminDevicesRoute
   AdminAppAdminSettingsRoute: typeof AdminAppAdminSettingsRoute
   AdminAppAdminSubscriptionsRoute: typeof AdminAppAdminSubscriptionsRoute
   AdminAppAdminSupportRoute: typeof AdminAppAdminSupportRouteWithChildren
+  AdminAppAdminIndexRoute: typeof AdminAppAdminIndexRoute
 }
 
-const AdminAppAdminRouteChildren: AdminAppAdminRouteChildren = {
+const AdminAppRouteRouteChildren: AdminAppRouteRouteChildren = {
   AdminAppAdminAuditLogsRoute: AdminAppAdminAuditLogsRoute,
   AdminAppAdminBusinessesRoute: AdminAppAdminBusinessesRouteWithChildren,
   AdminAppAdminDevicesRoute: AdminAppAdminDevicesRoute,
   AdminAppAdminSettingsRoute: AdminAppAdminSettingsRoute,
   AdminAppAdminSubscriptionsRoute: AdminAppAdminSubscriptionsRoute,
   AdminAppAdminSupportRoute: AdminAppAdminSupportRouteWithChildren,
-}
-
-const AdminAppAdminRouteWithChildren = AdminAppAdminRoute._addFileChildren(
-  AdminAppAdminRouteChildren,
-)
-
-interface AdminAppRouteRouteChildren {
-  AdminAppAdminRoute: typeof AdminAppAdminRouteWithChildren
-}
-
-const AdminAppRouteRouteChildren: AdminAppRouteRouteChildren = {
-  AdminAppAdminRoute: AdminAppAdminRouteWithChildren,
+  AdminAppAdminIndexRoute: AdminAppAdminIndexRoute,
 }
 
 const AdminAppRouteRouteWithChildren = AdminAppRouteRoute._addFileChildren(
