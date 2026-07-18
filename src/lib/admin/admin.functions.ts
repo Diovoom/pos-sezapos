@@ -1521,7 +1521,8 @@ export const merchantRespondSupportSession = createServerFn({ method: "POST" })
 
 export const merchantEndSupportSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { sessionId: string }) => data)
+  .inputValidator((data: { sessionId: string; note?: string }) => data)
+
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: profile } = await supabaseAdmin
@@ -1551,7 +1552,7 @@ export const merchantEndSupportSession = createServerFn({ method: "POST" })
       action: "merchant.support_view.end",
       entity: "support_session",
       entity_id: data.sessionId,
-      details: { employee_name: profile.full_name ?? profile.email },
+      details: { employee_name: profile.full_name ?? profile.email, note: data.note ?? null },
     });
     return { ok: true };
   });

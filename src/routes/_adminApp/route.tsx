@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { logAudit } from "@/lib/audit-log";
 import { adminGlobalSearch, adminMyActiveSupportSession, adminEndSupportSession, adminCancelSupportRequest } from "@/lib/admin/admin.functions";
+import { AdminScreenViewer } from "@/components/support/AdminScreenViewer";
+
 import {
   LayoutDashboard,
   Building2,
@@ -315,13 +317,23 @@ function AdminLayout() {
             </Button>
           </div>
         )}
-
-
+        {activeSession && activeSession.status === "active" && (
+          <AdminScreenViewer
+            key={activeSession.id}
+            sessionId={activeSession.id}
+            startedAt={activeSession.started_at}
+            businessName={activeSession.store?.name}
+            storeCode={activeSession.store?.store_code}
+            employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
+            onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
+          />
+        )}
 
         <main className="flex-1 p-6 overflow-y-auto">
           <Outlet />
         </main>
       </div>
+
     </div>
   );
 }
