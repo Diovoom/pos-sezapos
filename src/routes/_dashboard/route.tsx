@@ -6,14 +6,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/pos/AppShell";
 import { useMe } from "@/hooks/useMe";
 import { useSubscription } from "@/hooks/useSubscription";
+import { hasAnyPlatformRole } from "@/lib/platform-roles";
 
 // Owner / manager surface. Cashiers get pushed to /pos.
+// Platform staff (super_admin etc.) are bounced to /admin — they are not merchants.
 export const Route = createFileRoute("/_dashboard")({
   ssr: false,
   head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   beforeLoad: async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
+    // Platform staff never enter merchant dashboard.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: roleRows } = await (supabase as any)
+        .from("user_roles").select("role").eq("user_id", data.user.id);
+      const roles = ((roleRows ?? []) as { role: string }[]).map((r) => r.role);
+      if (hasAnyPlatformRole(roles)) throw redirect({ to: "/admin" as string as "/" });
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((err as any)?.isRedirect) throw err;
+    }
     return { user: data.user };
   },
   component: DashboardLayout,
