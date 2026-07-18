@@ -127,14 +127,8 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                   </ul>
                 </div>
                 <div className="pt-4 border-t space-y-2">
-                  {session ? (
-                    <Button asChild className="w-full"><a href={dashboardUrl("/dashboard")}>Open Dashboard</a></Button>
-                  ) : (
-                    <>
-                      <Button asChild variant="outline" className="w-full"><Link to="/auth">Sign In</Link></Button>
-                      <Button asChild className="w-full"><Link to="/signup">Start free trial</Link></Button>
-                    </>
-                  )}
+                  <Button asChild variant="outline" className="w-full"><Link to="/auth">Sign In</Link></Button>
+                  <Button asChild className="w-full"><Link to="/signup">Create Account</Link></Button>
                 </div>
               </div>
             </SheetContent>
