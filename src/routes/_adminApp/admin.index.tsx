@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Building2, CreditCard, Monitor, LifeBuoy, ScrollText, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
 
-export const Route = createFileRoute("/_adminApp/admin")({
+export const Route = createFileRoute("/_adminApp/admin/")({
   head: () => ({ meta: [{ title: "Overview — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }] }),
   component: AdminOverview,
 });
