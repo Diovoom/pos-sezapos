@@ -3,6 +3,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
+import { SupportRequestListener } from "@/components/SupportRequestListener";
+
 import {
   ScanBarcode,
   Wallet,
