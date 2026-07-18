@@ -598,55 +598,29 @@ export const adminRevokeSessions = createServerFn({ method: "POST" })
   });
 
 // ============================================================================
-// Employees
+// Employees — merchant-managed only.
+// Platform Admin is NOT permitted to promote/demote employees, reset PINs,
+// disable accounts, or otherwise manage merchant staffing. The Business Owner
+// (or an authorized manager per the merchant permissions system) handles this
+// inside the Merchant Dashboard. These stubs remain exported to preserve the
+// public API surface but always refuse.
 // ============================================================================
+
+const NOT_PERMITTED_EMPLOYEE_MGMT =
+  "Merchant employee management is not permitted from the Platform Admin. The Business Owner must perform this action inside the Merchant Dashboard.";
 
 export const adminSetEmployeeStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { userId: string; status: "active" | "disabled"; reason: string }) => data)
-  .handler(async ({ data, context }) => {
-    const admin = await ensureSuperAdmin(context);
-    const reason = requireReason(data.reason);
-    if (data.status !== "active" && data.status !== "disabled") throw new Error("Invalid status");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: profile } = await supabaseAdmin.from("profiles").select("store_id").eq("id", data.userId).maybeSingle();
-    const { error } = await supabaseAdmin.from("profiles").update({ status: data.status }).eq("id", data.userId);
-    if (error) throw new Error(error.message);
-    await writeAudit(supabaseAdmin, {
-      actor_id: context.userId,
-      actor_email: admin.email,
-      store_id: profile?.store_id ?? null,
-      action: data.status === "disabled" ? "admin.employee.disable" : "admin.employee.reactivate",
-      entity: "user",
-      entity_id: data.userId,
-      details: { reason },
-    });
-    return { ok: true };
+  .handler(async () => {
+    throw new Error(NOT_PERMITTED_EMPLOYEE_MGMT);
   });
 
 export const adminResetEmployeePin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { userId: string; reason: string }) => data)
-  .handler(async ({ data, context }) => {
-    const admin = await ensureSuperAdmin(context);
-    const reason = requireReason(data.reason);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: profile } = await supabaseAdmin.from("profiles").select("store_id").eq("id", data.userId).maybeSingle();
-    const { error } = await supabaseAdmin
-      .from("profiles")
-      .update({ pin_hash: null, must_change_pin: true })
-      .eq("id", data.userId);
-    if (error) throw new Error(error.message);
-    await writeAudit(supabaseAdmin, {
-      actor_id: context.userId,
-      actor_email: admin.email,
-      store_id: profile?.store_id ?? null,
-      action: "admin.employee.reset_pin",
-      entity: "user",
-      entity_id: data.userId,
-      details: { reason },
-    });
-    return { ok: true };
+  .handler(async () => {
+    throw new Error(NOT_PERMITTED_EMPLOYEE_MGMT);
   });
 
 export const adminChangeEmployeeRole = createServerFn({ method: "POST" })
@@ -659,29 +633,10 @@ export const adminChangeEmployeeRole = createServerFn({ method: "POST" })
       reason: string;
     }) => data,
   )
-  .handler(async ({ data, context }) => {
-    const admin = await ensureSuperAdmin(context);
-    const reason = requireReason(data.reason);
-    const allowed = ["owner", "admin", "manager", "cashier"];
-    if (!allowed.includes(data.role)) throw new Error("Invalid role");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // Remove other roles for this user in this store, then insert the new role.
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId).eq("store_id", data.storeId);
-    const { error } = await supabaseAdmin
-      .from("user_roles")
-      .insert({ user_id: data.userId, role: data.role, store_id: data.storeId });
-    if (error) throw new Error(error.message);
-    await writeAudit(supabaseAdmin, {
-      actor_id: context.userId,
-      actor_email: admin.email,
-      store_id: data.storeId,
-      action: "admin.employee.change_role",
-      entity: "user",
-      entity_id: data.userId,
-      details: { reason, role: data.role },
-    });
-    return { ok: true };
+  .handler(async () => {
+    throw new Error(NOT_PERMITTED_EMPLOYEE_MGMT);
   });
+
 
 // ============================================================================
 // Devices / terminals
@@ -1460,15 +1415,147 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
       .from("admin_support_sessions")
-      .select("id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at")
+      .select("id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at, decided_by")
       .eq("admin_id", context.userId)
       .in("status", ["pending", "active"])
       .gt("expires_at", new Date().toISOString())
       .order("requested_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    return { session: data ?? null };
+    if (!data || !data.store_id) return { session: null };
+
+    // Enrich with business + employee context for the admin banner.
+    const [storeRes, employeeRes] = await Promise.all([
+      supabaseAdmin.from("stores").select("id, name, store_code").eq("id", data.store_id).maybeSingle(),
+      data.decided_by
+        ? supabaseAdmin.from("profiles").select("id, full_name, email, employee_id").eq("id", data.decided_by).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    return {
+      session: {
+        ...data,
+        store: storeRes.data ?? null,
+        accepted_by: employeeRes.data ?? null,
+      },
+    };
   });
+
+// ============================================================================
+// Merchant-side response to a support view request
+// ============================================================================
+
+export const merchantRespondSupportSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { sessionId: string; decision: "accept" | "decline"; note?: string }) => data)
+  .handler(async ({ data, context }) => {
+    if (data.decision !== "accept" && data.decision !== "decline") {
+      throw new Error("Invalid decision");
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Look up the caller's store + profile.
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, store_id, full_name, email, employee_id")
+      .eq("id", context.userId)
+      .maybeSingle();
+    if (!profile?.store_id) throw new Error("No store associated with this user");
+
+    // Load the session and verify it belongs to this store and is still pending.
+    const { data: sess } = await supabaseAdmin
+      .from("admin_support_sessions")
+      .select("id, store_id, status, admin_id, admin_email, reason")
+      .eq("id", data.sessionId)
+      .maybeSingle();
+    if (!sess) throw new Error("Support request not found");
+    if (sess.store_id !== profile.store_id) throw new Error("Not authorized");
+    if (sess.status !== "pending") throw new Error("Request already resolved");
+
+    const now = new Date().toISOString();
+    const patch =
+      data.decision === "accept"
+        ? {
+            status: "active",
+            decided_at: now,
+            decided_by: context.userId,
+            decision_note: data.note ?? null,
+            started_at: now,
+            expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+          }
+        : {
+            status: "declined",
+            decided_at: now,
+            decided_by: context.userId,
+            decision_note: data.note ?? null,
+            ended_at: now,
+          };
+    const { error } = await supabaseAdmin
+      .from("admin_support_sessions")
+      .update(patch)
+      .eq("id", data.sessionId)
+      .eq("status", "pending");
+    if (error) throw new Error(error.message);
+
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: profile.email,
+      store_id: profile.store_id,
+      action:
+        data.decision === "accept"
+          ? "merchant.support_view.accept"
+          : "merchant.support_view.decline",
+      entity: "support_session",
+      entity_id: data.sessionId,
+      details: {
+        admin_id: sess.admin_id,
+        admin_email: sess.admin_email,
+        employee_name: profile.full_name ?? profile.email,
+        employee_id: profile.employee_id,
+        reason: sess.reason,
+        note: data.note ?? null,
+      },
+    });
+    return { ok: true, status: patch.status };
+  });
+
+export const merchantEndSupportSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { sessionId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, store_id, full_name, email")
+      .eq("id", context.userId)
+      .maybeSingle();
+    if (!profile?.store_id) throw new Error("No store associated");
+    const { data: sess } = await supabaseAdmin
+      .from("admin_support_sessions")
+      .select("id, store_id, status")
+      .eq("id", data.sessionId)
+      .maybeSingle();
+    if (!sess || sess.store_id !== profile.store_id) throw new Error("Not authorized");
+    if (sess.status === "ended" || sess.status === "declined" || sess.status === "expired") {
+      return { ok: true };
+    }
+    const { error } = await supabaseAdmin
+      .from("admin_support_sessions")
+      .update({ status: "ended", ended_at: new Date().toISOString() })
+      .eq("id", data.sessionId);
+    if (error) throw new Error(error.message);
+    await writeAudit(supabaseAdmin, {
+      actor_id: context.userId,
+      actor_email: profile.email,
+      store_id: profile.store_id,
+      action: "merchant.support_view.end",
+      entity: "support_session",
+      entity_id: data.sessionId,
+      details: { employee_name: profile.full_name ?? profile.email },
+    });
+    return { ok: true };
+  });
+
 
 
 // ============================================================================

@@ -95,7 +95,36 @@ function AdminLayout() {
     refetchInterval: 5_000,
   });
 
-  const activeSession = supportSessionQuery.data?.session;
+  const activeSession = supportSessionQuery.data?.session as
+    | {
+        id: string;
+        store_id: string;
+        status: string;
+        started_at: string | null;
+        expires_at: string;
+        store?: { id: string; name: string; store_code: string | null } | null;
+        accepted_by?: { full_name: string | null; email: string | null; employee_id: string | null } | null;
+      }
+    | null
+    | undefined;
+
+  // Live-updating duration timer for the accepted support session.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (activeSession?.status !== "active") return;
+    const iv = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(iv);
+  }, [activeSession?.status, activeSession?.id]);
+
+  const duration = useMemo(() => {
+    if (!activeSession?.started_at) return null;
+    const s = Math.max(0, Math.floor((Date.now() - new Date(activeSession.started_at).getTime()) / 1000));
+    const mm = String(Math.floor(s / 60)).padStart(2, "0");
+    const ss = String(s % 60).padStart(2, "0");
+    return `${mm}:${ss}`;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSession?.started_at, tick]);
+
 
   async function handleSignOut() {
     await logAudit({ action: "logout", entity: "admin" }).catch(() => {});
@@ -230,31 +259,63 @@ function AdminLayout() {
 
         {activeSession && (
           <div className={cn(
-            "border-b px-4 py-2 flex items-center justify-between gap-3",
+            "border-b px-4 py-2 flex flex-wrap items-center justify-between gap-3",
             activeSession.status === "pending"
               ? "bg-blue-500/15 border-blue-500/40"
               : "bg-amber-500/15 border-amber-500/40",
           )}>
-            <div className="flex items-center gap-2 text-sm">
-              <Eye className={cn(
-                "h-4 w-4",
-                activeSession.status === "pending" ? "text-blue-700 dark:text-blue-300" : "text-amber-700 dark:text-amber-300",
-              )} />
-              <span className="font-medium">
-                {activeSession.status === "pending"
-                  ? "Waiting for merchant to accept…"
-                  : "SEZA Admin Support View"}
-              </span>
-              <span className="text-muted-foreground">
-                — store <span className="font-mono">{activeSession.store_id?.slice(0, 8)}</span> ·
-                expires {new Date(activeSession.expires_at).toLocaleTimeString()}
-              </span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              <div className="flex items-center gap-2">
+                <Eye className={cn(
+                  "h-4 w-4",
+                  activeSession.status === "pending" ? "text-blue-700 dark:text-blue-300" : "text-amber-700 dark:text-amber-300",
+                )} />
+                <span className="font-medium">
+                  {activeSession.status === "pending"
+                    ? "Waiting for merchant to accept…"
+                    : "SEZA Admin Support View"}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                <span>
+                  <span className="uppercase tracking-wide mr-1">Business</span>
+                  <span className="text-foreground font-medium">{activeSession.store?.name ?? "—"}</span>
+                </span>
+                <span>
+                  <span className="uppercase tracking-wide mr-1">Store</span>
+                  <span className="font-mono text-foreground">{activeSession.store?.store_code ?? activeSession.store_id.slice(0, 8)}</span>
+                </span>
+                {activeSession.status === "active" && (
+                  <>
+                    <span>
+                      <span className="uppercase tracking-wide mr-1">Employee</span>
+                      <span className="text-foreground">
+                        {activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? "—"}
+                        {activeSession.accepted_by?.employee_id ? ` · #${activeSession.accepted_by.employee_id}` : ""}
+                      </span>
+                    </span>
+                    <span>
+                      <span className="uppercase tracking-wide mr-1">Duration</span>
+                      <span className="font-mono text-foreground">{duration ?? "00:00"}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" aria-hidden />
+                      <span>Connected · read-only</span>
+                    </span>
+                  </>
+                )}
+                <span>
+                  <span className="uppercase tracking-wide mr-1">Expires</span>
+                  <span className="text-foreground">{new Date(activeSession.expires_at).toLocaleTimeString()}</span>
+                </span>
+              </div>
             </div>
             <Button size="sm" variant="outline" onClick={handleEndSupport}>
               {activeSession.status === "pending" ? "Cancel request" : "Exit Support View"}
             </Button>
           </div>
         )}
+
 
 
         <main className="flex-1 p-6 overflow-y-auto">

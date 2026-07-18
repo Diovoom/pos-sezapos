@@ -10,9 +10,6 @@ import {
   adminSendPasswordReset,
   adminResendVerification,
   adminRevokeSessions,
-  adminSetEmployeeStatus,
-  adminResetEmployeePin,
-  adminChangeEmployeeRole,
   adminRenameTerminal,
   adminSetTerminalStatus,
   adminRevokeTerminal,
@@ -23,6 +20,7 @@ import {
   adminStartSupportSession,
   adminCreateTicket,
 } from "@/lib/admin/admin.functions";
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -116,9 +114,9 @@ function BusinessWorkspace() {
   const passwordReset = useServerFn(adminSendPasswordReset);
   const resendVerify = useServerFn(adminResendVerification);
   const revokeSessions = useServerFn(adminRevokeSessions);
-  const setEmpStatus = useServerFn(adminSetEmployeeStatus);
-  const resetPin = useServerFn(adminResetEmployeePin);
-  const changeRole = useServerFn(adminChangeEmployeeRole);
+  // Merchant employee management (role/PIN/status) is intentionally not wired here —
+  // that lives inside the Merchant Dashboard.
+
   const renameTerm = useServerFn(adminRenameTerminal);
   const setTermStatus = useServerFn(adminSetTerminalStatus);
   const revokeTerm = useServerFn(adminRevokeTerminal);
@@ -365,12 +363,19 @@ function BusinessWorkspace() {
 
         <TabsContent value="employees">
           <Card>
+            <CardHeader>
+              <CardTitle>Employees</CardTitle>
+              <CardDescription>
+                Read-only view. Merchant employee management (promote / demote / disable / reset PIN)
+                lives inside the Merchant Dashboard and is not available from Platform Admin.
+              </CardDescription>
+            </CardHeader>
             <CardContent className="p-0">
               {employees.length === 0 ? (
                 <div className="p-8 text-sm text-muted-foreground text-center">No employees.</div>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/40"><tr className="text-left"><th className="p-3">Employee</th><th className="p-3">Status</th><th className="p-3">Actions</th></tr></thead>
+                  <thead className="bg-muted/40"><tr className="text-left"><th className="p-3">Employee</th><th className="p-3">Status</th></tr></thead>
                   <tbody>
                     {employees.map((e: any) => (
                       <tr key={e.id} className="border-t">
@@ -379,16 +384,6 @@ function BusinessWorkspace() {
                           <div className="text-xs text-muted-foreground">{e.email} · #{e.employee_id ?? "—"}</div>
                         </td>
                         <td className="p-3"><Badge variant={e.status === "active" ? "default" : "outline"}>{e.status}</Badge></td>
-                        <td className="p-3 space-x-1">
-                          {e.status === "active" ? (
-                            <Button size="sm" variant="outline" onClick={() => ask("Disable employee", e.email, async (r) => { await setEmpStatus({ data: { userId: e.id, status: "disabled", reason: r } }); toast.success("Disabled"); refresh(); })}>Disable</Button>
-                          ) : (
-                            <Button size="sm" variant="outline" onClick={() => ask("Reactivate employee", e.email, async (r) => { await setEmpStatus({ data: { userId: e.id, status: "active", reason: r } }); toast.success("Reactivated"); refresh(); })}>Reactivate</Button>
-                          )}
-                          <Button size="sm" variant="outline" onClick={() => ask("Reset PIN", "Clears PIN; employee will be prompted to set a new one.", async (r) => { await resetPin({ data: { userId: e.id, reason: r } }); toast.success("PIN reset"); refresh(); })}>Reset PIN</Button>
-                          <Button size="sm" variant="outline" onClick={() => ask("Revoke sessions", e.email, async (r) => { await revokeSessions({ data: { userId: e.id, reason: r } }); toast.success("Sessions revoked"); })}>Revoke sessions</Button>
-                          <RoleChangeButton onSubmit={(role, reason) => changeRole({ data: { userId: e.id, storeId, role, reason } }).then(() => { toast.success("Role updated"); refresh(); })} />
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -397,6 +392,7 @@ function BusinessWorkspace() {
             </CardContent>
           </Card>
         </TabsContent>
+
 
         <TabsContent value="devices">
           <Card>
@@ -653,37 +649,3 @@ function RenameTerminalButton({ current, onSubmit }: { current: string; onSubmit
   );
 }
 
-function RoleChangeButton({ onSubmit }: { onSubmit: (role: any, reason: string) => Promise<any> }) {
-  const [open, setOpen] = useState(false);
-  const [role, setRole] = useState("cashier");
-  const [reason, setReason] = useState("");
-  return (
-    <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Change role</Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Change role</DialogTitle></DialogHeader>
-          <Label>Role</Label>
-          <Select value={role} onValueChange={setRole}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="owner">Owner</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="manager">Manager</SelectItem>
-              <SelectItem value="cashier">Cashier</SelectItem>
-            </SelectContent>
-          </Select>
-          <Label>Reason</Label>
-          <Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={async () => {
-              if (reason.trim().length < 4) { toast.error("Reason required"); return; }
-              try { await onSubmit(role, reason.trim()); setOpen(false); } catch (e: any) { toast.error(e?.message ?? "Failed"); }
-            }}>Change</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}

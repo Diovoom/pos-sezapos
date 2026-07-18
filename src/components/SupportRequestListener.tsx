@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
 import { useMe } from "@/hooks/useMe";
+import { merchantRespondSupportSession, merchantEndSupportSession } from "@/lib/admin/admin.functions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,12 +30,14 @@ type SupportRequest = {
 /**
  * Listens for pending SEZA support view requests targeted at the current merchant's store,
  * and shows an Accept / Decline dialog. Also shows a persistent banner while a support session
- * is active on this store.
+ * is active on this store. Accept / decline / end are audited server-side.
  */
 export function SupportRequestListener() {
   const me = useMe();
   const storeId = me.data?.store?.id as string | undefined;
-  const userId = me.data?.user?.id as string | undefined;
+
+  const respond = useServerFn(merchantRespondSupportSession);
+  const endFn = useServerFn(merchantEndSupportSession);
 
   const [pending, setPending] = useState<SupportRequest | null>(null);
   const [active, setActive] = useState<SupportRequest | null>(null);
@@ -41,6 +45,7 @@ export function SupportRequestListener() {
 
   const refresh = useCallback(async () => {
     if (!storeId) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await (supabase as any)
       .from("admin_support_sessions")
       .select("id, store_id, admin_email, reason, status, requested_at, expires_at")
@@ -71,34 +76,15 @@ export function SupportRequestListener() {
     };
   }, [storeId, refresh]);
 
-  async function respond(decision: "accept" | "decline") {
-    if (!pending || !userId) return;
+  async function decide(decision: "accept" | "decline") {
+    if (!pending) return;
     setBusy(true);
     try {
-      const now = new Date().toISOString();
-      const patch =
-        decision === "accept"
-          ? {
-              status: "active",
-              decided_at: now,
-              decided_by: userId,
-              started_at: now,
-              expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
-            }
-          : {
-              status: "declined",
-              decided_at: now,
-              decided_by: userId,
-              ended_at: now,
-            };
-      const { error } = await (supabase as any)
-        .from("admin_support_sessions")
-        .update(patch)
-        .eq("id", pending.id)
-        .eq("status", "pending");
-      if (error) throw error;
+      await respond({ data: { sessionId: pending.id, decision } });
       toast[decision === "accept" ? "success" : "message"](
-        decision === "accept" ? "SEZA Support can now view your screen" : "Support request declined",
+        decision === "accept"
+          ? "SEZA Support can now view your screen"
+          : "Support request declined",
       );
       setPending(null);
       refresh();
@@ -106,6 +92,16 @@ export function SupportRequestListener() {
       toast.error(e?.message ?? "Failed to respond");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function endActive() {
+    if (!active) return;
+    try {
+      await endFn({ data: { sessionId: active.id } });
+      refresh();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to end session");
     }
   }
 
@@ -122,13 +118,7 @@ export function SupportRequestListener() {
           </span>
           <button
             className="ml-auto text-xs underline underline-offset-2 hover:text-foreground"
-            onClick={async () => {
-              await (supabase as any)
-                .from("admin_support_sessions")
-                .update({ status: "ended", ended_at: new Date().toISOString() })
-                .eq("id", active.id);
-              refresh();
-            }}
+            onClick={endActive}
           >
             End session
           </button>
@@ -162,10 +152,10 @@ export function SupportRequestListener() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy} onClick={() => respond("decline")}>
+            <AlertDialogCancel disabled={busy} onClick={() => decide("decline")}>
               Decline
             </AlertDialogCancel>
-            <AlertDialogAction disabled={busy} onClick={() => respond("accept")}>
+            <AlertDialogAction disabled={busy} onClick={() => decide("accept")}>
               Accept
             </AlertDialogAction>
           </AlertDialogFooter>
