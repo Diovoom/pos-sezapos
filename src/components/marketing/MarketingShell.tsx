@@ -15,9 +15,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useSession } from "@/hooks/useSession";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
-import { dashboardUrl } from "@/lib/host";
 
 type NavItem = { to: string; label: string };
 
@@ -62,7 +60,8 @@ function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
 }
 
 export function MarketingShell({ children }: { children: ReactNode }) {
-  const { session } = useSession();
+  // Marketing header is always public. Do not reflect any auth session here —
+  // Merchant Dashboard, POS, and Platform Admin each own their own surface.
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -84,14 +83,8 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="hidden md:flex items-center gap-2">
-            {session ? (
-              <Button asChild size="sm"><a href={dashboardUrl("/dashboard")}>Open Dashboard</a></Button>
-            ) : (
-              <>
-                <Button asChild size="sm" variant="ghost"><Link to="/auth">Sign In</Link></Button>
-                <Button asChild size="sm"><Link to="/signup">Start free trial</Link></Button>
-              </>
-            )}
+            <Button asChild size="sm" variant="ghost"><Link to="/auth">Sign In</Link></Button>
+            <Button asChild size="sm"><Link to="/signup">Create Account</Link></Button>
           </div>
 
           {/* Mobile */}
@@ -134,14 +127,8 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                   </ul>
                 </div>
                 <div className="pt-4 border-t space-y-2">
-                  {session ? (
-                    <Button asChild className="w-full"><a href={dashboardUrl("/dashboard")}>Open Dashboard</a></Button>
-                  ) : (
-                    <>
-                      <Button asChild variant="outline" className="w-full"><Link to="/auth">Sign In</Link></Button>
-                      <Button asChild className="w-full"><Link to="/signup">Start free trial</Link></Button>
-                    </>
-                  )}
+                  <Button asChild variant="outline" className="w-full"><Link to="/auth">Sign In</Link></Button>
+                  <Button asChild className="w-full"><Link to="/signup">Create Account</Link></Button>
                 </div>
               </div>
             </SheetContent>
