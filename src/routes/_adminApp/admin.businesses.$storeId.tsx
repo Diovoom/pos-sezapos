@@ -649,37 +649,3 @@ function RenameTerminalButton({ current, onSubmit }: { current: string; onSubmit
   );
 }
 
-function RoleChangeButton({ onSubmit }: { onSubmit: (role: any, reason: string) => Promise<any> }) {
-  const [open, setOpen] = useState(false);
-  const [role, setRole] = useState("cashier");
-  const [reason, setReason] = useState("");
-  return (
-    <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Change role</Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Change role</DialogTitle></DialogHeader>
-          <Label>Role</Label>
-          <Select value={role} onValueChange={setRole}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="owner">Owner</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="manager">Manager</SelectItem>
-              <SelectItem value="cashier">Cashier</SelectItem>
-            </SelectContent>
-          </Select>
-          <Label>Reason</Label>
-          <Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={async () => {
-              if (reason.trim().length < 4) { toast.error("Reason required"); return; }
-              try { await onSubmit(role, reason.trim()); setOpen(false); } catch (e: any) { toast.error(e?.message ?? "Failed"); }
-            }}>Change</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
