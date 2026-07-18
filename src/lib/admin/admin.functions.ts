@@ -766,37 +766,117 @@ export const adminRevokeTerminal = createServerFn({ method: "POST" })
 
 export const adminListDevices = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { filter?: string; page?: number; pageSize?: number }) => data)
+  .inputValidator(
+    (data: {
+      filter?: string;
+      provider?: string;
+      search?: string;
+      sortBy?: string;
+      sortDir?: "asc" | "desc";
+      page?: number;
+      pageSize?: number;
+    }) => data,
+  )
   .handler(async ({ data, context }) => {
-    await ensureSuperAdmin(context);
+    await ensurePlatformStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const page = Math.max(1, data.page ?? 1);
-    const pageSize = Math.min(100, data.pageSize ?? 50);
+    const pageSize = Math.min(100, Math.max(1, data.pageSize ?? 25));
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
+
+    const SORTABLE = new Set(["last_seen_at", "created_at", "label", "provider", "status"]);
+    const sortBy = data.sortBy && SORTABLE.has(data.sortBy) ? data.sortBy : "last_seen_at";
+    const sortDir: "asc" | "desc" = data.sortDir === "asc" ? "asc" : "desc";
+
     let q = supabaseAdmin
       .from("payment_terminals")
-      .select("id, store_id, label, provider, serial, status, last_seen_at, created_at, config", { count: "exact" })
-      .order("last_seen_at", { ascending: false, nullsFirst: false })
+      .select(
+        "id, store_id, label, provider, serial, location, status, last_seen_at, created_at, config",
+        { count: "exact" },
+      )
+      .order(sortBy, { ascending: sortDir === "asc", nullsFirst: false })
       .range(from, to);
+
     if (data.filter === "offline") {
       const cutoff = new Date(Date.now() - 24 * 3600_000).toISOString();
       q = q.or(`last_seen_at.is.null,last_seen_at.lt.${cutoff}`);
+    } else if (data.filter === "online") {
+      const cutoff = new Date(Date.now() - 24 * 3600_000).toISOString();
+      q = q.gte("last_seen_at", cutoff);
+    } else if (data.filter === "active" || data.filter === "inactive" || data.filter === "revoked") {
+      q = q.eq("status", data.filter);
     }
+    if (data.provider && data.provider !== "all") {
+      q = q.eq("provider", data.provider);
+    }
+    if (data.search && data.search.trim()) {
+      const raw = data.search.trim().slice(0, 100);
+      const s = raw.replace(/[,()]/g, " ").replace(/\s+/g, " ");
+      q = q.or(`label.ilike.%${s}%,serial.ilike.%${s}%,location.ilike.%${s}%`);
+    }
+
     const { data: rows, count, error } = await q;
     if (error) throw new Error(error.message);
-    // fetch store names
+
     const storeIds = Array.from(new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean)));
     const storesMap = new Map<string, string>();
     if (storeIds.length) {
       const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
       (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
     }
+
+    // Redact config; only expose whether it's populated.
     return {
-      rows: (rows ?? []).map((r: any) => ({ ...r, store_name: storesMap.get(r.store_id) ?? "—" })),
+      rows: (rows ?? []).map((r: any) => {
+        const { config, ...safe } = r;
+        return {
+          ...safe,
+          store_name: storesMap.get(r.store_id) ?? "—",
+          has_config: !!config && Object.keys(config ?? {}).length > 0,
+        };
+      }),
       count: count ?? 0,
       page,
       pageSize,
+      sortBy,
+      sortDir,
+    };
+  });
+
+export const adminDeviceCounts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensurePlatformStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const cutoff = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const [all, active, inactive, revoked, online, offline] = await Promise.all([
+      supabaseAdmin.from("payment_terminals").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("payment_terminals").select("*", { count: "exact", head: true }).eq("status", "active"),
+      supabaseAdmin.from("payment_terminals").select("*", { count: "exact", head: true }).eq("status", "inactive"),
+      supabaseAdmin.from("payment_terminals").select("*", { count: "exact", head: true }).eq("status", "revoked"),
+      supabaseAdmin.from("payment_terminals").select("*", { count: "exact", head: true }).gte("last_seen_at", cutoff),
+      supabaseAdmin
+        .from("payment_terminals")
+        .select("*", { count: "exact", head: true })
+        .or(`last_seen_at.is.null,last_seen_at.lt.${cutoff}`),
+    ]);
+    const providersRes = await supabaseAdmin.from("payment_terminals").select("provider");
+    const providers = Array.from(
+      new Set(
+        ((providersRes.data ?? []) as { provider: string | null }[])
+          .map((r) => r.provider)
+          .filter((p): p is string => !!p),
+      ),
+    ).sort();
+    return {
+      all: all.count ?? 0,
+      active: active.count ?? 0,
+      inactive: inactive.count ?? 0,
+      revoked: revoked.count ?? 0,
+      online: online.count ?? 0,
+      offline: offline.count ?? 0,
+      providers,
     };
   });
 
