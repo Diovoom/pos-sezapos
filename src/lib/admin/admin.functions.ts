@@ -25,6 +25,25 @@ async function ensureSuperAdmin(context: {
   return { email: user?.user?.email ?? null };
 }
 
+// Read-only gate — any SEZA platform-staff role may read admin data.
+// Mutations continue to use ensureSuperAdmin.
+async function ensurePlatformStaff(context: {
+  supabase: any;
+  userId: string;
+}): Promise<{ email: string | null; roles: string[] }> {
+  const { data, error } = await context.supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", context.userId);
+  if (error) throw new Error("Authorization check failed");
+  const roles = (data ?? []).map((r: { role: string }) => r.role);
+  const { PLATFORM_ROLES } = await import("@/lib/platform-roles");
+  const ok = roles.some((r: string) => (PLATFORM_ROLES as readonly string[]).includes(r));
+  if (!ok) throw new Error("Forbidden: platform staff required");
+  const { data: user } = await context.supabase.auth.getUser();
+  return { email: user?.user?.email ?? null, roles };
+}
+
 async function writeAudit(
   supabaseAdmin: any,
   entry: {
