@@ -44,6 +44,23 @@ async function ensurePlatformStaff(context: {
   return { email: user?.user?.email ?? null, roles };
 }
 
+// Support-scoped gate — super_admin, operations_admin, or support_admin.
+async function ensureSupportStaff(context: {
+  supabase: any;
+  userId: string;
+}): Promise<{ email: string | null; roles: string[] }> {
+  const { data, error } = await context.supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", context.userId);
+  if (error) throw new Error("Authorization check failed");
+  const roles = (data ?? []).map((r: { role: string }) => r.role);
+  const allowed = ["super_admin", "operations_admin", "support_admin"];
+  if (!roles.some((r: string) => allowed.includes(r))) throw new Error("Forbidden: support staff required");
+  const { data: user } = await context.supabase.auth.getUser();
+  return { email: user?.user?.email ?? null, roles };
+}
+
 async function writeAudit(
   supabaseAdmin: any,
   entry: {
