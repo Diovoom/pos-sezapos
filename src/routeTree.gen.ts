@@ -72,10 +72,10 @@ import { Route as AdminAppAdminSupportRouteImport } from './routes/_adminApp/adm
 import { Route as AdminAppAdminSubscriptionsRouteImport } from './routes/_adminApp/admin.subscriptions'
 import { Route as AdminAppAdminSettingsRouteImport } from './routes/_adminApp/admin.settings'
 import { Route as AdminAppAdminDevicesRouteImport } from './routes/_adminApp/admin.devices'
-import { Route as AdminAppAdminBusinessesRouteImport } from './routes/_adminApp/admin.businesses'
 import { Route as AdminAppAdminAuditLogsRouteImport } from './routes/_adminApp/admin.audit-logs'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as AdminAppAdminBusinessesIndexRouteImport } from './routes/_adminApp/admin.businesses.index'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
@@ -400,11 +400,6 @@ const AdminAppAdminDevicesRoute = AdminAppAdminDevicesRouteImport.update({
   path: '/admin/devices',
   getParentRoute: () => AdminAppRouteRoute,
 } as any)
-const AdminAppAdminBusinessesRoute = AdminAppAdminBusinessesRouteImport.update({
-  id: '/admin/businesses',
-  path: '/admin/businesses',
-  getParentRoute: () => AdminAppRouteRoute,
-} as any)
 const AdminAppAdminAuditLogsRoute = AdminAppAdminAuditLogsRouteImport.update({
   id: '/admin/audit-logs',
   path: '/admin/audit-logs',
@@ -421,6 +416,12 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   path: '/.lovable/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAppAdminBusinessesIndexRoute =
+  AdminAppAdminBusinessesIndexRouteImport.update({
+    id: '/admin/businesses/',
+    path: '/admin/businesses/',
+    getParentRoute: () => AdminAppRouteRoute,
+  } as any)
 const LovableEmailTransactionalSendRoute =
   LovableEmailTransactionalSendRouteImport.update({
     id: '/lovable/email/transactional/send',
@@ -463,9 +464,9 @@ const AdminAppAdminSupportTicketIdRoute =
   } as any)
 const AdminAppAdminBusinessesStoreIdRoute =
   AdminAppAdminBusinessesStoreIdRouteImport.update({
-    id: '/$storeId',
-    path: '/$storeId',
-    getParentRoute: () => AdminAppAdminBusinessesRoute,
+    id: '/admin/businesses/$storeId',
+    path: '/admin/businesses/$storeId',
+    getParentRoute: () => AdminAppRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -524,7 +525,6 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/audit-logs': typeof AdminAppAdminAuditLogsRoute
-  '/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
   '/admin/devices': typeof AdminAppAdminDevicesRoute
   '/admin/settings': typeof AdminAppAdminSettingsRoute
   '/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
@@ -541,6 +541,7 @@ export interface FileRoutesByFullPath {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
+  '/admin/businesses/': typeof AdminAppAdminBusinessesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -598,7 +599,6 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/audit-logs': typeof AdminAppAdminAuditLogsRoute
-  '/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
   '/admin/devices': typeof AdminAppAdminDevicesRoute
   '/admin/settings': typeof AdminAppAdminSettingsRoute
   '/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
@@ -615,6 +615,7 @@ export interface FileRoutesByTo {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
+  '/admin/businesses': typeof AdminAppAdminBusinessesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -676,7 +677,6 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_adminApp/admin/audit-logs': typeof AdminAppAdminAuditLogsRoute
-  '/_adminApp/admin/businesses': typeof AdminAppAdminBusinessesRouteWithChildren
   '/_adminApp/admin/devices': typeof AdminAppAdminDevicesRoute
   '/_adminApp/admin/settings': typeof AdminAppAdminSettingsRoute
   '/_adminApp/admin/subscriptions': typeof AdminAppAdminSubscriptionsRoute
@@ -693,6 +693,7 @@ export interface FileRoutesById {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
+  '/_adminApp/admin/businesses/': typeof AdminAppAdminBusinessesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -752,7 +753,6 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/admin/audit-logs'
-    | '/admin/businesses'
     | '/admin/devices'
     | '/admin/settings'
     | '/admin/subscriptions'
@@ -769,6 +769,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
+    | '/admin/businesses/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -826,7 +827,6 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/admin/audit-logs'
-    | '/admin/businesses'
     | '/admin/devices'
     | '/admin/settings'
     | '/admin/subscriptions'
@@ -843,6 +843,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
+    | '/admin/businesses'
   id:
     | '__root__'
     | '/'
@@ -903,7 +904,6 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_adminApp/admin/audit-logs'
-    | '/_adminApp/admin/businesses'
     | '/_adminApp/admin/devices'
     | '/_adminApp/admin/settings'
     | '/_adminApp/admin/subscriptions'
@@ -920,6 +920,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
+    | '/_adminApp/admin/businesses/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1417,13 +1418,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAppAdminDevicesRouteImport
       parentRoute: typeof AdminAppRouteRoute
     }
-    '/_adminApp/admin/businesses': {
-      id: '/_adminApp/admin/businesses'
-      path: '/admin/businesses'
-      fullPath: '/admin/businesses'
-      preLoaderRoute: typeof AdminAppAdminBusinessesRouteImport
-      parentRoute: typeof AdminAppRouteRoute
-    }
     '/_adminApp/admin/audit-logs': {
       id: '/_adminApp/admin/audit-logs'
       path: '/admin/audit-logs'
@@ -1444,6 +1438,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/.lovable/oauth/consent'
       preLoaderRoute: typeof DotlovableOauthConsentRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_adminApp/admin/businesses/': {
+      id: '/_adminApp/admin/businesses/'
+      path: '/admin/businesses'
+      fullPath: '/admin/businesses/'
+      preLoaderRoute: typeof AdminAppAdminBusinessesIndexRouteImport
+      parentRoute: typeof AdminAppRouteRoute
     }
     '/lovable/email/transactional/send': {
       id: '/lovable/email/transactional/send'
@@ -1496,27 +1497,13 @@ declare module '@tanstack/react-router' {
     }
     '/_adminApp/admin/businesses/$storeId': {
       id: '/_adminApp/admin/businesses/$storeId'
-      path: '/$storeId'
+      path: '/admin/businesses/$storeId'
       fullPath: '/admin/businesses/$storeId'
       preLoaderRoute: typeof AdminAppAdminBusinessesStoreIdRouteImport
-      parentRoute: typeof AdminAppAdminBusinessesRoute
+      parentRoute: typeof AdminAppRouteRoute
     }
   }
 }
-
-interface AdminAppAdminBusinessesRouteChildren {
-  AdminAppAdminBusinessesStoreIdRoute: typeof AdminAppAdminBusinessesStoreIdRoute
-}
-
-const AdminAppAdminBusinessesRouteChildren: AdminAppAdminBusinessesRouteChildren =
-  {
-    AdminAppAdminBusinessesStoreIdRoute: AdminAppAdminBusinessesStoreIdRoute,
-  }
-
-const AdminAppAdminBusinessesRouteWithChildren =
-  AdminAppAdminBusinessesRoute._addFileChildren(
-    AdminAppAdminBusinessesRouteChildren,
-  )
 
 interface AdminAppAdminSupportRouteChildren {
   AdminAppAdminSupportTicketIdRoute: typeof AdminAppAdminSupportTicketIdRoute
@@ -1531,22 +1518,24 @@ const AdminAppAdminSupportRouteWithChildren =
 
 interface AdminAppRouteRouteChildren {
   AdminAppAdminAuditLogsRoute: typeof AdminAppAdminAuditLogsRoute
-  AdminAppAdminBusinessesRoute: typeof AdminAppAdminBusinessesRouteWithChildren
   AdminAppAdminDevicesRoute: typeof AdminAppAdminDevicesRoute
   AdminAppAdminSettingsRoute: typeof AdminAppAdminSettingsRoute
   AdminAppAdminSubscriptionsRoute: typeof AdminAppAdminSubscriptionsRoute
   AdminAppAdminSupportRoute: typeof AdminAppAdminSupportRouteWithChildren
   AdminAppAdminIndexRoute: typeof AdminAppAdminIndexRoute
+  AdminAppAdminBusinessesStoreIdRoute: typeof AdminAppAdminBusinessesStoreIdRoute
+  AdminAppAdminBusinessesIndexRoute: typeof AdminAppAdminBusinessesIndexRoute
 }
 
 const AdminAppRouteRouteChildren: AdminAppRouteRouteChildren = {
   AdminAppAdminAuditLogsRoute: AdminAppAdminAuditLogsRoute,
-  AdminAppAdminBusinessesRoute: AdminAppAdminBusinessesRouteWithChildren,
   AdminAppAdminDevicesRoute: AdminAppAdminDevicesRoute,
   AdminAppAdminSettingsRoute: AdminAppAdminSettingsRoute,
   AdminAppAdminSubscriptionsRoute: AdminAppAdminSubscriptionsRoute,
   AdminAppAdminSupportRoute: AdminAppAdminSupportRouteWithChildren,
   AdminAppAdminIndexRoute: AdminAppAdminIndexRoute,
+  AdminAppAdminBusinessesStoreIdRoute: AdminAppAdminBusinessesStoreIdRoute,
+  AdminAppAdminBusinessesIndexRoute: AdminAppAdminBusinessesIndexRoute,
 }
 
 const AdminAppRouteRouteWithChildren = AdminAppRouteRoute._addFileChildren(
