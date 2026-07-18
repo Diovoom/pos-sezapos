@@ -218,7 +218,7 @@ function BusinessWorkspace() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={openSupport}><Eye className="h-4 w-4 mr-1" />Open Support View</Button>
+          <Button variant="outline" size="sm" onClick={openSupport}><Eye className="h-4 w-4 mr-1" />Request Support View</Button>
           {store.suspended_at ? (
             <Button variant="outline" size="sm" onClick={doUnsuspend}>Remove suspension</Button>
           ) : (
