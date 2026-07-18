@@ -107,6 +107,7 @@ function AuthPage() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;
+      if (await rejectIfPlatformStaff(data.session.user.id)) return;
       const dest = await landingRouteForUser(data.session.user.id);
       goAfterAuth(navigate, dest, next);
     })();
