@@ -18,6 +18,7 @@ import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import "@/i18n";
 import { applyLanguage } from "@/i18n";
 import { installSessionBridge } from "@/integrations/supabase/session-bridge";
+import { detectAndPersistNative, isNativeMode, isPathAllowedInNative } from "@/lib/native";
 
 function NotFoundComponent() {
   return (
