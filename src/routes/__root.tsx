@@ -19,6 +19,7 @@ import "@/i18n";
 import { applyLanguage } from "@/i18n";
 import { installSessionBridge } from "@/integrations/supabase/session-bridge";
 import { detectAndPersistNative, isPathAllowedInNative } from "@/lib/native";
+import { NativeLoadingOverlay } from "@/components/NativeLoadingOverlay";
 
 function NotFoundComponent() {
   return (
@@ -221,6 +222,7 @@ function RootComponent() {
       <PaymentTestModeBanner />
       <Outlet />
       <Toaster richColors position="top-right" />
+      <NativeLoadingOverlay />
     </QueryClientProvider>
   );
 }

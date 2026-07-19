@@ -1,55 +1,70 @@
 # SEZA POS — Android (Capacitor)
 
-The Android app is a thin Capacitor WebView that loads the deployed
-production site at `https://sezapos.com`. All authentication, POS,
-Stripe, Supabase, and MCP calls continue to run against the live
-Cloudflare Workers backend — the mobile app is only a shell.
+The Android app is a thin Capacitor WebView over the deployed production
+site at `https://sezapos.com/auth?native=1`. All authentication, POS,
+Stripe, Supabase, MCP, and screen-share features continue to run against
+the live Cloudflare Workers backend — the mobile app is only a shell.
 
-Why: this repo is a TanStack Start SSR app. Capacitor cannot host the
-SSR server, `createServerFn` RPCs, or the `/api/*` and `/mcp` routes,
-so wrapping the deployed URL is the only path that keeps all shipped
-features working unchanged.
-
-## First-time setup (once per machine)
+## First-time setup (per machine)
 
 Requires Android Studio + JDK 17.
 
 ```bash
 bun install
-npx cap add android      # generates ./android on first run only
-npx cap sync android
+npx cap add android          # generates ./android on first run only
+bun run android:assets       # generate launcher icons + splash from resources/
+bun run android:sync         # copy config + assets into android/
 npx cap open android
 ```
 
 ## Day-to-day
 
-Nothing on the JS side needs rebuilding for config changes to reach
-the app — the shell always loads the live site. You only need to
-sync when you change `capacitor.config.ts` or a native plugin:
+The shell always loads the live site, so JS/UI changes deploy through
+the normal pipeline. Re-sync only when native config or plugins change:
 
 ```bash
-npx cap sync android
-npx cap open android     # then Run ▶ in Android Studio
+bun run android:sync
+npx cap open android         # then Run ▶ in Android Studio
 ```
+
+## Branding
+
+All Android launcher icons and the native splash screen are generated
+from files in `resources/` via `@capacitor/assets`:
+
+- `resources/icon.png` — 1024×1024 launcher icon (SEZA logo on blue)
+- `resources/icon-foreground.png` — Android 13+ adaptive/themed icon
+- `resources/icon-background.png` — solid SEZA blue background layer
+- `resources/splash.png` / `splash-dark.png` — 2732×2732 splash artwork
+
+Regenerate after any brand change:
+
+```bash
+bun run android:assets && bun run android:sync
+```
+
+This replaces every default Capacitor / Android placeholder — launcher
+icon, round icon, adaptive icon, Android 13 themed icon, notification
+icon, and splash — with the SEZA identity.
+
+## Native startup flow
+
+1. Android launches the native splash (SEZA blue background + logo,
+   `launchAutoHide: false`).
+2. The WebView opens directly at `/auth?native=1` — never the marketing
+   homepage, pricing, features, dashboard, or admin.
+3. React mounts a full-screen branded loading overlay (`NativeLoadingOverlay`)
+   and immediately calls `SplashScreen.hide()` — no white flash.
+4. When the destination route (Employee PIN or POS Register) has hydrated,
+   the overlay fades out.
+5. Authenticated users skip the PIN screen entirely (existing session ->
+   redirected to `/pos`).
+
+The root router guard in `src/routes/__root.tsx` continues to block any
+navigation to marketing / owner / admin routes while in native mode.
 
 ## App identity
 
 - Package / appId: `com.sezapos.app`
 - App name: `SEZA POS`
-- Splash / status bar color: `#1e40af`
-
-Change these in `capacitor.config.ts`, then `npx cap sync android`.
-
-## Switching to an offline / installable shell later
-
-If you decide to ship a fully offline SPA instead of a remote URL:
-
-1. Add a Vite SPA build target that emits static output (no SSR, no
-   server routes) and points all data access at the deployed
-   backend + Supabase over HTTPS.
-2. In `capacitor.config.ts`, remove `server.url` and set
-   `webDir` to the SPA output folder.
-3. `npx cap sync android`.
-
-That is a larger refactor and is intentionally out of scope for the
-current wrapper.
+- Theme / splash color: `#1e40af`
