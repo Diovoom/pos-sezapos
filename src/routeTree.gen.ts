@@ -89,6 +89,8 @@ import { Route as ApiPublicPosCompleteFirstLoginRouteImport } from './routes/api
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as AdminAppAdminSupportTicketIdRouteImport } from './routes/_adminApp/admin.support.$ticketId'
 import { Route as AdminAppAdminBusinessesStoreIdRouteImport } from './routes/_adminApp/admin.businesses.$storeId'
+import { Route as ApiPublicPosStripeTerminalPaymentIntentRouteImport } from './routes/api/public/pos/stripe-terminal/payment-intent'
+import { Route as ApiPublicPosStripeTerminalConnectionTokenRouteImport } from './routes/api/public/pos/stripe-terminal/connection-token'
 
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
   id: '/unsubscribe',
@@ -501,6 +503,18 @@ const AdminAppAdminBusinessesStoreIdRoute =
     path: '/admin/businesses/$storeId',
     getParentRoute: () => AdminAppRouteRoute,
   } as any)
+const ApiPublicPosStripeTerminalPaymentIntentRoute =
+  ApiPublicPosStripeTerminalPaymentIntentRouteImport.update({
+    id: '/api/public/pos/stripe-terminal/payment-intent',
+    path: '/api/public/pos/stripe-terminal/payment-intent',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPosStripeTerminalConnectionTokenRoute =
+  ApiPublicPosStripeTerminalConnectionTokenRouteImport.update({
+    id: '/api/public/pos/stripe-terminal/connection-token',
+    path: '/api/public/pos/stripe-terminal/connection-token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -580,6 +594,8 @@ export interface FileRoutesByFullPath {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/admin/businesses/': typeof AdminAppAdminBusinessesIndexRoute
+  '/api/public/pos/stripe-terminal/connection-token': typeof ApiPublicPosStripeTerminalConnectionTokenRoute
+  '/api/public/pos/stripe-terminal/payment-intent': typeof ApiPublicPosStripeTerminalPaymentIntentRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -659,6 +675,8 @@ export interface FileRoutesByTo {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/admin/businesses': typeof AdminAppAdminBusinessesIndexRoute
+  '/api/public/pos/stripe-terminal/connection-token': typeof ApiPublicPosStripeTerminalConnectionTokenRoute
+  '/api/public/pos/stripe-terminal/payment-intent': typeof ApiPublicPosStripeTerminalPaymentIntentRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -742,6 +760,8 @@ export interface FileRoutesById {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/_adminApp/admin/businesses/': typeof AdminAppAdminBusinessesIndexRoute
+  '/api/public/pos/stripe-terminal/connection-token': typeof ApiPublicPosStripeTerminalConnectionTokenRoute
+  '/api/public/pos/stripe-terminal/payment-intent': typeof ApiPublicPosStripeTerminalPaymentIntentRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -823,6 +843,8 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/admin/businesses/'
+    | '/api/public/pos/stripe-terminal/connection-token'
+    | '/api/public/pos/stripe-terminal/payment-intent'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -902,6 +924,8 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/admin/businesses'
+    | '/api/public/pos/stripe-terminal/connection-token'
+    | '/api/public/pos/stripe-terminal/payment-intent'
   id:
     | '__root__'
     | '/'
@@ -984,6 +1008,8 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/_adminApp/admin/businesses/'
+    | '/api/public/pos/stripe-terminal/connection-token'
+    | '/api/public/pos/stripe-terminal/payment-intent'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1040,6 +1066,8 @@ export interface RootRouteChildren {
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
   LovableEmailTransactionalSendRoute: typeof LovableEmailTransactionalSendRoute
+  ApiPublicPosStripeTerminalConnectionTokenRoute: typeof ApiPublicPosStripeTerminalConnectionTokenRoute
+  ApiPublicPosStripeTerminalPaymentIntentRoute: typeof ApiPublicPosStripeTerminalPaymentIntentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1604,6 +1632,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAppAdminBusinessesStoreIdRouteImport
       parentRoute: typeof AdminAppRouteRoute
     }
+    '/api/public/pos/stripe-terminal/payment-intent': {
+      id: '/api/public/pos/stripe-terminal/payment-intent'
+      path: '/api/public/pos/stripe-terminal/payment-intent'
+      fullPath: '/api/public/pos/stripe-terminal/payment-intent'
+      preLoaderRoute: typeof ApiPublicPosStripeTerminalPaymentIntentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pos/stripe-terminal/connection-token': {
+      id: '/api/public/pos/stripe-terminal/connection-token'
+      path: '/api/public/pos/stripe-terminal/connection-token'
+      fullPath: '/api/public/pos/stripe-terminal/connection-token'
+      preLoaderRoute: typeof ApiPublicPosStripeTerminalConnectionTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1764,6 +1806,10 @@ const rootRouteChildren: RootRouteChildren = {
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
   LovableEmailTransactionalSendRoute: LovableEmailTransactionalSendRoute,
+  ApiPublicPosStripeTerminalConnectionTokenRoute:
+    ApiPublicPosStripeTerminalConnectionTokenRoute,
+  ApiPublicPosStripeTerminalPaymentIntentRoute:
+    ApiPublicPosStripeTerminalPaymentIntentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
