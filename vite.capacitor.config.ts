@@ -4,8 +4,16 @@
 // Android app is a plain client-side SPA, not a TanStack Start SSR bundle.
 // Output goes to android-webdir/ which Capacitor packages into the APK via
 // `bunx cap sync android`.
+//
+// Aliases below let the shell reuse production POS components without
+// pulling in SSR / server-fn only code paths:
+//   - @/integrations/supabase/client    → the shell's native Supabase client
+//                                         (distinct `seza-native-auth` storage)
+//   - @/components/pos/ManagerOverrideDialog
+//   - @/components/SupportRequestListener → safe shell stubs (no server fns).
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 
 export default defineConfig(({ mode }) => {
@@ -21,9 +29,25 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(env.VITE_SUPABASE_PROJECT_ID),
     },
     resolve: {
-      alias: { "@": path.resolve(__dirname, "src") },
+      alias: [
+        // Native-only Supabase client (must come BEFORE the generic '@' alias).
+        {
+          find: /^@\/integrations\/supabase\/client$/,
+          replacement: path.resolve(__dirname, "capacitor-shell/supabase.ts"),
+        },
+        // Server-fn dependent components → safe shell stubs.
+        {
+          find: /^@\/components\/pos\/ManagerOverrideDialog$/,
+          replacement: path.resolve(__dirname, "capacitor-shell/stubs/ManagerOverrideDialog.tsx"),
+        },
+        {
+          find: /^@\/components\/SupportRequestListener$/,
+          replacement: path.resolve(__dirname, "capacitor-shell/stubs/SupportRequestListener.tsx"),
+        },
+        { find: "@", replacement: path.resolve(__dirname, "src") },
+      ],
     },
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
     build: {
       outDir: path.resolve(__dirname, "android-webdir"),
       emptyOutDir: true,
