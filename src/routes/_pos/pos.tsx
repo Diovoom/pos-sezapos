@@ -107,7 +107,7 @@ const TENDER: Array<{ id: PaymentMethod; label: string; icon: typeof Banknote }>
   { id: "google_pay", label: "Google", icon: SplitSquareHorizontal },
 ];
 
-function PosPage() {
+export function PosPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | "fav" | "all">("fav");
