@@ -28,9 +28,13 @@ export const Route = createFileRoute("/_dashboard/shifts")({
 });
 
 export function ShiftsPage() {
-  const { id, session } = useSearch({ from: "/_dashboard/shifts" });
-  if (session) return <SessionDetail id={session} />;
-  if (id) return <ShiftDetail id={id} />;
+  // `strict: false` so this component works inside both the dashboard route
+  // tree (`/_dashboard/shifts`) and the bundled Capacitor shell router
+  // (`/shifts`). A hardcoded `from` throws "Invariant failed" when the route
+  // ID does not exist in the active router.
+  const search = useSearch({ strict: false }) as { id?: string; session?: string };
+  if (search.session) return <SessionDetail id={search.session} />;
+  if (search.id) return <ShiftDetail id={search.id} />;
   return <ShiftsList />;
 }
 
