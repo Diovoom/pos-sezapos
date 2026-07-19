@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_dashboard/shifts")({
   component: ShiftsPage,
 });
 
-function ShiftsPage() {
+export function ShiftsPage() {
   const { id, session } = useSearch({ from: "/_dashboard/shifts" });
   if (session) return <SessionDetail id={session} />;
   if (id) return <ShiftDetail id={id} />;

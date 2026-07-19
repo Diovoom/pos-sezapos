@@ -28,7 +28,7 @@ type TimeEntry = {
   late_minutes?: number;
 };
 
-function TimeclockPage() {
+export function TimeclockPage() {
   const qc = useQueryClient();
   const me = useMe();
   const canManage = me.data?.roles.some((r) => r === "owner" || r === "manager");

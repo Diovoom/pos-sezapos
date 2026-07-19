@@ -1,24 +1,10 @@
 // Client-side TanStack Router for the bundled Capacitor shell.
 //
-// Uses a memory history (no URL bar in the WebView is relevant), and mounts
-// a minimal route tree:
-//
-//   /            → redirect to /pos when signed in, /auth otherwise.
-//   /auth        → the shell's email/password login screen.
-//   /pos         → real production PosPage inside real PosShell.
-//   /register    → placeholder ("open in web dashboard").
-//   /refunds     → placeholder.
-//   /timeclock   → placeholder.
-//   /shifts      → placeholder.
-//   /onboarding  → placeholder.
-//
-// The `/pos` route mounts the production `PosPage` component from
-// `src/routes/_pos/pos.tsx` and wraps it in the real `PosShell`, so the
-// product grid, categories, search, cart, quantity edits, cash payment,
-// barcode scanner, discounts, custom items, age verification, and receipt
-// preview all come from the exact same code the web app uses. Server-fn
-// dependent surfaces (manager overrides, platform support listener) are
-// substituted at bundle time via aliases in vite.capacitor.config.ts.
+// Mounts the REAL production POS screens (PosPage, RegisterPage,
+// RefundsPage, TimeclockPage, ShiftsPage) inside the real PosShell.
+// Server-fn dependent components (ManagerOverrideDialog,
+// SupportRequestListener) are swapped for shell-safe stubs via aliases
+// declared in vite.capacitor.config.ts.
 import {
   createRootRoute,
   createRoute,
@@ -30,6 +16,10 @@ import {
 import type { QueryClient } from "@tanstack/react-query";
 import { PosShell } from "@/components/pos/PosShell";
 import { PosPage } from "@/routes/_pos/pos";
+import { RegisterPage } from "@/routes/_pos/register";
+import { RefundsPage } from "@/routes/_pos/refunds";
+import { TimeclockPage } from "@/routes/_pos/timeclock";
+import { ShiftsPage } from "@/routes/_dashboard/shifts";
 import { AuthRoute } from "./screens/AuthRoute";
 import { PlaceholderScreen } from "./screens/PlaceholderScreen";
 import { supabase } from "./supabase";
@@ -52,60 +42,72 @@ const authRoute = createRoute({
   component: AuthRoute,
 });
 
-const posRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/pos",
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/auth", replace: true });
-  },
-  component: () => (
-    <PosShell>
-      <PosPage />
-    </PosShell>
-  ),
-});
+const requireAuth = async () => {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) throw redirect({ to: "/auth", replace: true });
+};
 
-const placeholder = (path: string, title: string, body: string) =>
+const shellRoute = <Path extends string>(path: Path, Component: () => React.JSX.Element) =>
   createRoute({
     getParentRoute: () => rootRoute,
     path,
-    beforeLoad: async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) throw redirect({ to: "/auth", replace: true });
-    },
+    beforeLoad: requireAuth,
     component: () => (
       <PosShell>
-        <PlaceholderScreen title={title} body={body} />
+        <Component />
       </PosShell>
     ),
   });
 
-const registerRoute = placeholder(
-  "/register",
-  "Register",
-  "Cash drawer, movements, and shift open/close are being ported. Use the web dashboard for now.",
-);
-const refundsRoute = placeholder(
-  "/refunds",
-  "Refunds",
-  "Refund lookup and processing are being ported. Use the web dashboard for now.",
-);
-const timeclockRoute = placeholder(
-  "/timeclock",
-  "Time clock",
-  "Clock-in / clock-out and time entries are being ported. Use the web dashboard for now.",
-);
-const shiftsRoute = placeholder(
-  "/shifts",
-  "Shifts",
-  "Shift history is being ported. Use the web dashboard for now.",
-);
-const onboardingRoute = placeholder(
-  "/onboarding",
-  "Set up your store",
-  "Complete initial store setup in the web dashboard, then sign in here.",
-);
+const posRoute = shellRoute("/pos", PosPage);
+const registerRoute = shellRoute("/register", RegisterPage);
+const refundsRoute = shellRoute("/refunds", RefundsPage);
+const timeclockRoute = shellRoute("/timeclock", TimeclockPage);
+const shiftsRoute = shellRoute("/shifts", ShiftsPage);
+
+// Settings and support are managed via the web dashboard for now; render a
+// clear pointer instead of a broken half-page.
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings",
+  beforeLoad: requireAuth,
+  component: () => (
+    <PosShell>
+      <PlaceholderScreen
+        title="Store settings"
+        body="Store, hardware, and billing settings are managed from the web dashboard. Sign in at sezapos.com from any browser."
+      />
+    </PosShell>
+  ),
+});
+
+const supportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/support",
+  beforeLoad: requireAuth,
+  component: () => (
+    <PosShell>
+      <PlaceholderScreen
+        title="Contact support"
+        body="Email support@sezapos.com or open a ticket from the web dashboard."
+      />
+    </PosShell>
+  ),
+});
+
+const onboardingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/onboarding",
+  beforeLoad: requireAuth,
+  component: () => (
+    <PosShell>
+      <PlaceholderScreen
+        title="Finish setting up your store"
+        body="Complete initial store setup in the web dashboard, then sign in here."
+      />
+    </PosShell>
+  ),
+});
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -115,6 +117,8 @@ const routeTree = rootRoute.addChildren([
   refundsRoute,
   timeclockRoute,
   shiftsRoute,
+  settingsRoute,
+  supportRoute,
   onboardingRoute,
 ]);
 
@@ -127,7 +131,6 @@ export function createShellRouter(queryClient: QueryClient) {
   });
 }
 
-// Register router type for the shell's TanStack Router hooks.
 declare module "@tanstack/react-router" {
   interface Register {
     router: ReturnType<typeof createShellRouter>;

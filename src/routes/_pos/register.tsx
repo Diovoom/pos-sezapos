@@ -69,7 +69,7 @@ const DEPOSIT_REASONS = [
   "Other",
 ];
 
-function RegisterPage() {
+export function RegisterPage() {
   const { data: me } = useMe();
   const qc = useQueryClient();
   const storeId = me?.store?.id as string | undefined;
