@@ -222,6 +222,7 @@ function RootComponent() {
       <PaymentTestModeBanner />
       <Outlet />
       <Toaster richColors position="top-right" />
+      <NativeLoadingOverlay />
     </QueryClientProvider>
   );
 }
