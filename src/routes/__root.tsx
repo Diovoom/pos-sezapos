@@ -196,6 +196,26 @@ function RootComponent() {
     }
   }, []);
 
+  // Native Android shell: keep employees inside the POS surface. Marketing
+  // pages, owner dashboards, and the platform admin are all off-limits from
+  // the mobile app.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const native = detectAndPersistNative();
+    if (!native) return;
+    document.documentElement.classList.add("native-app");
+    const enforce = () => {
+      const path = window.location.pathname;
+      if (!isPathAllowedInNative(path)) {
+        router.navigate({ to: "/auth", replace: true });
+      }
+    };
+    enforce();
+    const unsub = router.subscribe("onResolved", enforce);
+    return () => { unsub(); };
+  }, [router]);
+
+
   return (
     <QueryClientProvider client={queryClient}>
       <PaymentTestModeBanner />
