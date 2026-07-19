@@ -1,10 +1,9 @@
 // Client-side TanStack Router for the bundled Capacitor shell.
 //
-// Mounts real production screens inside the real PosShell. Pages that
-// depend on TanStack Start server functions (Settings, Onboarding) can't
-// be bundled into the plain-Vite shell, so they render a pointer that
-// deep-links to the web dashboard. HelpPage uses Supabase directly and
-// works fully inside the shell.
+// Mounts real production screens inside the real PosShell. Settings and
+// Onboarding are POS-scoped screens native to the shell (they call the
+// public HTTPS endpoints directly, so no TanStack Start server-fn hashes
+// are needed). HelpPage uses Supabase directly and works in the shell too.
 import {
   createRootRoute,
   createRoute,
