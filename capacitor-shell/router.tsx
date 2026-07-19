@@ -21,7 +21,8 @@ import { TimeclockPage } from "@/routes/_pos/timeclock";
 import { ShiftsPage } from "@/routes/_dashboard/shifts";
 import { HelpPage } from "@/routes/_dashboard/help";
 import { AuthRoute } from "./screens/AuthRoute";
-import { PlaceholderScreen } from "./screens/PlaceholderScreen";
+import { OnboardingScreen } from "./screens/OnboardingScreen";
+import { SettingsScreen } from "./screens/SettingsScreen";
 import { supabase } from "./supabase";
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
