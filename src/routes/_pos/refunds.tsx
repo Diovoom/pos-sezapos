@@ -63,7 +63,7 @@ const TYPES = [
   { v: "void", l: "Void Sale" },
 ];
 
-function RefundsPage() {
+export function RefundsPage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<SaleRow | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
