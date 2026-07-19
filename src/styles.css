@@ -143,3 +143,29 @@
   .print\:break-before-page { break-before: page; }
   @page { margin: 0.5in; }
 }
+
+/* Native Android shell (Capacitor WebView) — dedicated POS terminal feel.
+   Adds larger touch targets, disables text selection outside inputs, and
+   hides browser-only chrome (marketing headers are already unreachable via
+   the native router guard). */
+html.native-app {
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+html.native-app body {
+  user-select: none;
+  -webkit-user-select: none;
+  padding-top: env(safe-area-inset-top);
+}
+html.native-app input,
+html.native-app textarea,
+html.native-app [contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+html.native-app button,
+html.native-app [role="button"],
+html.native-app a {
+  min-height: 44px;
+}
