@@ -2,10 +2,12 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 // SEZA POS — Android wrapper.
 //
-// The app is a thin WebView over the deployed production site. On launch
-// we deep-link into the employee entry (`/auth?native=1`) so Android users
-// never see marketing pages. The `native=1` flag is captured client-side
-// and persisted so subsequent navigations stay inside the POS surface.
+// The app is a thin WebView over the deployed production site. On launch we
+// deep-link straight into the employee entry (`/auth?native=1`) so cashiers
+// never see marketing pages, homepage, or owner dashboards. A branded
+// full-screen loading overlay covers the WebView until React finishes
+// hydration; only then does JS call SplashScreen.hide() and fade the
+// overlay away.
 const config: CapacitorConfig = {
   appId: "com.sezapos.app",
   appName: "SEZA POS",
@@ -17,22 +19,24 @@ const config: CapacitorConfig = {
   },
   android: {
     allowMixedContent: false,
-    // Immersive: hide the Android status bar chrome while keeping the
-    // system navigation bar available (swipe from bottom).
     backgroundColor: "#1e40af",
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1800,
-      launchAutoHide: true,
+      // Never auto-hide — the web app hides the splash from JS once the
+      // native loading overlay is mounted, so there's no white flash
+      // between the Android splash and the branded loading screen.
+      launchShowDuration: 6000,
+      launchAutoHide: false,
       backgroundColor: "#1e40af",
       showSpinner: false,
       androidSplashResourceName: "splash",
       androidScaleType: "CENTER_CROP",
       splashFullScreen: true,
       splashImmersive: true,
-      fadeInDuration: 200,
-      fadeOutDuration: 400,
+      fadeInDuration: 0,
+      fadeOutDuration: 350,
+      useDialog: false,
     },
     StatusBar: {
       style: "DARK",
