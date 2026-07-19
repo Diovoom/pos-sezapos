@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "android:assets": "capacitor-assets generate --android --assetPath resources",
-    "android:sync": "npx cap sync android"
+    "android:build": "vite build --config vite.capacitor.config.ts",
+    "android:sync": "bun run android:build && npx cap sync android"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",
