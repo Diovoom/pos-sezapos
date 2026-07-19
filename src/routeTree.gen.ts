@@ -84,9 +84,13 @@ import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/em
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicPosVerifyManagerPinRouteImport } from './routes/api/public/pos/verify-manager-pin'
 import { Route as ApiPublicPosVerifyEmployeePinRouteImport } from './routes/api/public/pos/verify-employee-pin'
+import { Route as ApiPublicPosSetMyPinRouteImport } from './routes/api/public/pos/set-my-pin'
+import { Route as ApiPublicPosCompleteFirstLoginRouteImport } from './routes/api/public/pos/complete-first-login'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as AdminAppAdminSupportTicketIdRouteImport } from './routes/_adminApp/admin.support.$ticketId'
 import { Route as AdminAppAdminBusinessesStoreIdRouteImport } from './routes/_adminApp/admin.businesses.$storeId'
+import { Route as ApiPublicPosStripeTerminalPaymentIntentRouteImport } from './routes/api/public/pos/stripe-terminal/payment-intent'
+import { Route as ApiPublicPosStripeTerminalConnectionTokenRouteImport } from './routes/api/public/pos/stripe-terminal/connection-token'
 
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
   id: '/unsubscribe',
@@ -470,6 +474,17 @@ const ApiPublicPosVerifyEmployeePinRoute =
     path: '/api/public/pos/verify-employee-pin',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicPosSetMyPinRoute = ApiPublicPosSetMyPinRouteImport.update({
+  id: '/api/public/pos/set-my-pin',
+  path: '/api/public/pos/set-my-pin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPosCompleteFirstLoginRoute =
+  ApiPublicPosCompleteFirstLoginRouteImport.update({
+    id: '/api/public/pos/complete-first-login',
+    path: '/api/public/pos/complete-first-login',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -487,6 +502,18 @@ const AdminAppAdminBusinessesStoreIdRoute =
     id: '/admin/businesses/$storeId',
     path: '/admin/businesses/$storeId',
     getParentRoute: () => AdminAppRouteRoute,
+  } as any)
+const ApiPublicPosStripeTerminalPaymentIntentRoute =
+  ApiPublicPosStripeTerminalPaymentIntentRouteImport.update({
+    id: '/api/public/pos/stripe-terminal/payment-intent',
+    path: '/api/public/pos/stripe-terminal/payment-intent',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPosStripeTerminalConnectionTokenRoute =
+  ApiPublicPosStripeTerminalConnectionTokenRouteImport.update({
+    id: '/api/public/pos/stripe-terminal/connection-token',
+    path: '/api/public/pos/stripe-terminal/connection-token',
+    getParentRoute: () => rootRouteImport,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -557,6 +584,8 @@ export interface FileRoutesByFullPath {
   '/admin/businesses/$storeId': typeof AdminAppAdminBusinessesStoreIdRoute
   '/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
+  '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
   '/api/public/pos/verify-employee-pin': typeof ApiPublicPosVerifyEmployeePinRoute
   '/api/public/pos/verify-manager-pin': typeof ApiPublicPosVerifyManagerPinRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -565,6 +594,8 @@ export interface FileRoutesByFullPath {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/admin/businesses/': typeof AdminAppAdminBusinessesIndexRoute
+  '/api/public/pos/stripe-terminal/connection-token': typeof ApiPublicPosStripeTerminalConnectionTokenRoute
+  '/api/public/pos/stripe-terminal/payment-intent': typeof ApiPublicPosStripeTerminalPaymentIntentRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -634,6 +665,8 @@ export interface FileRoutesByTo {
   '/admin/businesses/$storeId': typeof AdminAppAdminBusinessesStoreIdRoute
   '/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
+  '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
   '/api/public/pos/verify-employee-pin': typeof ApiPublicPosVerifyEmployeePinRoute
   '/api/public/pos/verify-manager-pin': typeof ApiPublicPosVerifyManagerPinRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -642,6 +675,8 @@ export interface FileRoutesByTo {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/admin/businesses': typeof AdminAppAdminBusinessesIndexRoute
+  '/api/public/pos/stripe-terminal/connection-token': typeof ApiPublicPosStripeTerminalConnectionTokenRoute
+  '/api/public/pos/stripe-terminal/payment-intent': typeof ApiPublicPosStripeTerminalPaymentIntentRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -715,6 +750,8 @@ export interface FileRoutesById {
   '/_adminApp/admin/businesses/$storeId': typeof AdminAppAdminBusinessesStoreIdRoute
   '/_adminApp/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
+  '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
   '/api/public/pos/verify-employee-pin': typeof ApiPublicPosVerifyEmployeePinRoute
   '/api/public/pos/verify-manager-pin': typeof ApiPublicPosVerifyManagerPinRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -723,6 +760,8 @@ export interface FileRoutesById {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/_adminApp/admin/businesses/': typeof AdminAppAdminBusinessesIndexRoute
+  '/api/public/pos/stripe-terminal/connection-token': typeof ApiPublicPosStripeTerminalConnectionTokenRoute
+  '/api/public/pos/stripe-terminal/payment-intent': typeof ApiPublicPosStripeTerminalPaymentIntentRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -794,6 +833,8 @@ export interface FileRouteTypes {
     | '/admin/businesses/$storeId'
     | '/admin/support/$ticketId'
     | '/api/public/payments/webhook'
+    | '/api/public/pos/complete-first-login'
+    | '/api/public/pos/set-my-pin'
     | '/api/public/pos/verify-employee-pin'
     | '/api/public/pos/verify-manager-pin'
     | '/lovable/email/auth/preview'
@@ -802,6 +843,8 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/admin/businesses/'
+    | '/api/public/pos/stripe-terminal/connection-token'
+    | '/api/public/pos/stripe-terminal/payment-intent'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -871,6 +914,8 @@ export interface FileRouteTypes {
     | '/admin/businesses/$storeId'
     | '/admin/support/$ticketId'
     | '/api/public/payments/webhook'
+    | '/api/public/pos/complete-first-login'
+    | '/api/public/pos/set-my-pin'
     | '/api/public/pos/verify-employee-pin'
     | '/api/public/pos/verify-manager-pin'
     | '/lovable/email/auth/preview'
@@ -879,6 +924,8 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/admin/businesses'
+    | '/api/public/pos/stripe-terminal/connection-token'
+    | '/api/public/pos/stripe-terminal/payment-intent'
   id:
     | '__root__'
     | '/'
@@ -951,6 +998,8 @@ export interface FileRouteTypes {
     | '/_adminApp/admin/businesses/$storeId'
     | '/_adminApp/admin/support/$ticketId'
     | '/api/public/payments/webhook'
+    | '/api/public/pos/complete-first-login'
+    | '/api/public/pos/set-my-pin'
     | '/api/public/pos/verify-employee-pin'
     | '/api/public/pos/verify-manager-pin'
     | '/lovable/email/auth/preview'
@@ -959,6 +1008,8 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/_adminApp/admin/businesses/'
+    | '/api/public/pos/stripe-terminal/connection-token'
+    | '/api/public/pos/stripe-terminal/payment-intent'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1006,6 +1057,8 @@ export interface RootRouteChildren {
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   LovableSmsSendRoute: typeof LovableSmsSendRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
+  ApiPublicPosCompleteFirstLoginRoute: typeof ApiPublicPosCompleteFirstLoginRoute
+  ApiPublicPosSetMyPinRoute: typeof ApiPublicPosSetMyPinRoute
   ApiPublicPosVerifyEmployeePinRoute: typeof ApiPublicPosVerifyEmployeePinRoute
   ApiPublicPosVerifyManagerPinRoute: typeof ApiPublicPosVerifyManagerPinRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -1013,6 +1066,8 @@ export interface RootRouteChildren {
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
   LovableEmailTransactionalSendRoute: typeof LovableEmailTransactionalSendRoute
+  ApiPublicPosStripeTerminalConnectionTokenRoute: typeof ApiPublicPosStripeTerminalConnectionTokenRoute
+  ApiPublicPosStripeTerminalPaymentIntentRoute: typeof ApiPublicPosStripeTerminalPaymentIntentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1542,6 +1597,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPosVerifyEmployeePinRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/pos/set-my-pin': {
+      id: '/api/public/pos/set-my-pin'
+      path: '/api/public/pos/set-my-pin'
+      fullPath: '/api/public/pos/set-my-pin'
+      preLoaderRoute: typeof ApiPublicPosSetMyPinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pos/complete-first-login': {
+      id: '/api/public/pos/complete-first-login'
+      path: '/api/public/pos/complete-first-login'
+      fullPath: '/api/public/pos/complete-first-login'
+      preLoaderRoute: typeof ApiPublicPosCompleteFirstLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
       path: '/api/public/payments/webhook'
@@ -1562,6 +1631,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/businesses/$storeId'
       preLoaderRoute: typeof AdminAppAdminBusinessesStoreIdRouteImport
       parentRoute: typeof AdminAppRouteRoute
+    }
+    '/api/public/pos/stripe-terminal/payment-intent': {
+      id: '/api/public/pos/stripe-terminal/payment-intent'
+      path: '/api/public/pos/stripe-terminal/payment-intent'
+      fullPath: '/api/public/pos/stripe-terminal/payment-intent'
+      preLoaderRoute: typeof ApiPublicPosStripeTerminalPaymentIntentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pos/stripe-terminal/connection-token': {
+      id: '/api/public/pos/stripe-terminal/connection-token'
+      path: '/api/public/pos/stripe-terminal/connection-token'
+      fullPath: '/api/public/pos/stripe-terminal/connection-token'
+      preLoaderRoute: typeof ApiPublicPosStripeTerminalConnectionTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -1714,6 +1797,8 @@ const rootRouteChildren: RootRouteChildren = {
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   LovableSmsSendRoute: LovableSmsSendRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
+  ApiPublicPosCompleteFirstLoginRoute: ApiPublicPosCompleteFirstLoginRoute,
+  ApiPublicPosSetMyPinRoute: ApiPublicPosSetMyPinRoute,
   ApiPublicPosVerifyEmployeePinRoute: ApiPublicPosVerifyEmployeePinRoute,
   ApiPublicPosVerifyManagerPinRoute: ApiPublicPosVerifyManagerPinRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
@@ -1721,6 +1806,10 @@ const rootRouteChildren: RootRouteChildren = {
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
   LovableEmailTransactionalSendRoute: LovableEmailTransactionalSendRoute,
+  ApiPublicPosStripeTerminalConnectionTokenRoute:
+    ApiPublicPosStripeTerminalConnectionTokenRoute,
+  ApiPublicPosStripeTerminalPaymentIntentRoute:
+    ApiPublicPosStripeTerminalPaymentIntentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

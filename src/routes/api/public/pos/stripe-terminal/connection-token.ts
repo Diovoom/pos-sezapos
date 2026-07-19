@@ -1,0 +1,46 @@
+// Stripe Terminal connection token endpoint. The Android POS shell
+// requests this on demand; the token is passed to the Terminal SDK so it
+// can talk to Stripe as this merchant. Bearer-authenticated so only
+// signed-in employees can mint tokens on behalf of their store.
+import { createFileRoute } from "@tanstack/react-router";
+
+const CORS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, content-type",
+};
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status, headers: { "content-type": "application/json", ...CORS },
+  });
+}
+
+export const Route = createFileRoute("/api/public/pos/stripe-terminal/connection-token")({
+  server: {
+    handlers: {
+      OPTIONS: () => new Response(null, { status: 204, headers: CORS }),
+      POST: async ({ request }) => {
+        const auth = request.headers.get("authorization") ?? "";
+        const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+        if (!token) return json({ error: "Missing bearer token" }, 401);
+
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: userRes, error } = await supabaseAdmin.auth.getUser(token);
+        if (error || !userRes.user) return json({ error: "Unauthorized" }, 401);
+
+        try {
+          const { createStripeClient, getStripeErrorMessage } = await import("@/lib/stripe.server");
+          // Sandbox until merchant claims live; both use the same Terminal API.
+          const env = (process.env.STRIPE_LIVE_API_KEY ? "live" : "sandbox") as "live" | "sandbox";
+          const stripe = createStripeClient(env);
+          const ct = await stripe.terminal.connectionTokens.create();
+          return json({ secret: ct.secret });
+        } catch (e) {
+          const { getStripeErrorMessage } = await import("@/lib/stripe.server").catch(() => ({ getStripeErrorMessage: () => "Stripe error" }));
+          return json({ error: getStripeErrorMessage(e) }, 500);
+        }
+      },
+    },
+  },
+});

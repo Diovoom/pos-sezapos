@@ -1,10 +1,9 @@
 // Client-side TanStack Router for the bundled Capacitor shell.
 //
-// Mounts real production screens inside the real PosShell. Pages that
-// depend on TanStack Start server functions (Settings, Onboarding) can't
-// be bundled into the plain-Vite shell, so they render a pointer that
-// deep-links to the web dashboard. HelpPage uses Supabase directly and
-// works fully inside the shell.
+// Mounts real production screens inside the real PosShell. Settings and
+// Onboarding are POS-scoped screens native to the shell (they call the
+// public HTTPS endpoints directly, so no TanStack Start server-fn hashes
+// are needed). HelpPage uses Supabase directly and works in the shell too.
 import {
   createRootRoute,
   createRoute,
@@ -22,7 +21,8 @@ import { TimeclockPage } from "@/routes/_pos/timeclock";
 import { ShiftsPage } from "@/routes/_dashboard/shifts";
 import { HelpPage } from "@/routes/_dashboard/help";
 import { AuthRoute } from "./screens/AuthRoute";
-import { PlaceholderScreen } from "./screens/PlaceholderScreen";
+import { OnboardingScreen } from "./screens/OnboardingScreen";
+import { SettingsScreen } from "./screens/SettingsScreen";
 import { supabase } from "./supabase";
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
@@ -60,34 +60,6 @@ const shellRoute = <Path extends string>(path: Path, Component: () => React.JSX.
     ),
   });
 
-const settingsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/settings",
-  beforeLoad: requireAuth,
-  component: () => (
-    <PosShell>
-      <PlaceholderScreen
-        title="Store settings"
-        body="Store, receipt, hardware, and billing settings are managed from the web dashboard at sezapos.com. This limitation is tracked; the Android shell will absorb Settings once server-function calls are wired for the bundled runtime."
-      />
-    </PosShell>
-  ),
-});
-
-const onboardingRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/onboarding",
-  beforeLoad: requireAuth,
-  component: () => (
-    <PosShell>
-      <PlaceholderScreen
-        title="Finish setting up your account"
-        body="Complete first-time onboarding (password, PIN) at sezapos.com, then sign back in here."
-      />
-    </PosShell>
-  ),
-});
-
 const routeTree = rootRoute.addChildren([
   indexRoute,
   authRoute,
@@ -98,8 +70,8 @@ const routeTree = rootRoute.addChildren([
   shellRoute("/shifts", ShiftsPage),
   shellRoute("/support", HelpPage),
   shellRoute("/help", HelpPage),
-  settingsRoute,
-  onboardingRoute,
+  shellRoute("/settings", SettingsScreen),
+  shellRoute("/onboarding", OnboardingScreen),
 ]);
 
 export function createShellRouter(queryClient: QueryClient) {
