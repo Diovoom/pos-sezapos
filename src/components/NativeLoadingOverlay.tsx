@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import logoAsset from "@/assets/seza-logo.png.asset.json";
+import { resolveLogoUrl } from "@/components/brand/Logo";
 import { isNativeMode } from "@/lib/native";
 
 /**
@@ -74,7 +75,7 @@ export function NativeLoadingOverlay() {
         }}
       >
         <img
-          src={logoAsset.url}
+          src={resolveLogoUrl(logoAsset.url)}
           alt=""
           draggable={false}
           style={{ width: 104, height: 104, objectFit: "contain" }}

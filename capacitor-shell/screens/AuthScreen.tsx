@@ -6,6 +6,7 @@
 // Supabase session in the WebView's localStorage.
 import { useEffect, useMemo, useState } from "react";
 import logoAsset from "@/assets/seza-logo.png.asset.json";
+import { resolveLogoUrl } from "@/components/brand/Logo";
 import { API_BASE_URL, supabase } from "../supabase";
 
 type Stage = "pin" | "id_then_pin";
@@ -100,7 +101,7 @@ export function AuthScreen() {
     <div style={styles.root}>
       <div style={styles.brandRow}>
         <div style={styles.logoBadge}>
-          <img src={logoAsset.url} alt="" style={{ width: 32, height: 32, objectFit: "contain" }} />
+          <img src={resolveLogoUrl(logoAsset.url)} alt="" style={{ width: 32, height: 32, objectFit: "contain" }} />
         </div>
         <div>
           <div style={{ fontSize: 12, color: "#94a3b8", letterSpacing: 1, textTransform: "uppercase" }}>SEZA</div>
