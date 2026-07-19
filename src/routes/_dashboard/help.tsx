@@ -80,7 +80,7 @@ export function HelpPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
-      <PageHeader title="Support" description="Contact the SEZA POS platform team." icon={LifeBuoy} />
+      <PageHeader title="Support" subtitle="Contact the SEZA POS platform team." />
 
       <Card>
         <CardHeader>
