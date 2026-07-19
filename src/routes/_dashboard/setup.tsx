@@ -44,8 +44,6 @@ export const Route = createFileRoute("/_dashboard/setup")({
   component: SetupWizardPage,
 });
 
-export { SetupWizardPage };
-
 type WizardState = {
   step: number;
   owner: { first_name: string; last_name: string; email: string; phone: string; accepted_terms: boolean };
