@@ -2,11 +2,17 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>SEZA POS</title>
-    <meta http-equiv="refresh" content="0; url=https://sezapos.com/" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #1e40af; color: #fff;
+        font-family: -apple-system, system-ui, sans-serif; }
+      .wrap { display: grid; place-items: center; height: 100%; }
+    </style>
+    <meta http-equiv="refresh" content="0; url=https://sezapos.com/auth?native=1" />
   </head>
   <body>
-    <p>Loading SEZA POS…</p>
-    <script>window.location.replace("https://sezapos.com/");</script>
+    <div class="wrap"><p>Loading SEZA POS…</p></div>
+    <script>window.location.replace("https://sezapos.com/auth?native=1");</script>
   </body>
 </html>

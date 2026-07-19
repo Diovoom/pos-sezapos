@@ -18,6 +18,7 @@ import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import "@/i18n";
 import { applyLanguage } from "@/i18n";
 import { installSessionBridge } from "@/integrations/supabase/session-bridge";
+import { detectAndPersistNative, isPathAllowedInNative } from "@/lib/native";
 
 function NotFoundComponent() {
   return (
@@ -194,6 +195,26 @@ function RootComponent() {
       window.location.replace("/admin");
     }
   }, []);
+
+  // Native Android shell: keep employees inside the POS surface. Marketing
+  // pages, owner dashboards, and the platform admin are all off-limits from
+  // the mobile app.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const native = detectAndPersistNative();
+    if (!native) return;
+    document.documentElement.classList.add("native-app");
+    const enforce = () => {
+      const path = window.location.pathname;
+      if (!isPathAllowedInNative(path)) {
+        router.navigate({ to: "/auth", replace: true });
+      }
+    };
+    enforce();
+    const unsub = router.subscribe("onResolved", enforce);
+    return () => { unsub(); };
+  }, [router]);
+
 
   return (
     <QueryClientProvider client={queryClient}>

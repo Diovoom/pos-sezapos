@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Loader2, Delete, LogIn, Mail, KeyRound, ArrowLeft, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/Logo";
+import { isNativeMode } from "@/lib/native";
 
 const MANAGER_ROLES = new Set(["owner", "admin", "manager"]);
 
@@ -40,6 +41,8 @@ async function rejectIfPlatformStaff(userId: string): Promise<boolean> {
 }
 
 async function landingRouteForUser(userId: string): Promise<"/dashboard" | "/pos"> {
+  // Android native shell is a dedicated employee terminal — always send to POS.
+  if (isNativeMode()) return "/pos";
   try {
     const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const roles = (data ?? []).map((r) => r.role as string);
