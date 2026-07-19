@@ -136,7 +136,7 @@ const GROUPS: Group[] = [
   },
 ];
 
-function SettingsPage() {
+export function SettingsPage() {
   const search = Route.useSearch();
   const [tab, setTab] = useState(search.section ?? "general");
   useEffect(() => {

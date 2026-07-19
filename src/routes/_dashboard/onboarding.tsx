@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_dashboard/onboarding")({
   component: OnboardingPage,
 });
 
-function OnboardingPage() {
+export function OnboardingPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const submit = useServerFn(completeFirstLogin);

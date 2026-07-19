@@ -33,7 +33,7 @@ function ShellApp() {
       }
     });
 
-    // Hide the Android native splash once React has taken over.
+    // Hide the Android native splash + kick off OTA update check.
     (async () => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,9 +41,13 @@ function ShellApp() {
         if (cap?.Plugins?.SplashScreen?.hide) {
           await cap.Plugins.SplashScreen.hide({ fadeOutDuration: 300 });
         }
-      } catch {
-        /* noop */
-      }
+      } catch { /* noop */ }
+      // Capgo OTA — background check on cold boot. Free tier, no key required.
+      try {
+        const { CapacitorUpdater } = await import("@capgo/capacitor-updater");
+        await CapacitorUpdater.notifyAppReady();
+        // Latest published bundle is applied on next restart automatically.
+      } catch { /* not running on native */ }
     })();
 
     return () => {

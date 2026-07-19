@@ -59,6 +59,7 @@ import { Route as DashboardProductsRouteImport } from './routes/_dashboard/produ
 import { Route as DashboardPayrollRouteImport } from './routes/_dashboard/payroll'
 import { Route as DashboardOnboardingRouteImport } from './routes/_dashboard/onboarding'
 import { Route as DashboardInventoryRouteImport } from './routes/_dashboard/inventory'
+import { Route as DashboardHelpRouteImport } from './routes/_dashboard/help'
 import { Route as DashboardEmployeesRouteImport } from './routes/_dashboard/employees'
 import { Route as DashboardDashboardRouteImport } from './routes/_dashboard/dashboard'
 import { Route as DashboardCustomersRouteImport } from './routes/_dashboard/customers'
@@ -334,6 +335,11 @@ const DashboardInventoryRoute = DashboardInventoryRouteImport.update({
   path: '/inventory',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardHelpRoute = DashboardHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardEmployeesRoute = DashboardEmployeesRouteImport.update({
   id: '/employees',
   path: '/employees',
@@ -515,6 +521,7 @@ export interface FileRoutesByFullPath {
   '/customers': typeof DashboardCustomersRoute
   '/dashboard': typeof DashboardDashboardRoute
   '/employees': typeof DashboardEmployeesRouteWithChildren
+  '/help': typeof DashboardHelpRoute
   '/inventory': typeof DashboardInventoryRoute
   '/onboarding': typeof DashboardOnboardingRoute
   '/payroll': typeof DashboardPayrollRoute
@@ -591,6 +598,7 @@ export interface FileRoutesByTo {
   '/customers': typeof DashboardCustomersRoute
   '/dashboard': typeof DashboardDashboardRoute
   '/employees': typeof DashboardEmployeesRouteWithChildren
+  '/help': typeof DashboardHelpRoute
   '/inventory': typeof DashboardInventoryRoute
   '/onboarding': typeof DashboardOnboardingRoute
   '/payroll': typeof DashboardPayrollRoute
@@ -671,6 +679,7 @@ export interface FileRoutesById {
   '/_dashboard/customers': typeof DashboardCustomersRoute
   '/_dashboard/dashboard': typeof DashboardDashboardRoute
   '/_dashboard/employees': typeof DashboardEmployeesRouteWithChildren
+  '/_dashboard/help': typeof DashboardHelpRoute
   '/_dashboard/inventory': typeof DashboardInventoryRoute
   '/_dashboard/onboarding': typeof DashboardOnboardingRoute
   '/_dashboard/payroll': typeof DashboardPayrollRoute
@@ -749,6 +758,7 @@ export interface FileRouteTypes {
     | '/customers'
     | '/dashboard'
     | '/employees'
+    | '/help'
     | '/inventory'
     | '/onboarding'
     | '/payroll'
@@ -825,6 +835,7 @@ export interface FileRouteTypes {
     | '/customers'
     | '/dashboard'
     | '/employees'
+    | '/help'
     | '/inventory'
     | '/onboarding'
     | '/payroll'
@@ -904,6 +915,7 @@ export interface FileRouteTypes {
     | '/_dashboard/customers'
     | '/_dashboard/dashboard'
     | '/_dashboard/employees'
+    | '/_dashboard/help'
     | '/_dashboard/inventory'
     | '/_dashboard/onboarding'
     | '/_dashboard/payroll'
@@ -1355,6 +1367,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardInventoryRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/_dashboard/help': {
+      id: '/_dashboard/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof DashboardHelpRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/_dashboard/employees': {
       id: '/_dashboard/employees'
       path: '/employees'
@@ -1599,6 +1618,7 @@ interface DashboardRouteRouteChildren {
   DashboardCustomersRoute: typeof DashboardCustomersRoute
   DashboardDashboardRoute: typeof DashboardDashboardRoute
   DashboardEmployeesRoute: typeof DashboardEmployeesRouteWithChildren
+  DashboardHelpRoute: typeof DashboardHelpRoute
   DashboardInventoryRoute: typeof DashboardInventoryRoute
   DashboardOnboardingRoute: typeof DashboardOnboardingRoute
   DashboardPayrollRoute: typeof DashboardPayrollRoute
@@ -1614,6 +1634,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardCustomersRoute: DashboardCustomersRoute,
   DashboardDashboardRoute: DashboardDashboardRoute,
   DashboardEmployeesRoute: DashboardEmployeesRouteWithChildren,
+  DashboardHelpRoute: DashboardHelpRoute,
   DashboardInventoryRoute: DashboardInventoryRoute,
   DashboardOnboardingRoute: DashboardOnboardingRoute,
   DashboardPayrollRoute: DashboardPayrollRoute,

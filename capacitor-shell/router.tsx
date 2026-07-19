@@ -1,10 +1,10 @@
 // Client-side TanStack Router for the bundled Capacitor shell.
 //
-// Mounts the REAL production POS screens (PosPage, RegisterPage,
-// RefundsPage, TimeclockPage, ShiftsPage) inside the real PosShell.
-// Server-fn dependent components (ManagerOverrideDialog,
-// SupportRequestListener) are swapped for shell-safe stubs via aliases
-// declared in vite.capacitor.config.ts.
+// Mounts real production screens inside the real PosShell. Pages that
+// depend on TanStack Start server functions (Settings, Onboarding) can't
+// be bundled into the plain-Vite shell, so they render a pointer that
+// deep-links to the web dashboard. HelpPage uses Supabase directly and
+// works fully inside the shell.
 import {
   createRootRoute,
   createRoute,
@@ -20,6 +20,7 @@ import { RegisterPage } from "@/routes/_pos/register";
 import { RefundsPage } from "@/routes/_pos/refunds";
 import { TimeclockPage } from "@/routes/_pos/timeclock";
 import { ShiftsPage } from "@/routes/_dashboard/shifts";
+import { HelpPage } from "@/routes/_dashboard/help";
 import { AuthRoute } from "./screens/AuthRoute";
 import { PlaceholderScreen } from "./screens/PlaceholderScreen";
 import { supabase } from "./supabase";
@@ -59,14 +60,6 @@ const shellRoute = <Path extends string>(path: Path, Component: () => React.JSX.
     ),
   });
 
-const posRoute = shellRoute("/pos", PosPage);
-const registerRoute = shellRoute("/register", RegisterPage);
-const refundsRoute = shellRoute("/refunds", RefundsPage);
-const timeclockRoute = shellRoute("/timeclock", TimeclockPage);
-const shiftsRoute = shellRoute("/shifts", ShiftsPage);
-
-// Settings and support are managed via the web dashboard for now; render a
-// clear pointer instead of a broken half-page.
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
@@ -75,21 +68,7 @@ const settingsRoute = createRoute({
     <PosShell>
       <PlaceholderScreen
         title="Store settings"
-        body="Store, hardware, and billing settings are managed from the web dashboard. Sign in at sezapos.com from any browser."
-      />
-    </PosShell>
-  ),
-});
-
-const supportRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/support",
-  beforeLoad: requireAuth,
-  component: () => (
-    <PosShell>
-      <PlaceholderScreen
-        title="Contact support"
-        body="Email support@sezapos.com or open a ticket from the web dashboard."
+        body="Store, receipt, hardware, and billing settings are managed from the web dashboard at sezapos.com. This limitation is tracked; the Android shell will absorb Settings once server-function calls are wired for the bundled runtime."
       />
     </PosShell>
   ),
@@ -102,8 +81,8 @@ const onboardingRoute = createRoute({
   component: () => (
     <PosShell>
       <PlaceholderScreen
-        title="Finish setting up your store"
-        body="Complete initial store setup in the web dashboard, then sign in here."
+        title="Finish setting up your account"
+        body="Complete first-time onboarding (password, PIN) at sezapos.com, then sign back in here."
       />
     </PosShell>
   ),
@@ -112,13 +91,14 @@ const onboardingRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   authRoute,
-  posRoute,
-  registerRoute,
-  refundsRoute,
-  timeclockRoute,
-  shiftsRoute,
+  shellRoute("/pos", PosPage),
+  shellRoute("/register", RegisterPage),
+  shellRoute("/refunds", RefundsPage),
+  shellRoute("/timeclock", TimeclockPage),
+  shellRoute("/shifts", ShiftsPage),
+  shellRoute("/support", HelpPage),
+  shellRoute("/help", HelpPage),
   settingsRoute,
-  supportRoute,
   onboardingRoute,
 ]);
 

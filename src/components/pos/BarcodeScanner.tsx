@@ -4,6 +4,28 @@ import { BarcodeFormat, DecodeHintType, NotFoundException } from "@zxing/library
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Camera, X } from "lucide-react";
+import { isNativeMode } from "@/lib/native";
+
+// Lazy-load the ML Kit plugin so the web bundle doesn't pull native code.
+async function tryNativeScan(): Promise<string | null> {
+  if (!isNativeMode()) return null;
+  try {
+    const mod = await import("@capacitor-mlkit/barcode-scanning");
+    const { BarcodeScanner: MlKit } = mod;
+    const supported = await MlKit.isSupported();
+    if (!supported.supported) return null;
+    const perm = await MlKit.checkPermissions();
+    if (perm.camera !== "granted") {
+      const req = await MlKit.requestPermissions();
+      if (req.camera !== "granted") return null;
+    }
+    const { barcodes } = await MlKit.scan();
+    return barcodes?.[0]?.rawValue ?? null;
+  } catch {
+    return null;
+  }
+}
+
 
 type Props = {
   open: boolean;
@@ -46,6 +68,14 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
     const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 200 });
 
     (async () => {
+      // Try the native ML Kit full-screen scanner first on Android.
+      const nativeCode = await tryNativeScan();
+      if (nativeCode) {
+        if (cancelled) return;
+        onDetected(nativeCode);
+        onOpenChange(false);
+        return;
+      }
       try {
         setStatus("starting");
         setError(null);
