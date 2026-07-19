@@ -1,9 +1,16 @@
-# SEZA POS — Android (Capacitor)
+# SEZA POS — Android (Capacitor, bundled)
 
-The Android app is a thin Capacitor WebView over the deployed production
-site at `https://sezapos.com/auth?native=1`. All authentication, POS,
-Stripe, Supabase, MCP, and screen-share features continue to run against
-the live Cloudflare Workers backend — the mobile app is only a shell.
+The Android app is a **bundled** Capacitor application. All web assets ship
+inside the APK under `android-webdir/`; the WebView loads them instantly
+via the `capacitor://` scheme with **no remote HTML fetch on launch**.
+
+Backend access happens over HTTPS from the bundled JS:
+- Supabase auth + RLS-scoped reads/writes go directly to Supabase.
+- Server functions and public API routes go to `https://sezapos.com`.
+
+This split is the foundation for offline mode: local reads can be served
+from IndexedDB, and writes can be queued against the same base URL when
+the network returns.
 
 ## First-time setup (per machine)
 
@@ -11,21 +18,30 @@ Requires Android Studio + JDK 17.
 
 ```bash
 bun install
+bun run android:build        # build the bundled SPA into android-webdir/
 npx cap add android          # generates ./android on first run only
 bun run android:assets       # generate launcher icons + splash from resources/
-bun run android:sync         # copy config + assets into android/
+bun run android:sync         # rebuild shell + copy config + assets into android/
 npx cap open android
 ```
 
 ## Day-to-day
 
-The shell always loads the live site, so JS/UI changes deploy through
-the normal pipeline. Re-sync only when native config or plugins change:
+The shell is bundled, so JS/UI changes must be rebuilt and re-synced:
 
 ```bash
-bun run android:sync
+bun run android:sync         # runs android:build then cap sync
 npx cap open android         # then Run ▶ in Android Studio
 ```
+
+## Where the bundled shell lives
+
+- `capacitor-shell/` — source for the bundled SPA (React, Supabase client,
+  splash / auth / register screens).
+- `vite.capacitor.config.ts` — standalone Vite build config (does NOT use
+  TanStack Start; the Android app has no server).
+- `android-webdir/` — build output packaged into the APK. Regenerated on
+  every `android:build`. Do not hand-edit.
 
 ## Branding
 
@@ -43,25 +59,15 @@ Regenerate after any brand change:
 bun run android:assets && bun run android:sync
 ```
 
-This replaces every default Capacitor / Android placeholder — launcher
-icon, round icon, adaptive icon, Android 13 themed icon, notification
-icon, and splash — with the SEZA identity.
-
 ## Native startup flow
 
 1. Android launches the native splash (SEZA blue background + logo,
    `launchAutoHide: false`).
-2. The WebView opens directly at `/auth?native=1` — never the marketing
-   homepage, pricing, features, dashboard, or admin.
-3. React mounts a full-screen branded loading overlay (`NativeLoadingOverlay`)
-   and immediately calls `SplashScreen.hide()` — no white flash.
-4. When the destination route (Employee PIN or POS Register) has hydrated,
-   the overlay fades out.
-5. Authenticated users skip the PIN screen entirely (existing session ->
-   redirected to `/pos`).
-
-The root router guard in `src/routes/__root.tsx` continues to block any
-navigation to marketing / owner / admin routes while in native mode.
+2. The WebView loads `android-webdir/index.html` instantly from disk.
+3. React mounts, restores any cached Supabase session from localStorage,
+   then calls `SplashScreen.hide()`.
+4. Users with a valid session land on the POS register; others see the
+   employee sign-in screen.
 
 ## App identity
 
