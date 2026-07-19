@@ -60,34 +60,6 @@ const shellRoute = <Path extends string>(path: Path, Component: () => React.JSX.
     ),
   });
 
-const settingsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/settings",
-  beforeLoad: requireAuth,
-  component: () => (
-    <PosShell>
-      <PlaceholderScreen
-        title="Store settings"
-        body="Store, receipt, hardware, and billing settings are managed from the web dashboard at sezapos.com. This limitation is tracked; the Android shell will absorb Settings once server-function calls are wired for the bundled runtime."
-      />
-    </PosShell>
-  ),
-});
-
-const onboardingRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/onboarding",
-  beforeLoad: requireAuth,
-  component: () => (
-    <PosShell>
-      <PlaceholderScreen
-        title="Finish setting up your account"
-        body="Complete first-time onboarding (password, PIN) at sezapos.com, then sign back in here."
-      />
-    </PosShell>
-  ),
-});
-
 const routeTree = rootRoute.addChildren([
   indexRoute,
   authRoute,
@@ -98,8 +70,8 @@ const routeTree = rootRoute.addChildren([
   shellRoute("/shifts", ShiftsPage),
   shellRoute("/support", HelpPage),
   shellRoute("/help", HelpPage),
-  settingsRoute,
-  onboardingRoute,
+  shellRoute("/settings", SettingsScreen),
+  shellRoute("/onboarding", OnboardingScreen),
 ]);
 
 export function createShellRouter(queryClient: QueryClient) {
