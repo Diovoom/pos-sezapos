@@ -51,7 +51,10 @@ import {
 import { ManagerOverrideDialog } from "@/components/pos/ManagerOverrideDialog";
 import { dashboardUrl } from "@/lib/host";
 import { Logo } from "@/components/brand/Logo";
-import { roleAvatarClass, roleDotClass, roleTextClass, roleInitials } from "@/lib/role-visual";
+import { StoreLogo } from "@/components/brand/StoreLogo";
+import { UserAvatar } from "@/components/brand/UserAvatar";
+import { roleDotClass, roleTextClass } from "@/lib/role-visual";
+import { Settings as SettingsIcon } from "lucide-react";
 
 const POS_NAV = [
   { to: "/pos", label: "Sell", icon: ScanBarcode },
