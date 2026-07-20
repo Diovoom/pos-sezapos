@@ -91,6 +91,11 @@ async function onResume(router: ShellRouter, queryClient: QueryClient) {
     // Refresh authenticated queries so revoked device / disabled employee
     // surfaces immediately on next render.
     queryClient.invalidateQueries();
+    // Drain any offline queue that piled up while backgrounded.
+    try {
+      const { syncNow } = await import("@/lib/offline/sync");
+      void syncNow();
+    } catch { /* offline module unavailable */ }
   } catch {
     // Network failure — leave user on current screen; UI will surface
     // errors via existing error boundaries and the offline indicator.
