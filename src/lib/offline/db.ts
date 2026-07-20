@@ -2,7 +2,17 @@
 // and audit-event queue. Never store PINs, passwords, card details.
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 
-export type OfflineSaleStatus = "pending" | "syncing" | "synced" | "failed" | "conflict";
+export type OfflineSaleStatus =
+  | "pending"
+  | "syncing"
+  | "synced"
+  | "failed"
+  | "conflict"
+  | "needs_attention";
+
+// Bumped whenever the offline payload shape changes so old records can be
+// safely migrated / quarantined instead of silently dropped.
+export const OFFLINE_PAYLOAD_VERSION = 2;
 
 export type OfflineSaleItem = {
   product_id: string | null;
