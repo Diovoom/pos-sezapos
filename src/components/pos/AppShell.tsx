@@ -44,6 +44,8 @@ import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { posUrl } from "@/lib/host";
 import { Logo } from "@/components/brand/Logo";
+import { StoreLogo } from "@/components/brand/StoreLogo";
+import { UserAvatar } from "@/components/brand/UserAvatar";
 import { roleAvatarClass, roleDotClass, roleTextClass, roleInitials } from "@/lib/role-visual";
 
 const NAV: { to: string; label: string; icon: any; search?: Record<string, string> }[] = [
@@ -107,7 +109,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Desktop sidebar — unchanged behaviour on md+ */}
       <aside className="hidden md:flex w-16 lg:w-60 border-r bg-surface/60 flex-col shrink-0">
         <div className="h-16 px-4 border-b flex items-center gap-3">
-          <Logo className="size-8 rounded-lg" />
+          <StoreLogo className="size-8 rounded-lg" />
           <div className="hidden lg:flex flex-col leading-tight">
             <span className="font-semibold tracking-tight text-sm">SEZA POS</span>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{me?.store?.name ?? "Store"}</span>
@@ -148,9 +150,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-accent transition-colors text-left">
                 <div className="relative shrink-0">
-                  <div className={cn("size-9 rounded-full grid place-items-center text-white font-semibold text-sm", roleAvatarClass(role))}>
-                    {roleInitials(me?.profile?.full_name ?? me?.user?.email ?? "?")}
-                  </div>
+                  <UserAvatar
+                    name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
+                    photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
+                    role={role}
+                    className="size-9 text-sm"
+                  />
                   <span className={cn("absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-background", roleDotClass(role))} aria-hidden="true" />
                 </div>
                 <div className="hidden lg:flex flex-col min-w-0 flex-1">
@@ -192,15 +197,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Mobile top bar (hidden on md+) */}
         <div className="md:hidden h-14 border-b flex items-center justify-between px-3 shrink-0 bg-surface/60">
           <Link to="/dashboard" className="flex items-center gap-2 min-w-0">
-            <Logo className="size-8 rounded-lg shrink-0" />
-            <span className="font-semibold text-sm truncate">SEZA POS</span>
+            <StoreLogo className="size-8 rounded-lg shrink-0" />
+            <span className="font-semibold text-sm truncate">{me?.store?.name ?? "SEZA POS"}</span>
           </Link>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="size-10 rounded-full grid place-items-center hover:bg-accent" aria-label="Account menu">
-                <div className={cn("size-8 rounded-full grid place-items-center text-white text-xs font-semibold", roleAvatarClass(role))}>
-                  {roleInitials(me?.profile?.full_name ?? me?.user?.email ?? "?")}
-                </div>
+                <UserAvatar
+                  name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
+                  photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
+                  role={role}
+                  className="size-8 text-xs"
+                />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
