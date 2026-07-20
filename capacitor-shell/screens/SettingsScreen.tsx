@@ -450,6 +450,65 @@ function SignOutPanel() {
   );
 }
 
+function HardwareStatusPanel() {
+  const [snap, setSnap] = useState(() => hardwareSnapshot());
+  const [busy, setBusy] = useState<"print" | "drawer" | null>(null);
+  const refresh = () => setSnap(hardwareSnapshot());
+  const runPrint = async () => {
+    setBusy("print");
+    try {
+      const r = await runTestPrint();
+      r.ok ? toast.success("Test print sent") : toast.error(r.reason === "not_ready" ? "Printer not connected" : (r.error ?? "Printer error"));
+    } finally { setBusy(null); refresh(); }
+  };
+  const runDrawer = async () => {
+    setBusy("drawer");
+    try {
+      const r = await runTestDrawer();
+      r.ok ? toast.success("Drawer pulse sent") : toast.error(r.reason === "not_ready" ? "Drawer/printer not connected" : (r.error ?? "Drawer error"));
+    } finally { setBusy(null); refresh(); }
+  };
+  const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="flex items-center justify-between border-b py-2 text-sm last:border-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  );
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Activity className="h-4 w-4" />Hardware Status</CardTitle>
+        <CardDescription>Live status of the printer and cash drawer on this device.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="rounded-md border p-3">
+          <Row label="Printer driver" value={snap.driverLabel} />
+          <Row label="Paper width" value={snap.paperWidth} />
+          <Row label="Auto-print" value={snap.autoPrint ? "On" : "Off"} />
+          <Row label="Copies per sale" value={snap.copies} />
+          <Row label="Open drawer on cash sale" value={snap.kickOnCash ? "On" : "Off"} />
+          <Row label="Last successful print" value={snap.lastPrintOk ? new Date(snap.lastPrintOk).toLocaleString() : "—"} />
+          <Row label="Last print error" value={snap.lastPrintErr || "—"} />
+          <Row label="Last drawer open" value={snap.lastDrawerOk ? new Date(snap.lastDrawerOk).toLocaleString() : "—"} />
+          <Row label="Last drawer error" value={snap.lastDrawerErr || "—"} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={refresh}>Refresh</Button>
+          <Button onClick={runPrint} disabled={busy !== null}>
+            {busy === "print" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Test printer
+          </Button>
+          <Button variant="outline" onClick={runDrawer} disabled={busy !== null}>
+            {busy === "drawer" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Test cash drawer
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Hardware failure never blocks a completed sale. Use the Support screen to send diagnostics if the printer or drawer is misbehaving.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ---------------------------------- page ---------------------------------- */
 
 const SECTIONS = [
@@ -457,7 +516,9 @@ const SECTIONS = [
   { id: "printer", label: "Printer", Panel: PrinterPanel },
   { id: "drawer", label: "Cash Drawer", Panel: CashDrawerPanel },
   { id: "scanner", label: "Barcode Scanner", Panel: ScannerPanel },
+  { id: "status", label: "Hardware Status", Panel: HardwareStatusPanel },
   { id: "terminal", label: "Payment Terminal", Panel: TerminalPanel },
+
   { id: "device", label: "Device", Panel: DevicePanel },
   { id: "register", label: "Register", Panel: RegisterPanel },
   { id: "shift", label: "Shift", Panel: ShiftPanel },
