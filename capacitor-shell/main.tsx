@@ -7,6 +7,7 @@ import { SplashScreen as SplashScreenUi } from "./screens/SplashScreen";
 import { BrandedBootScreen } from "./screens/BrandedBootScreen";
 import { createShellRouter } from "./router";
 import { supabase } from "./supabase";
+import { ExitConfirmToast, initAndroidLifecycle } from "./lifecycle";
 import "@/i18n";
 import "@/styles.css";
 
@@ -83,6 +84,7 @@ function ShellApp() {
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
       <Toaster />
+      <ExitConfirmToast />
     </QueryClientProvider>
   );
 }
