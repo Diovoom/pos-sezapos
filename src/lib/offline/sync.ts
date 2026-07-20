@@ -178,7 +178,8 @@ async function syncCashMovement(m: OfflineCashMovement): Promise<void> {
 
 export async function syncNow(): Promise<{ synced: number; failed: number; skipped?: string }> {
   if (syncing) return { synced: 0, failed: 0, skipped: "already-running" };
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
+  const { isOnlineNow } = await import("./useOnline");
+  if (!isOnlineNow()) {
     return { synced: 0, failed: 0, skipped: "offline" };
   }
   syncing = true;

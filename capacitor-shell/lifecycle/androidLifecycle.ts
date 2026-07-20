@@ -133,13 +133,17 @@ export async function initAndroidLifecycle(
     console.warn("[lifecycle] @capacitor/app unavailable", err);
   }
 
-  // Optional Network listener — reuses existing window online/offline events
-  // so the existing OfflineIndicator picks it up without a second store.
+  // Bridge Capacitor Network → useOnline authoritative override. Android
+  // WebView's navigator.onLine is unreliable on `capacitor://` origins.
   try {
     const { Network } = await import("@capacitor/network");
+    const { setNativeOnline } = await import("@/lib/offline/useOnline");
+    try {
+      const initial = await Network.getStatus();
+      setNativeOnline(!!initial.connected);
+    } catch { /* ignore */ }
     await Network.addListener("networkStatusChange", (status) => {
-      const evt = status.connected ? "online" : "offline";
-      window.dispatchEvent(new Event(evt));
+      setNativeOnline(!!status.connected);
     });
   } catch { /* optional */ }
 }

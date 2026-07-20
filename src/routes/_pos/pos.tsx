@@ -25,7 +25,7 @@ import { useMe } from "@/hooks/useMe";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { logAudit } from "@/lib/audit-log";
-import { useOnline } from "@/lib/offline/useOnline";
+import { useOnline, isOnlineNow } from "@/lib/offline/useOnline";
 import {
   cacheProducts,
   loadCachedProducts,
@@ -327,7 +327,7 @@ export function PosPage() {
       // ---- OFFLINE CASH PATH ---------------------------------------------
       // When offline, only cash is allowed. Save to IndexedDB, mark
       // Pending sync, and produce a local receipt. Never call the network.
-      if (!navigator.onLine && payment.method === "cash") {
+      if (!isOnlineNow() && payment.method === "cash") {
         const { data: u } = await supabase.auth.getUser();
         if (!u.user) throw new SaleError("auth", "Sign in required.");
         const localId = crypto.randomUUID();
