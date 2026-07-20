@@ -108,6 +108,11 @@ export function PosShell({ children }: { children: ReactNode }) {
   const [managerGate, setManagerGate] = useState(false);
   const [drawerDialog, setDrawerDialog] = useState(false);
 
+  // Native APK exposes Support + Settings in the mobile menu. Web POS is
+  // unchanged — those live in the merchant dashboard on the web.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isNativeShell = typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.();
+
   const doSignOut = async () => {
     await qc.cancelQueries();
     qc.clear();
