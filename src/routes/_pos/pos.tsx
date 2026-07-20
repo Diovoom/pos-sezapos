@@ -38,6 +38,7 @@ import {
   type CachedProduct,
 } from "@/lib/offline/db";
 import { syncNow } from "@/lib/offline/sync";
+import { useNativeActivitySignal } from "@/lib/native-activity";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
