@@ -28,6 +28,7 @@ import { logAudit } from "@/lib/audit-log";
 import { getActiveProvider } from "@/lib/pos/payment-terminal";
 import { PaymentTerminalsPanel } from "@/components/settings/PaymentTerminalsPanel";
 import { SmsSettingsPanel } from "@/components/settings/SmsSettingsPanel";
+import { BusinessBrandingPanel } from "@/components/settings/BusinessBrandingPanel";
 import { useServerFn } from "@tanstack/react-start";
 import { setMyPin } from "@/lib/employees.functions";
 import {
@@ -106,6 +107,7 @@ const GROUPS: Group[] = [
     label: "Store Setup",
     items: [
       { id: "general", label: "Store Information", icon: Building2 },
+      { id: "branding", label: "Business Branding", icon: Palette },
       { id: "receipt", label: "Receipt", icon: ReceiptIcon },
       { id: "hardware_setup", label: "Hardware Setup", icon: HardDrive },
       { id: "employees", label: "Employees", icon: Users },
@@ -204,6 +206,7 @@ export function SettingsPage() {
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-w-0">
 
             <TabsContent value="general" className="mt-0"><GeneralPanel canEdit={canEditSettings} /></TabsContent>
+            <TabsContent value="branding" className="mt-0"><BusinessBrandingPanel /></TabsContent>
             <TabsContent value="billing" className="mt-0"><BillingPanel /></TabsContent>
             <TabsContent value="employees" className="mt-0"><EmployeesPanel /></TabsContent>
             <TabsContent value="roles" className="mt-0"><RolePermissionsPanel canEdit={canEditRoles} /></TabsContent>

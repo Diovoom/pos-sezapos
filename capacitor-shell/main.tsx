@@ -4,21 +4,26 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
 import { SplashScreen as SplashScreenUi } from "./screens/SplashScreen";
+import { BrandedBootScreen } from "./screens/BrandedBootScreen";
 import { createShellRouter } from "./router";
 import { supabase } from "./supabase";
 import "@/i18n";
 import "@/styles.css";
 
 function ShellApp() {
-  const [ready, setReady] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [booted, setBooted] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const queryClient = useMemo(() => new QueryClient(), []);
   const router = useMemo(() => createShellRouter(queryClient), [queryClient]);
 
   useEffect(() => {
     let alive = true;
     // Warm the session cache so beforeLoad guards are decisive on first render.
-    supabase.auth.getSession().finally(() => {
-      if (alive) setReady(true);
+    supabase.auth.getSession().then(({ data }) => {
+      if (!alive) return;
+      setHasSession(!!data.session);
+      setSessionReady(true);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
@@ -26,9 +31,12 @@ function ShellApp() {
         router.invalidate();
         if (event === "SIGNED_OUT") {
           queryClient.clear();
+          setHasSession(false);
+          setBooted(false);
           router.navigate({ to: "/auth", replace: true });
         } else if (event === "SIGNED_IN") {
-          router.navigate({ to: "/pos", replace: true });
+          setHasSession(true);
+          setBooted(false);
         }
       }
     });
@@ -56,7 +64,20 @@ function ShellApp() {
     };
   }, [router, queryClient]);
 
-  if (!ready) return <SplashScreenUi />;
+  if (!sessionReady) return <SplashScreenUi />;
+
+  // Signed-in users see the branded boot screen (with live status) before POS
+  // mounts. Signed-out users go straight to the PIN screen.
+  if (hasSession && !booted) {
+    return (
+      <BrandedBootScreen
+        onReady={() => {
+          setBooted(true);
+          router.navigate({ to: "/pos", replace: true });
+        }}
+      />
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -50,8 +50,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ManagerOverrideDialog } from "@/components/pos/ManagerOverrideDialog";
 import { dashboardUrl } from "@/lib/host";
-import { Logo } from "@/components/brand/Logo";
-import { roleAvatarClass, roleDotClass, roleTextClass, roleInitials } from "@/lib/role-visual";
+import { StoreLogo } from "@/components/brand/StoreLogo";
+import { UserAvatar } from "@/components/brand/UserAvatar";
+import { roleDotClass, roleTextClass } from "@/lib/role-visual";
+import { Settings as SettingsIcon } from "lucide-react";
 
 const POS_NAV = [
   { to: "/pos", label: "Sell", icon: ScanBarcode },
@@ -139,7 +141,9 @@ export function PosShell({ children }: { children: ReactNode }) {
     <div className="flex h-[100dvh] w-full bg-background text-foreground overflow-hidden">
       <aside className="hidden md:flex w-16 lg:w-56 border-r bg-surface/60 flex-col shrink-0">
         <div className="h-16 px-4 border-b flex items-center gap-3">
-          <Logo className="size-8 rounded-lg" />
+          <StoreLogo className="size-8 rounded-lg" />
+
+
           <div className="hidden lg:flex flex-col leading-tight">
             <span className="font-semibold tracking-tight text-sm">POS Register</span>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">{me?.store?.name ?? "Store"}</span>
@@ -199,9 +203,12 @@ export function PosShell({ children }: { children: ReactNode }) {
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-accent transition-colors text-left">
                 <div className="relative shrink-0">
-                  <div className={cn("size-9 rounded-full grid place-items-center text-white font-semibold text-sm", roleAvatarClass(role))}>
-                    {roleInitials(me?.profile?.full_name ?? me?.user?.email ?? "?")}
-                  </div>
+                  <UserAvatar
+                    name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
+                    photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
+                    role={role}
+                    className="size-9 text-sm"
+                  />
                   <span className={cn("absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-background", roleDotClass(role))} aria-hidden="true" />
                 </div>
                 <div className="hidden lg:flex flex-col min-w-0 flex-1">
@@ -230,6 +237,10 @@ export function PosShell({ children }: { children: ReactNode }) {
                 <Clock className="size-4 mr-2" /> Time clock
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
+                <SettingsIcon className="size-4 mr-2" /> Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSwitchEmployee}>
                 <ArrowLeftRight className="size-4 mr-2" /> Switch employee
               </DropdownMenuItem>
@@ -247,7 +258,7 @@ export function PosShell({ children }: { children: ReactNode }) {
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <Logo className="size-7 rounded-md" />
+          <StoreLogo className="size-7 rounded-md" />
           <span className="text-sm font-semibold truncate">{me?.store?.name ?? "Store"}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -260,9 +271,12 @@ export function PosShell({ children }: { children: ReactNode }) {
               className="gap-2 px-2"
               aria-label="Open cashier menu"
             >
-              <div className={cn("size-7 rounded-full grid place-items-center text-white font-semibold text-[11px]", roleAvatarClass(role))}>
-                {roleInitials(me?.profile?.full_name ?? me?.user?.email ?? "?")}
-              </div>
+              <UserAvatar
+                name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
+                photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
+                role={role}
+                className="size-7 text-[11px]"
+              />
               <Menu className="size-4" />
             </Button>
           </SheetTrigger>
@@ -270,9 +284,12 @@ export function PosShell({ children }: { children: ReactNode }) {
             <SheetHeader className="p-4 border-b text-left">
               <SheetTitle className="flex items-center gap-3">
                 <div className="relative shrink-0">
-                  <div className={cn("size-10 rounded-full grid place-items-center text-white font-semibold", roleAvatarClass(role))}>
-                    {roleInitials(me?.profile?.full_name ?? me?.user?.email ?? "?")}
-                  </div>
+                  <UserAvatar
+                    name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
+                    photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
+                    role={role}
+                    className="size-10"
+                  />
                   <span className={cn("absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-background", roleDotClass(role))} aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
