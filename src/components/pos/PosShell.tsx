@@ -203,9 +203,12 @@ export function PosShell({ children }: { children: ReactNode }) {
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-accent transition-colors text-left">
                 <div className="relative shrink-0">
-                  <div className={cn("size-9 rounded-full grid place-items-center text-white font-semibold text-sm", roleAvatarClass(role))}>
-                    {roleInitials(me?.profile?.full_name ?? me?.user?.email ?? "?")}
-                  </div>
+                  <UserAvatar
+                    name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
+                    photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
+                    role={role}
+                    className="size-9 text-sm"
+                  />
                   <span className={cn("absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-background", roleDotClass(role))} aria-hidden="true" />
                 </div>
                 <div className="hidden lg:flex flex-col min-w-0 flex-1">
@@ -234,6 +237,10 @@ export function PosShell({ children }: { children: ReactNode }) {
                 <Clock className="size-4 mr-2" /> Time clock
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
+                <SettingsIcon className="size-4 mr-2" /> Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSwitchEmployee}>
                 <ArrowLeftRight className="size-4 mr-2" /> Switch employee
               </DropdownMenuItem>
@@ -251,7 +258,7 @@ export function PosShell({ children }: { children: ReactNode }) {
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <Logo className="size-7 rounded-md" />
+          <StoreLogo className="size-7 rounded-md" />
           <span className="text-sm font-semibold truncate">{me?.store?.name ?? "Store"}</span>
         </div>
         <div className="flex items-center gap-2">
