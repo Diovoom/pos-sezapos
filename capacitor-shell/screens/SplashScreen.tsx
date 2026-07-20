@@ -1,5 +1,4 @@
-import { resolveLogoUrl } from "@/components/brand/Logo";
-import logoAsset from "@/assets/seza-logo.png.asset.json";
+import { SEZA_LOGO_URL } from "../logo";
 
 export function SplashScreen() {
   return (
@@ -27,7 +26,7 @@ export function SplashScreen() {
         }}
       >
         <img
-          src={resolveLogoUrl(logoAsset.url)}
+          src={SEZA_LOGO_URL}
           alt=""
           style={{ width: 96, height: 96, objectFit: "contain" }}
         />
