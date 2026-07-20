@@ -68,8 +68,8 @@ const routeTree = rootRoute.addChildren([
   shellRoute("/refunds", RefundsPage),
   shellRoute("/timeclock", TimeclockPage),
   shellRoute("/shifts", ShiftsPage),
-  shellRoute("/support", HelpPage),
-  shellRoute("/help", HelpPage),
+  shellRoute("/support", SupportScreen),
+  shellRoute("/help", SupportScreen),
   shellRoute("/settings", SettingsScreen),
   shellRoute("/onboarding", OnboardingScreen),
 ]);
