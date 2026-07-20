@@ -350,6 +350,11 @@ export function PosShell({ children }: { children: ReactNode }) {
               {isNativeShell && (
                 <>
                   <MobileMenuRow
+                    icon={ArrowLeftRight}
+                    label="Pending sync"
+                    onClick={() => { setMobileMenu(false); navigate({ to: "/pending-sync" }); }}
+                  />
+                  <MobileMenuRow
                     icon={LifeBuoy}
                     label="Support"
                     onClick={() => { setMobileMenu(false); navigate({ to: "/support" }); }}
