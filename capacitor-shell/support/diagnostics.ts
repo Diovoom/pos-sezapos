@@ -135,6 +135,21 @@ export async function collectDiagnostics(opts: {
       },
       orientation: (window.screen?.orientation?.type ?? "unknown") as string,
     },
+    hardware: (() => {
+      const s = hardwareSnapshot();
+      return {
+        printerDriver: s.driver,
+        paperWidth: s.paperWidth,
+        autoPrint: s.autoPrint,
+        copies: s.copies,
+        kickOnCash: s.kickOnCash,
+        lastPrintOk: s.lastPrintOk,
+        lastPrintErr: s.lastPrintErr,
+        lastDrawerOk: s.lastDrawerOk,
+        lastDrawerErr: s.lastDrawerErr,
+      };
+    })(),
+
     context: {
       route: opts.route,
       storeId: opts.storeId,
