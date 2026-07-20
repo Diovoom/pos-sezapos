@@ -156,6 +156,17 @@ export function CloseShiftDialog({
       if (!dropValid) throw new Error("Safe drop amount is invalid");
       if (needsApproval && !approver) throw new Error("Manager approval required");
       if (!cashierUserId) throw new Error("Not signed in");
+      // Protect merchant accounting: offline cash sales must reach the server
+      // before the shift is closed, otherwise their totals cannot roll into
+      // this shift's variance / receipts.
+      try {
+        if (await hasUnsyncedOfflineSales(session.id)) {
+          throw new Error("Pending offline sales must synchronize before closing this shift.");
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith("Pending offline")) throw e;
+        // IndexedDB unavailable (web / SSR) — nothing to guard against.
+      }
 
       // 1. Record safe drop as a cash_movements row when > 0.
       if (dropAmt > 0) {
