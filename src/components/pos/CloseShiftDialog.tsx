@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { logAudit } from "@/lib/audit-log";
 import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { hasUnsyncedOfflineSales } from "@/lib/offline/db";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
