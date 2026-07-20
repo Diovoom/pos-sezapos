@@ -219,10 +219,16 @@ function CashDrawerPanel() {
   const [busy, setBusy] = useState(false);
   const test = async () => {
     setBusy(true);
-    try { await getActivePrinter().kickDrawer(); toast.success("Drawer pulse sent"); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
-    finally { setBusy(false); }
+    try {
+      const r = await runTestDrawer();
+      if (r.ok) toast.success("Drawer pulse sent");
+      else if (r.reason === "no_driver") toast.error("Select a printer driver first");
+      else if (r.reason === "not_ready") toast.error("Printer not connected");
+      else if (r.reason === "not_native") toast.error("Available only in the SEZA POS app.");
+      else toast.error(r.error ?? "Drawer failed");
+    } finally { setBusy(false); }
   };
+
   return (
     <Card>
       <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign className="h-4 w-4" />Cash Drawer</CardTitle>
