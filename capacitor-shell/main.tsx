@@ -7,6 +7,7 @@ import { SplashScreen as SplashScreenUi } from "./screens/SplashScreen";
 import { BrandedBootScreen } from "./screens/BrandedBootScreen";
 import { createShellRouter } from "./router";
 import { supabase } from "./supabase";
+import { ExitConfirmToast, initAndroidLifecycle } from "./lifecycle";
 import "@/i18n";
 import "@/styles.css";
 
@@ -19,6 +20,7 @@ function ShellApp() {
 
   useEffect(() => {
     let alive = true;
+    void initAndroidLifecycle(router, queryClient);
     // Warm the session cache so beforeLoad guards are decisive on first render.
     supabase.auth.getSession().then(({ data }) => {
       if (!alive) return;
@@ -83,6 +85,7 @@ function ShellApp() {
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
       <Toaster />
+      <ExitConfirmToast />
     </QueryClientProvider>
   );
 }

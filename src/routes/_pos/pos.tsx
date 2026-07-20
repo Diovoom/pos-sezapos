@@ -38,6 +38,7 @@ import {
   type CachedProduct,
 } from "@/lib/offline/db";
 import { syncNow } from "@/lib/offline/sync";
+import { useNativeActivitySignal } from "@/lib/native-activity";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
@@ -527,6 +528,13 @@ export function PosPage() {
       toast.error(friendly, detail ? { description: detail } : undefined);
     },
   });
+
+  // Android shell: broadcast cart + payment activity so the hardware back
+  // button, backgrounding, and resume flows can protect the transaction.
+  // No-op on web (no shell listener registered).
+  useNativeActivitySignal({ hasCart: cart.length > 0, paymentBusy: finalize.isPending });
+
+
 
 
   // Force cash tender while offline (card, tap, wallets need connectivity).
