@@ -529,6 +529,13 @@ export function PosPage() {
     },
   });
 
+  // Android shell: broadcast cart + payment activity so the hardware back
+  // button, backgrounding, and resume flows can protect the transaction.
+  // No-op on web (no shell listener registered).
+  useNativeActivitySignal({ hasCart: cart.length > 0, paymentBusy: finalize.isPending });
+
+
+
 
   // Force cash tender while offline (card, tap, wallets need connectivity).
   useEffect(() => {
