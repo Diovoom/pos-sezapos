@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
 import { SplashScreen as SplashScreenUi } from "./screens/SplashScreen";
+import { BrandedBootScreen } from "./screens/BrandedBootScreen";
 import { createShellRouter } from "./router";
 import { supabase } from "./supabase";
 import "@/i18n";
