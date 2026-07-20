@@ -100,7 +100,7 @@ export function AuthScreen() {
     <div style={styles.root}>
       <div style={styles.brandRow}>
         <div style={styles.logoBadge}>
-          <img src={resolveLogoUrl(logoAsset.url)} alt="" style={{ width: 32, height: 32, objectFit: "contain" }} />
+          <img src={SEZA_LOGO_URL} alt="" style={{ width: 32, height: 32, objectFit: "contain" }} />
         </div>
         <div>
           <div style={{ fontSize: 12, color: "#94a3b8", letterSpacing: 1, textTransform: "uppercase" }}>SEZA</div>
