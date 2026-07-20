@@ -1721,6 +1721,35 @@ export type Database = {
       is_platform_staff: { Args: { _user_id: string }; Returns: boolean }
       is_read_only: { Args: { _store_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      merchant_update_support_ticket: {
+        Args: {
+          _priority?: string
+          _status?: string
+          _subject?: string
+          _ticket_id: string
+        }
+        Returns: {
+          assigned_admin_id: string | null
+          category: string
+          created_at: string
+          id: string
+          priority: string
+          requester_email: string | null
+          requester_id: string | null
+          resolution: string | null
+          status: string
+          store_id: string | null
+          subject: string
+          ticket_number: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "support_tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
