@@ -35,6 +35,7 @@ import {
   purgeIfStoreChanged,
   cacheMeta,
   readMeta,
+  OFFLINE_PAYLOAD_VERSION,
   type CachedProduct,
 } from "@/lib/offline/db";
 import { syncNow } from "@/lib/offline/sync";
