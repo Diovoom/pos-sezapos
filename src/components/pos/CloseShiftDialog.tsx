@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { logAudit } from "@/lib/audit-log";
 import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { hasUnsyncedOfflineSales } from "@/lib/offline/db";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
@@ -155,6 +156,17 @@ export function CloseShiftDialog({
       if (!dropValid) throw new Error("Safe drop amount is invalid");
       if (needsApproval && !approver) throw new Error("Manager approval required");
       if (!cashierUserId) throw new Error("Not signed in");
+      // Protect merchant accounting: offline cash sales must reach the server
+      // before the shift is closed, otherwise their totals cannot roll into
+      // this shift's variance / receipts.
+      try {
+        if (await hasUnsyncedOfflineSales(session.id)) {
+          throw new Error("Pending offline sales must synchronize before closing this shift.");
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith("Pending offline")) throw e;
+        // IndexedDB unavailable (web / SSR) — nothing to guard against.
+      }
 
       // 1. Record safe drop as a cash_movements row when > 0.
       if (dropAmt > 0) {

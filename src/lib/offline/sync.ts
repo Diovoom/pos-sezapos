@@ -1,7 +1,15 @@
 // Sync driver: drains offline queue to Supabase.
-// Idempotency: sales.idempotency_key + cash_movements.idempotency_key are UNIQUE.
-// A duplicate (23505) is treated as already-synced.
-// RLS enforces store scoping — no server function needed for basic protection.
+//
+// Guarantees:
+// - Single-flight: only one sync worker runs at a time.
+// - Auth-gated: never syncs without an authenticated session.
+// - Idempotent: sales.idempotency_key + cash_movements.idempotency_key are
+//   UNIQUE on the server. A 23505 duplicate is treated as already-accepted.
+// - Recovery: stale "syncing" records are recovered on module init so a
+//   crash / process kill never strands a queued sale.
+// - Backoff: temporary failures schedule a next_retry_at with exponential
+//   backoff + jitter. Permanent failures move to "needs_attention" and are
+//   surfaced to the operator instead of retried indefinitely.
 import { supabase } from "@/integrations/supabase/client";
 import {
   getPendingSales,
@@ -9,6 +17,7 @@ import {
   updateOfflineSale,
   updateOfflineCashMovement,
   getAllOfflineSales,
+  recoverStaleSyncing,
   type OfflineSale,
   type OfflineCashMovement,
 } from "./db";
@@ -19,8 +28,38 @@ let lastSync: string | null = null;
 
 export function getLastSync() { return lastSync; }
 
+// PostgREST / Supabase error codes that will never succeed on retry.
+// Anything else is treated as temporary and gets exponential backoff.
+const PERMANENT_CODES = new Set<string>([
+  "42501", // insufficient_privilege / RLS denial
+  "PGRST301", "PGRST302", "PGRST116", // rls / row not found
+  "23503", // fk violation (product / shift deleted)
+  "23514", // check constraint violation
+  "22P02", // invalid input
+]);
+
+function isPermanent(err: { code?: string; message?: string; status?: number } | null | undefined) {
+  if (!err) return false;
+  if (err.code && PERMANENT_CODES.has(err.code)) return true;
+  if (err.status === 401 || err.status === 403 || err.status === 422) return true;
+  return false;
+}
+
+function scheduleBackoff(attempts: number): string {
+  // Bounded exponential backoff with jitter: 5s, 15s, 45s, 2m, 5m, capped 10m.
+  const base = Math.min(600_000, 5_000 * Math.pow(3, Math.max(0, attempts - 1)));
+  const jitter = Math.random() * Math.min(base, 30_000);
+  return new Date(Date.now() + base + jitter).toISOString();
+}
+
 async function syncSale(sale: OfflineSale): Promise<void> {
-  await updateOfflineSale(sale.id, { status: "syncing", attempts: sale.attempts + 1 });
+  const nowIso = new Date().toISOString();
+  await updateOfflineSale(sale.id, {
+    status: "syncing",
+    attempts: sale.attempts + 1,
+    last_attempt_at: nowIso,
+    updated_at: nowIso,
+  });
 
   // Insert header. Client sets id + idempotency_key so a retry conflicts.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,7 +87,14 @@ async function syncSale(sale: OfflineSale): Promise<void> {
 
   const isDuplicate = saleErr?.code === "23505";
   if (saleErr && !isDuplicate) {
-    await updateOfflineSale(sale.id, { status: "failed", last_error: saleErr.message });
+    const permanent = isPermanent(saleErr);
+    await updateOfflineSale(sale.id, {
+      status: permanent ? "needs_attention" : "failed",
+      last_error: saleErr.message,
+      last_error_code: saleErr.code ?? null,
+      next_retry_at: permanent ? null : scheduleBackoff(sale.attempts + 1),
+      updated_at: new Date().toISOString(),
+    });
     throw saleErr;
   }
 
@@ -81,7 +127,14 @@ async function syncSale(sale: OfflineSale): Promise<void> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase.from as any)("sales").delete().eq("id", finalSale.id);
       } catch { /* noop */ }
-      await updateOfflineSale(sale.id, { status: "failed", last_error: itemsErr.message });
+      const permanent = isPermanent(itemsErr);
+      await updateOfflineSale(sale.id, {
+        status: permanent ? "needs_attention" : "failed",
+        last_error: itemsErr.message,
+        last_error_code: itemsErr.code ?? null,
+        next_retry_at: permanent ? null : scheduleBackoff(sale.attempts + 1),
+        updated_at: new Date().toISOString(),
+      });
       throw itemsErr;
     }
   }
@@ -91,6 +144,9 @@ async function syncSale(sale: OfflineSale): Promise<void> {
     server_id: finalSale?.id ?? sale.id,
     server_receipt_number: finalSale?.receipt_number ?? null,
     last_error: null,
+    last_error_code: null,
+    next_retry_at: null,
+    updated_at: new Date().toISOString(),
   });
 }
 
@@ -110,28 +166,41 @@ async function syncCashMovement(m: OfflineCashMovement): Promise<void> {
   });
   const dup = error?.code === "23505";
   if (error && !dup) {
-    await updateOfflineCashMovement(m.id, { status: "failed", last_error: error.message });
+    const permanent = isPermanent(error);
+    await updateOfflineCashMovement(m.id, {
+      status: permanent ? "needs_attention" : "failed",
+      last_error: error.message,
+    });
     throw error;
   }
   await updateOfflineCashMovement(m.id, { status: "synced", last_error: null });
 }
 
-export async function syncNow(): Promise<{ synced: number; failed: number }> {
-  if (syncing) return { synced: 0, failed: 0 };
-  if (typeof navigator !== "undefined" && !navigator.onLine) return { synced: 0, failed: 0 };
+export async function syncNow(): Promise<{ synced: number; failed: number; skipped?: string }> {
+  if (syncing) return { synced: 0, failed: 0, skipped: "already-running" };
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return { synced: 0, failed: 0, skipped: "offline" };
+  }
   syncing = true;
   let synced = 0;
   let failed = 0;
   try {
-    // Verify authenticated store (protection).
+    // Verify authenticated session — never sync without one. This prevents
+    // the shell from posting queued sales as an anonymous user after a
+    // sign-out or session expiry.
     const { data: u } = await supabase.auth.getUser();
-    if (!u.user) return { synced: 0, failed: 0 };
+    if (!u.user) {
+      return { synced: 0, failed: 0, skipped: "no-session" };
+    }
+
+    // Recover any records the previous run left mid-flight.
+    await recoverStaleSyncing();
 
     const pendingSales = await getPendingSales();
     const pendingCash = await getPendingCashMovements();
     emitSync({ type: "start", pending: pendingSales.length + pendingCash.length });
 
-    // Sales first, in creation order.
+    // Sales first, oldest first (getPendingSales already sorts by local_seq).
     for (const s of pendingSales) {
       try { await syncSale(s); synced++; }
       catch (e) { failed++; console.warn("[sync] sale failed", e); }
@@ -155,8 +224,12 @@ let installed = false;
 export function installAutoSync() {
   if (installed || typeof window === "undefined") return;
   installed = true;
+  // Recover stale records as soon as the module boots, even before the
+  // first online transition.
+  void recoverStaleSyncing().catch(() => {});
   window.addEventListener("online", () => { void syncNow(); });
-  // Retry on interval as a safety net.
+  // Retry on interval as a safety net — the backoff gate inside
+  // getPendingSales prevents this from hammering a failing endpoint.
   setInterval(() => {
     if (navigator.onLine) void syncNow();
   }, 30_000);
@@ -169,8 +242,11 @@ export async function pendingCounts() {
   const cash = await getPendingCashMovements();
   return {
     pendingSales: all.filter((s) => s.status === "pending" || s.status === "failed").length,
+    syncingSales: all.filter((s) => s.status === "syncing").length,
     syncedSales: all.filter((s) => s.status === "synced").length,
     failedSales: all.filter((s) => s.status === "failed").length,
+    needsAttentionSales: all.filter((s) => s.status === "needs_attention" || s.status === "conflict").length,
+    unsyncedSales: all.filter((s) => s.status !== "synced").length,
     pendingCash: cash.length,
     lastSync,
   };

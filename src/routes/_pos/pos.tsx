@@ -35,6 +35,7 @@ import {
   purgeIfStoreChanged,
   cacheMeta,
   readMeta,
+  OFFLINE_PAYLOAD_VERSION,
   type CachedProduct,
 } from "@/lib/offline/db";
 import { syncNow } from "@/lib/offline/sync";
@@ -340,12 +341,15 @@ export function PosPage() {
         await saveOfflineSale({
           id: localId,
           idempotency_key: localId,
+          correlation_id: crypto.randomUUID(),
+          payload_version: OFFLINE_PAYLOAD_VERSION,
           store_id: store?.id ?? "",
           register_session_id: registerSessionId,
           cashier_id: u.user.id,
           device_id: getDeviceId(),
           local_seq: seq,
           local_created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
           status: "pending",
           attempts: 0,
           subtotal, tax, discount: discountAmount, total,

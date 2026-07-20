@@ -2,7 +2,17 @@
 // and audit-event queue. Never store PINs, passwords, card details.
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 
-export type OfflineSaleStatus = "pending" | "syncing" | "synced" | "failed" | "conflict";
+export type OfflineSaleStatus =
+  | "pending"
+  | "syncing"
+  | "synced"
+  | "failed"
+  | "conflict"
+  | "needs_attention";
+
+// Bumped whenever the offline payload shape changes so old records can be
+// safely migrated / quarantined instead of silently dropped.
+export const OFFLINE_PAYLOAD_VERSION = 2;
 
 export type OfflineSaleItem = {
   product_id: string | null;
@@ -15,15 +25,21 @@ export type OfflineSaleItem = {
 export type OfflineSale = {
   id: string;                  // local UUID = sale.id
   idempotency_key: string;     // dedupe key on server
+  correlation_id?: string;     // per-record trace id for support
+  payload_version?: number;    // matches OFFLINE_PAYLOAD_VERSION at creation
   store_id: string;
   register_session_id: string | null;
   cashier_id: string;
   device_id: string;
   local_seq: number;
   local_created_at: string;
+  updated_at?: string;
   status: OfflineSaleStatus;
   attempts: number;
+  last_attempt_at?: string | null;
   last_error?: string | null;
+  last_error_code?: string | null;
+  next_retry_at?: string | null;   // backoff gate
   server_receipt_number?: number | null;
   server_id?: string | null;
   // snapshot
@@ -164,7 +180,56 @@ export async function getAllOfflineSales(): Promise<OfflineSale[]> {
 }
 export async function getPendingSales(): Promise<OfflineSale[]> {
   const all = await getAllOfflineSales();
-  return all.filter((s) => s.status === "pending" || s.status === "failed");
+  const now = Date.now();
+  return all.filter((s) => {
+    if (s.status !== "pending" && s.status !== "failed") return false;
+    // Respect exponential backoff gate.
+    if (s.next_retry_at && new Date(s.next_retry_at).getTime() > now) return false;
+    return true;
+  });
+}
+
+/**
+ * Records marked "needs_attention" are surfaced to the operator via the
+ * Pending Sync screen and require explicit action (retry / support).
+ */
+export async function getNeedsAttentionSales(): Promise<OfflineSale[]> {
+  const all = await getAllOfflineSales();
+  return all.filter((s) => s.status === "needs_attention" || s.status === "conflict");
+}
+
+/** True when there is any offline sale that has not been server-confirmed. */
+export async function hasUnsyncedOfflineSales(shiftId?: string | null): Promise<boolean> {
+  const all = await getAllOfflineSales();
+  return all.some((s) => {
+    if (s.status === "synced") return false;
+    if (shiftId != null && s.register_session_id !== shiftId) return false;
+    return true;
+  });
+}
+
+/**
+ * Recover records left in "syncing" from a crash / process kill / hard
+ * network loss. Called at startup so no record is stranded indefinitely.
+ */
+export async function recoverStaleSyncing(): Promise<number> {
+  const db = await getDB();
+  let n = 0;
+  const sales = (await db.getAll("sales")) as OfflineSale[];
+  for (const s of sales) {
+    if (s.status === "syncing") {
+      await db.put("sales", { ...s, status: "pending", last_error: "recovered_stale_syncing" });
+      n++;
+    }
+  }
+  const cash = (await db.getAll("cash_movements")) as OfflineCashMovement[];
+  for (const m of cash) {
+    if (m.status === "syncing") {
+      await db.put("cash_movements", { ...m, status: "pending", last_error: "recovered_stale_syncing" });
+      n++;
+    }
+  }
+  return n;
 }
 
 /* ---------- cash movements queue ---------- */
