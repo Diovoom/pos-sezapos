@@ -18,7 +18,6 @@ import {
   ChevronRight,
   DoorOpen,
   LifeBuoy,
-  Settings as SettingsIcon,
 } from "lucide-react";
 import { OpenDrawerDialog } from "@/components/pos/OpenDrawerDialog";
 import { OfflineIndicator } from "@/components/pos/OfflineIndicator";
