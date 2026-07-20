@@ -721,6 +721,22 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const t = ticketQ.data;
   const notes = notesQ.data ?? [];
 
+  const closeTicket = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("support_tickets")
+        .update({ status: "resolved", updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Ticket closed");
+      qc.invalidateQueries({ queryKey: ["shell", "support", "ticket", id] });
+      if (storeId) qc.invalidateQueries({ queryKey: ["shell", "support", "tickets", storeId] });
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Could not close ticket"),
+  });
+
   return (
     <div className="flex flex-col h-full max-w-2xl mx-auto w-full">
       <div className="p-3 md:p-4 border-b flex items-center gap-2 sticky top-0 bg-background/95 backdrop-blur z-10">
@@ -732,6 +748,17 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
           <div className="font-medium truncate">{t.subject}</div>
         </div>
         <Badge variant={statusVariant(t.status)}>{STATUS_LABEL[t.status] ?? t.status}</Badge>
+        {!closed && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="min-h-9"
+            onClick={() => closeTicket.mutate()}
+            disabled={closeTicket.isPending}
+          >
+            {closeTicket.isPending ? <Loader2 className="size-3 animate-spin" /> : "Close"}
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3">
@@ -740,7 +767,9 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <Loader2 className="size-4 animate-spin" /> Loading conversation…
           </div>
         ) : notes.length === 0 ? (
-          <div className="text-sm text-muted-foreground text-center py-6">No messages yet.</div>
+          <div className="text-sm text-muted-foreground text-center py-6">
+            Waiting for SEZA Support to reply. Add more detail below if you have it.
+          </div>
         ) : (
           notes.map((n) => <MessageBubble key={n.id} note={n} isMine={n.author_id === userId} />)
         )}
