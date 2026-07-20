@@ -19,7 +19,7 @@ import { RegisterPage } from "@/routes/_pos/register";
 import { RefundsPage } from "@/routes/_pos/refunds";
 import { TimeclockPage } from "@/routes/_pos/timeclock";
 import { ShiftsPage } from "@/routes/_dashboard/shifts";
-import { HelpPage } from "@/routes/_dashboard/help";
+import { SupportScreen } from "./screens/SupportScreen";
 import { AuthRoute } from "./screens/AuthRoute";
 import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
@@ -68,8 +68,8 @@ const routeTree = rootRoute.addChildren([
   shellRoute("/refunds", RefundsPage),
   shellRoute("/timeclock", TimeclockPage),
   shellRoute("/shifts", ShiftsPage),
-  shellRoute("/support", HelpPage),
-  shellRoute("/help", HelpPage),
+  shellRoute("/support", SupportScreen),
+  shellRoute("/help", SupportScreen),
   shellRoute("/settings", SettingsScreen),
   shellRoute("/onboarding", OnboardingScreen),
 ]);

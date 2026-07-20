@@ -17,6 +17,7 @@ import {
   Menu,
   ChevronRight,
   DoorOpen,
+  LifeBuoy,
 } from "lucide-react";
 import { OpenDrawerDialog } from "@/components/pos/OpenDrawerDialog";
 import { OfflineIndicator } from "@/components/pos/OfflineIndicator";
@@ -106,6 +107,11 @@ export function PosShell({ children }: { children: ReactNode }) {
   const [openShiftWarn, setOpenShiftWarn] = useState(false);
   const [managerGate, setManagerGate] = useState(false);
   const [drawerDialog, setDrawerDialog] = useState(false);
+
+  // Native APK exposes Support + Settings in the mobile menu. Web POS is
+  // unchanged — those live in the merchant dashboard on the web.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isNativeShell = typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.();
 
   const doSignOut = async () => {
     await qc.cancelQueries();
@@ -334,12 +340,26 @@ export function PosShell({ children }: { children: ReactNode }) {
                 label="Time clock"
                 onClick={() => { setMobileMenu(false); navigate({ to: "/timeclock" }); }}
               />
-              {canDashboard && (
+              {canDashboard && !isNativeShell && (
                 <MobileMenuRow
                   icon={LayoutDashboard}
                   label="Dashboard"
                   onClick={() => { setMobileMenu(false); window.location.href = dashboardUrl("/dashboard"); }}
                 />
+              )}
+              {isNativeShell && (
+                <>
+                  <MobileMenuRow
+                    icon={LifeBuoy}
+                    label="Support"
+                    onClick={() => { setMobileMenu(false); navigate({ to: "/support" }); }}
+                  />
+                  <MobileMenuRow
+                    icon={ChevronRight}
+                    label="Settings"
+                    onClick={() => { setMobileMenu(false); navigate({ to: "/settings" }); }}
+                  />
+                </>
               )}
               <div className="h-px bg-border my-2" />
               <MobileMenuRow
