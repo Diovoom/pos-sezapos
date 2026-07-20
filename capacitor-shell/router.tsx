@@ -23,6 +23,7 @@ import { SupportScreen } from "./screens/SupportScreen";
 import { AuthRoute } from "./screens/AuthRoute";
 import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { PendingSyncScreen } from "./screens/PendingSyncScreen";
 import { supabase } from "./supabase";
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
