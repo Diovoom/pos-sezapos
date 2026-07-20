@@ -73,6 +73,7 @@ const routeTree = rootRoute.addChildren([
   shellRoute("/help", SupportScreen),
   shellRoute("/settings", SettingsScreen),
   shellRoute("/onboarding", OnboardingScreen),
+  shellRoute("/pending-sync", PendingSyncScreen),
 ]);
 
 export function createShellRouter(queryClient: QueryClient) {
