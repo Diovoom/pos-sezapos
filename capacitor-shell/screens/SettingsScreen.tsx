@@ -149,29 +149,15 @@ function PrinterPanel() {
   const test = async () => {
     setTesting(true);
     try {
-      const bytes = buildReceipt({
-        storeName: "SEZA POS",
-        ticketNumber: "TEST",
-        cashierName: "Setup",
-        timestamp: new Date(),
-        items: [{ name: "Printer test", qty: 1, unitPrice: 0, total: 0 }],
-        subtotal: 0, total: 0,
-        footer: ["If you can read this,", "your printer is ready."],
-        columns: (Number(window.localStorage.getItem(LS.paperWidth)) === 80 ? 42 : 32),
-      });
-      await printerDrivers[activeId].printReceipt({
-        storeName: "SEZA POS", ticketNumber: "TEST", timestamp: new Date(),
-        items: [{ name: "Printer test", qty: 1, unitPrice: 0, total: 0 }],
-        subtotal: 0, total: 0,
-        footer: ["If you can read this,", "your printer is ready."],
-        columns: (Number(window.localStorage.getItem(LS.paperWidth)) === 80 ? 42 : 32),
-      });
-      // fallback in case driver reads its own layout — bytes ensures compatibility
-      void bytes;
-      toast.success("Test page sent");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Print failed"); }
-    finally { setTesting(false); }
+      const res = await runTestPrint();
+      if (res.ok) toast.success("Test page sent to printer");
+      else if (res.reason === "no_driver") toast.error("Select a printer driver first");
+      else if (res.reason === "not_ready") toast.error("Printer not connected. Pair a printer and try again.");
+      else if (res.reason === "not_native") toast.error("Test print is available only in the SEZA POS app.");
+      else toast.error(res.error ?? "Printer error");
+    } finally { setTesting(false); }
   };
+
 
   return (
     <Card>
