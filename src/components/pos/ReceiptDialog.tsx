@@ -225,9 +225,20 @@ export function ReceiptDialog({
           >
             <MessageSquare className="size-4" /> SMS
           </Button>
-          <Button onClick={handlePrint}>
-            <Printer className="size-4" /> Print
+          <Button
+            onClick={async () => {
+              if (!isNativeMode()) return handlePrint();
+              if (!data) return;
+              const r = await reprintReceipt(data);
+              if (r.ok) toast.success("Reprint sent to printer");
+              else if (r.reason === "no_driver") toast.error("No printer configured");
+              else if (r.reason === "not_ready") toast.error("Printer not connected");
+              else toast.error("Printer error");
+            }}
+          >
+            <Printer className="size-4" /> {isNativeMode() && data ? "Reprint" : "Print"}
           </Button>
+
         </div>
       </DialogContent>
     </Dialog>
