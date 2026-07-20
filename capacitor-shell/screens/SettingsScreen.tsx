@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Receipt, Printer, DollarSign, Scan, CreditCard, Monitor, ShoppingCart,
   Clock, KeyRound, User, LogOut, Loader2, Bluetooth, CheckCircle2, AlertTriangle,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
@@ -29,6 +30,10 @@ import {
 } from "@/lib/hardware";
 import * as escposBle from "@/lib/hardware/escpos-ble";
 import { buildReceipt } from "@/lib/hardware/escpos";
+import {
+  testPrint as runTestPrint, testDrawer as runTestDrawer, hardwareSnapshot,
+} from "@/lib/hardware/native-receipt";
+
 
 /* ------------------------------ device settings --------------------------- */
 
@@ -144,29 +149,15 @@ function PrinterPanel() {
   const test = async () => {
     setTesting(true);
     try {
-      const bytes = buildReceipt({
-        storeName: "SEZA POS",
-        ticketNumber: "TEST",
-        cashierName: "Setup",
-        timestamp: new Date(),
-        items: [{ name: "Printer test", qty: 1, unitPrice: 0, total: 0 }],
-        subtotal: 0, total: 0,
-        footer: ["If you can read this,", "your printer is ready."],
-        columns: (Number(window.localStorage.getItem(LS.paperWidth)) === 80 ? 42 : 32),
-      });
-      await printerDrivers[activeId].printReceipt({
-        storeName: "SEZA POS", ticketNumber: "TEST", timestamp: new Date(),
-        items: [{ name: "Printer test", qty: 1, unitPrice: 0, total: 0 }],
-        subtotal: 0, total: 0,
-        footer: ["If you can read this,", "your printer is ready."],
-        columns: (Number(window.localStorage.getItem(LS.paperWidth)) === 80 ? 42 : 32),
-      });
-      // fallback in case driver reads its own layout — bytes ensures compatibility
-      void bytes;
-      toast.success("Test page sent");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Print failed"); }
-    finally { setTesting(false); }
+      const res = await runTestPrint();
+      if (res.ok) toast.success("Test page sent to printer");
+      else if (res.reason === "no_driver") toast.error("Select a printer driver first");
+      else if (res.reason === "not_ready") toast.error("Printer not connected. Pair a printer and try again.");
+      else if (res.reason === "not_native") toast.error("Test print is available only in the SEZA POS app.");
+      else toast.error(res.error ?? "Printer error");
+    } finally { setTesting(false); }
   };
+
 
   return (
     <Card>
@@ -228,10 +219,16 @@ function CashDrawerPanel() {
   const [busy, setBusy] = useState(false);
   const test = async () => {
     setBusy(true);
-    try { await getActivePrinter().kickDrawer(); toast.success("Drawer pulse sent"); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
-    finally { setBusy(false); }
+    try {
+      const r = await runTestDrawer();
+      if (r.ok) toast.success("Drawer pulse sent");
+      else if (r.reason === "no_driver") toast.error("Select a printer driver first");
+      else if (r.reason === "not_ready") toast.error("Printer not connected");
+      else if (r.reason === "not_native") toast.error("Available only in the SEZA POS app.");
+      else toast.error(r.error ?? "Drawer failed");
+    } finally { setBusy(false); }
   };
+
   return (
     <Card>
       <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign className="h-4 w-4" />Cash Drawer</CardTitle>
@@ -453,6 +450,65 @@ function SignOutPanel() {
   );
 }
 
+function HardwareStatusPanel() {
+  const [snap, setSnap] = useState(() => hardwareSnapshot());
+  const [busy, setBusy] = useState<"print" | "drawer" | null>(null);
+  const refresh = () => setSnap(hardwareSnapshot());
+  const runPrint = async () => {
+    setBusy("print");
+    try {
+      const r = await runTestPrint();
+      r.ok ? toast.success("Test print sent") : toast.error(r.reason === "not_ready" ? "Printer not connected" : (r.error ?? "Printer error"));
+    } finally { setBusy(null); refresh(); }
+  };
+  const runDrawer = async () => {
+    setBusy("drawer");
+    try {
+      const r = await runTestDrawer();
+      r.ok ? toast.success("Drawer pulse sent") : toast.error(r.reason === "not_ready" ? "Drawer/printer not connected" : (r.error ?? "Drawer error"));
+    } finally { setBusy(null); refresh(); }
+  };
+  const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="flex items-center justify-between border-b py-2 text-sm last:border-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  );
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Activity className="h-4 w-4" />Hardware Status</CardTitle>
+        <CardDescription>Live status of the printer and cash drawer on this device.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="rounded-md border p-3">
+          <Row label="Printer driver" value={snap.driverLabel} />
+          <Row label="Paper width" value={snap.paperWidth} />
+          <Row label="Auto-print" value={snap.autoPrint ? "On" : "Off"} />
+          <Row label="Copies per sale" value={snap.copies} />
+          <Row label="Open drawer on cash sale" value={snap.kickOnCash ? "On" : "Off"} />
+          <Row label="Last successful print" value={snap.lastPrintOk ? new Date(snap.lastPrintOk).toLocaleString() : "—"} />
+          <Row label="Last print error" value={snap.lastPrintErr || "—"} />
+          <Row label="Last drawer open" value={snap.lastDrawerOk ? new Date(snap.lastDrawerOk).toLocaleString() : "—"} />
+          <Row label="Last drawer error" value={snap.lastDrawerErr || "—"} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={refresh}>Refresh</Button>
+          <Button onClick={runPrint} disabled={busy !== null}>
+            {busy === "print" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Test printer
+          </Button>
+          <Button variant="outline" onClick={runDrawer} disabled={busy !== null}>
+            {busy === "drawer" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Test cash drawer
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Hardware failure never blocks a completed sale. Use the Support screen to send diagnostics if the printer or drawer is misbehaving.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ---------------------------------- page ---------------------------------- */
 
 const SECTIONS = [
@@ -460,7 +516,9 @@ const SECTIONS = [
   { id: "printer", label: "Printer", Panel: PrinterPanel },
   { id: "drawer", label: "Cash Drawer", Panel: CashDrawerPanel },
   { id: "scanner", label: "Barcode Scanner", Panel: ScannerPanel },
+  { id: "status", label: "Hardware Status", Panel: HardwareStatusPanel },
   { id: "terminal", label: "Payment Terminal", Panel: TerminalPanel },
+
   { id: "device", label: "Device", Panel: DevicePanel },
   { id: "register", label: "Register", Panel: RegisterPanel },
   { id: "shift", label: "Shift", Panel: ShiftPanel },

@@ -4,6 +4,8 @@
 // tokens, card data, or arbitrary storage contents. The result is a plain
 // object that can be JSON-stringified into the ticket body / notes.
 
+import { hardwareSnapshot } from "@/lib/hardware/native-receipt";
+
 export type SupportDiagnostics = {
   app: {
     platform: "android-shell" | "web";
@@ -21,6 +23,17 @@ export type SupportDiagnostics = {
     screen: { width: number; height: number; dpr: number };
     orientation: string;
   };
+  hardware: {
+    printerDriver: string;
+    paperWidth: string;
+    autoPrint: boolean;
+    copies: number;
+    kickOnCash: boolean;
+    lastPrintOk: string | null;
+    lastPrintErr: string | null;
+    lastDrawerOk: string | null;
+    lastDrawerErr: string | null;
+  };
   context: {
     route: string;
     storeId: string | null;
@@ -33,6 +46,7 @@ export type SupportDiagnostics = {
     capturedAt: string;
   };
 };
+
 
 // Redact keys that should NEVER leave the device.
 const FORBIDDEN_KEYS = /(?:pin|password|token|secret|apikey|api_key|authorization|card|cvv|cvc|track|pan|refresh)/i;
@@ -121,6 +135,21 @@ export async function collectDiagnostics(opts: {
       },
       orientation: (window.screen?.orientation?.type ?? "unknown") as string,
     },
+    hardware: (() => {
+      const s = hardwareSnapshot();
+      return {
+        printerDriver: s.driver,
+        paperWidth: s.paperWidth,
+        autoPrint: s.autoPrint,
+        copies: s.copies,
+        kickOnCash: s.kickOnCash,
+        lastPrintOk: s.lastPrintOk,
+        lastPrintErr: s.lastPrintErr,
+        lastDrawerOk: s.lastDrawerOk,
+        lastDrawerErr: s.lastDrawerErr,
+      };
+    })(),
+
     context: {
       route: opts.route,
       storeId: opts.storeId,

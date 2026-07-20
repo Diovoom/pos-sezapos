@@ -11,6 +11,9 @@ import { toast } from "sonner";
 import { sendTransactionalEmail } from "@/lib/email/send";
 import { supabase } from "@/integrations/supabase/client";
 import type { CountryCode } from "libphonenumber-js";
+import { isNativeMode } from "@/lib/native";
+import { autoPrintOnComplete, reprintReceipt, openDrawerAfterCashSale } from "@/lib/hardware/native-receipt";
+
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -54,6 +57,23 @@ export function ReceiptDialog({
       setSent(false);
     }
   }, [open, data?.transactionId]);
+
+  // Native APK only: auto-print and (cash) auto-open drawer once per sale.
+  // Never throws — hardware failure must never fail a completed sale.
+  useEffect(() => {
+    if (!open || !data || !isNativeMode()) return;
+    let cancelled = false;
+    (async () => {
+      const p = await autoPrintOnComplete(data);
+      if (cancelled) return;
+      if (!p.ok && p.reason === "driver_error") toast.error("Printer error — receipt not printed");
+      const d = await openDrawerAfterCashSale(data);
+      if (cancelled) return;
+      if (!d.ok && d.reason === "driver_error") toast.error("Cash drawer failed to open");
+    })().catch(() => { /* safe-fail */ });
+    return () => { cancelled = true; };
+  }, [open, data?.transactionId]);
+
 
   const handlePrint = () => {
     if (!ref.current) return;
@@ -205,9 +225,20 @@ export function ReceiptDialog({
           >
             <MessageSquare className="size-4" /> SMS
           </Button>
-          <Button onClick={handlePrint}>
-            <Printer className="size-4" /> Print
+          <Button
+            onClick={async () => {
+              if (!isNativeMode()) return handlePrint();
+              if (!data) return;
+              const r = await reprintReceipt(data);
+              if (r.ok) toast.success("Reprint sent to printer");
+              else if (r.reason === "no_driver") toast.error("No printer configured");
+              else if (r.reason === "not_ready") toast.error("Printer not connected");
+              else toast.error("Printer error");
+            }}
+          >
+            <Printer className="size-4" /> {isNativeMode() && data ? "Reprint" : "Print"}
           </Button>
+
         </div>
       </DialogContent>
     </Dialog>
