@@ -724,10 +724,10 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
   const closeTicket = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("support_tickets")
-        .update({ status: "resolved", updated_at: new Date().toISOString() })
-        .eq("id", id);
+      const { error } = await supabase.rpc("merchant_update_support_ticket", {
+        _ticket_id: id,
+        _status: "resolved",
+      });
       if (error) throw error;
     },
     onSuccess: () => {
