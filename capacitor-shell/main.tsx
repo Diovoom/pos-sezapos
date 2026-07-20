@@ -20,6 +20,7 @@ function ShellApp() {
 
   useEffect(() => {
     let alive = true;
+    void initAndroidLifecycle(router, queryClient);
     // Warm the session cache so beforeLoad guards are decisive on first render.
     supabase.auth.getSession().then(({ data }) => {
       if (!alive) return;
