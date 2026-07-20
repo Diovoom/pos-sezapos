@@ -50,7 +50,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ManagerOverrideDialog } from "@/components/pos/ManagerOverrideDialog";
 import { dashboardUrl } from "@/lib/host";
-import { Logo } from "@/components/brand/Logo";
 import { StoreLogo } from "@/components/brand/StoreLogo";
 import { UserAvatar } from "@/components/brand/UserAvatar";
 import { roleDotClass, roleTextClass } from "@/lib/role-visual";
@@ -143,7 +142,7 @@ export function PosShell({ children }: { children: ReactNode }) {
       <aside className="hidden md:flex w-16 lg:w-56 border-r bg-surface/60 flex-col shrink-0">
         <div className="h-16 px-4 border-b flex items-center gap-3">
           <StoreLogo className="size-8 rounded-lg" />
-          <Logo className="hidden" />
+
 
           <div className="hidden lg:flex flex-col leading-tight">
             <span className="font-semibold tracking-tight text-sm">POS Register</span>
