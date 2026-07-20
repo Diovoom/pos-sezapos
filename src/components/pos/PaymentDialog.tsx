@@ -75,7 +75,10 @@ export function PaymentDialog({ open, onOpenChange, method, total, currency, onC
           requestCancel();
         }}
       >
-        <DialogContent className="sm:max-w-md p-0 overflow-hidden" onEscapeKeyDown={(e) => e.preventDefault()}>
+        <DialogContent
+          className="sm:max-w-md p-0 max-h-[90dvh] overflow-y-auto overscroll-contain"
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           {isCash ? (
             <CashPanel total={total} currency={currency} onComplete={onComplete} onCancel={requestCancel} />
           ) : (

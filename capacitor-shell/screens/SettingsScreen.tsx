@@ -524,29 +524,30 @@ const SECTIONS = [
   { id: "shift", label: "Shift", Panel: ShiftPanel },
   { id: "pin", label: "Employee PIN", Panel: PinPanel },
   { id: "account", label: "Account", Panel: AccountPanel },
-  { id: "signout", label: "Sign Out", Panel: SignOutPanel },
 ] as const;
 
 export function SettingsScreen() {
   const [active, setActive] = useState<(typeof SECTIONS)[number]["id"]>("receipt");
   const Panel = SECTIONS.find((s) => s.id === active)!.Panel;
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-4 p-4 md:grid-cols-[220px_1fr]">
-      <nav className="rounded-md border bg-card p-2">
-        <ul className="grid gap-1">
-          {SECTIONS.map((s) => (
-            <li key={s.id}>
-              <button
-                type="button"
-                onClick={() => setActive(s.id)}
-                className={`w-full rounded px-3 py-2 text-left text-sm ${active === s.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-              >{s.label}</button>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 px-3 text-xs text-muted-foreground">Owner-only settings (store profile, taxes, billing, integrations) live in the web dashboard.</p>
-      </nav>
-      <section><Panel /></section>
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="mx-auto grid w-full max-w-5xl gap-4 p-4 md:grid-cols-[220px_1fr] pb-24">
+        <nav className="rounded-md border bg-card p-2 md:sticky md:top-4 md:self-start">
+          <ul className="grid gap-1 md:grid-cols-1 grid-cols-2">
+            {SECTIONS.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => setActive(s.id)}
+                  className={`w-full rounded px-3 py-2 text-left text-sm min-h-11 ${active === s.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >{s.label}</button>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 px-3 text-xs text-muted-foreground">Owner-only settings (store profile, taxes, billing, integrations) live in the web dashboard. Sign out from the cashier menu.</p>
+        </nav>
+        <section className="min-w-0"><Panel /></section>
+      </div>
     </div>
   );
 }
