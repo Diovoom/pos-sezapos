@@ -80,7 +80,7 @@ export function BusinessBrandingPanel() {
     description: string;
     url: string;
     field: "logo_url" | "receipt_logo_url";
-    inputRef: React.RefObject<HTMLInputElement>;
+    inputRef: React.RefObject<HTMLInputElement | null>;
     busy: boolean;
   }) => (
     <div className="rounded-lg border p-4 flex gap-4 items-start">
