@@ -25,15 +25,21 @@ export type OfflineSaleItem = {
 export type OfflineSale = {
   id: string;                  // local UUID = sale.id
   idempotency_key: string;     // dedupe key on server
+  correlation_id?: string;     // per-record trace id for support
+  payload_version?: number;    // matches OFFLINE_PAYLOAD_VERSION at creation
   store_id: string;
   register_session_id: string | null;
   cashier_id: string;
   device_id: string;
   local_seq: number;
   local_created_at: string;
+  updated_at?: string;
   status: OfflineSaleStatus;
   attempts: number;
+  last_attempt_at?: string | null;
   last_error?: string | null;
+  last_error_code?: string | null;
+  next_retry_at?: string | null;   // backoff gate
   server_receipt_number?: number | null;
   server_id?: string | null;
   // snapshot
