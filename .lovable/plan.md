@@ -1,78 +1,82 @@
-This is a large, multi-phase migration. Below is the plan I'll execute in order. I'll pause for your approval before shipping code because it touches auth, public HTTPS endpoints, and every POS route.
+## Scope
 
-## Phase 1 — Public HTTPS endpoints for native auth
+Turn the bundled Capacitor shell into a fully production-ready POS by reusing the existing web production code, DB schema, storage buckets (`avatars`, `product-images`), and settings surfaces. No parallel systems.
 
-The bundled shell can't call `createServerFn` (those are RPC over the same TanStack origin), so I'll add signed public routes the Android app posts to over HTTPS to `sezapos.com`:
+## 1. Business branding (foundation for everything else)
 
-- `POST /api/public/pos/verify-employee-pin` — body `{ store_code, employee_id, pin }` → returns a Supabase session (email/password sign-in server-side using a per-employee shadow password derived from the PIN hash, OR mint a short-lived magic link and exchange). Concretely: verify PIN with `verifyPin`, then use `supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email })` and return `{ access_token, refresh_token }` from `verifyOtp` server-side. Rate-limited, audited.
-- `POST /api/public/pos/verify-manager-pin` — body `{ store_id, pin }` → returns `{ ok, manager_id, override_token }` for refunds/voids/age/payouts. Token is a signed JWT (HMAC with `SUPABASE_JWT_SECRET`) with 5 min TTL and action scope; server-side callers verify before privileged writes.
-- Both routes verify a shared `X-Seza-Native-Key` header (new secret `NATIVE_APP_SHARED_KEY`) plus per-store rate limits, and write to `audit_log`.
+- Add columns to `public.stores`: `logo_url text`, `receipt_logo_url text` (single migration, no data changes).
+- Reuse existing `product-images` bucket? No — logos are store-level. Create a new **public** storage bucket `store-branding` via `supabase--storage_create_bucket`, with RLS policies on `storage.objects`:
+  - Public SELECT
+  - INSERT/UPDATE/DELETE restricted to authenticated users whose `profiles.store_id` matches path prefix `<store_id>/...` AND has role owner/admin.
+- Add a **Branding** section inside existing web Settings (`src/routes/_dashboard/settings.tsx`) — upload logo → writes to bucket → updates `stores.logo_url`. Do not create a separate settings system.
+- Create `useStoreBranding()` hook returning `{ logoUrl, receiptLogoUrl }` with SEZA fallback via existing `resolveLogoUrl()`.
 
-## Phase 2 — Android auth flow
+## 2. Employee profile photos
 
-Replace `AuthScreen` email/password with:
-1. **Store code entry** (once, persisted in localStorage).
-2. **6-digit PIN pad** (large touch targets, native feel).
-3. On success → session set via `supabase.auth.setSession(...)`.
-4. Route to `/timeclock` if not clocked in, else `/pos`.
+- Reuse existing `avatars` bucket (already exists, private). Add public read policy scoped to authenticated users of the same store, or switch to signed URLs on read.
+- `profiles` already has fields; verify `avatar_url` column exists — if not, add it in the same migration.
+- Extend existing employee edit dialog in `src/routes/_dashboard/employees.tsx` with photo upload.
+- Update `AppShell.tsx` cashier avatar block: if `profile.avatar_url` → `<img>`, else initials (existing behavior).
 
-No email input anywhere in Android.
+## 3. Branded loading screen (shell)
 
-## Phase 3 — Route every production page in the shell router
+Replace `NativeLoadingOverlay` / current post-login blank with a `BrandedBootScreen` in `capacitor-shell/screens/`:
+- Fetches store + profile once
+- Displays merchant logo (fallback SEZA), store name, "Loading POS…", spinner
+- Runs sequential steps with live status text: Connecting → Syncing products → Loading register → Loading permissions → Ready
+- Each step is a real query (products count, active register session, `useMe`) — no fake delays
+- Auto-transitions to `/pos` when done
 
-Replace all `placeholder(...)` calls in `capacitor-shell/router.tsx` with the real production route components, imported the same way `PosPage` already is:
+Wire into `capacitor-shell/main.tsx` so it shows between auth success and first POS render.
 
-- `/register` → `RegisterPage` (export from `src/routes/_pos/register.tsx`)
-- `/refunds` → `RefundsPage` (export from `src/routes/_pos/refunds.tsx`)
-- `/timeclock` → `TimeclockPage` (export from `src/routes/_pos/timeclock.tsx`)
-- `/shifts` → `ShiftsPage` (export from `src/routes/_dashboard/shifts.tsx`)
-- `/settings` → `SettingsPage` (limited: only cashier-relevant tabs)
-- `/reports` → cashier-scoped shift summary only
-- `/support` → merchant support request screen
+## 4. POS header logo
 
-For each source route, add a named `export function XPage()` so it can be reused (mirroring what was done for `PosPage`). All wrapped in `<PosShell>` in the router.
+Update `src/components/pos/PosShell.tsx` header: show store logo (from `useStoreBranding`) next to business name; SEZA fallback.
 
-## Phase 4 — Replace stubs with real functionality
+## 5. Menu ☰ → Settings + Sign Out
 
-- `capacitor-shell/stubs/ManagerOverrideDialog.tsx` — swap `overrides.functions.ts` call for a `fetch('/api/public/pos/verify-manager-pin', ...)`-based verification. Same UX, same result shape, so `PosPage` unchanged.
-- `SupportRequestListener` stub can stay disabled in native (platform admin support is a web-only feature for now) OR be re-enabled reading realtime directly — I'll leave disabled unless you want it.
+In shell, the ☰ currently only signs out. Update to a dropdown with **Settings** (navigates to `/settings` route in shell) and **Sign Out**. Wire `/settings` shell route to the existing production `SettingsScreen` (already exists in `capacitor-shell/screens/SettingsScreen.tsx`) — extend it with the new Branding section that calls the same server endpoints.
 
-## Phase 5 — Branding & splash
+## 6. Receipts + customer display
 
-- Audit every `<img>` / logo reference reachable in the shell bundle. Replace any missing/broken with `@/assets/seza-logo.png.asset.json`. CDN asset URLs are absolute and already work in Capacitor.
-- Regenerate launcher icons + splash from `resources/` (`bun run android:assets`).
-- Splash: `launchAutoHide: false` already set. Confirm `SplashScreen.hide()` fires only after first paint of `/pos` or `/auth` (currently fires on mount of `ShellApp` — I'll move it to after router `onLoad`).
+- Update ESC/POS receipt builder (`src/lib/hardware/escpos.ts`) to optionally include the receipt logo (bitmap header) when `receipt_logo_url` set.
+- `src/components/pos/Receipt.tsx` renders store logo at top.
+- Customer display (if present) reads same logo hook.
 
-## Phase 6 — Verification
+## 7. Remove placeholders in shell
 
-- `bun run android:build` (must succeed).
-- `rg PosPlaceholder`, `rg "Coming soon"`, `rg "web dashboard"` inside `capacitor-shell/` — must be empty.
-- Manual native check list (documented in `ANDROID.md`): every nav item opens real screen, PIN login works offline of email, manager PIN gates refunds.
+Audit `capacitor-shell/` for `PlaceholderScreen` usage and any temp branding. Replace remaining pointer routes with real production pages already exported (Refunds, Timeclock, Shifts, Register are done). Confirm no `PlaceholderScreen` imports remain in `router.tsx`.
 
-## Files I'll create
+## 8. Fill remaining POS workflows
 
-- `src/routes/api/public/pos/verify-employee-pin.ts`
-- `src/routes/api/public/pos/verify-manager-pin.ts`
-- `src/lib/pos/native-auth.ts` (shared HMAC helpers, server-only)
-- `capacitor-shell/screens/PinLoginScreen.tsx`
-- `capacitor-shell/screens/StoreCodeScreen.tsx`
-- New named exports on existing route files.
+Everything on the request list is already implemented in the web codebase and mounted in the shell EXCEPT documented native limitations (Star/Epson vendor SDKs, iOS). Verify each route mounts a real page:
+- Settings, Register, Shifts, Cash Management (Open/Close drawer dialogs), Receipts, Barcode Scanning (native ML Kit + browser fallback), Camera scanning (already), Offline Sync (existing IndexedDB), Device/Printer/Terminal (shell Settings tabs).
+- For any that still route to `PlaceholderScreen`, wire to the production page.
 
-## Files I'll edit
+## Technical
 
-- `capacitor-shell/router.tsx` — mount real production pages.
-- `capacitor-shell/main.tsx` — splash hide timing.
-- `capacitor-shell/screens/AuthRoute.tsx` — PIN flow, no email.
-- `capacitor-shell/stubs/ManagerOverrideDialog.tsx` — real HTTPS call.
-- `vite.capacitor.config.ts` — additional aliases if any newly-imported production route depends on server-fn modules.
-- `ANDROID.md` — new auth + navigation notes.
-- Existing `src/routes/_pos/*.tsx` and `src/routes/_dashboard/shifts.tsx` — add named exports; no logic changes.
+Files to add:
+- `supabase/migrations/<ts>_branding.sql` — add columns + bucket policies (bucket via tool call).
+- `src/hooks/useStoreBranding.ts`
+- `capacitor-shell/screens/BrandedBootScreen.tsx`
+- `src/components/settings/BrandingPanel.tsx`
 
-## Risks / things I need your OK on
+Files to edit:
+- `src/routes/_dashboard/settings.tsx` — mount BrandingPanel
+- `src/routes/_dashboard/employees.tsx` — photo upload
+- `src/components/pos/AppShell.tsx` — avatar photo, menu Settings entry
+- `src/components/pos/PosShell.tsx` — header logo
+- `src/components/pos/Receipt.tsx` — logo header
+- `src/lib/hardware/escpos.ts` — optional bitmap header
+- `capacitor-shell/main.tsx` — mount BrandedBootScreen after auth
+- `capacitor-shell/router.tsx` — Settings route wired to existing SettingsScreen; remove any remaining placeholders
+- `capacitor-shell/screens/SettingsScreen.tsx` — Branding tab
 
-1. **PIN → session bridge.** Using `supabaseAdmin.auth.admin.generateLink` + server-side `verifyOtp` requires each employee to have an email in `profiles` (they do). Alternative: sign a custom JWT ourselves. Simpler = generateLink. OK to proceed with generateLink?
-2. **Shared native key.** I'll add `NATIVE_APP_SHARED_KEY` secret. The Android bundle will embed it (it's not a user secret, it's a soft app-attestation token; real security is PIN + rate limits + audit). OK?
-3. **Settings/Reports scope on Android.** Cashiers realistically only need: change PIN, view own shift summary, sign out. I'll gate the rest behind role. OK, or do you want full parity for managers on Android?
-4. **Support screen sharing on Android** — requires `getDisplayMedia`, which Capacitor Android does NOT support without a native plugin. I'll ship a "Support unavailable on mobile" notice rather than a broken screen. OK?
+No new auth. No new roles. Reuses existing RLS. One migration. One new bucket.
 
-Reply "go" to execute, or answer the four questions above and I'll adjust before shipping.
+## Verify
+
+- `bun run build` (web) passes
+- `bun run android:sync` passes
+- Manual: web Settings → upload logo → POS header + boot screen show it
+- Shell: PIN login → BrandedBootScreen shows live steps → POS opens with logo
