@@ -5,8 +5,7 @@
 // token_hash, then calls supabase.auth.verifyOtp locally to mint a real
 // Supabase session in the WebView's localStorage.
 import { useEffect, useMemo, useState } from "react";
-import logoAsset from "@/assets/seza-logo.png.asset.json";
-import { resolveLogoUrl } from "@/components/brand/Logo";
+import { SEZA_LOGO_URL } from "../logo";
 import { API_BASE_URL, supabase } from "../supabase";
 
 type Stage = "pin" | "id_then_pin";
