@@ -133,13 +133,14 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 function StatusBadge({ status }: { status: OfflineSale["status"] }) {
-  const map = {
+  const map: Record<OfflineSale["status"], { c: string; Icon: typeof RefreshCw }> = {
     pending: { c: "bg-amber-500/10 text-amber-700", Icon: RefreshCw },
     syncing: { c: "bg-primary/10 text-primary", Icon: RefreshCw },
     synced: { c: "bg-success/10 text-success", Icon: CheckCircle2 },
     failed: { c: "bg-destructive/10 text-destructive", Icon: AlertTriangle },
     conflict: { c: "bg-destructive/10 text-destructive", Icon: AlertTriangle },
-  } as const;
+    needs_attention: { c: "bg-destructive/10 text-destructive", Icon: AlertTriangle },
+  };
   const { c, Icon } = map[status];
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", c)}>
