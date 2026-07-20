@@ -340,12 +340,26 @@ export function PosShell({ children }: { children: ReactNode }) {
                 label="Time clock"
                 onClick={() => { setMobileMenu(false); navigate({ to: "/timeclock" }); }}
               />
-              {canDashboard && (
+              {canDashboard && !isNativeShell && (
                 <MobileMenuRow
                   icon={LayoutDashboard}
                   label="Dashboard"
                   onClick={() => { setMobileMenu(false); window.location.href = dashboardUrl("/dashboard"); }}
                 />
+              )}
+              {isNativeShell && (
+                <>
+                  <MobileMenuRow
+                    icon={LifeBuoy}
+                    label="Support"
+                    onClick={() => { setMobileMenu(false); navigate({ to: "/support" }); }}
+                  />
+                  <MobileMenuRow
+                    icon={ChevronRight}
+                    label="Settings"
+                    onClick={() => { setMobileMenu(false); navigate({ to: "/settings" }); }}
+                  />
+                </>
               )}
               <div className="h-px bg-border my-2" />
               <MobileMenuRow
