@@ -42,7 +42,9 @@ export function BusinessBrandingPanel() {
   const save = async (field: "logo_url" | "receipt_logo_url", value: string | null) => {
     if (!storeId) return;
     setSaving(field === "logo_url" ? "primary" : "receipt");
-    const { error } = await supabase.from("stores").update({ [field]: value }).eq("id", storeId);
+    const patch: Record<string, string | null> = { [field]: value };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any).from("stores").update(patch).eq("id", storeId);
     setSaving(null);
     if (error) {
       toast.error(error.message);
