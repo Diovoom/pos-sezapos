@@ -58,6 +58,23 @@ export function ReceiptDialog({
     }
   }, [open, data?.transactionId]);
 
+  // Native APK only: auto-print and (cash) auto-open drawer once per sale.
+  // Never throws — hardware failure must never fail a completed sale.
+  useEffect(() => {
+    if (!open || !data || !isNativeMode()) return;
+    let cancelled = false;
+    (async () => {
+      const p = await autoPrintOnComplete(data);
+      if (cancelled) return;
+      if (!p.ok && p.reason === "driver_error") toast.error("Printer error — receipt not printed");
+      const d = await openDrawerAfterCashSale(data);
+      if (cancelled) return;
+      if (!d.ok && d.reason === "driver_error") toast.error("Cash drawer failed to open");
+    })().catch(() => { /* safe-fail */ });
+    return () => { cancelled = true; };
+  }, [open, data?.transactionId]);
+
+
   const handlePrint = () => {
     if (!ref.current) return;
     const html = ref.current.outerHTML;
