@@ -180,7 +180,56 @@ export async function getAllOfflineSales(): Promise<OfflineSale[]> {
 }
 export async function getPendingSales(): Promise<OfflineSale[]> {
   const all = await getAllOfflineSales();
-  return all.filter((s) => s.status === "pending" || s.status === "failed");
+  const now = Date.now();
+  return all.filter((s) => {
+    if (s.status !== "pending" && s.status !== "failed") return false;
+    // Respect exponential backoff gate.
+    if (s.next_retry_at && new Date(s.next_retry_at).getTime() > now) return false;
+    return true;
+  });
+}
+
+/**
+ * Records marked "needs_attention" are surfaced to the operator via the
+ * Pending Sync screen and require explicit action (retry / support).
+ */
+export async function getNeedsAttentionSales(): Promise<OfflineSale[]> {
+  const all = await getAllOfflineSales();
+  return all.filter((s) => s.status === "needs_attention" || s.status === "conflict");
+}
+
+/** True when there is any offline sale that has not been server-confirmed. */
+export async function hasUnsyncedOfflineSales(shiftId?: string | null): Promise<boolean> {
+  const all = await getAllOfflineSales();
+  return all.some((s) => {
+    if (s.status === "synced") return false;
+    if (shiftId != null && s.register_session_id !== shiftId) return false;
+    return true;
+  });
+}
+
+/**
+ * Recover records left in "syncing" from a crash / process kill / hard
+ * network loss. Called at startup so no record is stranded indefinitely.
+ */
+export async function recoverStaleSyncing(): Promise<number> {
+  const db = await getDB();
+  let n = 0;
+  const sales = (await db.getAll("sales")) as OfflineSale[];
+  for (const s of sales) {
+    if (s.status === "syncing") {
+      await db.put("sales", { ...s, status: "pending", last_error: "recovered_stale_syncing" });
+      n++;
+    }
+  }
+  const cash = (await db.getAll("cash_movements")) as OfflineCashMovement[];
+  for (const m of cash) {
+    if (m.status === "syncing") {
+      await db.put("cash_movements", { ...m, status: "pending", last_error: "recovered_stale_syncing" });
+      n++;
+    }
+  }
+  return n;
 }
 
 /* ---------- cash movements queue ---------- */
