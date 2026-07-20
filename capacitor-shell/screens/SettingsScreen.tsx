@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Receipt, Printer, DollarSign, Scan, CreditCard, Monitor, ShoppingCart,
   Clock, KeyRound, User, LogOut, Loader2, Bluetooth, CheckCircle2, AlertTriangle,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
@@ -29,6 +30,10 @@ import {
 } from "@/lib/hardware";
 import * as escposBle from "@/lib/hardware/escpos-ble";
 import { buildReceipt } from "@/lib/hardware/escpos";
+import {
+  testPrint as runTestPrint, testDrawer as runTestDrawer, hardwareSnapshot,
+} from "@/lib/hardware/native-receipt";
+
 
 /* ------------------------------ device settings --------------------------- */
 
