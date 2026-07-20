@@ -271,9 +271,12 @@ export function PosShell({ children }: { children: ReactNode }) {
               className="gap-2 px-2"
               aria-label="Open cashier menu"
             >
-              <div className={cn("size-7 rounded-full grid place-items-center text-white font-semibold text-[11px]", roleAvatarClass(role))}>
-                {roleInitials(me?.profile?.full_name ?? me?.user?.email ?? "?")}
-              </div>
+              <UserAvatar
+                name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
+                photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
+                role={role}
+                className="size-7 text-[11px]"
+              />
               <Menu className="size-4" />
             </Button>
           </SheetTrigger>
@@ -281,9 +284,12 @@ export function PosShell({ children }: { children: ReactNode }) {
             <SheetHeader className="p-4 border-b text-left">
               <SheetTitle className="flex items-center gap-3">
                 <div className="relative shrink-0">
-                  <div className={cn("size-10 rounded-full grid place-items-center text-white font-semibold", roleAvatarClass(role))}>
-                    {roleInitials(me?.profile?.full_name ?? me?.user?.email ?? "?")}
-                  </div>
+                  <UserAvatar
+                    name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
+                    photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
+                    role={role}
+                    className="size-10"
+                  />
                   <span className={cn("absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-background", roleDotClass(role))} aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
