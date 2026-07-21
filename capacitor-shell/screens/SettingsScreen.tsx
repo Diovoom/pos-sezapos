@@ -474,6 +474,39 @@ function DevicePanel() {
 
 function RegisterPanel() {
   const [startFloat, setStartFloat] = useLocalString(LS.startFloat, "100.00");
+  const qc = useQueryClient();
+  const { data: ctx } = useQuery({
+    queryKey: ["register-panel-ctx"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return { isOwner: false, store: null as null | { id: string; allow_cashier_quick_add: boolean } };
+      const [profile, roles] = await Promise.all([
+        supabase.from("profiles").select("store_id").eq("id", u.user.id).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", u.user.id),
+      ]);
+      const storeId = profile.data?.store_id ?? null;
+      const isOwner = (roles.data ?? []).some((r) => r.role === "owner" || r.role === "admin");
+      if (!storeId) return { isOwner, store: null };
+      const { data: store } = await supabase.from("stores").select("id, allow_cashier_quick_add").eq("id", storeId).maybeSingle();
+      return { isOwner, store: (store ?? null) as { id: string; allow_cashier_quick_add: boolean } | null };
+    },
+  });
+
+  const [saving, setSaving] = useState(false);
+  const toggleQuickAdd = async (next: boolean) => {
+    if (!ctx?.store) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("stores").update({ allow_cashier_quick_add: next }).eq("id", ctx.store.id);
+      if (error) throw error;
+      toast.success(next ? "Cashier quick-add enabled" : "Cashier quick-add disabled");
+      qc.invalidateQueries({ queryKey: ["register-panel-ctx"] });
+      logAudit("settings.quick_add.toggle", { store_id: ctx.store.id, enabled: next }).catch(() => {});
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
+    } finally { setSaving(false); }
+  };
+
   return (
     <Card>
       <CardHeader><CardTitle className="flex items-center gap-2"><ShoppingCart className="h-4 w-4" />Register</CardTitle>
@@ -483,10 +516,25 @@ function RegisterPanel() {
           <Label>Default starting float</Label>
           <Input inputMode="decimal" value={startFloat} onChange={(e) => setStartFloat(e.target.value)} />
         </div>
+
+        {ctx?.isOwner && ctx.store ? (
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <div>
+              <Label>Allow cashier to add a product when a barcode is not found</Label>
+              <p className="text-sm text-muted-foreground">
+                When on, cashiers with the <code>products.quick_add</code> permission can create a minimal product from the POS Register. Owners and managers can always quick-add.
+              </p>
+            </div>
+            <Switch checked={!!ctx.store.allow_cashier_quick_add} onCheckedChange={toggleQuickAdd} disabled={saving} />
+          </div>
+        ) : ctx && !ctx.isOwner ? (
+          <p className="text-xs text-muted-foreground">Cashier quick-add is controlled by the store owner in the web dashboard or this panel.</p>
+        ) : null}
       </CardContent>
     </Card>
   );
 }
+
 
 function ShiftPanel() {
   const [hrs, setHrs] = useLocalString(LS.shiftAutoCloseHours, "12");
