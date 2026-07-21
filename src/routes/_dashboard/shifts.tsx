@@ -108,13 +108,13 @@ function ShiftsList() {
   });
 
   const salesQ = useQuery<Sale[]>({
-    queryKey: ["shifts-sales", dateFrom, dateTo],
+    queryKey: ["shifts-sales", fromIso, toIso],
     enabled: !!shiftsQ.data && shiftsQ.data.length > 0,
     queryFn: async () => {
       const { data } = await supabase.from("sales")
         .select("id, cashier_id, created_at, total, status")
-        .gte("created_at", `${dateFrom}T00:00:00Z`)
-        .lte("created_at", `${dateTo}T23:59:59Z`)
+        .gte("created_at", fromIso)
+        .lt("created_at", toIso)
         .limit(5000);
       return (data as Sale[]) ?? [];
     },
