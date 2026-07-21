@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { logAudit } from "@/lib/audit-log";
+import { recordAdminLoginAttempt } from "@/lib/admin/login-attempts.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/admin/auth")({
   head: () => ({
