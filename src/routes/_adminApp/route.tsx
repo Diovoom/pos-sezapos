@@ -80,6 +80,7 @@ function AdminLayout() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: perms } = useAdminPermissions();
 
   const search = useServerFn(adminGlobalSearch);
   const getSession = useServerFn(adminMyActiveSupportSession);
