@@ -95,8 +95,47 @@ export function CloseShiftDialog({
       setStep(1); setMode("total"); setTotalInput(""); setDenomCounts({});
       setSafeDrop(""); setSafeDropNote(""); setCloseNotes(""); setConfirm(false);
       setApprover(null);
+      setPostCloseFailed(null); setRetrying(false);
     }
   }, [open]);
+
+  const runPostCloseHook = async () => {
+    if (!beforeSignOut) return true;
+    try {
+      await beforeSignOut();
+      return true;
+    } catch (e) {
+      const correlationId = (crypto as { randomUUID?: () => string }).randomUUID?.()
+        ?? `cc-${Date.now().toString(36)}`;
+      const message = e instanceof Error ? e.message : "Post-close step failed";
+      setPostCloseFailed({ message, correlationId });
+      void logAudit({
+        action: "system.error",
+        entity: "register_session",
+        entity_id: session.id,
+        details: {
+          stage: "post_close_hook_failed",
+          correlation_id: correlationId,
+          message,
+        },
+      });
+      toast.error("Shift closed, but post-close step failed.");
+      return false;
+    }
+  };
+
+  const retryPostClose = async () => {
+    if (retrying || !postCloseFailed) return;
+    setRetrying(true);
+    const ok = await runPostCloseHook();
+    setRetrying(false);
+    if (ok) {
+      setPostCloseFailed(null);
+      qc.clear();
+      if (!skipSignOut) await supabase.auth.signOut();
+      onClosed();
+    }
+  };
 
   // Live totals for this shift (sales + refunds + movements).
   const totals = useQuery({
