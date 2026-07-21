@@ -9,6 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { LogIn, LogOut, Coffee, PlayCircle, Loader2 } from "lucide-react";
 import { format, formatDistanceStrict } from "date-fns";
+import { useState } from "react";
+import { CloseShiftDialog } from "@/components/pos/CloseShiftDialog";
+import { hasUnsyncedOfflineSales } from "@/lib/offline/db";
+import { logAudit } from "@/lib/audit-log";
+
+// Native APK shell detection — Clock Out on the APK routes through the
+// existing Shift Review flow when a register shift is open, and enforces
+// the offline-sale / payment-busy guardrails. Web POS behavior is unchanged.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isNativeShell = typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.();
 
 export const Route = createFileRoute("/_pos/timeclock")({
   head: () => ({ meta: [{ title: "Time Clock — SEZA POS" }, { name: "description", content: "Clock in, take breaks, and clock out for the current shift." }] }),
