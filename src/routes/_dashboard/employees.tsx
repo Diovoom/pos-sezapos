@@ -73,10 +73,15 @@ function EmployeesPage() {
   const resetCreds = useServerFn(resetEmployeeCredentials);
 
   const disableM = useMutation({
-    mutationFn: async (row: EmployeeRow) =>
-      toggleStatus({
-        data: { user_id: row.id, status: row.status === "active" ? "disabled" : "active" },
-      }),
+    mutationFn: async (row: EmployeeRow) => {
+      const nextStatus = row.status === "active" ? "disabled" : "active";
+      let reason: string | null = null;
+      if (nextStatus !== "active") {
+        reason = window.prompt("Reason for disabling this employee? (min 4 chars)") ?? "";
+        if (reason.trim().length < 4) throw new Error("Reason is required");
+      }
+      return toggleStatus({ data: { user_id: row.id, status: nextStatus, reason: reason ?? undefined } });
+    },
     onSuccess: () => {
       toast.success("Employee status updated");
       qc.invalidateQueries({ queryKey: ["employees"] });
@@ -87,7 +92,9 @@ function EmployeesPage() {
   const [resetInfo, setResetInfo] = useState<{ email: string; temp: string } | null>(null);
   const resetM = useMutation({
     mutationFn: async (row: EmployeeRow) => {
-      const r = await resetCreds({ data: { user_id: row.id } });
+      const reason = window.prompt("Reason for password reset? (min 4 chars)") ?? "";
+      if (reason.trim().length < 4) throw new Error("Reason is required");
+      const r = await resetCreds({ data: { user_id: row.id, reason } });
       return { email: row.email!, temp: r.temp_password };
     },
     onSuccess: (data) => {
