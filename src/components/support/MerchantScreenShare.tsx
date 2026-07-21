@@ -19,7 +19,7 @@ type Props = {
  * admin — the admin's peer connection has no DataChannel and receives only
  * media tracks.
  */
-export function MerchantScreenShare({ sessionId, stream, onEnded }: Props) {
+export function MerchantScreenShare({ channelToken, stream, onEnded }: Props) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const endedRef = useRef(false);
 
