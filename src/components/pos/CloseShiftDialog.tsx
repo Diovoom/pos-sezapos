@@ -54,6 +54,8 @@ export function CloseShiftDialog({
   store,
   cashierUserId,
   onClosed,
+  beforeSignOut,
+  skipSignOut,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -61,6 +63,10 @@ export function CloseShiftDialog({
   store: Store | null;
   cashierUserId?: string;
   onClosed: () => void;
+  /** Runs AFTER the shift closes but BEFORE sign-out (e.g. clock-out). */
+  beforeSignOut?: () => Promise<void>;
+  /** Skip the built-in signOut — caller handles session teardown. */
+  skipSignOut?: boolean;
 }) {
   const qc = useQueryClient();
   const { isSuper } = usePermissions();
