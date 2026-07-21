@@ -19,7 +19,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Receipt, Printer, DollarSign, Scan, CreditCard, Monitor, ShoppingCart,
   Clock, KeyRound, User, LogOut, Loader2, Bluetooth, CheckCircle2, AlertTriangle,
-  Activity, Wifi, Radio, LifeBuoy,
+  Receipt, Printer, DollarSign, Scan, CreditCard, Monitor, ShoppingCart,
+  Clock, KeyRound, User, LogOut, Loader2, Bluetooth, CheckCircle2, AlertTriangle,
+  Activity, Radio, LifeBuoy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
