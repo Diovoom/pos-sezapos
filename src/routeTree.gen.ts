@@ -84,6 +84,8 @@ import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/em
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicPosVerifyManagerPinRouteImport } from './routes/api/public/pos/verify-manager-pin'
 import { Route as ApiPublicPosVerifyEmployeePinRouteImport } from './routes/api/public/pos/verify-employee-pin'
+import { Route as ApiPublicPosSupportRespondRouteImport } from './routes/api/public/pos/support-respond'
+import { Route as ApiPublicPosSupportEndRouteImport } from './routes/api/public/pos/support-end'
 import { Route as ApiPublicPosSetMyPinRouteImport } from './routes/api/public/pos/set-my-pin'
 import { Route as ApiPublicPosCompleteFirstLoginRouteImport } from './routes/api/public/pos/complete-first-login'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
@@ -474,6 +476,17 @@ const ApiPublicPosVerifyEmployeePinRoute =
     path: '/api/public/pos/verify-employee-pin',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicPosSupportRespondRoute =
+  ApiPublicPosSupportRespondRouteImport.update({
+    id: '/api/public/pos/support-respond',
+    path: '/api/public/pos/support-respond',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPosSupportEndRoute = ApiPublicPosSupportEndRouteImport.update({
+  id: '/api/public/pos/support-end',
+  path: '/api/public/pos/support-end',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPosSetMyPinRoute = ApiPublicPosSetMyPinRouteImport.update({
   id: '/api/public/pos/set-my-pin',
   path: '/api/public/pos/set-my-pin',
@@ -586,6 +599,8 @@ export interface FileRoutesByFullPath {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
   '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
+  '/api/public/pos/support-end': typeof ApiPublicPosSupportEndRoute
+  '/api/public/pos/support-respond': typeof ApiPublicPosSupportRespondRoute
   '/api/public/pos/verify-employee-pin': typeof ApiPublicPosVerifyEmployeePinRoute
   '/api/public/pos/verify-manager-pin': typeof ApiPublicPosVerifyManagerPinRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -667,6 +682,8 @@ export interface FileRoutesByTo {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
   '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
+  '/api/public/pos/support-end': typeof ApiPublicPosSupportEndRoute
+  '/api/public/pos/support-respond': typeof ApiPublicPosSupportRespondRoute
   '/api/public/pos/verify-employee-pin': typeof ApiPublicPosVerifyEmployeePinRoute
   '/api/public/pos/verify-manager-pin': typeof ApiPublicPosVerifyManagerPinRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -752,6 +769,8 @@ export interface FileRoutesById {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
   '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
+  '/api/public/pos/support-end': typeof ApiPublicPosSupportEndRoute
+  '/api/public/pos/support-respond': typeof ApiPublicPosSupportRespondRoute
   '/api/public/pos/verify-employee-pin': typeof ApiPublicPosVerifyEmployeePinRoute
   '/api/public/pos/verify-manager-pin': typeof ApiPublicPosVerifyManagerPinRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -835,6 +854,8 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/api/public/pos/complete-first-login'
     | '/api/public/pos/set-my-pin'
+    | '/api/public/pos/support-end'
+    | '/api/public/pos/support-respond'
     | '/api/public/pos/verify-employee-pin'
     | '/api/public/pos/verify-manager-pin'
     | '/lovable/email/auth/preview'
@@ -916,6 +937,8 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/api/public/pos/complete-first-login'
     | '/api/public/pos/set-my-pin'
+    | '/api/public/pos/support-end'
+    | '/api/public/pos/support-respond'
     | '/api/public/pos/verify-employee-pin'
     | '/api/public/pos/verify-manager-pin'
     | '/lovable/email/auth/preview'
@@ -1000,6 +1023,8 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/api/public/pos/complete-first-login'
     | '/api/public/pos/set-my-pin'
+    | '/api/public/pos/support-end'
+    | '/api/public/pos/support-respond'
     | '/api/public/pos/verify-employee-pin'
     | '/api/public/pos/verify-manager-pin'
     | '/lovable/email/auth/preview'
@@ -1059,6 +1084,8 @@ export interface RootRouteChildren {
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicPosCompleteFirstLoginRoute: typeof ApiPublicPosCompleteFirstLoginRoute
   ApiPublicPosSetMyPinRoute: typeof ApiPublicPosSetMyPinRoute
+  ApiPublicPosSupportEndRoute: typeof ApiPublicPosSupportEndRoute
+  ApiPublicPosSupportRespondRoute: typeof ApiPublicPosSupportRespondRoute
   ApiPublicPosVerifyEmployeePinRoute: typeof ApiPublicPosVerifyEmployeePinRoute
   ApiPublicPosVerifyManagerPinRoute: typeof ApiPublicPosVerifyManagerPinRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -1597,6 +1624,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPosVerifyEmployeePinRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/pos/support-respond': {
+      id: '/api/public/pos/support-respond'
+      path: '/api/public/pos/support-respond'
+      fullPath: '/api/public/pos/support-respond'
+      preLoaderRoute: typeof ApiPublicPosSupportRespondRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pos/support-end': {
+      id: '/api/public/pos/support-end'
+      path: '/api/public/pos/support-end'
+      fullPath: '/api/public/pos/support-end'
+      preLoaderRoute: typeof ApiPublicPosSupportEndRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/pos/set-my-pin': {
       id: '/api/public/pos/set-my-pin'
       path: '/api/public/pos/set-my-pin'
@@ -1799,6 +1840,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicPosCompleteFirstLoginRoute: ApiPublicPosCompleteFirstLoginRoute,
   ApiPublicPosSetMyPinRoute: ApiPublicPosSetMyPinRoute,
+  ApiPublicPosSupportEndRoute: ApiPublicPosSupportEndRoute,
+  ApiPublicPosSupportRespondRoute: ApiPublicPosSupportRespondRoute,
   ApiPublicPosVerifyEmployeePinRoute: ApiPublicPosVerifyEmployeePinRoute,
   ApiPublicPosVerifyManagerPinRoute: ApiPublicPosVerifyManagerPinRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
