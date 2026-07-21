@@ -16,6 +16,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
+import { dashboardUrl } from "@/lib/host";
 
 type NavItem = { to: string; label: string };
 
@@ -51,7 +52,9 @@ function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
       <DropdownMenuContent align="start" className="min-w-52">
         {items.map((it) => (
           <DropdownMenuItem asChild key={it.label}>
-            <Link to={it.to} className="cursor-pointer">{it.label}</Link>
+            <Link to={it.to} className="cursor-pointer">
+              {it.label}
+            </Link>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -67,9 +70,14 @@ export function MarketingShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-40">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
-          <Link to="/" className="font-bold text-lg shrink-0">SEZA POS</Link>
+          <Link to="/" className="font-bold text-lg shrink-0">
+            SEZA POS
+          </Link>
 
-          <nav className="hidden lg:flex items-center gap-6 text-sm" aria-label="Primary">
+          <nav
+            className="hidden lg:flex items-center gap-6 text-sm"
+            aria-label="Primary"
+          >
             <NavDropdown label="Product" items={PRODUCT_ITEMS} />
             <NavDropdown label="Industries" items={INDUSTRY_ITEMS} />
             <Link
@@ -83,8 +91,12 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="hidden md:flex items-center gap-2">
-            <Button asChild size="sm" variant="ghost"><Link to="/auth">Sign In</Link></Button>
-            <Button asChild size="sm"><Link to="/signup">Create Account</Link></Button>
+            <Button asChild size="sm" variant="ghost">
+              <a href={dashboardUrl("/auth")}>Sign In</a>
+            </Button>
+            <Button asChild size="sm">
+              <a href={dashboardUrl("/signup")}>Create Account</a>
+            </Button>
           </div>
 
           {/* Mobile */}
@@ -103,7 +115,14 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                   <div className="font-semibold mb-2">Product</div>
                   <ul className="space-y-1.5 pl-1">
                     {PRODUCT_ITEMS.map((i) => (
-                      <li key={i.label}><Link to={i.to} className="text-muted-foreground hover:text-foreground">{i.label}</Link></li>
+                      <li key={i.label}>
+                        <Link
+                          to={i.to}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          {i.label}
+                        </Link>
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -111,24 +130,47 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                   <div className="font-semibold mb-2">Industries</div>
                   <ul className="space-y-1.5 pl-1">
                     {INDUSTRY_ITEMS.map((i) => (
-                      <li key={i.label}><Link to={i.to} className="text-muted-foreground hover:text-foreground">{i.label}</Link></li>
+                      <li key={i.label}>
+                        <Link
+                          to={i.to}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          {i.label}
+                        </Link>
+                      </li>
                     ))}
                   </ul>
                 </div>
                 <div>
-                  <Link to="/pricing" className="font-semibold hover:text-primary">Pricing</Link>
+                  <Link
+                    to="/pricing"
+                    className="font-semibold hover:text-primary"
+                  >
+                    Pricing
+                  </Link>
                 </div>
                 <div>
                   <div className="font-semibold mb-2">Resources</div>
                   <ul className="space-y-1.5 pl-1">
                     {RESOURCE_ITEMS.map((i) => (
-                      <li key={i.label}><Link to={i.to} className="text-muted-foreground hover:text-foreground">{i.label}</Link></li>
+                      <li key={i.label}>
+                        <Link
+                          to={i.to}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          {i.label}
+                        </Link>
+                      </li>
                     ))}
                   </ul>
                 </div>
                 <div className="pt-4 border-t space-y-2">
-                  <Button asChild variant="outline" className="w-full"><Link to="/auth">Sign In</Link></Button>
-                  <Button asChild className="w-full"><Link to="/signup">Create Account</Link></Button>
+                  <Button asChild variant="outline" className="w-full">
+                    <a href={dashboardUrl("/auth")}>Sign In</a>
+                  </Button>
+                  <Button asChild className="w-full">
+                    <a href={dashboardUrl("/signup")}>Create Account</a>
+                  </Button>
                 </div>
               </div>
             </SheetContent>
@@ -143,51 +185,149 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           <div className="lg:col-span-1">
             <div className="font-bold">SEZA POS</div>
             <p className="mt-2 text-xs text-muted-foreground">
-              Modern cloud point of sale for convenience, liquor, and specialty retail.
+              Modern cloud point of sale for convenience, liquor, and specialty
+              retail.
             </p>
           </div>
           <div>
             <div className="font-semibold mb-2">Product</div>
             <ul className="space-y-1 text-muted-foreground">
-              <li><Link to="/features" className="hover:text-foreground">Features</Link></li>
-              <li><Link to="/industries" className="hover:text-foreground">Industries</Link></li>
-              <li><Link to="/pricing" className="hover:text-foreground">Pricing</Link></li>
-              <li><Link to="/hardware" className="hover:text-foreground">Hardware</Link></li>
-              <li><Link to="/integrations" className="hover:text-foreground">Integrations</Link></li>
+              <li>
+                <Link to="/features" className="hover:text-foreground">
+                  Features
+                </Link>
+              </li>
+              <li>
+                <Link to="/industries" className="hover:text-foreground">
+                  Industries
+                </Link>
+              </li>
+              <li>
+                <Link to="/pricing" className="hover:text-foreground">
+                  Pricing
+                </Link>
+              </li>
+              <li>
+                <Link to="/hardware" className="hover:text-foreground">
+                  Hardware
+                </Link>
+              </li>
+              <li>
+                <Link to="/integrations" className="hover:text-foreground">
+                  Integrations
+                </Link>
+              </li>
             </ul>
           </div>
           <div>
             <div className="font-semibold mb-2">Company</div>
             <ul className="space-y-1 text-muted-foreground">
-              <li><Link to="/about" className="hover:text-foreground">About</Link></li>
-              <li><Link to="/contact" className="hover:text-foreground">Contact</Link></li>
+              <li>
+                <Link to="/about" className="hover:text-foreground">
+                  About
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="hover:text-foreground">
+                  Contact
+                </Link>
+              </li>
             </ul>
           </div>
           <div>
             <div className="font-semibold mb-2">Trust & Support</div>
             <ul className="space-y-1 text-muted-foreground">
-              <li><Link to="/trust" className="hover:text-foreground">Trust Center</Link></li>
-              <li><Link to="/security" className="hover:text-foreground">Security</Link></li>
-              <li><Link to="/status" className="hover:text-foreground">System Status</Link></li>
-              <li><Link to="/support" className="hover:text-foreground">Support</Link></li>
-              <li><Link to="/faq" className="hover:text-foreground">FAQ</Link></li>
-              <li><a href={`mailto:${LEGAL_CONFIG.supportEmail}`} className="hover:text-foreground">{LEGAL_CONFIG.supportEmail}</a></li>
+              <li>
+                <Link to="/trust" className="hover:text-foreground">
+                  Trust Center
+                </Link>
+              </li>
+              <li>
+                <Link to="/security" className="hover:text-foreground">
+                  Security
+                </Link>
+              </li>
+              <li>
+                <Link to="/status" className="hover:text-foreground">
+                  System Status
+                </Link>
+              </li>
+              <li>
+                <Link to="/support" className="hover:text-foreground">
+                  Support
+                </Link>
+              </li>
+              <li>
+                <Link to="/faq" className="hover:text-foreground">
+                  FAQ
+                </Link>
+              </li>
+              <li>
+                <a
+                  href={`mailto:${LEGAL_CONFIG.supportEmail}`}
+                  className="hover:text-foreground"
+                >
+                  {LEGAL_CONFIG.supportEmail}
+                </a>
+              </li>
             </ul>
           </div>
           <div>
             <div className="font-semibold mb-2">Legal</div>
             <ul className="space-y-1 text-muted-foreground">
-              <li><Link to="/legal" className="hover:text-foreground font-medium text-foreground">Legal Center</Link></li>
-              <li><Link to="/legal/$slug" params={{ slug: "terms" }} className="hover:text-foreground">Terms</Link></li>
-              <li><Link to="/legal/$slug" params={{ slug: "privacy" }} className="hover:text-foreground">Privacy</Link></li>
-              <li><Link to="/legal/$slug" params={{ slug: "cookies" }} className="hover:text-foreground">Cookies</Link></li>
-              <li><Link to="/legal/$slug" params={{ slug: "refund" }} className="hover:text-foreground">Refunds</Link></li>
+              <li>
+                <Link
+                  to="/legal"
+                  className="hover:text-foreground font-medium text-foreground"
+                >
+                  Legal Center
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/legal/$slug"
+                  params={{ slug: "terms" }}
+                  className="hover:text-foreground"
+                >
+                  Terms
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/legal/$slug"
+                  params={{ slug: "privacy" }}
+                  className="hover:text-foreground"
+                >
+                  Privacy
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/legal/$slug"
+                  params={{ slug: "cookies" }}
+                  className="hover:text-foreground"
+                >
+                  Cookies
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/legal/$slug"
+                  params={{ slug: "refund" }}
+                  className="hover:text-foreground"
+                >
+                  Refunds
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
         <div className="border-t">
           <div className="max-w-6xl mx-auto px-6 py-5 text-xs text-muted-foreground flex flex-wrap justify-between gap-3">
-            <span>© {new Date().getFullYear()} {LEGAL_CONFIG.companyName}. All rights reserved.</span>
+            <span>
+              © {new Date().getFullYear()} {LEGAL_CONFIG.companyName}. All
+              rights reserved.
+            </span>
             <span>Payments processed by {LEGAL_CONFIG.merchantOfRecord}.</span>
           </div>
         </div>

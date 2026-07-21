@@ -1,16 +1,28 @@
-import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+  useSearch,
+} from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, Mail, CheckCircle2, RefreshCw, Check } from "lucide-react";
 import { z } from "zod";
 import { getLatestSignupEmailStatus } from "@/lib/auth/verification-status.functions";
+import { dashboardUrl, marketingUrl } from "@/lib/host";
 
 const signupSearch = z.object({
   plan: z.enum(["starter", "pro", "business"]).optional(),
@@ -21,12 +33,20 @@ export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
       { title: "Create your SEZA store — Start your free trial" },
-      { name: "description", content: "Create your SEZA POS store and start a 14-day free trial. No credit card required. Cancel anytime." },
+      {
+        name: "description",
+        content:
+          "Create your SEZA POS store and start a 14-day free trial. No credit card required. Cancel anytime.",
+      },
       { property: "og:title", content: "Create your SEZA store — SEZA POS" },
-      { property: "og:description", content: "14-day free trial. No credit card required. Cancel anytime." },
-      { property: "og:url", content: "https://sezapos.com/signup" },
+      {
+        property: "og:description",
+        content: "14-day free trial. No credit card required. Cancel anytime.",
+      },
+      { property: "og:url", content: "https://dashboard.sezapos.com/signup" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
-    links: [{ rel: "canonical", href: "https://sezapos.com/signup" }],
+    links: [{ rel: "canonical", href: "https://dashboard.sezapos.com/signup" }],
   }),
   component: SignupPage,
 });
@@ -40,20 +60,32 @@ const PLAN_LABELS: Record<string, string> = {
 const schema = z.object({
   businessName: z.string().trim().min(2, "Business name is required").max(120),
   email: z.string().trim().email("Enter a valid email").max(255),
-  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128),
   accept: z.literal(true, { message: "You must accept the terms" }),
 });
 
 function SignupPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: "/signup" });
-  const [selectedPlan, setSelectedPlan] = useState<string | undefined>(search.plan);
+  const [selectedPlan, setSelectedPlan] = useState<string | undefined>(
+    search.plan,
+  );
 
-  useEffect(() => { setSelectedPlan(search.plan); }, [search.plan]);
+  useEffect(() => {
+    setSelectedPlan(search.plan);
+  }, [search.plan]);
 
   const detectedTz = useMemo(() => {
-    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York"; }
-    catch { return "America/New_York"; }
+    try {
+      return (
+        Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York"
+      );
+    } catch {
+      return "America/New_York";
+    }
   }, []);
 
   const [form, setForm] = useState({
@@ -81,7 +113,9 @@ function SignupPage() {
         email: form.email,
         password: form.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/select-plan${selectedPlan ? `?plan=${selectedPlan}` : ""}`,
+          emailRedirectTo: dashboardUrl(
+            `/select-plan${selectedPlan ? `?plan=${selectedPlan}` : ""}`,
+          ),
           data: {
             business_name: form.businessName.trim(),
             time_zone: detectedTz,
@@ -99,7 +133,8 @@ function SignupPage() {
       }
       setSent(form.email);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Could not create your account";
+      const msg =
+        err instanceof Error ? err.message : "Could not create your account";
       toast.error(msg);
     } finally {
       setBusy(false);
@@ -115,10 +150,15 @@ function SignupPage() {
   return (
     <div className="min-h-screen bg-surface p-4 py-10">
       <div className="max-w-5xl mx-auto">
-        <Link to="/" className="flex items-center justify-center gap-2 mb-6">
-          <div className="size-9 rounded-lg bg-primary grid place-items-center text-primary-foreground font-bold">S</div>
+        <a
+          href={marketingUrl("/")}
+          className="flex items-center justify-center gap-2 mb-6"
+        >
+          <div className="size-9 rounded-lg bg-primary grid place-items-center text-primary-foreground font-bold">
+            S
+          </div>
           <span className="font-semibold tracking-tight text-lg">SEZA POS</span>
-        </Link>
+        </a>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <Card>
@@ -130,8 +170,15 @@ function SignupPage() {
               {planLabel && (
                 <div className="mt-3 flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
                   <span className="text-muted-foreground">Selected plan:</span>
-                  <span className="font-semibold text-foreground">{planLabel}</span>
-                  <Link to="/pricing" className="ml-auto text-xs text-primary hover:underline">Change plan</Link>
+                  <span className="font-semibold text-foreground">
+                    {planLabel}
+                  </span>
+                  <Link
+                    to="/pricing"
+                    className="ml-auto text-xs text-primary hover:underline"
+                  >
+                    Change plan
+                  </Link>
                 </div>
               )}
             </CardHeader>
@@ -139,24 +186,42 @@ function SignupPage() {
               <form onSubmit={submit} className="space-y-4" noValidate>
                 <div className="space-y-2">
                   <Label htmlFor="businessName">Business name</Label>
-                  <Input id="businessName" value={form.businessName}
+                  <Input
+                    id="businessName"
+                    value={form.businessName}
                     onChange={(e) => update("businessName", e.target.value)}
-                    placeholder="Corner Market" autoComplete="organization" required />
+                    placeholder="Corner Market"
+                    autoComplete="organization"
+                    required
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="email">Business email</Label>
-                  <Input id="email" type="email" value={form.email}
+                  <Input
+                    id="email"
+                    type="email"
+                    value={form.email}
                     onChange={(e) => update("email", e.target.value)}
-                    autoComplete="email" required />
+                    autoComplete="email"
+                    required
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" value={form.password}
+                  <Input
+                    id="password"
+                    type="password"
+                    value={form.password}
                     onChange={(e) => update("password", e.target.value)}
-                    autoComplete="new-password" minLength={8} required />
-                  <p className="text-xs text-muted-foreground">At least 8 characters.</p>
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    At least 8 characters.
+                  </p>
                 </div>
 
                 <label className="flex items-start gap-2 text-sm">
@@ -167,15 +232,33 @@ function SignupPage() {
                   />
                   <span className="text-muted-foreground">
                     I agree to the{" "}
-                    <Link to="/legal/$slug" params={{ slug: "terms" }} className="text-primary hover:underline">Terms of Service</Link>{" "}
+                    <Link
+                      to="/legal/$slug"
+                      params={{ slug: "terms" }}
+                      className="text-primary hover:underline"
+                    >
+                      Terms of Service
+                    </Link>{" "}
                     and{" "}
-                    <Link to="/legal/$slug" params={{ slug: "privacy" }} className="text-primary hover:underline">Privacy Policy</Link>.
+                    <Link
+                      to="/legal/$slug"
+                      params={{ slug: "privacy" }}
+                      className="text-primary hover:underline"
+                    >
+                      Privacy Policy
+                    </Link>
+                    .
                   </span>
                 </label>
 
                 <Button type="submit" className="w-full h-11" disabled={busy}>
-                  {busy ? <Loader2 className="size-4 animate-spin" /> : (
-                    <><CheckCircle2 className="size-4 mr-2" />Create my store</>
+                  {busy ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle2 className="size-4 mr-2" />
+                      Create my store
+                    </>
                   )}
                 </Button>
 
@@ -185,7 +268,9 @@ function SignupPage() {
 
                 <p className="text-xs text-muted-foreground text-center pt-2 border-t">
                   Already have an account?{" "}
-                  <Link to="/auth" className="text-primary hover:underline">Sign in</Link>
+                  <Link to="/auth" className="text-primary hover:underline">
+                    Sign in
+                  </Link>
                 </p>
               </form>
             </CardContent>
@@ -263,7 +348,9 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
       setCooldown(60);
       refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not resend email");
+      toast.error(
+        err instanceof Error ? err.message : "Could not resend email",
+      );
     } finally {
       setResending(false);
     }
@@ -308,12 +395,18 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
             ) : (
               <RefreshCw className="size-4 mr-2" />
             )}
-            {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend verification email"}
+            {cooldown > 0
+              ? `Resend in ${cooldown}s`
+              : "Resend verification email"}
           </Button>
 
           <p className="text-xs text-muted-foreground text-center">
             Didn't get it? Check spam, or{" "}
-            <button type="button" className="text-primary hover:underline" onClick={onReset}>
+            <button
+              type="button"
+              className="text-primary hover:underline"
+              onClick={onReset}
+            >
               use a different email
             </button>
             .
@@ -322,7 +415,9 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
           {isDev && (
             <div className="mt-4 rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-xs space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-amber-900">Developer diagnostic</span>
+                <span className="font-semibold text-amber-900">
+                  Developer diagnostic
+                </span>
                 <button
                   type="button"
                   onClick={refresh}
@@ -335,17 +430,22 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
                 <>
                   <div className="flex items-center gap-2">
                     <span className="text-slate-600">Last signup email:</span>
-                    <span className={`px-2 py-0.5 rounded font-medium ${statusBadge(devStatus.status)}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded font-medium ${statusBadge(devStatus.status)}`}
+                    >
                       {devStatus.status}
                     </span>
                   </div>
                   {devStatus.created_at && (
                     <div className="text-slate-500">
-                      logged {new Date(devStatus.created_at).toLocaleTimeString()}
+                      logged{" "}
+                      {new Date(devStatus.created_at).toLocaleTimeString()}
                     </div>
                   )}
                   {devStatus.error_message && (
-                    <div className="text-red-700">Error: {devStatus.error_message}</div>
+                    <div className="text-red-700">
+                      Error: {devStatus.error_message}
+                    </div>
                   )}
                   {devStatus.status === "none" && (
                     <div className="text-slate-600">

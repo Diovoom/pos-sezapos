@@ -37,12 +37,33 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   });
 }
 
+
+function applySearchIndexPolicy(request: Request, response: Response): Response {
+  const hostname = new URL(request.url).hostname.toLowerCase();
+  const noindexHost =
+    hostname === "dashboard.sezapos.com" ||
+    hostname === "admin.sezapos.com" ||
+    hostname === "pos.sezapos.com" ||
+    hostname.endsWith(".lovable.app");
+
+  if (!noindexHost) return response;
+
+  const headers = new Headers(response.headers);
+  headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normalized = await normalizeCatastrophicSsrResponse(response);
+      return applySearchIndexPolicy(request, normalized);
     } catch (error) {
       console.error(error);
       return new Response(renderErrorPage(), {

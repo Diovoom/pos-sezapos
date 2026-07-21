@@ -38,6 +38,7 @@ import { collectDiagnostics, formatDiagnosticsBlock } from "../support/diagnosti
 import { useBackHandler } from "../lifecycle/useBackHandler";
 import { registerBackHandler } from "../lifecycle/backButtonCoordinator";
 import { SupportErrorBoundary } from "./SupportErrorBoundary";
+import { useOnline } from "@/lib/offline/useOnline";
 
 type TicketStatus = "open" | "in_progress" | "waiting_customer" | "waiting_support" | "resolved" | "closed" | string;
 type TicketPriority = "low" | "normal" | "high" | "urgent" | string;
@@ -432,7 +433,7 @@ function CreateTicketForm({
     return off;
   }, [subject, body, onCancel]);
 
-  const online = typeof navigator.onLine === "boolean" ? navigator.onLine : true;
+  const online = useOnline();
 
   async function submit() {
     if (submitting) return;
@@ -497,10 +498,11 @@ function CreateTicketForm({
   }
 
   return (
-    <div
-      className="h-[100dvh] overflow-y-auto overscroll-contain flex flex-col"
-    >
-      <div className="max-w-2xl mx-auto w-full p-4 md:p-6 space-y-4 pb-32 flex-1">
+    <div className="h-full min-h-0 overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+        {/* Extra mobile bottom space prevents the fixed action row from
+            covering diagnostics or the final text field. */}
+        <div className="max-w-2xl mx-auto w-full p-4 md:p-6 space-y-4 pb-28 md:pb-6">
 
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onCancel} className="min-h-11">
@@ -587,12 +589,15 @@ function CreateTicketForm({
           </div>
         </CardContent>
       </Card>
+        </div>
       </div>
 
-      {/* Sticky submit bar — always accessible above Android nav / keyboard. */}
+      {/* On Android the POS navigation is fixed at the bottom of the WebView.
+          A normal/sticky footer can therefore render underneath it. Pin the
+          action row immediately above that nav on mobile; keep it in-flow on
+          desktop. Android adjustResize moves it above the keyboard. */}
       <div
-        className="sticky bottom-0 inset-x-0 border-t bg-background/95 backdrop-blur z-20"
-        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
+        className="fixed md:static left-0 right-0 bottom-14 shrink-0 border-t bg-background/95 backdrop-blur z-50"
       >
         <div className="max-w-2xl mx-auto w-full px-4 pt-3 pb-2 flex items-center gap-2">
           <Button variant="outline" onClick={onCancel} disabled={submitting} className="min-h-12">
@@ -685,7 +690,7 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
   }, [count]);
 
   const closed = ticketQ.data ? CLOSED_STATUSES.includes(ticketQ.data.status) : false;
-  const online = typeof navigator.onLine === "boolean" ? navigator.onLine : true;
+  const online = useOnline();
 
   const sendReply = useMutation({
     mutationFn: async () => {

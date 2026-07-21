@@ -7,6 +7,13 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
 
+// @lovable.dev/mcp-js currently fails to normalize TanStack route paths on
+// native Windows builds (for example F:\\pos-sezapos versus F:/pos-sezapos).
+// The MCP build plugin is only development/build tooling; it is not required
+// for the Android APK or the merchant-facing UI. Lovable's cloud builder runs
+// on Linux, so keep the plugin enabled there and skip it only on Windows.
+const enableMcpPlugin = process.platform !== "win32";
+
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
@@ -14,6 +21,6 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
-    plugins: [mcpPlugin()],
+    plugins: enableMcpPlugin ? [mcpPlugin()] : [],
   },
 });

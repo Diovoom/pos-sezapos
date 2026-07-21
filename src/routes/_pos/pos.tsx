@@ -44,7 +44,7 @@ import { useNativeActivitySignal } from "@/lib/native-activity";
 import { isNativeMode } from "@/lib/native";
 import { QuickAddProductDialog, type QuickAddedProduct } from "@/components/pos/QuickAddProductDialog";
 
-type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
+type SaleStep = "validation" | "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
   step: SaleStep;
   cause?: unknown;
@@ -103,6 +103,29 @@ type Product = {
 type Category = { id: string; name: string };
 type CartLine = { product: Product; qty: number };
 
+type SaleSnapshot = {
+  store: ReceiptData["store"];
+  cashierName: string | null;
+  items: Array<{
+    product_id: string | null;
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+    line_total: number;
+  }>;
+  receiptLines: ReceiptData["lines"];
+  subtotal: number;
+  tax: number;
+  discount: number;
+  total: number;
+  currency: string;
+};
+
+type FinalizeInput = {
+  payment: CompletedPayment;
+  snapshot: SaleSnapshot;
+};
+
 const TENDER: Array<{ id: PaymentMethod; label: string; icon: typeof Banknote }> = [
   { id: "cash", label: "Cash", icon: Banknote },
   { id: "card", label: "Card", icon: CreditCard },
@@ -129,6 +152,11 @@ export function PosPage() {
   const [payOpen, setPayOpen] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  // Immutable copy of the cart/totals captured when checkout starts. The
+  // payment dialog may outlive later cart renders (especially when opened
+  // from the mobile cart sheet), so the completed sale must never rebuild
+  // itself from potentially stale/cleared React state.
+  const [pendingSale, setPendingSale] = useState<SaleSnapshot | null>(null);
   const [ageOpen, setAgeOpen] = useState(false);
   const [ageVerification, setAgeVerification] = useState<SuccessfulVerification | null>(null);
   const [voidLine, setVoidLine] = useState<CartLine | null>(null);
@@ -165,7 +193,7 @@ export function PosPage() {
   const { data: store } = useQuery<any>({
     queryKey: ["store"],
     queryFn: async () => {
-      if (!navigator.onLine) return (await readMeta("store")) ?? null;
+      if (!isOnlineNow()) return (await readMeta("store")) ?? null;
       const { data } = await supabase.from("stores").select("*").limit(1).maybeSingle();
       if (data) await cacheMeta("store", data);
       return data;
@@ -176,7 +204,7 @@ export function PosPage() {
   const { data: profile } = useQuery<any>({
     queryKey: ["me-profile"],
     queryFn: async () => {
-      if (!navigator.onLine) return (await readMeta("profile")) ?? null;
+      if (!isOnlineNow()) return (await readMeta("profile")) ?? null;
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return null;
       const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
@@ -194,7 +222,7 @@ export function PosPage() {
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["categories"],
     queryFn: async () => {
-      if (!navigator.onLine) return (await readMeta<Category[]>("categories")) ?? [];
+      if (!isOnlineNow()) return (await readMeta<Category[]>("categories")) ?? [];
       const { data } = await supabase.from("categories").select("id,name").order("sort_order");
       const rows = data ?? [];
       await cacheMeta("categories", rows);
@@ -205,7 +233,7 @@ export function PosPage() {
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["products"],
     queryFn: async () => {
-      if (!navigator.onLine) {
+      if (!isOnlineNow()) {
         const cached = await loadCachedProducts();
         return cached as unknown as Product[];
       }
@@ -351,7 +379,14 @@ export function PosPage() {
 
   // Sale is written ONLY after payment is confirmed.
   const finalize = useMutation({
-    mutationFn: async (payment: CompletedPayment) => {
+    mutationFn: async ({ payment, snapshot }: FinalizeInput) => {
+      if (snapshot.items.length === 0 || snapshot.total <= 0 || snapshot.subtotal < 0) {
+        throw new SaleError(
+          "validation",
+          "The sale details were lost before checkout completed. Return to the cart and try again.",
+        );
+      }
+
       // ---- OFFLINE CASH PATH ---------------------------------------------
       // When offline, only cash is allowed. Save to IndexedDB, mark
       // Pending sync, and produce a local receipt. Never call the network.
@@ -392,17 +427,14 @@ export function PosPage() {
           updated_at: new Date().toISOString(),
           status: "pending",
           attempts: 0,
-          subtotal, tax, discount: discountAmount, total,
+          subtotal: snapshot.subtotal,
+          tax: snapshot.tax,
+          discount: snapshot.discount,
+          total: snapshot.total,
           amount_tendered: payment.amountTendered,
           change_due: payment.changeDue,
-          currency,
-          items: cart.map((l) => ({
-            product_id: l.product.id.startsWith("custom-") ? null : l.product.id,
-            product_name: l.product.name,
-            quantity: l.qty,
-            unit_price: l.product.price,
-            line_total: Math.round(l.product.price * l.qty * 100) / 100,
-          })),
+          currency: snapshot.currency,
+          items: snapshot.items,
         });
         return {
           sale: {
@@ -412,6 +444,7 @@ export function PosPage() {
             _offline: true,
           },
           payment,
+          snapshot,
         };
       }
 
@@ -450,10 +483,10 @@ export function PosPage() {
         .insert({
           store_id: store?.id ?? null,
           cashier_id: u.user.id,
-          subtotal,
-          tax,
-          discount: discountAmount,
-          total,
+          subtotal: snapshot.subtotal,
+          tax: snapshot.tax,
+          discount: snapshot.discount,
+          total: snapshot.total,
           payment_method: payment.method,
           amount_tendered: payment.amountTendered,
           change_due: payment.changeDue,
@@ -472,14 +505,7 @@ export function PosPage() {
       }
 
       // 4. Insert sale items — DB trigger decrements stock
-      const items = cart.map((l) => ({
-        sale_id: sale.id,
-        product_id: l.product.id.startsWith("custom-") ? null : l.product.id,
-        product_name: l.product.name,
-        quantity: l.qty,
-        unit_price: l.product.price,
-        line_total: Math.round(l.product.price * l.qty * 100) / 100,
-      }));
+      const items = snapshot.items.map((l) => ({ sale_id: sale.id, ...l }));
       const { error: itemsErr } = await supabase.from("sale_items").insert(items);
       if (itemsErr) {
         // Roll back the sale header so we don't leave an orphan
@@ -498,28 +524,23 @@ export function PosPage() {
           itemsErr,
         );
       }
-      return { sale, payment };
+      return { sale, payment, snapshot };
     },
-    onSuccess: ({ sale, payment }) => {
+    onSuccess: ({ sale, payment, snapshot }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const isOffline = (sale as any)._offline === true;
       const rd: ReceiptData = {
-        store: store ?? {},
+        store: snapshot.store,
         receiptNumber: sale.receipt_number ?? sale.id.slice(0, 8),
         transactionId: sale.id,
-        cashierName: profile?.full_name ?? profile?.email ?? null,
+        cashierName: snapshot.cashierName,
         employeeId: null,
         createdAt: sale.created_at,
-        lines: cart.map((l) => ({
-          name: l.product.name,
-          qty: l.qty,
-          unit_price: l.product.price,
-          line_total: Math.round(l.product.price * l.qty * 100) / 100,
-        })),
-        subtotal,
-        tax,
-        discount: discountAmount,
-        total,
+        lines: snapshot.receiptLines,
+        subtotal: snapshot.subtotal,
+        tax: snapshot.tax,
+        discount: snapshot.discount,
+        total: snapshot.total,
         paymentMethod: payment.method,
         amountTendered: payment.amountTendered,
         changeDue: payment.changeDue,
@@ -532,8 +553,8 @@ export function PosPage() {
       setReceiptOpen(true);
       toast.success(
         isOffline
-          ? `Offline sale saved · ${fmtCurrency(total, currency)} — will sync when online`
-          : `Sale completed · ${fmtCurrency(total, currency)}`,
+          ? `Offline sale saved · ${fmtCurrency(snapshot.total, snapshot.currency)} — will sync when online`
+          : `Sale completed · ${fmtCurrency(snapshot.total, snapshot.currency)}`,
       );
       if (loyalty) {
         if (effectiveLoyaltyRedemption > 0) {
@@ -549,17 +570,18 @@ export function PosPage() {
         void import("@/lib/audit-log")
           .then((m) => m.logAudit({
             action: "sale.create", entity: "sale", entity_id: rd.transactionId,
-            details: { total, method: payment.method, items: cart.length },
+            details: { total: snapshot.total, method: payment.method, items: snapshot.items.length },
           }))
           .catch((err) => console.warn("[sale] audit log failed (non-fatal):", err));
       }
       clearCart();
+      setPendingSale(null);
       setPayOpen(false);
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       // If we came back online in the meantime, drain the queue.
-      if (navigator.onLine) void syncNow();
+      if (isOnlineNow()) void syncNow();
     },
     onError: (e) => {
       // Always log the real error for developers
@@ -600,6 +622,35 @@ export function PosPage() {
       setAgeOpen(true);
       return;
     }
+
+    const items = cart.map((l) => ({
+      product_id: l.product.id.startsWith("custom-") ? null : l.product.id,
+      product_name: l.product.name,
+      quantity: l.qty,
+      unit_price: l.product.price,
+      line_total: Math.round(l.product.price * l.qty * 100) / 100,
+    }));
+    const snapshot: SaleSnapshot = {
+      store: (store ?? {}) as ReceiptData["store"],
+      cashierName: profile?.full_name ?? profile?.email ?? null,
+      items,
+      receiptLines: items.map((l) => ({
+        name: l.product_name,
+        qty: l.quantity,
+        unit_price: l.unit_price,
+        line_total: l.line_total,
+      })),
+      subtotal,
+      tax,
+      discount: discountAmount,
+      total,
+      currency,
+    };
+    if (snapshot.items.length === 0 || snapshot.total <= 0) {
+      toast.error("Sale total is invalid. Return to the cart and try again.");
+      return;
+    }
+    setPendingSale(snapshot);
     setPayOpen(true);
   };
 
@@ -917,11 +968,20 @@ export function PosPage() {
 
       <PaymentDialog
         open={payOpen}
-        onOpenChange={setPayOpen}
+        onOpenChange={(open) => {
+          setPayOpen(open);
+          if (!open && !finalize.isPending) setPendingSale(null);
+        }}
         method={tender}
-        total={total}
-        currency={currency}
-        onComplete={(p) => finalize.mutate(p)}
+        total={pendingSale?.total ?? total}
+        currency={pendingSale?.currency ?? currency}
+        onComplete={(payment) => {
+          if (!pendingSale) {
+            toast.error("Checkout session expired. Return to the cart and try again.");
+            return;
+          }
+          finalize.mutate({ payment, snapshot: pendingSale });
+        }}
         // Owners/managers/admins already possess payment-cancel authority.
         // Requiring a second manager PIN to back out of tender selection
         // is friction, not security — no payment has committed yet.
