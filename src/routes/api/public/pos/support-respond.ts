@@ -132,6 +132,7 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
               reason: sess.reason,
               note,
               channel: "native_shell",
+              client_capability: capability ?? "android_diagnostics_only",
             },
           });
         } catch { /* ignore */ }
