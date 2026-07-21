@@ -22,6 +22,7 @@ import { DiscountDialog, type DiscountValue } from "@/components/pos/DiscountDia
 import { LoyaltyDialog, accrueLoyaltyPoints, spendLoyaltyPoints, type LoyaltyCustomer } from "@/components/pos/LoyaltyDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
 import { useMe } from "@/hooks/useMe";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { logAudit } from "@/lib/audit-log";
@@ -133,7 +134,15 @@ export function PosPage() {
   const ageSettings = useMemo(() => loadAgeSettings(), []);
   const searchRef = useRef<HTMLInputElement>(null);
   const me = useMe();
-  const canManage = (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager");
+  const perms = usePermissions();
+  // Owner/admin/manager remain super-users via usePermissions().isSuper.
+  // Others need the explicit `payment.cancel` grant. Fallback to role labels
+  // ONLY while permissions are still loading so first-render doesn't gate
+  // legitimate managers.
+  const canCancelTender = perms.has("payment.cancel")
+    || (perms.loading && (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager"));
+  const canManage = perms.has("employees.manage") || perms.isSuper
+    || (perms.loading && (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager"));
   const isMobile = useIsMobile();
   const online = useOnline();
   const [cartOpen, setCartOpen] = useState(false);
@@ -903,7 +912,7 @@ export function PosPage() {
         // Owners/managers/admins already possess payment-cancel authority.
         // Requiring a second manager PIN to back out of tender selection
         // is friction, not security — no payment has committed yet.
-        bypassCancelApproval={canManage}
+        bypassCancelApproval={canCancelTender}
       />
 
 

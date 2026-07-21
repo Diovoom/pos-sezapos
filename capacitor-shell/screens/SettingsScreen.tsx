@@ -245,31 +245,27 @@ function CashDrawerPanel() {
 }
 
 function ScannerPanel() {
-  const [pref, setPref] = useLocalString(LS.scannerPref, "camera");
   const [beep, setBeep] = useLocalBool(LS.scannerBeep, true);
   return (
     <Card>
       <CardHeader><CardTitle className="flex items-center gap-2"><Scan className="h-4 w-4" />Barcode Scanner</CardTitle>
-        <CardDescription>Prefer the phone camera (ML Kit) or a paired keyboard-emulation scanner.</CardDescription></CardHeader>
+        <CardDescription>Configure your USB or Bluetooth keyboard-wedge scanner. The Android POS does not use the phone camera.</CardDescription></CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>Preferred scanner</Label>
-          <Select value={pref} onValueChange={setPref}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="camera">Camera (ML Kit)</SelectItem>
-              <SelectItem value="hid">Keyboard-emulation / HID</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
         <div className="flex items-center justify-between">
           <div><Label>Beep on scan</Label><p className="text-sm text-muted-foreground">Play a short tone when a barcode is recognized.</p></div>
           <Switch checked={beep} onCheckedChange={setBeep} />
         </div>
+        <Button variant="outline" onClick={() => { window.location.hash = ""; window.history.pushState({}, "", "/settings/scanner"); window.dispatchEvent(new PopStateEvent("popstate")); }}>
+          Open Scanner Setup & Test
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Configure debounce, suffix keys, and length limits, and verify scans against your product catalog.
+        </p>
       </CardContent>
     </Card>
   );
 }
+
 
 function TerminalPanel() {
   const [activeId, setActiveId] = useState<TerminalDriverId>(() => getActiveTerminal().id);
