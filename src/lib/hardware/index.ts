@@ -64,12 +64,42 @@ const escposBleDriver: PrinterDriver = {
     const bytes = buildReceipt(payload);
     await escposBle.write(bytes);
   },
-  async kickDrawer() {
-    await escposBle.write(escposBuilder.kickDrawer());
+  async kickDrawer(pulseMs?: number) {
+    await escposBle.write(escposBuilder.kickDrawer(pulseMs));
   },
 };
 
 const starDriver: PrinterDriver = {
+  id: "star",
+  label: "Star Micronics (StarPRNT)",
+  async capable() { return false; }, // enable once Star SDK plugin is linked
+  async isReady() { return false; },
+  async printReceipt() {
+    throw new Error(
+      "Star driver selected but the StarPRNT SDK is not linked in this build. " +
+      "Ask your admin to install the Star SDK plugin.",
+    );
+  },
+  async kickDrawer(_pulseMs?: number) {
+    throw new Error("StarPRNT SDK not linked in this build.");
+  },
+};
+
+const epsonDriver: PrinterDriver = {
+  id: "epson",
+  label: "Epson TM (ePOS)",
+  async capable() { return false; }, // enable once Epson SDK plugin is linked
+  async isReady() { return false; },
+  async printReceipt() {
+    throw new Error(
+      "Epson driver selected but the ePOS SDK is not linked in this build. " +
+      "Ask your admin to install the Epson SDK plugin.",
+    );
+  },
+  async kickDrawer(_pulseMs?: number) {
+    throw new Error("Epson ePOS SDK not linked in this build.");
+  },
+};
   id: "star",
   label: "Star Micronics (StarPRNT)",
   async capable() { return false; }, // enable once Star SDK plugin is linked
