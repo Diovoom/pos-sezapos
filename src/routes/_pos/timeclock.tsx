@@ -375,14 +375,14 @@ export function TimeclockPage() {
               void logAudit({
                 action: "clock_out",
                 entity: "time_entry",
-                entity_id: open?.id ?? null,
+                entity_id: open?.id,
                 details: { channel: "native_shell", stage: "clock_out_completed", shift_id: openShift.id },
               });
             } catch (e) {
               void logAudit({
                 action: "system.error",
                 entity: "time_entry",
-                entity_id: open?.id ?? null,
+                entity_id: open?.id,
                 details: {
                   stage: "clock_out_failed_after_close",
                   shift_id: openShift.id,
