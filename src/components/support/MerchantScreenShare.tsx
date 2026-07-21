@@ -38,7 +38,7 @@ export function MerchantScreenShare({ channelToken, stream, onEnded }: Props) {
       track.addEventListener("ended", () => end("merchant_stopped_sharing"));
     }
 
-    const signaling = openSignalingChannel(supabase, sessionId, (msg) => {
+    const signaling = openSignalingChannel(supabase, channelToken, (msg) => {
       if (disposed) return;
       handleSignal(msg).catch((e) => console.error("[merchant-rtc]", e));
     });
@@ -139,7 +139,7 @@ export function MerchantScreenShare({ channelToken, stream, onEnded }: Props) {
       if (e) e("merchant_unmounted");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+  }, [channelToken]);
 
   // Tiny live self-view so the merchant can confirm what's being shared.
   const videoRef = useRef<HTMLVideoElement | null>(null);
