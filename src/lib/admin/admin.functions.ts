@@ -1413,9 +1413,11 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await ensureSuperAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+    const { data } = await admin
       .from("admin_support_sessions")
-      .select("id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at, decided_by, client_capability, client_metadata" as any)
+      .select("id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at, decided_by, client_capability, client_metadata")
       .eq("admin_id", context.userId)
       .in("status", ["pending", "active"])
       .gt("expires_at", new Date().toISOString())
