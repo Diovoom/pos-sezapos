@@ -21,9 +21,19 @@ export type NativeActivityFlags = {
   paymentBusy: boolean;
 };
 
+// Latest broadcast flags — consumed by anything that needs to check
+// "is a payment in flight right now?" without listening to the event
+// stream (e.g. the Clock Out gate on the Time Clock screen).
+let _lastFlags: NativeActivityFlags = { hasCart: false, paymentBusy: false };
+
 export function emitNativeActivity(flags: NativeActivityFlags) {
+  _lastFlags = flags;
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(NATIVE_ACTIVITY_EVENT, { detail: flags }));
+}
+
+export function getNativeActivityFlags(): Readonly<NativeActivityFlags> {
+  return _lastFlags;
 }
 
 /**
