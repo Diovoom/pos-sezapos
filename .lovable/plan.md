@@ -1,60 +1,79 @@
-P3 is a very large scope (20 sections spanning permissions, scanner, printer, drawer, terminal, email, shift print/PDF, diagnostics). Rather than silently truncate, here is the delivery plan I will execute in this turn, scoped strictly to the Android APK / Capacitor shell, preserving all P1/P2 work.
+# Phase 1 — Admin Foundation
 
-## Scope discipline
-- APK-only changes: `capacitor-shell/**`, native-only stubs, and `src/lib/hardware/**`, `src/lib/offline/**` where the shell already reuses them.
-- Shared code (web POS, dashboard, admin) touched **only** for the P3.1 permission fix (`payment.cancel`) — behavior-neutral for the web (permission maps to same owner/manager set).
-- No new tables. No schema migrations. No new backend services. Email + shift-summary print use existing endpoints and existing driver layer.
+Much of Phase 1 already exists in the codebase (admin auth route, isolated admin Supabase client, `_adminApp` protected layout, global search, overview, audit log page, ~1600-line `admin.functions.ts`). This plan closes the specific Phase 1 gaps without duplicating what's already shipped.
 
-## Sections & files
+## What already exists (keep as-is)
+- `admin.sezapos.com` gating in `src/routes/__root.tsx` and `/admin/auth` sign-in
+- Isolated admin session (`sb-seza-admin-auth`) via `admin-client.ts` + `auth-attacher-dual.ts`
+- `_adminApp` `beforeLoad` gate requiring a platform role
+- Global search server fn + header UI, overview stats, audit log viewer
+- `audit_log` table + `logAudit()` helper
+- Platform role enum (`super_admin`, `operations_admin`, `support_admin`, `billing_admin`, `analyst`) and DB triggers preventing platform/merchant role mixing and protecting `super_admin` role writes
 
-### 1. Permission-driven tender cancel (§1)
-- `src/hooks/usePermissions.ts`: add `payment.cancel` derived permission (true for owner/admin/manager + anyone holding the DB `payment.cancel` grant). Web behavior unchanged (same set was already bypass in previous branches on web = none; on APK previously role-label).
-- `src/routes/_pos/pos.tsx`: compute `bypassCancelApproval = perms.has('payment.cancel')` instead of role-label check.
+## Gaps to close in Phase 1
 
-### 2–5. Scanner settings, test screen, quick-add (§2–5)
-- `capacitor-shell/screens/settings/ScannerSettingsScreen.tsx` — new: enable/type/suffix/debounce/min-max/sound/vibrate/allow-in-register/allow-in-search; persisted to `localStorage` under device-scoped key `seza.device.scanner.v1`.
-- `capacitor-shell/screens/settings/TestScannerScreen.tsx` — new: keyboard-wedge listener with debounce + suffix handling; uses existing product lookup via Supabase (`products` table by barcode) scoped by store; never mutates cart.
-- `capacitor-shell/screens/settings/QuickAddProductDialog.tsx` — new: gated by `products.manage`/existing product-create permission; uses existing insert path.
-- `capacitor-shell/lib/scannerConfig.ts` — new: typed getters/setters and duplicate-scan guard.
+### 1. Extend platform-staff roles to the full 7 roles
+Add two roles to the `app_role` enum and to `PLATFORM_ROLES`:
+- `technical_support`, `merchant_support`, `compliance_support` (rename existing `support_admin` → keep as `merchant_support`? — additive only: add the 3 new roles; keep existing values so nothing breaks). Update `is_platform_staff()` accordingly.
 
-### 6–8. Printer configuration (§6–8)
-- `capacitor-shell/screens/settings/PrinterSettingsScreen.tsx` — full config UI: active driver, paper width (58/80), auto-print, copies, logo, kick-drawer-via-printer, last success/error timestamps. Reuses `src/lib/hardware/index.ts` drivers; only exposes drivers whose `capable()` returns true.
-- Persist under `seza.device.printer.v1`.
-- Test Print uses existing `buildReceipt` sample payload.
+### 2. Granular admin permissions
+- New table `public.admin_permissions (role app_role, permission text, primary key(role, permission))` — separate from merchant `role_permissions` (which is store-scoped). Seed with the permission list from the spec, mapped per platform role.
+- SECURITY DEFINER function `public.has_admin_permission(_user uuid, _perm text) returns boolean` — `super_admin` always true; otherwise EXISTS join on `admin_permissions`.
+- Client hook `useAdminPermissions()` (reads via server fn, cached) — used to hide UI. Server enforcement is authoritative.
 
-### 9. Cash drawer (§9)
-- `capacitor-shell/screens/settings/CashDrawerSettingsScreen.tsx` — enable, linked printer status, open-after-cash-sale/refund/paidout/safedrop, test open (requires configured printer). Uses `getActivePrinter().kickDrawer()`.
+### 3. Safe-action framework (server-side)
+New helper `src/lib/admin/safe-action.ts` (server-only) exporting `runSafeAction({ ctx, permission, danger, target, reason, before, apply })`:
+- Verifies caller is platform staff via `context.supabase` (RLS), then checks `has_admin_permission`
+- For `dangerous` actions, requires non-empty `reason` and `confirm === true`
+- Runs `apply()`, captures `after` state
+- Writes an `audit_log` row with `{ action, entity, entity_id, details: { danger, reason, before, after, correlation_id } }`
+- Returns `{ ok, result, correlation_id }`; on failure logs a `system.error` audit row and rethrows a redacted error
+All future admin server fns (Phase 2+) will use this wrapper. Phase 1 wires it into two existing sensitive actions (`adminEndSupportSession`, admin sign-out) as proof.
 
-### 10. Payment terminal (§10)
-- `capacitor-shell/screens/settings/TerminalSettingsScreen.tsx` — choose driver, compatibility check (NFC/native), backend readiness check via existing `/api/public/pos/stripe-terminal/connection-token` HEAD/GET; real discover/connect via existing `terminal-stripe.ts`; no fake success.
+### 4. Admin login hardening
+- Rate-limit table `public.admin_login_attempts (email citext, ip text, attempted_at timestamptz, success boolean)` with an index on `(email, attempted_at)`.
+- Server fn `recordAdminLoginAttempt({ email, success })` called from `admin.auth.tsx` after sign-in. Blocks (returns `rate_limited`) when > 5 failures in 15 min for the same email.
+- Extend `admin.auth.tsx` to call the fn on both success/failure paths; keep the generic error message.
+- Add "Active sessions" section under existing `/admin/settings` (already scaffolded) using `supabase.auth.getSession()` info + `signOut({ scope: 'others' })` to revoke other sessions.
 
-### 11. Hardware status (§11)
-- Extend existing `SettingsScreen.tsx` hardware panel with fields listed; wire "Open each configuration screen" links.
+### 5. Permission-aware nav
+Update `NAV` in `_adminApp/route.tsx` to filter items by `has_admin_permission` (e.g. hide Subscriptions from technical_support). Add the missing nav items the spec calls out but that don't have pages yet as **placeholder routes returning a "Coming in Phase X" empty state** so links don't 404:
+- Stores, Employees, Sales Operations, Offline Sync, Payments, Incidents, Communications, Admin Team, Platform Health
+Each placeholder is ~20 lines and gated on the appropriate permission.
 
-### 12. Email receipts (§12)
-- `capacitor-shell/lib/emailReceipt.ts` — new: posts to existing `/lovable/email/transactional/send` with template `receipt` (already registered). Requires online + finalized sale id + receipt number. Blocked for offline/unsynced sales.
-- `src/components/pos/ReceiptDialog.tsx` — APK: add email field (native-only branch) + Send button with success/error/duplicate-guard states. Web behavior unchanged.
+## Files
 
-### 13. Shift summary print (§13)
-- `capacitor-shell/lib/shiftSummaryReceipt.ts` — new: builds ESC/POS bytes for 58/80mm from existing shift-summary data (`src/lib/shift-summary.ts`).
-- Wire "Print" in existing `ShiftSummaryReport.tsx` behind `isNativeMode()` to call this; web still uses browser print.
+**Migrations (single migration)**
+- `supabase/migrations/<ts>_phase1_admin_foundation.sql`:
+  - `ALTER TYPE app_role ADD VALUE` for the 3 new platform roles
+  - `CREATE TABLE public.admin_permissions` + GRANTs + RLS + policies (`SELECT` for authenticated platform staff, admin writes via service role only)
+  - Seed rows for each platform role
+  - `CREATE FUNCTION public.has_admin_permission`
+  - `CREATE TABLE public.admin_login_attempts` + GRANTs + RLS (insert allowed to authenticated; select restricted to super_admin)
+  - Update `public.is_platform_staff` to include the 3 new roles
 
-### 14. Shift summary PDF (§14)
-- `capacitor-shell/lib/shiftSummaryPdf.ts` — new: uses `jspdf` (add dep) to produce real PDF bytes; Capacitor Filesystem + Share for Save/Share; safe filename.
-- Wire "PDF" button in `ShiftSummaryReport.tsx` behind `isNativeMode()`.
+**New files**
+- `src/lib/admin/safe-action.ts` — safe-action wrapper (server-only)
+- `src/lib/admin/permissions.ts` — permission key constants + `useAdminPermissions()` hook
+- `src/lib/admin/login-attempts.functions.ts` — `recordAdminLoginAttempt` server fn
+- `src/routes/_adminApp/admin.stores.tsx`, `admin.employees.tsx`, `admin.sales.tsx`, `admin.offline-sync.tsx`, `admin.payments.tsx`, `admin.incidents.tsx`, `admin.communications.tsx`, `admin.team.tsx`, `admin.platform-health.tsx` — placeholder pages
 
-### 15–19. Permissions/device-scope/support diagnostics/lifecycle/safe errors
-- Reuse existing `usePermissions`, existing `activityState`/back-button coordinator, existing diagnostics module (`capacitor-shell/support/diagnostics.ts`) — extend with hardware snapshot fields already partially present; scrub any secrets.
-- All error strings from the spec's safe-error list.
+**Changed**
+- `src/lib/platform-roles.ts` — add 3 roles
+- `src/routes/admin.auth.tsx` — call rate-limit fn; audit on success + failure
+- `src/routes/_adminApp/route.tsx` — filter NAV by permission
+- `src/routes/_adminApp/admin.settings.tsx` — add "My account / Active sessions" section
+- `src/lib/admin/admin.functions.ts` — wire `runSafeAction` into `adminEndSupportSession`
 
-### 20. Validation
-- Run `bun run build` (SSR) + `bunx vite build --config vite.capacitor.config.ts` (APK bundle) + `bunx tsgo --noEmit` on changed files.
-- No physical device testing (not available in sandbox); will state so in the report.
+## Out of scope for Phase 1 (comes later)
+- Real Businesses / Support / Devices workspace rebuilds (Phase 2–3)
+- Ticket workspace, saved replies, KB (Phase 3)
+- Real content on the new placeholder pages (Phase 4–5)
+- MFA UI, notification preferences
 
-### Explicitly deferred (spec allows, out of P3-in-one-turn realism)
-- Advanced multi-printer per-register selection UI beyond one active printer.
-- Real BBPOS reader discovery beyond the existing `terminal-stripe.ts` — will surface whatever that module supports; not writing a new SDK integration.
-- Auth for `has_permission('payment.cancel')` DB check — will use client `usePermissions` which already reads role_permissions; no new server-side RPC.
+## Validation
+- `bunx tsgo` typecheck
+- `bun run build` web build
+- Manual: sign in as merchant → `/admin` redirects to `/admin/auth`; sign in as platform staff → nav filtered by role; trigger 6 failed logins → 6th blocked with generic message; end a Support View → audit row has `before/after/reason/correlation_id`.
 
-## Confirmation
-This is still the largest single P-turn so far. Confirm and I execute. If you want to trim (e.g. skip PDF or terminal setup), say which.
+Stop after Phase 1 for review.
