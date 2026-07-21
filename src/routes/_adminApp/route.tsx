@@ -335,7 +335,7 @@ function AdminLayout() {
               businessName={activeSession.store?.name}
               storeCode={activeSession.store?.store_code}
               employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
-              metadata={(activeSession.client_metadata as Record<string, unknown> | null) ?? null}
+              metadata={activeSessionMetadata}
               onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
             />
           ) : (
