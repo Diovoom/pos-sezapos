@@ -57,22 +57,13 @@ export const Route = createFileRoute("/api/public/pos/verify-employee-pin")({
           if (!verifyPin(pin, p.pin_hash)) return json({ error: "Incorrect PIN" }, 401);
           match = { id: p.id, email: p.email };
         } else {
-          const { data: profiles } = await admin
-            .from("profiles")
-            .select("id, email, pin_hash, status")
-            .eq("status", "active")
-            .not("pin_hash", "is", null);
-          const list = (profiles ?? []) as Array<{ id: string; email: string; pin_hash: string }>;
-          const matches = list.filter((p) => p.pin_hash && verifyPin(pin, p.pin_hash));
-          if (matches.length === 0) return json({ error: "Incorrect PIN" }, 401);
-          if (matches.length > 1) {
-            return json({
-              error: "MULTIPLE_MATCHES",
-              message: "This PIN is used by more than one employee. Please also enter your 6-digit Employee ID.",
-            }, 409);
-          }
-          if (!matches[0].email) return json({ error: "Employee has no email on file" }, 400);
-          match = { id: matches[0].id, email: matches[0].email };
+          // PIN-only sign-in is disabled: matching a PIN across every store on
+          // the platform allowed cross-tenant collisions. Always require the
+          // globally-unique 6-digit Employee ID.
+          return json({
+            error: "MULTIPLE_MATCHES",
+            message: "Please also enter your 6-digit Employee ID to sign in.",
+          }, 409);
         }
 
         const { data: link, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({

@@ -4,7 +4,7 @@ import { RTC_CONFIG, openSignalingChannel, type SignalPayload } from "@/lib/supp
 import { toast } from "sonner";
 
 type Props = {
-  sessionId: string;
+  channelToken: string;
   stream: MediaStream;
   onEnded: (reason: string) => void;
 };
@@ -19,7 +19,7 @@ type Props = {
  * admin — the admin's peer connection has no DataChannel and receives only
  * media tracks.
  */
-export function MerchantScreenShare({ sessionId, stream, onEnded }: Props) {
+export function MerchantScreenShare({ channelToken, stream, onEnded }: Props) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const endedRef = useRef(false);
 
@@ -38,7 +38,7 @@ export function MerchantScreenShare({ sessionId, stream, onEnded }: Props) {
       track.addEventListener("ended", () => end("merchant_stopped_sharing"));
     }
 
-    const signaling = openSignalingChannel(supabase, sessionId, (msg) => {
+    const signaling = openSignalingChannel(supabase, channelToken, (msg) => {
       if (disposed) return;
       handleSignal(msg).catch((e) => console.error("[merchant-rtc]", e));
     });
@@ -139,7 +139,7 @@ export function MerchantScreenShare({ sessionId, stream, onEnded }: Props) {
       if (e) e("merchant_unmounted");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+  }, [channelToken]);
 
   // Tiny live self-view so the merchant can confirm what's being shared.
   const videoRef = useRef<HTMLVideoElement | null>(null);

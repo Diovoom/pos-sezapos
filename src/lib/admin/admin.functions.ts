@@ -1609,7 +1609,7 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
     const admin: any = supabaseAdmin;
     const { data } = await admin
       .from("admin_support_sessions")
-      .select("id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at, decided_by, client_capability, client_metadata")
+      .select("id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at, decided_by, client_capability, client_metadata, channel_token")
       .eq("admin_id", context.userId)
       .in("status", ["pending", "active"])
       .gt("expires_at", new Date().toISOString())
@@ -1633,6 +1633,7 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
       started_at: (data.started_at as string | null) ?? null,
       expires_at: data.expires_at as string,
       client_capability: (data.client_capability as string | null) ?? null,
+      channel_token: data.channel_token as string,
       // Serialize metadata as a JSON string to satisfy strict server-fn
       // serializer; consumers parse it back.
       client_metadata_json: data.client_metadata ? JSON.stringify(data.client_metadata) : null,

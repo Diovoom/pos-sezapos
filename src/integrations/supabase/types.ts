@@ -63,6 +63,7 @@ export type Database = {
         Row: {
           admin_email: string | null
           admin_id: string
+          channel_token: string
           client_capability: string | null
           client_metadata: Json | null
           decided_at: string | null
@@ -80,6 +81,7 @@ export type Database = {
         Insert: {
           admin_email?: string | null
           admin_id: string
+          channel_token?: string
           client_capability?: string | null
           client_metadata?: Json | null
           decided_at?: string | null
@@ -97,6 +99,7 @@ export type Database = {
         Update: {
           admin_email?: string | null
           admin_id?: string
+          channel_token?: string
           client_capability?: string | null
           client_metadata?: Json | null
           decided_at?: string | null

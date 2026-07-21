@@ -28,8 +28,13 @@ export type SignalPayload =
   | { kind: "answer"; from: SignalRole; sdp: RTCSessionDescriptionInit }
   | { kind: "ice"; from: SignalRole; candidate: RTCIceCandidateInit };
 
-export function supportChannelName(sessionId: string): string {
-  return `support-rtc-${sessionId}`;
+// The channel name is derived from an unguessable per-session token
+// (admin_support_sessions.channel_token) — NOT the session UUID — so that
+// only participants who can read the session row (assigned admin + target
+// store's employees, per RLS) can compute the topic and join the signaling
+// channel.
+export function supportChannelName(channelToken: string): string {
+  return `support-rtc-${channelToken}`;
 }
 
 /**
@@ -39,10 +44,10 @@ export function supportChannelName(sessionId: string): string {
  */
 export function openSignalingChannel(
   client: SupabaseClient,
-  sessionId: string,
+  channelToken: string,
   onMessage: (msg: SignalPayload) => void,
 ): { channel: RealtimeChannel; send: (msg: SignalPayload) => Promise<void>; close: () => void } {
-  const channel = client.channel(supportChannelName(sessionId), {
+  const channel = client.channel(supportChannelName(channelToken), {
     config: { broadcast: { self: false, ack: false } },
   });
 
