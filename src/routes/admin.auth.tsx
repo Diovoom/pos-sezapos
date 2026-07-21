@@ -42,6 +42,7 @@ function AdminAuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
+  const recordAttempt = useServerFn(recordAdminLoginAttempt);
 
   useEffect(() => {
     (async () => {
