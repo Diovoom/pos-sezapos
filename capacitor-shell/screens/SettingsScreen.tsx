@@ -6,8 +6,9 @@
 //
 // Store profile, taxes, billing, subscriptions, integrations, and
 // analytics remain in the web dashboard (owner surface).
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Receipt, Printer, DollarSign, Scan, CreditCard, Monitor, ShoppingCart,
   Clock, KeyRound, User, LogOut, Loader2, Bluetooth, CheckCircle2, AlertTriangle,
-  Activity,
+  Activity, Wifi, Radio, LifeBuoy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../supabase";
@@ -29,10 +30,13 @@ import {
   suggestPreferredTerminal, type PrinterDriverId, type TerminalDriverId,
 } from "@/lib/hardware";
 import * as escposBle from "@/lib/hardware/escpos-ble";
-import { buildReceipt } from "@/lib/hardware/escpos";
+import * as stripeTerminal from "@/lib/hardware/terminal-stripe";
 import {
   testPrint as runTestPrint, testDrawer as runTestDrawer, hardwareSnapshot,
 } from "@/lib/hardware/native-receipt";
+import { loadScannerConfig } from "../lib/scannerConfig";
+import { collectSupportDiagnostics } from "../support/diagnostics";
+import { logAudit } from "@/lib/audit-log";
 
 
 /* ------------------------------ device settings --------------------------- */
@@ -43,12 +47,18 @@ const LS = {
   autoPrint: "pos.receipt.autoPrint",
   copies: "pos.receipt.copies",
   kickOnCash: "pos.drawer.kickOnCash",
+  kickOnRefund: "pos.drawer.kickOnRefund",
+  drawerPulseMs: "pos.drawer.pulseMs",
+  drawerEnabled: "pos.drawer.enabled",
   scannerPref: "pos.scanner.preferred", // "camera" | "hid"
   scannerBeep: "pos.scanner.beep",
   startFloat: "pos.register.startFloat",
   shiftAutoCloseHours: "pos.shift.autoCloseHours",
   safeDropThreshold: "pos.shift.safeDropThreshold",
   installId: "pos.device.installId",
+  terminalConnected: "pos.terminal.connectedAt",
+  terminalDisconnected: "pos.terminal.disconnectedAt",
+  terminalLastError: "pos.terminal.lastError",
 } as const;
 
 function useLocalString(key: string, def: string) {
@@ -77,6 +87,7 @@ function ensureInstallId(): string {
   }
   return id;
 }
+
 
 /* ------------------------------- sub-panels ------------------------------- */
 
