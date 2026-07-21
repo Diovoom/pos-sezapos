@@ -31,7 +31,7 @@ export interface PrinterDriver {
   capable(): Promise<boolean>;
   isReady(): Promise<boolean>;
   printReceipt(payload: ReceiptPayload): Promise<void>;
-  kickDrawer(): Promise<void>;
+  kickDrawer(pulseMs?: number): Promise<void>;
 }
 
 export interface TerminalDriver {
@@ -64,8 +64,8 @@ const escposBleDriver: PrinterDriver = {
     const bytes = buildReceipt(payload);
     await escposBle.write(bytes);
   },
-  async kickDrawer() {
-    await escposBle.write(escposBuilder.kickDrawer());
+  async kickDrawer(pulseMs?: number) {
+    await escposBle.write(escposBuilder.kickDrawer(pulseMs));
   },
 };
 
@@ -80,7 +80,7 @@ const starDriver: PrinterDriver = {
       "Ask your admin to install the Star SDK plugin.",
     );
   },
-  async kickDrawer() {
+  async kickDrawer(_pulseMs?: number) {
     throw new Error("StarPRNT SDK not linked in this build.");
   },
 };
@@ -96,7 +96,7 @@ const epsonDriver: PrinterDriver = {
       "Ask your admin to install the Epson SDK plugin.",
     );
   },
-  async kickDrawer() {
+  async kickDrawer(_pulseMs?: number) {
     throw new Error("Epson ePOS SDK not linked in this build.");
   },
 };

@@ -39,23 +39,24 @@ function NativePrintButton({ d }: { d: ShiftSummary }) {
 
 // Native-only real PDF via jsPDF + Filesystem/Share; web falls back to browser print (which offers Save as PDF).
 function NativePdfButton({ d }: { d: ShiftSummary }) {
-  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<"idle" | "generating">("idle");
   const onClick = async () => {
     if (!isNativeMode()) { window.print(); return; }
-    setBusy(true);
+    setState("generating");
     try {
       const { saveAndSharePdf } = await import("../../../capacitor-shell/lib/shiftSummaryPdf");
       const r = await saveAndSharePdf(d);
-      if (r.ok) toast.success("Shift summary PDF ready");
-      else toast.error(r.error);
-    } catch {
-      toast.error("PDF could not be generated. Try again.");
-    } finally { setBusy(false); }
+      if (r.ok) toast.success("PDF ready — saved to Documents and shared");
+      else toast.error(`PDF failed: ${r.error}`);
+    } catch (e) {
+      toast.error(`PDF failed: ${e instanceof Error ? e.message : "unknown error"}`);
+    } finally { setState("idle"); }
   };
+  const busy = state === "generating";
   return (
     <Button variant="outline" onClick={onClick} disabled={busy}>
       {busy ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
-      PDF
+      {busy ? "Generating…" : "Save PDF"}
     </Button>
   );
 }
