@@ -14,7 +14,20 @@ type Stage = "pin" | "id_then_pin";
 
 export function AuthScreen() {
   const navigate = useNavigate();
-  const pairing = useMemo(() => getPairing(), []);
+  // Read pairing on every mount (not memoized at module load) so that a
+  // freshly paired device immediately renders the PIN-only flow when the
+  // /pair screen navigates back to /auth.
+  const [pairing, setPairing] = useState(() => getPairing());
+  useEffect(() => {
+    // Re-check when the tab regains focus (e.g. returning from OS prompts).
+    const refresh = () => setPairing(getPairing());
+    window.addEventListener("focus", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
   const [stage, setStage] = useState<Stage>("pin");
   const [empId, setEmpId] = useState("");
   const [pin, setPin] = useState("");

@@ -498,10 +498,9 @@ function CreateTicketForm({
 
   return (
     <div
-      className="h-[100dvh] overflow-y-auto overscroll-contain"
-      style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
+      className="h-[100dvh] overflow-y-auto overscroll-contain flex flex-col"
     >
-    <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-4 pb-32">
+      <div className="max-w-2xl mx-auto w-full p-4 md:p-6 space-y-4 pb-32 flex-1">
 
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onCancel} className="min-h-11">
@@ -586,17 +585,29 @@ function CreateTicketForm({
               </p>
             </div>
           </div>
-
-          <div className="flex items-center gap-2 pt-1">
-            <Button onClick={submit} disabled={submitting || !subject.trim() || !body.trim() || !online} className="min-h-11 flex-1">
-              {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-4" />}
-              Submit ticket
-            </Button>
-            <Button variant="outline" onClick={onCancel} disabled={submitting} className="min-h-11">Cancel</Button>
-          </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+
+      {/* Sticky submit bar — always accessible above Android nav / keyboard. */}
+      <div
+        className="sticky bottom-0 inset-x-0 border-t bg-background/95 backdrop-blur z-20"
+        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
+      >
+        <div className="max-w-2xl mx-auto w-full px-4 pt-3 pb-2 flex items-center gap-2">
+          <Button variant="outline" onClick={onCancel} disabled={submitting} className="min-h-12">
+            Cancel
+          </Button>
+          <Button
+            onClick={submit}
+            disabled={submitting || !subject.trim() || !body.trim() || !online}
+            className="min-h-12 flex-1 text-base font-semibold"
+          >
+            {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-4" />}
+            {submitting ? "Sending…" : "Send Support Request"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
