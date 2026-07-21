@@ -80,6 +80,11 @@ export function CloseShiftDialog({
   const [confirm, setConfirm] = useState(false);
   const [approver, setApprover] = useState<ManagerOverrideResult | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
+  // Post-close hook failure (e.g. clock-out mutation threw AFTER register
+  // shift already closed). Blocks sign-out, keeps summary visible, offers
+  // retry. Do NOT re-run the shift-close mutation from this state.
+  const [postCloseFailed, setPostCloseFailed] = useState<null | { message: string; correlationId: string }>(null);
+  const [retrying, setRetrying] = useState(false);
 
   const threshold = Number(store?.variance_alert_threshold ?? 5);
   const startingFloat = Number(store?.starting_cash_float ?? 100);
