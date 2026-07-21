@@ -93,8 +93,8 @@ function ShiftsList() {
     queryFn: async () => {
       let q = sb.from("time_entries")
         .select("*, profiles:user_id(full_name, first_name, last_name, employee_id, email)")
-        .gte("clock_in", `${dateFrom}T00:00:00Z`)
-        .lte("clock_in", `${dateTo}T23:59:59Z`)
+        .gte("clock_in", fromIso)
+        .lt("clock_in", toIso)
         .order("clock_in", { ascending: false })
         .limit(500);
       if (!canSeeAll) q = q.eq("user_id", myId);
