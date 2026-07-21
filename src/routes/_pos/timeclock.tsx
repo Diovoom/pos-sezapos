@@ -206,20 +206,12 @@ export function TimeclockPage() {
     if (isNativeShell) {
       // Never clock out while a payment / shift-close mutation is running.
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const activityMod: any = await import("@/lib/native-activity").catch(() => null);
-        void activityMod; // presence only — the flag lives on window events.
-      } catch { /* optional */ }
-      try {
-        const paymentBusy =
-          typeof window !== "undefined" &&
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          !!(window as any).__seza_native_activity_payment_busy;
-        if (paymentBusy) {
+        const { getNativeActivityFlags } = await import("@/lib/native-activity");
+        if (getNativeActivityFlags().paymentBusy) {
           toast.error("A payment is in progress. Wait for it to finish before clocking out.");
           return;
         }
-      } catch { /* ignore */ }
+      } catch { /* module unavailable — allow */ }
 
       // If a register shift is open under this cashier's store, force the
       // Shift Review flow first. CloseShiftDialog re-checks pending offline
