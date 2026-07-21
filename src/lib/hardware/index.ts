@@ -100,36 +100,6 @@ const epsonDriver: PrinterDriver = {
     throw new Error("Epson ePOS SDK not linked in this build.");
   },
 };
-  id: "star",
-  label: "Star Micronics (StarPRNT)",
-  async capable() { return false; }, // enable once Star SDK plugin is linked
-  async isReady() { return false; },
-  async printReceipt() {
-    throw new Error(
-      "Star driver selected but the StarPRNT SDK is not linked in this build. " +
-      "Ask your admin to install the Star SDK plugin.",
-    );
-  },
-  async kickDrawer() {
-    throw new Error("StarPRNT SDK not linked in this build.");
-  },
-};
-
-const epsonDriver: PrinterDriver = {
-  id: "epson",
-  label: "Epson TM (ePOS)",
-  async capable() { return false; }, // enable once Epson SDK plugin is linked
-  async isReady() { return false; },
-  async printReceipt() {
-    throw new Error(
-      "Epson driver selected but the ePOS SDK is not linked in this build. " +
-      "Ask your admin to install the Epson SDK plugin.",
-    );
-  },
-  async kickDrawer() {
-    throw new Error("Epson ePOS SDK not linked in this build.");
-  },
-};
 
 export const printerDrivers: Record<PrinterDriverId, PrinterDriver> = {
   none: nullPrinter,
