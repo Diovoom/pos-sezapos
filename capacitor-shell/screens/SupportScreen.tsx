@@ -37,6 +37,7 @@ import {
 import { collectDiagnostics, formatDiagnosticsBlock } from "../support/diagnostics";
 import { useBackHandler } from "../lifecycle/useBackHandler";
 import { registerBackHandler } from "../lifecycle/backButtonCoordinator";
+import { SupportErrorBoundary } from "./SupportErrorBoundary";
 
 type TicketStatus = "open" | "in_progress" | "waiting_customer" | "waiting_support" | "resolved" | "closed" | string;
 type TicketPriority = "low" | "normal" | "high" | "urgent" | string;
