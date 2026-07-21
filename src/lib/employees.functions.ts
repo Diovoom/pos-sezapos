@@ -23,14 +23,6 @@ async function assertOwner(context: { supabase: SupabaseCtx; userId: string }) {
   if (error || !data) throw new Error("Forbidden: owner role required");
 }
 
-async function assertOwnerOrAdmin(context: { supabase: SupabaseCtx; userId: string }) {
-  const { data, error } = await context.supabase.rpc("has_any_role", {
-    _user_id: context.userId,
-    _roles: ["owner", "admin"],
-  });
-  if (error || !data) throw new Error("Forbidden: owner or admin role required");
-}
-
 async function assertOwnerAdminOrManager(context: { supabase: SupabaseCtx; userId: string }) {
   const { data, error } = await context.supabase.rpc("has_any_role", {
     _user_id: context.userId,
@@ -45,6 +37,82 @@ async function isOwnerOrAdmin(context: { supabase: SupabaseCtx; userId: string }
     _roles: ["owner", "admin"],
   });
   return !!data;
+}
+
+async function isOwner(context: { supabase: SupabaseCtx; userId: string }): Promise<boolean> {
+  const { data } = await context.supabase.rpc("has_any_role", {
+    _user_id: context.userId,
+    _roles: ["owner"],
+  });
+  return !!data;
+}
+
+/**
+ * Central hierarchy gate. Server-side enforced via `can_manage_employee` in
+ * the database.
+ */
+async function assertCanManage(
+  context: { supabase: SupabaseCtx; userId: string },
+  targetUserId: string,
+  opts: { allowSelf?: boolean } = {},
+) {
+  if (!opts.allowSelf && targetUserId === context.userId) {
+    throw new Error("You cannot perform this action on your own account");
+  }
+  const { data, error } = await context.supabase.rpc("can_manage_employee", {
+    _actor: context.userId,
+    _target: targetUserId,
+  });
+  if (error || !data) throw new Error("Forbidden: you cannot manage this employee");
+}
+
+async function assertNotLastOwner(
+  context: { supabase: SupabaseCtx },
+  targetUserId: string,
+) {
+  const { data } = await context.supabase.rpc("is_last_owner", {
+    _user_id: targetUserId,
+  });
+  if (data) throw new Error("Cannot demote or remove the last owner of this business");
+}
+
+/**
+ * Best-effort merchant audit row with correlation id + reason. Never throws.
+ */
+async function auditMerchant(
+  actorId: string,
+  entry: {
+    action: string;
+    entity?: string;
+    entity_id?: string;
+    store_id?: string | null;
+    reason?: string | null;
+    details?: Record<string, unknown>;
+  },
+): Promise<string> {
+  const correlationId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabaseAdmin.from as any)("audit_log").insert({
+      actor_id: actorId,
+      action: entry.action,
+      entity: entry.entity ?? "employee",
+      entity_id: entry.entity_id ?? null,
+      store_id: entry.store_id ?? null,
+      details: {
+        reason: entry.reason ?? null,
+        correlation_id: correlationId,
+        ...(entry.details ?? {}),
+      },
+    });
+  } catch {
+    /* swallow */
+  }
+  return correlationId;
 }
 
 function generateSixDigitId(): string {
