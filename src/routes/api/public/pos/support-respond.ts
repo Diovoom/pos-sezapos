@@ -40,7 +40,9 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
         const decision = body.decision === "accept" || body.decision === "decline" ? body.decision : null;
         const note = typeof body.note === "string" ? body.note.slice(0, 500) : null;
         const capability =
-          body.clientCapability === "web_screen_share" || body.clientCapability === "android_diagnostics_only"
+          body.clientCapability === "web_screen_share" ||
+          body.clientCapability === "android_diagnostics_only" ||
+          body.clientCapability === "android_screen_share"
             ? body.clientCapability
             : null;
         // Redact obvious secret keys from client-supplied metadata.

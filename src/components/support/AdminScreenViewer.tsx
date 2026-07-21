@@ -16,6 +16,7 @@ type Props = {
   businessName: string | undefined | null;
   storeCode: string | undefined | null;
   employeeName: string | undefined | null;
+  capability?: string | null;
   onClosed: () => void;
 };
 
@@ -32,6 +33,7 @@ export function AdminScreenViewer({
   businessName,
   storeCode,
   employeeName,
+  capability,
   onClosed,
 }: Props) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -237,6 +239,11 @@ export function AdminScreenViewer({
             {status === "failed" && "Connection error"}
             {status === "ended" && "Session ended"}
           </span>
+          {capability === "android_screen_share" && (
+            <span className="ml-1 rounded bg-primary/15 text-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+              Android
+            </span>
+          )}
         </div>
         <div className="ml-2 hidden sm:flex items-center gap-2 text-[11px] text-muted-foreground min-w-0">
           <span className="truncate">

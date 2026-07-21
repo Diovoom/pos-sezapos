@@ -1695,7 +1695,9 @@ export const merchantRespondSupportSession = createServerFn({ method: "POST" })
     }
     const safeMetadata = data.clientMetadata ? scrub(data.clientMetadata) : null;
     const capability =
-      data.clientCapability === "web_screen_share" || data.clientCapability === "android_diagnostics_only"
+      data.clientCapability === "web_screen_share" ||
+      data.clientCapability === "android_diagnostics_only" ||
+      data.clientCapability === "android_screen_share"
         ? data.clientCapability
         : null;
 
