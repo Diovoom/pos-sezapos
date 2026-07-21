@@ -53,7 +53,14 @@ const CMD = {
   size: (n: 1 | 2) => bytes(GS, 0x21, n === 2 ? 0x11 : 0x00),
   feed: (n = 1) => bytes(ESC, 0x64, Math.max(1, Math.min(255, n))),
   cut: () => bytes(GS, 0x56, 0x42, 0x00),
-  kickDrawer: () => bytes(ESC, 0x70, 0x00, 0x19, 0xfa), // pulse pin 2
+  // ESC p m t1 t2 — pulse pin `m`; on-time = t1*2ms, off-time = t2*2ms.
+  // Default 120ms on, 500ms off. Caller may pass a custom pulse in ms
+  // (clamped to 20..510ms) to accommodate stiffer drawer solenoids.
+  kickDrawer: (pulseMs = 120) => {
+    const ms = Math.max(20, Math.min(510, Math.round(pulseMs)));
+    const t1 = Math.max(1, Math.min(255, Math.round(ms / 2)));
+    return bytes(ESC, 0x70, 0x00, t1, 0xfa);
+  },
 };
 
 function pad(str: string, width: number, right = false): string {
