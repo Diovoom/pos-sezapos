@@ -104,11 +104,19 @@ function AdminLayout() {
         status: string;
         started_at: string | null;
         expires_at: string;
+        client_capability: string | null;
+        client_metadata_json: string | null;
         store?: { id: string; name: string; store_code: string | null } | null;
         accepted_by?: { full_name: string | null; email: string | null; employee_id: string | null } | null;
       }
     | null
     | undefined;
+
+  const activeSessionMetadata = useMemo<Record<string, unknown> | null>(() => {
+    if (!activeSession?.client_metadata_json) return null;
+    try { return JSON.parse(activeSession.client_metadata_json) as Record<string, unknown>; }
+    catch { return null; }
+  }, [activeSession?.client_metadata_json]);
 
   // Live-updating duration timer for the accepted support session.
   const [tick, setTick] = useState(0);
