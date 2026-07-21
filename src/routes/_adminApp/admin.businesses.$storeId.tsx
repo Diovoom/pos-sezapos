@@ -878,6 +878,15 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone?:
     </CardContent></Card>
   );
 }
+function SummaryCard({ label, primary, sub, tone }: { label: string; primary: string; sub?: string; tone?: string }) {
+  return (
+    <Card><CardContent className="p-4">
+      <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className={`text-xl font-bold mt-1 ${tone ?? ""}`}>{primary}</div>
+      {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
+    </CardContent></Card>
+  );
+}
 function Info({ label, value }: { label: string; value: any }) {
   return (
     <div>
