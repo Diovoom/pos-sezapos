@@ -118,7 +118,7 @@ function DevicesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {devices.map((d) => (
+                  {devices.map((d: { id: string; label: string; status: string; paired_at: string; last_seen_at: string | null }) => (
                     <TableRow key={d.id}>
                       <TableCell className="font-medium">{d.label}</TableCell>
                       <TableCell>
