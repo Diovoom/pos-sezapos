@@ -91,11 +91,13 @@ import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/l
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as ApiPublicPosVerifyPinRouteImport } from './routes/api/public/pos/verify-pin'
 import { Route as ApiPublicPosVerifyManagerPinRouteImport } from './routes/api/public/pos/verify-manager-pin'
 import { Route as ApiPublicPosVerifyEmployeePinRouteImport } from './routes/api/public/pos/verify-employee-pin'
 import { Route as ApiPublicPosSupportRespondRouteImport } from './routes/api/public/pos/support-respond'
 import { Route as ApiPublicPosSupportEndRouteImport } from './routes/api/public/pos/support-end'
 import { Route as ApiPublicPosSetMyPinRouteImport } from './routes/api/public/pos/set-my-pin'
+import { Route as ApiPublicPosPairDeviceRouteImport } from './routes/api/public/pos/pair-device'
 import { Route as ApiPublicPosCompleteFirstLoginRouteImport } from './routes/api/public/pos/complete-first-login'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as AdminAppAdminSupportTicketIdRouteImport } from './routes/_adminApp/admin.support.$ticketId'
@@ -521,6 +523,11 @@ const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   path: '/lovable/email/auth/preview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPosVerifyPinRoute = ApiPublicPosVerifyPinRouteImport.update({
+  id: '/api/public/pos/verify-pin',
+  path: '/api/public/pos/verify-pin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPosVerifyManagerPinRoute =
   ApiPublicPosVerifyManagerPinRouteImport.update({
     id: '/api/public/pos/verify-manager-pin',
@@ -547,6 +554,11 @@ const ApiPublicPosSupportEndRoute = ApiPublicPosSupportEndRouteImport.update({
 const ApiPublicPosSetMyPinRoute = ApiPublicPosSetMyPinRouteImport.update({
   id: '/api/public/pos/set-my-pin',
   path: '/api/public/pos/set-my-pin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPosPairDeviceRoute = ApiPublicPosPairDeviceRouteImport.update({
+  id: '/api/public/pos/pair-device',
+  path: '/api/public/pos/pair-device',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicPosCompleteFirstLoginRoute =
@@ -664,11 +676,13 @@ export interface FileRoutesByFullPath {
   '/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
+  '/api/public/pos/pair-device': typeof ApiPublicPosPairDeviceRoute
   '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
   '/api/public/pos/support-end': typeof ApiPublicPosSupportEndRoute
   '/api/public/pos/support-respond': typeof ApiPublicPosSupportRespondRoute
   '/api/public/pos/verify-employee-pin': typeof ApiPublicPosVerifyEmployeePinRoute
   '/api/public/pos/verify-manager-pin': typeof ApiPublicPosVerifyManagerPinRoute
+  '/api/public/pos/verify-pin': typeof ApiPublicPosVerifyPinRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -756,11 +770,13 @@ export interface FileRoutesByTo {
   '/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
+  '/api/public/pos/pair-device': typeof ApiPublicPosPairDeviceRoute
   '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
   '/api/public/pos/support-end': typeof ApiPublicPosSupportEndRoute
   '/api/public/pos/support-respond': typeof ApiPublicPosSupportRespondRoute
   '/api/public/pos/verify-employee-pin': typeof ApiPublicPosVerifyEmployeePinRoute
   '/api/public/pos/verify-manager-pin': typeof ApiPublicPosVerifyManagerPinRoute
+  '/api/public/pos/verify-pin': typeof ApiPublicPosVerifyPinRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -852,11 +868,13 @@ export interface FileRoutesById {
   '/_adminApp/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
+  '/api/public/pos/pair-device': typeof ApiPublicPosPairDeviceRoute
   '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
   '/api/public/pos/support-end': typeof ApiPublicPosSupportEndRoute
   '/api/public/pos/support-respond': typeof ApiPublicPosSupportRespondRoute
   '/api/public/pos/verify-employee-pin': typeof ApiPublicPosVerifyEmployeePinRoute
   '/api/public/pos/verify-manager-pin': typeof ApiPublicPosVerifyManagerPinRoute
+  '/api/public/pos/verify-pin': typeof ApiPublicPosVerifyPinRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -946,11 +964,13 @@ export interface FileRouteTypes {
     | '/admin/support/$ticketId'
     | '/api/public/payments/webhook'
     | '/api/public/pos/complete-first-login'
+    | '/api/public/pos/pair-device'
     | '/api/public/pos/set-my-pin'
     | '/api/public/pos/support-end'
     | '/api/public/pos/support-respond'
     | '/api/public/pos/verify-employee-pin'
     | '/api/public/pos/verify-manager-pin'
+    | '/api/public/pos/verify-pin'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -1038,11 +1058,13 @@ export interface FileRouteTypes {
     | '/admin/support/$ticketId'
     | '/api/public/payments/webhook'
     | '/api/public/pos/complete-first-login'
+    | '/api/public/pos/pair-device'
     | '/api/public/pos/set-my-pin'
     | '/api/public/pos/support-end'
     | '/api/public/pos/support-respond'
     | '/api/public/pos/verify-employee-pin'
     | '/api/public/pos/verify-manager-pin'
+    | '/api/public/pos/verify-pin'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -1133,11 +1155,13 @@ export interface FileRouteTypes {
     | '/_adminApp/admin/support/$ticketId'
     | '/api/public/payments/webhook'
     | '/api/public/pos/complete-first-login'
+    | '/api/public/pos/pair-device'
     | '/api/public/pos/set-my-pin'
     | '/api/public/pos/support-end'
     | '/api/public/pos/support-respond'
     | '/api/public/pos/verify-employee-pin'
     | '/api/public/pos/verify-manager-pin'
+    | '/api/public/pos/verify-pin'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -1194,11 +1218,13 @@ export interface RootRouteChildren {
   LovableSmsSendRoute: typeof LovableSmsSendRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicPosCompleteFirstLoginRoute: typeof ApiPublicPosCompleteFirstLoginRoute
+  ApiPublicPosPairDeviceRoute: typeof ApiPublicPosPairDeviceRoute
   ApiPublicPosSetMyPinRoute: typeof ApiPublicPosSetMyPinRoute
   ApiPublicPosSupportEndRoute: typeof ApiPublicPosSupportEndRoute
   ApiPublicPosSupportRespondRoute: typeof ApiPublicPosSupportRespondRoute
   ApiPublicPosVerifyEmployeePinRoute: typeof ApiPublicPosVerifyEmployeePinRoute
   ApiPublicPosVerifyManagerPinRoute: typeof ApiPublicPosVerifyManagerPinRoute
+  ApiPublicPosVerifyPinRoute: typeof ApiPublicPosVerifyPinRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -1784,6 +1810,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/pos/verify-pin': {
+      id: '/api/public/pos/verify-pin'
+      path: '/api/public/pos/verify-pin'
+      fullPath: '/api/public/pos/verify-pin'
+      preLoaderRoute: typeof ApiPublicPosVerifyPinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/pos/verify-manager-pin': {
       id: '/api/public/pos/verify-manager-pin'
       path: '/api/public/pos/verify-manager-pin'
@@ -1817,6 +1850,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/pos/set-my-pin'
       fullPath: '/api/public/pos/set-my-pin'
       preLoaderRoute: typeof ApiPublicPosSetMyPinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pos/pair-device': {
+      id: '/api/public/pos/pair-device'
+      path: '/api/public/pos/pair-device'
+      fullPath: '/api/public/pos/pair-device'
+      preLoaderRoute: typeof ApiPublicPosPairDeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/pos/complete-first-login': {
@@ -2031,11 +2071,13 @@ const rootRouteChildren: RootRouteChildren = {
   LovableSmsSendRoute: LovableSmsSendRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicPosCompleteFirstLoginRoute: ApiPublicPosCompleteFirstLoginRoute,
+  ApiPublicPosPairDeviceRoute: ApiPublicPosPairDeviceRoute,
   ApiPublicPosSetMyPinRoute: ApiPublicPosSetMyPinRoute,
   ApiPublicPosSupportEndRoute: ApiPublicPosSupportEndRoute,
   ApiPublicPosSupportRespondRoute: ApiPublicPosSupportRespondRoute,
   ApiPublicPosVerifyEmployeePinRoute: ApiPublicPosVerifyEmployeePinRoute,
   ApiPublicPosVerifyManagerPinRoute: ApiPublicPosVerifyManagerPinRoute,
+  ApiPublicPosVerifyPinRoute: ApiPublicPosVerifyPinRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
