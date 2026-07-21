@@ -1,108 +1,117 @@
-# Store-Scoped PIN Login + Device Pairing
+# Live Screen Viewing for the SEZA POS Android APK
 
-## Goal
-Cashier's daily login on a paired Android register becomes: **enter 6-digit PIN → in**. Employee ID + PIN stays as a fallback. Cross-tenant PIN lookup stays disabled. Same-store PIN duplicates are blocked at every write path.
+Replace the "android_diagnostics_only" capability with a real, view-only MediaProjection + WebRTC pipeline. All existing approval, `channel_token` signaling, RLS, audit, and device-pairing flows stay intact — we only swap the merchant-side stream source and lift the admin gating.
 
 ## Architecture
 
 ```text
-Merchant dashboard              APK (Capacitor)              Public API
-─────────────────────           ────────────────────          ──────────────────────
-Devices > Pair register   →     Enter pairing code    →      /pos/pair-device
-   (owner/manager)              (once, first launch)         → device_secret + store/business
-       │                               │
-       ▼                               ▼
-device_registrations           localStorage:                 /pos/verify-pin
-(store_id, business_id,        - device_id                     (device_id + secret + PIN)
- label, secret_hash,           - device_secret               → scoped candidate lookup
- status, last_seen, ...)       - paired store/business       → verify salted hash
-                                                             → magiclink token_hash
-                               PIN entry screen
-                               (no Employee ID by default)
+Merchant APK                                                Admin browser
+────────────                                                ─────────────
+[Accept dialog] ──► SezaScreenCapture (native)              AdminScreenViewer
+     │                 ├─ MediaProjection (foreground svc)  (unchanged; sees
+     │                 ├─ VirtualDisplay → Surface           video track)
+     │                 └─ H264 encoded frames               ▲
+     ▼                        │                              │
+NativeRTCPeer (TS wrapper) ◄──┘   RTCPeerConnection ─────► WebRTC (P2P media)
+     │                                        ▲
+     └── signaling ─── Supabase Realtime broadcast (channel_token) ─┘
 ```
 
-## Database (single migration)
+Signaling stays on the existing `support-rtc-<channel_token>` Realtime channel. Media goes P2P via WebRTC with the current STUN config (`src/lib/support/webrtc.ts`).
 
-1. `device_registrations`
-   - `id`, `business_id`, `store_id`, `label`, `secret_hash` (scrypt),
-     `status` ('active'|'revoked'), `paired_by`, `paired_at`, `last_seen_at`,
-     `revoked_at`, `revoked_by`, `platform` (nullable).
-   - RLS: owner/admin/manager of the store can select/insert/update/delete;
-     service_role full access. No anon.
-2. `device_pairing_codes` (short-lived one-shot)
-   - `code_hash`, `store_id`, `business_id`, `label`, `created_by`,
-     `expires_at`, `consumed_device_id`, `consumed_at`.
-3. `profiles.pin_fingerprint` (nullable text) — HMAC(business_id || store_id || pin) with `PIN_FINGERPRINT_HMAC_SECRET`.
-   - Partial unique index: `(store_id, pin_fingerprint) WHERE status='active' AND pin_fingerprint IS NOT NULL`.
-   - Column readable only via server functions (revoke SELECT to anon; keep authenticated for now scoped by existing profiles RLS but never returned in client selects).
-4. RPCs (`SECURITY DEFINER`, `search_path=public`):
-   - `pos_find_pin_candidates(_store_id uuid, _fingerprint text)` → returns candidate row(s) (id, email, pin_hash) — callable only by service_role.
-   - `pos_pin_conflict_check(_store_id uuid, _fingerprint text, _exclude_user uuid)` → boolean, callable by authenticated (used by dashboard UI preview) but ALSO re-checked server-side on write.
-5. Audit action strings: `pin_created`, `pin_changed`, `pin_reset`, `pin_conflict_blocked`, `device_paired`, `device_revoked`, `pin_login_scope_mismatch`, `pin_fallback_used`.
+## New Android Capacitor plugin: `SezaScreenCapture`
 
-## New / changed files
+Location: `android/app/src/main/java/com/sezapos/screen/`
 
-**Server (server-only, never bundled to client)**
-- `src/lib/pos/fingerprint.server.ts` — `pinFingerprint(businessId, storeId, pin)` using HMAC-SHA256 over `PIN_FINGERPRINT_HMAC_SECRET`.
-- `src/lib/pos/device.server.ts` — pairing code mint/consume, device secret hash/verify, `resolveDeviceContext(deviceId, deviceSecret)` returns `{store_id, business_id}` or throws.
+- `SezaScreenCapturePlugin.java` — `@CapacitorPlugin` exposing:
+  - `requestPermission()` → launches system MediaProjection consent intent, resolves `{ granted }`.
+  - `start({ maxWidth, maxFps, bitrateKbps })` → starts foreground service, begins encoding.
+  - `stop()` → tears down encoder, projection, and service.
+  - Emits events: `frame` (H.264 NAL byte[] via base64), `state` (`starting|active|paused|stopped`), `error`.
+- `ScreenCaptureService.java` — `Service` with `FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION`; shows the persistent Android notification "SEZA Support is viewing your screen — Tap to stop" that also stops the session on tap.
+- `H264Encoder.java` — `MediaCodec` (`video/avc`) fed by a `VirtualDisplay` → `Surface`. Adaptive bitrate (200–1500 kbps), keyframe every 2 s, 20–30 FPS target, drops to 10 FPS on backpressure.
+- Register the plugin in `MainActivity.java`.
 
-**Public API routes (APK-callable)**
-- `src/routes/api/public/pos/pair-device.ts` — POST { code, label, platform } → { device_id, device_secret, store_id, business_id, store_name }.
-- `src/routes/api/public/pos/verify-pin.ts` — POST { device_id, device_secret, pin, employee_id? } → magiclink token_hash. Scoped lookup by device→store; falls back to Employee ID + PIN on ambiguity or when device unpaired.
-- Keep existing `verify-employee-pin.ts` as legacy Employee ID + PIN fallback (no cross-tenant lookup — already fixed).
-- `src/routes/api/public/pos/device-heartbeat.ts` — updates `last_seen_at` (bearer auth).
+`AndroidManifest.xml` additions:
+- `<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />`
+- `<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />`
+- `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />`
+- `<service android:name=".screen.ScreenCaptureService" android:foregroundServiceType="mediaProjection" android:exported="false" />`
+- Target SDK bump reviewed to ≥34 for the new mediaProjection foreground-service type (only if not already).
 
-**Merchant dashboard**
-- Extend `src/routes/_dashboard/settings.tsx` (or new panel `src/components/settings/RegisterDevicesPanel.tsx`) with:
-  - List paired devices for the current store.
-  - "Pair new register" → generates 8-char code, valid 15 min, one-time use, copy-to-clipboard.
-  - Revoke device (with reason + audit).
-- `src/lib/employees.functions.ts`:
-  - `setEmployeePin` and `resetEmployeePin` compute fingerprint for every assigned store and check `pos_pin_conflict_check` before write; block with generic "already in use at this location".
-  - `updateEmployeeStores` (if exists) or the store-assignment path validates fingerprint at each new store.
-  - Weak-PIN blocklist (000000, 111111…, 123456, 654321, employee_id, ascending/descending, all same digit).
-- `src/routes/_dashboard/employees.$id.tsx` `PinCard`: surface the generic conflict message; no employee identity leaked.
+## TS bridge: `capacitor-shell/support/nativeScreenCapture.ts`
 
-**APK (Capacitor shell)**
-- `capacitor-shell/screens/PairDeviceScreen.tsx` — first-launch pairing code entry.
-- `capacitor-shell/screens/AuthScreen.tsx` — when paired, show PIN-only pad; expose "Sign in with Employee ID" link for fallback.
-- `capacitor-shell/lib/device.ts` — localStorage device_id/secret, `getDeviceContext()`, `unpair()`.
-- `capacitor-shell/router.tsx` — route to PairDeviceScreen when unpaired.
-- `capacitor-shell/screens/SettingsScreen.tsx` — show paired store + "Unpair this register" (requires manager PIN via existing override).
+Wraps `registerPlugin<SezaScreenCapturePlugin>('SezaScreenCapture')`. Exposes an async iterator of H.264 NAL units plus start/stop. On non-Android hosts, throws so we fall back to `getDisplayMedia`.
 
-**Offline cache**
-- `src/lib/offline/db.ts` — cached employee list scoped by `paired store_id` only; drop entries whose `store_id` no longer matches; store `pin_hash` + `id` + `email`, never plaintext.
-- Sync: on reconnect, refresh cache from `pos_list_store_employees(store_id)` RPC (service-side, device-authenticated).
+## WebRTC merchant peer (new): `capacitor-shell/support/AndroidScreenShare.tsx`
 
-## Secrets
-- Generate `PIN_FINGERPRINT_HMAC_SECRET` (64 chars) via `generate_secret`. Used only in server-only helpers.
+Replaces the diagnostics-only path in `capacitor-shell/support/SupportRequestListener.tsx`:
 
-## Fingerprint backfill strategy
-Existing PIN hashes are salted scrypt — cannot derive plaintext. Migration:
-1. Add `pin_fingerprint` column NULL.
-2. Any employee with NULL fingerprint continues to authenticate only via Employee ID + PIN fallback (or PIN-only if they happen to be the sole candidate at their store).
-3. On next successful PIN auth OR any PIN change/reset, populate fingerprint. After success, uniqueness index enforces future writes.
-4. Unresolved same-store dupes are surfaced in Employees list with a "Reset PIN required" badge for the owner.
+- Requests MediaProjection consent (`requestPermission()`) BEFORE calling `postSupport("support-respond", { decision: "accept", clientCapability: "android_screen_share" })`. Decline path unchanged.
+- Builds `RTCPeerConnection` (reuses `RTC_CONFIG` from `src/lib/support/webrtc.ts`) and creates a single video sender fed by an `RTCRtpSender` with `insertableStreams` receiving encoded H.264 NALs from the plugin (WebCodecs `EncodedVideoChunk` path — WebView on Android 14+ supports encoded transforms). If unavailable, fall back to publishing via a `MediaStreamTrackGenerator`.
+- Uses `openSignalingChannel(supabase, channelToken, …)` — identical to the web merchant peer.
+- Lifecycle hooks (via existing `androidLifecycle.ts`): pause encoder on background, resume on foreground; auto-reconnect signaling with exponential backoff (max 5 attempts, 30 s cap); hard-stop on merchant sign-out, device unregister, ticket close, session expiry, or 60 s network timeout.
+- Persistent compact banner (top-of-screen, ~40 px): red dot, "Screen Sharing Active · SEZA Support · mm:ss · Stop Sharing". POS layout untouched — banner slides in above `AppShell`.
 
-## Validation
-- One paired-store employee: PIN-only → in.
-- Two employees, same store, same PIN: second creation blocked with generic message.
-- Different stores / businesses may share a PIN.
-- Client sending a forged store_id in `/verify-pin` is ignored — server derives store from `device_id + device_secret`.
-- Revoked device → PIN-only refused, must re-pair.
-- Ambiguous (legacy null-fingerprint dupes) → neutral "enter Employee ID" prompt.
-- Weak PIN blocked at creation/reset.
-- Offline cache never contains cross-store employees.
-- Rate limits (existing `admin_login_attempts`-style pattern) applied per device + per store.
-- Audit events emitted for pair/revoke/conflict/fallback/scope-mismatch.
+## Admin side changes
 
-## Explicitly NOT touched
-Marketing site, `_adminApp/*`, subscriptions/billing, `channel_token` / support WebRTC, `admin_permissions` policy, unrelated merchant dashboard pages, existing PIN hashing scheme.
+- `src/lib/admin/admin.functions.ts`: extend the `clientCapability` union to include `"android_screen_share"` in `merchantRespondSupportSession` input, in `adminOpenSupportSession` output, and in stored `client_capability` (validated in `src/routes/api/public/pos/support-respond.ts` too).
+- `src/routes/_adminApp/route.tsx` (line ~343): drop the diagnostics-only branch and render `AdminScreenViewer` for both `web_screen_share` and `android_screen_share`.
+- `src/components/support/AdminScreenViewer.tsx`: unchanged transport; add small badge showing capability ("Android live view") plus existing FPS/bitrate/latency/quality readouts already sampled via `sampleQuality`. Keep End Session, Pause/Resume (Pause = `receiver.track.enabled = false`, no signal to merchant beyond quality drop). Screenshot button gated behind a separate merchant-approved event — deferred (out of scope for this pass; explicitly not added to avoid silent capture).
+- `src/components/support/AdminDiagnosticsPanel.tsx`: remove the "Live screen viewing is not available for the Android APK" copy; keep the diagnostics tab as a supplementary panel.
 
-## Rollout order
-1. Migration + generate HMAC secret.
-2. Server helpers + public API routes.
-3. Merchant dashboard pairing UI + employee PIN uniqueness enforcement.
-4. APK pairing + PIN-only screen + offline cache scoping.
-5. Audit + rate limit wiring.
-6. Typecheck + smoke via Playwright on the merchant dashboard pairing flow.
+## Server / DB
+
+No schema change. `client_capability` already `text`; we simply add `"android_screen_share"` as an accepted value in server-side validators:
+- `src/routes/api/public/pos/support-respond.ts`
+- `src/lib/admin/admin.functions.ts` (`merchantRespondSupportSession`)
+
+## Audit events
+
+Extend `src/lib/audit-log.ts` calls emitted from `SupportRequestListener` and admin session functions to include:
+- `support.session.requested` (already)
+- `support.session.approved` / `declined` with `client_capability`
+- `support.stream.started` (new — fired after first ICE `connected`)
+- `support.stream.stopped` with `reason` in `{ merchant_stopped, admin_ended, ticket_closed, signed_out, device_unregistered, session_expired, network_timeout, app_closed }`
+- `support.stream.paused_background` / `resumed_foreground`
+
+Each includes correlation id (= `session.id`), `store_id`, `register_id` (if any), `employee_id`, `admin_id`, duration_ms.
+
+## Security & privacy invariants (unchanged / reinforced)
+
+- MediaProjection consent required per session (Android enforces).
+- Foreground-service notification is non-dismissible and stops session on tap.
+- Banner always visible while active; no background streaming — encoder pauses when app is not resumed.
+- Signaling still keyed by unguessable `channel_token`.
+- No DataChannel is created on either peer (already true for admin) — enforces view-only.
+- Nothing new logged that could contain PII: no frames written to disk, no clipboard/mic/camera access, no screenshots server-side.
+
+## Files changed / added
+
+Added:
+- `android/app/src/main/java/com/sezapos/screen/SezaScreenCapturePlugin.java`
+- `android/app/src/main/java/com/sezapos/screen/ScreenCaptureService.java`
+- `android/app/src/main/java/com/sezapos/screen/H264Encoder.java`
+- `capacitor-shell/support/nativeScreenCapture.ts`
+- `capacitor-shell/support/AndroidScreenShare.tsx`
+
+Edited:
+- `android/app/src/main/AndroidManifest.xml` (permissions + service)
+- `android/app/src/main/java/com/sezapos/app/MainActivity.java` (register plugin)
+- `android/app/build.gradle` (targetSdk review if needed)
+- `capacitor-shell/support/SupportRequestListener.tsx` (swap diagnostics path for `AndroidScreenShare`, request MediaProjection consent before accept)
+- `src/lib/admin/admin.functions.ts` (accept `android_screen_share`)
+- `src/routes/api/public/pos/support-respond.ts` (validator)
+- `src/routes/_adminApp/route.tsx` (render viewer for android capability)
+- `src/components/support/AdminScreenViewer.tsx` (capability badge)
+- `src/components/support/AdminDiagnosticsPanel.tsx` (remove "not available" copy)
+- `src/lib/audit-log.ts` (new event constants)
+
+## Testing plan
+
+Web build + typecheck (`bun run build`, `tsgo --noEmit`), then `bun run android:build` and manual Android device pass covering: approval required, decline, stop-sharing, admin end, POS remains usable, orientation change, background/foreground pause+resume, network drop reconnect, session expiry, low-bandwidth adaptive bitrate, no orphan sessions after force-quit.
+
+## Notes / risks
+
+- WebRTC inside the Android WebView requires piping encoded H.264 to the peer connection. Preferred path: WebCodecs `MediaStreamTrackGenerator` + `EncodedVideoChunk`. If the shipped WebView version doesn't expose it, plugin will decode-then-recompose using `VideoFrame` from the encoded stream (slightly higher CPU). Both paths are view-only and covered by MediaProjection consent — decision made at plugin init based on `window.MediaStreamTrackGenerator` feature detection.
+- Screenshot-on-admin-side intentionally deferred: it requires a second merchant approval channel and belongs in a follow-up to keep this change scoped to live viewing.
