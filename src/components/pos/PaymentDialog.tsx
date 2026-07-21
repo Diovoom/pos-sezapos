@@ -355,8 +355,8 @@ function TerminalPanel({
     status === "network_error";
 
   return (
-    <div>
-      <DialogHeader className="p-6 pb-4 border-b">
+    <div className="flex flex-col min-h-0 flex-1">
+      <DialogHeader className="p-6 pb-4 border-b shrink-0">
         <DialogTitle className="flex items-center gap-2">
           <CreditCard className="size-5 text-primary" /> Card payment
         </DialogTitle>
@@ -365,7 +365,7 @@ function TerminalPanel({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="p-8 flex flex-col items-center justify-center gap-4 min-h-[240px]">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-8 flex flex-col items-center justify-center gap-4">
         <StatusIcon status={status} />
         <div className="text-center">
           <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
@@ -385,7 +385,7 @@ function TerminalPanel({
         </div>
       </div>
 
-      <div className="p-4 border-t bg-surface/40 flex gap-2">
+      <div className="p-4 border-t bg-surface/40 flex gap-2 shrink-0 pb-[max(env(safe-area-inset-bottom),1rem)]">
         {!isTerminal && (
           <Button
             variant="outline"
@@ -433,6 +433,7 @@ function TerminalPanel({
         )}
       </div>
     </div>
+
   );
 }
 
