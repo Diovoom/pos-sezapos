@@ -44,9 +44,23 @@ export function isAutoPrintEnabled(): boolean {
   const raw = ls(LS.autoPrint);
   return raw === null ? true : raw === "1";
 }
+export function isDrawerEnabled(): boolean {
+  const raw = ls(LS.drawerEnabled);
+  return raw === null ? true : raw === "1";
+}
 export function isKickOnCashEnabled(): boolean {
+  if (!isDrawerEnabled()) return false;
   const raw = ls(LS.kickOnCash);
   return raw === null ? true : raw === "1";
+}
+export function isKickOnRefundEnabled(): boolean {
+  if (!isDrawerEnabled()) return false;
+  const raw = ls(LS.kickOnRefund);
+  return raw === null ? false : raw === "1";
+}
+export function getDrawerPulseMs(): number {
+  const n = Number(ls(LS.drawerPulseMs) ?? "120");
+  return Number.isFinite(n) && n >= 20 && n <= 510 ? Math.round(n) : 120;
 }
 export function getCopies(): number {
   const n = Number(ls(LS.copies) ?? "1");
