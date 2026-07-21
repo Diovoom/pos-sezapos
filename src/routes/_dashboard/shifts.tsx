@@ -68,6 +68,15 @@ function ShiftsList() {
 
   const dateFrom = range === "today" ? todayStr() : range === "week" ? daysAgoStr(7) : range === "month" ? daysAgoStr(30) : from;
   const dateTo = range === "custom" ? to : todayStr();
+  // Convert the user-facing yyyy-MM-dd range to an inclusive UTC window
+  // based on the local business day, so a shift that clocked in at 11pm
+  // local still shows up on the correct day.
+  const fromIso = useMemo(() => new Date(`${dateFrom}T00:00:00`).toISOString(), [dateFrom]);
+  const toIso = useMemo(() => {
+    const d = new Date(`${dateTo}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    return d.toISOString();
+  }, [dateTo]);
 
   const employeesQ = useQuery({
     enabled: !!canSeeAll,
