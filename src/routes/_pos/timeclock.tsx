@@ -347,6 +347,62 @@ export function TimeclockPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/*
+        Native-shell Shift Review — reuses the production CloseShiftDialog.
+        Clock-out runs inside `beforeSignOut`: shift closes first, then time
+        entry closes with the authenticated session, then the dialog signs
+        the cashier out and we route back to the PIN screen. If the register
+        shift closes but clock-out fails, we surface a retry toast and leave
+        the closed shift alone (do NOT reopen).
+      */}
+      {openShift && me.data?.user?.id && (
+        <CloseShiftDialog
+          open={shiftReviewOpen}
+          onOpenChange={(v) => setShiftReviewOpen(v)}
+          session={{
+            id: openShift.id,
+            store_id: openShift.store_id,
+            opened_by: openShift.opened_by,
+            opened_at: openShift.opened_at,
+            opening_cash: Number(openShift.opening_cash ?? 0),
+          }}
+          store={me.data?.store ?? null}
+          cashierUserId={me.data.user.id}
+          beforeSignOut={async () => {
+            try {
+              await clockOut.mutateAsync();
+              void logAudit({
+                action: "clock_out",
+                entity: "time_entry",
+                entity_id: open?.id ?? null,
+                details: { channel: "native_shell", stage: "clock_out_completed", shift_id: openShift.id },
+              });
+            } catch (e) {
+              void logAudit({
+                action: "system.error",
+                entity: "time_entry",
+                entity_id: open?.id ?? null,
+                details: {
+                  stage: "clock_out_failed_after_close",
+                  shift_id: openShift.id,
+                  channel: "native_shell",
+                  message: e instanceof Error ? e.message : String(e),
+                },
+              });
+              toast.error(
+                "Your register shift is closed, but employee clock-out could not be completed. Try again from Time Clock.",
+              );
+              throw e;
+            }
+          }}
+          onClosed={() => {
+            setShiftReviewOpen(false);
+            qc.invalidateQueries({ queryKey: ["timeclock", "open-shift"] });
+            invalidate();
+          }}
+        />
+      )}
     </>
   );
 }
