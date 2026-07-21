@@ -199,6 +199,51 @@ export function TimeclockPage() {
 
   const totals = computeTotals(history);
 
+  // Native APK Clock Out decision flow. Web POS keeps the direct
+  // clockOut.mutate() call so nothing changes on the desktop dashboard.
+  const handleClockOut = async () => {
+    if (!open) return;
+    if (isNativeShell) {
+      // Never clock out while a payment / shift-close mutation is running.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const activityMod: any = await import("@/lib/native-activity").catch(() => null);
+        void activityMod; // presence only — the flag lives on window events.
+      } catch { /* optional */ }
+      try {
+        const paymentBusy =
+          typeof window !== "undefined" &&
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          !!(window as any).__seza_native_activity_payment_busy;
+        if (paymentBusy) {
+          toast.error("A payment is in progress. Wait for it to finish before clocking out.");
+          return;
+        }
+      } catch { /* ignore */ }
+
+      // If a register shift is open under this cashier's store, force the
+      // Shift Review flow first. CloseShiftDialog re-checks pending offline
+      // sales and manager approval; we chain clock-out into beforeSignOut.
+      if (openShift?.id) {
+        try {
+          if (await hasUnsyncedOfflineSales(openShift.id)) {
+            toast.error("Pending offline sales must sync before closing this shift.");
+            return;
+          }
+        } catch { /* IndexedDB missing — CloseShiftDialog will re-check. */ }
+        void logAudit({
+          action: "clock_out",
+          entity: "time_entry",
+          entity_id: open.id,
+          details: { channel: "native_shell", stage: "shift_review_opened", shift_id: openShift.id },
+        });
+        setShiftReviewOpen(true);
+        return;
+      }
+    }
+    clockOut.mutate();
+  };
+
   return (
     <>
       <PageHeader title="Time Clock" subtitle="Clock in, take breaks, clock out." />
