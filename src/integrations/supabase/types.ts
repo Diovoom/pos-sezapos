@@ -1239,6 +1239,7 @@ export type Database = {
           address_format_override: Json | null
           admin_notes: string | null
           age_verification_settings: Json
+          allow_cashier_quick_add: boolean
           business_hours: Json | null
           business_type: string | null
           city: string | null
@@ -1291,6 +1292,7 @@ export type Database = {
           address_format_override?: Json | null
           admin_notes?: string | null
           age_verification_settings?: Json
+          allow_cashier_quick_add?: boolean
           business_hours?: Json | null
           business_type?: string | null
           city?: string | null
@@ -1343,6 +1345,7 @@ export type Database = {
           address_format_override?: Json | null
           admin_notes?: string | null
           age_verification_settings?: Json
+          allow_cashier_quick_add?: boolean
           business_hours?: Json | null
           business_type?: string | null
           city?: string | null

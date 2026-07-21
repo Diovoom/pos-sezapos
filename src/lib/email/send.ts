@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { isNativeMode } from "@/lib/native";
 
 export type SendTransactionalArgs = {
   templateName: string;
@@ -7,6 +8,16 @@ export type SendTransactionalArgs = {
   idempotencyKey?: string;
   replyTo?: string;
 };
+
+// In the bundled Android APK the WebView origin is not sezapos.com, so a
+// relative fetch resolves to http://localhost and never reaches the server.
+// Use an absolute URL when running natively; keep it relative on the web
+// so cookies and CSRF continue to work on same-origin.
+function sendUrl(): string {
+  const path = "/lovable/email/transactional/send";
+  if (isNativeMode()) return `https://sezapos.com${path}`;
+  return path;
+}
 
 /**
  * Sends a transactional email through the built-in Lovable Emails queue.
@@ -21,7 +32,7 @@ export async function sendTransactionalEmail(args: SendTransactionalArgs): Promi
   if (!token) return { ok: false, error: "You must be signed in to send email." };
 
   try {
-    const res = await fetch("/lovable/email/transactional/send", {
+    const res = await fetch(sendUrl(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -45,3 +56,4 @@ export async function sendTransactionalEmail(args: SendTransactionalArgs): Promi
     return { ok: false, error: err instanceof Error ? err.message : "Network error" };
   }
 }
+

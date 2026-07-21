@@ -41,6 +41,8 @@ import {
 } from "@/lib/offline/db";
 import { syncNow } from "@/lib/offline/sync";
 import { useNativeActivitySignal } from "@/lib/native-activity";
+import { isNativeMode } from "@/lib/native";
+import { QuickAddProductDialog, type QuickAddedProduct } from "@/components/pos/QuickAddProductDialog";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
@@ -135,16 +137,14 @@ export function PosPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const me = useMe();
   const perms = usePermissions();
-  // Owner/admin/manager remain super-users via usePermissions().isSuper.
-  // Others need the explicit `payment.cancel` grant. Fallback to role labels
-  // ONLY while permissions are still loading so first-render doesn't gate
-  // legitimate managers.
-  const canCancelTender = perms.has("payment.cancel")
-    || (perms.loading && (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager"));
-  const canManage = perms.has("employees.manage") || perms.isSuper
-    || (perms.loading && (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager"));
+  // Trusted permission system only — no role-name fallback. Owners and
+  // admins remain super-users via perms.isSuper (also computed from roles).
+  const canCancelTender = perms.has("payment.cancel") || perms.isSuper;
+  const canManage = perms.has("employees.manage") || perms.isSuper;
+  const canQuickAdd = perms.has("products.quick_add") || perms.isSuper;
   const isMobile = useIsMobile();
   const online = useOnline();
+
   const [cartOpen, setCartOpen] = useState(false);
   const [hasCameraCap, setHasCameraCap] = useState(false);
   useEffect(() => {
@@ -235,6 +235,13 @@ export function PosPage() {
     });
   }, [products, activeCategory, search]);
 
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddSeed, setQuickAddSeed] = useState<string>("");
+  const storeAllowsQuickAdd = !!store?.allow_cashier_quick_add;
+  // Owners/managers can always quick-add; cashiers additionally need the
+  // store-level toggle and the products.quick_add permission.
+  const quickAddAllowed = isNativeMode() && (perms.isSuper || (canQuickAdd && storeAllowsQuickAdd));
+
   const tryAddByCode = (code: string) => {
     const norm = code.trim().toLowerCase();
     if (!norm) return false;
@@ -246,8 +253,14 @@ export function PosPage() {
       setSearch("");
       return true;
     }
+    if (quickAddAllowed) {
+      setQuickAddSeed(code.trim());
+      setQuickAddOpen(true);
+      return true;
+    }
     return false;
   };
+
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -955,6 +968,19 @@ export function PosPage() {
         currency={currency}
         onAdd={addCustomItem}
       />
+
+      <QuickAddProductDialog
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        storeId={store?.id ?? null}
+        initialBarcode={quickAddSeed}
+        onCreated={(p: QuickAddedProduct) => {
+          addToCart(p as unknown as Product);
+          setSearch("");
+          qc.invalidateQueries({ queryKey: ["products"] });
+        }}
+      />
+
 
       <DiscountDialog
         open={discountOpen}
