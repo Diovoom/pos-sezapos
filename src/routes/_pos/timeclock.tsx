@@ -267,7 +267,7 @@ export function TimeclockPage() {
               <Button size="lg" onClick={() => clockIn.mutate()} disabled={!!open || anyBusy}>
                 <LogIn className="size-4 mr-2" /> Clock in
               </Button>
-              <Button size="lg" variant="outline" onClick={() => clockOut.mutate()} disabled={!open || anyBusy}>
+              <Button size="lg" variant="outline" onClick={() => void handleClockOut()} disabled={!open || anyBusy}>
                 <LogOut className="size-4 mr-2" /> Clock out
               </Button>
               <Button size="lg" variant="outline" onClick={() => startBreak.mutate()} disabled={!open || !!open.break_start || anyBusy}>
