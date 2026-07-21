@@ -271,55 +271,86 @@ export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const storeId = data.storeId;
 
-    const [store, employees, products, terminals, openShifts, sub, sales, recentActivity, recentIssues, tickets] =
-      await Promise.all([
-        supabaseAdmin.from("stores").select("*").eq("id", storeId).maybeSingle(),
-        supabaseAdmin
-          .from("profiles")
-          .select("id, full_name, email, phone, status, employee_id, created_at, updated_at")
-          .eq("store_id", storeId),
-        supabaseAdmin.from("products").select("*", { count: "exact", head: true }).eq("store_id", storeId),
-        supabaseAdmin
-          .from("payment_terminals")
-          .select("*")
-          .eq("store_id", storeId)
-          .order("created_at", { ascending: false }),
-        supabaseAdmin
-          .from("register_sessions")
-          .select("id, opened_at, opened_by, status")
-          .eq("store_id", storeId)
-          .eq("status", "open"),
-        supabaseAdmin
-          .from("subscriptions")
-          .select("*")
-          .eq("store_id", storeId)
-          .order("created_at", { ascending: false }),
-        supabaseAdmin
-          .from("sales")
-          .select("id, total, status, created_at, payment_method, receipt_number, refund_status")
-          .eq("store_id", storeId)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabaseAdmin
-          .from("audit_log")
-          .select("id, action, actor_email, entity, entity_id, created_at, details")
-          .eq("store_id", storeId)
-          .order("created_at", { ascending: false })
-          .limit(50),
-        supabaseAdmin
-          .from("payment_attempts")
-          .select("id, method, status, message, amount, created_at")
-          .eq("store_id", storeId)
-          .in("status", ["declined", "failed", "error"])
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabaseAdmin
-          .from("support_tickets")
-          .select("id, ticket_number, subject, status, priority, created_at, updated_at")
-          .eq("store_id", storeId)
-          .order("created_at", { ascending: false })
-          .limit(20),
-      ]);
+    const nowIso = new Date().toISOString();
+    const dayAgo = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const weekAgo = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
+    const monthAgo = new Date(Date.now() - 30 * 24 * 3600_000).toISOString();
+
+    const [
+      store, employees, products, terminals, openShifts, recentShifts, sub, sales,
+      recentActivity, recentIssues, tickets, refunds, salesToday, sales7d, sales30d,
+      refunds30d, offlineSales, supportSessions, cashMoves,
+    ] = await Promise.all([
+      supabaseAdmin.from("stores").select("*").eq("id", storeId).maybeSingle(),
+      supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, email, phone, status, employee_id, created_at, updated_at, last_sign_in_at")
+        .eq("store_id", storeId),
+      supabaseAdmin.from("products").select("*", { count: "exact", head: true }).eq("store_id", storeId),
+      supabaseAdmin
+        .from("payment_terminals")
+        .select("*")
+        .eq("store_id", storeId)
+        .order("created_at", { ascending: false }),
+      supabaseAdmin
+        .from("register_sessions")
+        .select("id, opened_at, opened_by, closed_at, terminal_id, status, opening_cash, expected_cash, counted_cash, variance")
+        .eq("store_id", storeId)
+        .eq("status", "open"),
+      supabaseAdmin
+        .from("register_sessions")
+        .select("id, opened_at, closed_at, opened_by, closed_by, terminal_id, status, opening_cash, expected_cash, counted_cash, variance")
+        .eq("store_id", storeId)
+        .order("opened_at", { ascending: false })
+        .limit(15),
+      supabaseAdmin
+        .from("subscriptions").select("*").eq("store_id", storeId)
+        .order("created_at", { ascending: false }),
+      supabaseAdmin
+        .from("sales")
+        .select("id, total, status, created_at, payment_method, receipt_number, refund_status, synced_from_offline")
+        .eq("store_id", storeId)
+        .order("created_at", { ascending: false }).limit(20),
+      supabaseAdmin
+        .from("audit_log")
+        .select("id, action, actor_email, entity, entity_id, created_at, details")
+        .eq("store_id", storeId)
+        .order("created_at", { ascending: false }).limit(100),
+      supabaseAdmin
+        .from("payment_attempts")
+        .select("id, method, status, message, amount, created_at")
+        .eq("store_id", storeId)
+        .in("status", ["declined", "failed", "error"])
+        .order("created_at", { ascending: false }).limit(20),
+      supabaseAdmin
+        .from("support_tickets")
+        .select("id, ticket_number, subject, status, priority, created_at, updated_at")
+        .eq("store_id", storeId)
+        .order("created_at", { ascending: false }).limit(20),
+      supabaseAdmin
+        .from("refunds")
+        .select("id, sale_id, refund_type, reason, total, payment_method, status, created_at, cashier_id")
+        .eq("store_id", storeId)
+        .order("created_at", { ascending: false }).limit(20),
+      supabaseAdmin.from("sales").select("total, refunded_amount", { count: "exact" })
+        .eq("store_id", storeId).gte("created_at", dayAgo).neq("status", "voided"),
+      supabaseAdmin.from("sales").select("total, refunded_amount", { count: "exact" })
+        .eq("store_id", storeId).gte("created_at", weekAgo).neq("status", "voided"),
+      supabaseAdmin.from("sales").select("total, refunded_amount", { count: "exact" })
+        .eq("store_id", storeId).gte("created_at", monthAgo).neq("status", "voided"),
+      supabaseAdmin.from("refunds").select("total", { count: "exact" })
+        .eq("store_id", storeId).gte("created_at", monthAgo),
+      supabaseAdmin.from("sales").select("id", { count: "exact", head: true })
+        .eq("store_id", storeId).eq("synced_from_offline", true).gte("created_at", weekAgo),
+      supabaseAdmin.from("admin_support_sessions")
+        .select("id, admin_id, admin_email, reason, status, requested_at, decided_at, started_at, ended_at, expires_at, client_capability")
+        .eq("store_id", storeId)
+        .order("requested_at", { ascending: false }).limit(10),
+      supabaseAdmin.from("cash_movements")
+        .select("id, type, amount, reason, created_at, user_id, register_session_id")
+        .eq("store_id", storeId)
+        .order("created_at", { ascending: false }).limit(20),
+    ]);
 
     if (!store.data) throw new Error("Business not found");
 
@@ -334,16 +365,43 @@ export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
         ? await supabaseAdmin.from("profiles").select("id, full_name, email, phone").in("id", ownerIds)
         : { data: [] };
 
-    // Last activity: most recent sale or audit event.
+    // Resolve names for shifts / cash movements
+    const userIds = new Set<string>();
+    [...(openShifts.data ?? []), ...(recentShifts.data ?? [])].forEach((s: any) => {
+      if (s.opened_by) userIds.add(s.opened_by);
+      if (s.closed_by) userIds.add(s.closed_by);
+    });
+    (cashMoves.data ?? []).forEach((c: any) => c.user_id && userIds.add(c.user_id));
+    (refunds.data ?? []).forEach((r: any) => r.cashier_id && userIds.add(r.cashier_id));
+    const nameMap: Record<string, string> = {};
+    if (userIds.size > 0) {
+      const { data: names } = await supabaseAdmin
+        .from("profiles").select("id, full_name, email").in("id", Array.from(userIds));
+      (names ?? []).forEach((p: any) => { nameMap[p.id] = p.full_name || p.email || p.id.slice(0, 8); });
+    }
+
+    const sumTotals = (rows: any[]) => rows.reduce((acc, r) => ({
+      gross: acc.gross + Number(r.total ?? 0),
+      refunded: acc.refunded + Number(r.refunded_amount ?? 0),
+    }), { gross: 0, refunded: 0 });
+
     const lastSale = sales.data?.[0]?.created_at ?? null;
     const lastAudit = recentActivity.data?.[0]?.created_at ?? null;
     const lastActivity = [lastSale, lastAudit].filter(Boolean).sort().reverse()[0] ?? null;
 
-    // Failed sync check via terminals last_seen_at within 24h
     const now = Date.now();
     const offlineTerminals = (terminals.data ?? []).filter(
       (t: any) => !t.last_seen_at || new Date(t.last_seen_at).getTime() < now - 24 * 3600_000,
     );
+
+    const active_support_session = (supportSessions.data ?? []).find(
+      (s: any) => (s.status === "pending" || s.status === "accepted") &&
+        (!s.expires_at || new Date(s.expires_at).getTime() > now),
+    ) ?? null;
+
+    const t7 = sumTotals(sales7d.data ?? []);
+    const t30 = sumTotals(sales30d.data ?? []);
+    const tToday = sumTotals(salesToday.data ?? []);
 
     return {
       store: store.data,
@@ -364,8 +422,28 @@ export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
       recent_issues: recentIssues.data ?? [],
       tickets: tickets.data ?? [],
       last_activity: lastActivity,
+      // Phase 2 additions
+      open_shifts: (openShifts.data ?? []).map((s: any) => ({ ...s, opened_by_name: nameMap[s.opened_by] ?? null })),
+      recent_shifts: (recentShifts.data ?? []).map((s: any) => ({
+        ...s,
+        opened_by_name: nameMap[s.opened_by] ?? null,
+        closed_by_name: s.closed_by ? nameMap[s.closed_by] ?? null : null,
+      })),
+      refunds: (refunds.data ?? []).map((r: any) => ({ ...r, cashier_name: r.cashier_id ? nameMap[r.cashier_id] ?? null : null })),
+      cash_movements: (cashMoves.data ?? []).map((c: any) => ({ ...c, user_name: c.user_id ? nameMap[c.user_id] ?? null : null })),
+      sales_summary: {
+        today: { count: salesToday.count ?? 0, ...tToday },
+        last_7d: { count: sales7d.count ?? 0, ...t7 },
+        last_30d: { count: sales30d.count ?? 0, ...t30 },
+        refunds_30d: { count: refunds30d.count ?? 0, total: (refunds30d.data ?? []).reduce((a: number, r: any) => a + Number(r.total ?? 0), 0) },
+        offline_sales_7d: offlineSales.count ?? 0,
+      },
+      support_sessions: supportSessions.data ?? [],
+      active_support_session,
+      generated_at: nowIso,
     };
   });
+
 
 // ============================================================================
 // Businesses — safe mutations

@@ -18,8 +18,11 @@ import {
   adminRestoreSubscription,
   adminUpdateBusinessContact,
   adminStartSupportSession,
+  adminCancelSupportRequest,
+  adminEndSupportSession,
   adminCreateTicket,
 } from "@/lib/admin/admin.functions";
+
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -125,6 +128,8 @@ function BusinessWorkspace() {
   const restoreSub = useServerFn(adminRestoreSubscription);
   const updateContact = useServerFn(adminUpdateBusinessContact);
   const startSupport = useServerFn(adminStartSupportSession);
+  const cancelSupport = useServerFn(adminCancelSupportRequest);
+  const endSupport = useServerFn(adminEndSupportSession);
   const createTicket = useServerFn(adminCreateTicket);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["admin_workspace", storeId] });
@@ -139,7 +144,7 @@ function BusinessWorkspace() {
 
   if (isLoading) return <div className="text-sm text-muted-foreground">Loading…</div>;
   if (error || !data) return <div className="text-sm text-destructive">{(error as any)?.message ?? "Failed to load"}</div>;
-  const { store, owners, counts, employees, terminals, subscription, subscriptions, recent_sales, recent_activity, recent_issues, tickets, offline_terminals, last_activity } = data;
+  const { store, owners, counts, employees, terminals, subscription, subscriptions, recent_sales, recent_activity, recent_issues, tickets, offline_terminals, last_activity, open_shifts, recent_shifts, refunds, cash_movements, sales_summary, active_support_session, support_sessions } = data as any;
 
   async function openSupport() {
     ask("Request Support View", "The merchant will be notified and must accept before you can view their data. Expires in 30 minutes.", async (reason) => {
@@ -229,6 +234,36 @@ function BusinessWorkspace() {
         </div>
       </div>
 
+      {active_support_session && (
+        <Card className="border-amber-400 bg-amber-50 dark:bg-amber-950/30">
+          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm">
+              <div className="font-medium text-amber-900 dark:text-amber-200">
+                Support view {active_support_session.status === "pending" ? "pending merchant approval" : "active"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Requested {format(new Date(active_support_session.requested_at), "MMM d, HH:mm")}
+                {active_support_session.expires_at && ` · expires ${format(new Date(active_support_session.expires_at), "MMM d, HH:mm")}`}
+                {active_support_session.reason && ` · "${active_support_session.reason}"`}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {active_support_session.status === "pending" ? (
+                <Button size="sm" variant="outline" onClick={async () => {
+                  try { await cancelSupport({ data: { sessionId: active_support_session.id } }); toast.success("Request cancelled"); refresh(); }
+                  catch (e: any) { toast.error(e?.message ?? "Failed"); }
+                }}>Cancel request</Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => ask("End support session", "The read-only support session will be closed immediately.", async (reason) => {
+                  await endSupport({ data: { sessionId: active_support_session.id, reason } });
+                  toast.success("Support session ended"); refresh();
+                })}>End session</Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard label="Employees" value={counts.employees} />
         <StatCard label="Products" value={counts.products} />
@@ -238,12 +273,18 @@ function BusinessWorkspace() {
       </div>
 
       <Tabs defaultValue="overview">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="health">Health</TabsTrigger>
           <TabsTrigger value="employees">Employees</TabsTrigger>
+          <TabsTrigger value="registers">Registers &amp; Shifts</TabsTrigger>
+          <TabsTrigger value="sales">Sales</TabsTrigger>
+          <TabsTrigger value="refunds">Refunds</TabsTrigger>
           <TabsTrigger value="devices">Devices</TabsTrigger>
+          <TabsTrigger value="hardware">Hardware</TabsTrigger>
+          <TabsTrigger value="offline">Offline sync</TabsTrigger>
           <TabsTrigger value="subscription">Subscription</TabsTrigger>
+          <TabsTrigger value="support">Support</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="tickets">Tickets ({tickets.length})</TabsTrigger>
         </TabsList>
@@ -429,6 +470,241 @@ function BusinessWorkspace() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="registers" className="space-y-3">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Open shifts ({open_shifts.length})</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              {open_shifts.length === 0 ? (
+                <div className="p-6 text-sm text-muted-foreground text-center">No open shifts.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40"><tr className="text-left"><th className="p-3">Opened</th><th className="p-3">Cashier</th><th className="p-3">Opening cash</th><th className="p-3">Expected</th></tr></thead>
+                  <tbody>
+                    {open_shifts.map((s: any) => (
+                      <tr key={s.id} className="border-t">
+                        <td className="p-3 text-xs">{format(new Date(s.opened_at), "MMM d, HH:mm")}</td>
+                        <td className="p-3 text-xs">{s.opened_by_name ?? s.opened_by?.slice(0, 8) ?? "—"}</td>
+                        <td className="p-3 text-xs">${Number(s.opening_cash ?? 0).toFixed(2)}</td>
+                        <td className="p-3 text-xs">${Number(s.expected_cash ?? 0).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Recent shifts</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              {recent_shifts.length === 0 ? (
+                <div className="p-6 text-sm text-muted-foreground text-center">No shifts recorded.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/40"><tr className="text-left"><th className="p-3">Opened</th><th className="p-3">Closed</th><th className="p-3">Cashier</th><th className="p-3">Expected</th><th className="p-3">Counted</th><th className="p-3">Variance</th><th className="p-3">Status</th></tr></thead>
+                    <tbody>
+                      {recent_shifts.map((s: any) => (
+                        <tr key={s.id} className="border-t">
+                          <td className="p-3 text-xs whitespace-nowrap">{format(new Date(s.opened_at), "MMM d, HH:mm")}</td>
+                          <td className="p-3 text-xs whitespace-nowrap">{s.closed_at ? format(new Date(s.closed_at), "MMM d, HH:mm") : "—"}</td>
+                          <td className="p-3 text-xs">{s.opened_by_name ?? "—"}</td>
+                          <td className="p-3 text-xs">${Number(s.expected_cash ?? 0).toFixed(2)}</td>
+                          <td className="p-3 text-xs">{s.counted_cash != null ? `$${Number(s.counted_cash).toFixed(2)}` : "—"}</td>
+                          <td className={`p-3 text-xs ${Math.abs(Number(s.variance ?? 0)) > 0.01 ? "text-amber-600 font-medium" : ""}`}>{s.variance != null ? `$${Number(s.variance).toFixed(2)}` : "—"}</td>
+                          <td className="p-3"><Badge variant="outline" className="text-xs">{s.status}</Badge></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          {cash_movements.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Recent cash movements</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40"><tr className="text-left"><th className="p-3">When</th><th className="p-3">Type</th><th className="p-3">Amount</th><th className="p-3">By</th><th className="p-3">Reason</th></tr></thead>
+                  <tbody>
+                    {cash_movements.map((c: any) => (
+                      <tr key={c.id} className="border-t">
+                        <td className="p-3 text-xs whitespace-nowrap">{format(new Date(c.created_at), "MMM d, HH:mm")}</td>
+                        <td className="p-3 text-xs"><Badge variant="outline">{c.type}</Badge></td>
+                        <td className="p-3 text-xs">${Number(c.amount ?? 0).toFixed(2)}</td>
+                        <td className="p-3 text-xs">{c.user_name ?? "—"}</td>
+                        <td className="p-3 text-xs text-muted-foreground">{c.reason ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="sales" className="space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <SummaryCard label="Today" primary={`$${sales_summary.today.gross.toFixed(2)}`} sub={`${sales_summary.today.count} sales`} />
+            <SummaryCard label="Last 7 days" primary={`$${sales_summary.last_7d.gross.toFixed(2)}`} sub={`${sales_summary.last_7d.count} sales`} />
+            <SummaryCard label="Last 30 days" primary={`$${sales_summary.last_30d.gross.toFixed(2)}`} sub={`${sales_summary.last_30d.count} sales`} />
+            <SummaryCard label="Refunded (30d)" primary={`$${sales_summary.refunds_30d.total.toFixed(2)}`} sub={`${sales_summary.refunds_30d.count} refunds`} tone={sales_summary.refunds_30d.total > 0 ? "text-amber-600" : undefined} />
+          </div>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Recent sales</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              {recent_sales.length === 0 ? (
+                <div className="p-6 text-sm text-muted-foreground text-center">No sales.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40"><tr className="text-left"><th className="p-3">When</th><th className="p-3">Receipt</th><th className="p-3">Method</th><th className="p-3">Total</th><th className="p-3">Refund</th><th className="p-3">Source</th><th className="p-3">Status</th></tr></thead>
+                  <tbody>
+                    {recent_sales.map((s: any) => (
+                      <tr key={s.id} className="border-t">
+                        <td className="p-3 text-xs whitespace-nowrap">{format(new Date(s.created_at), "MMM d, HH:mm")}</td>
+                        <td className="p-3 text-xs font-mono">#{s.receipt_number ?? "—"}</td>
+                        <td className="p-3 text-xs">{s.payment_method}</td>
+                        <td className="p-3 text-xs">${Number(s.total).toFixed(2)}</td>
+                        <td className="p-3 text-xs">{s.refund_status && s.refund_status !== "none" ? <Badge variant="outline" className="text-xs">{s.refund_status}</Badge> : "—"}</td>
+                        <td className="p-3 text-xs">{s.synced_from_offline ? <Badge variant="outline" className="text-xs">offline</Badge> : "online"}</td>
+                        <td className="p-3 text-xs"><Badge variant="outline">{s.status}</Badge></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="refunds">
+          <Card>
+            <CardContent className="p-0">
+              {refunds.length === 0 ? (
+                <div className="p-8 text-sm text-muted-foreground text-center">No refunds recorded.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40"><tr className="text-left"><th className="p-3">When</th><th className="p-3">Type</th><th className="p-3">Total</th><th className="p-3">Method</th><th className="p-3">Cashier</th><th className="p-3">Reason</th><th className="p-3">Status</th></tr></thead>
+                  <tbody>
+                    {refunds.map((r: any) => (
+                      <tr key={r.id} className="border-t">
+                        <td className="p-3 text-xs whitespace-nowrap">{format(new Date(r.created_at), "MMM d, HH:mm")}</td>
+                        <td className="p-3 text-xs">{r.refund_type}</td>
+                        <td className="p-3 text-xs">${Number(r.total).toFixed(2)}</td>
+                        <td className="p-3 text-xs">{r.payment_method}</td>
+                        <td className="p-3 text-xs">{r.cashier_name ?? "—"}</td>
+                        <td className="p-3 text-xs text-muted-foreground max-w-xs truncate">{r.reason ?? "—"}</td>
+                        <td className="p-3 text-xs"><Badge variant="outline">{r.status}</Badge></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="hardware" className="space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Payment terminals</CardTitle>
+              <CardDescription>Live status from the last device check-in.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {terminals.length === 0 ? (
+                <div className="p-6 text-sm text-muted-foreground text-center">No terminals enrolled.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40"><tr className="text-left"><th className="p-3">Device</th><th className="p-3">Provider</th><th className="p-3">Serial</th><th className="p-3">Location</th><th className="p-3">Last seen</th><th className="p-3">Status</th></tr></thead>
+                  <tbody>
+                    {terminals.map((t: any) => {
+                      const stale = !t.last_seen_at || (Date.now() - new Date(t.last_seen_at).getTime()) > 24 * 3600_000;
+                      return (
+                        <tr key={t.id} className="border-t">
+                          <td className="p-3 text-xs font-medium">{t.label}</td>
+                          <td className="p-3 text-xs">{t.provider}</td>
+                          <td className="p-3 text-xs font-mono">{t.serial ?? "—"}</td>
+                          <td className="p-3 text-xs">{t.location ?? "—"}</td>
+                          <td className={`p-3 text-xs ${stale ? "text-amber-600" : ""}`}>{t.last_seen_at ? format(new Date(t.last_seen_at), "MMM d, HH:mm") : "never"}</td>
+                          <td className="p-3"><Badge variant={t.status === "active" ? "default" : "outline"}>{t.status}</Badge></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Printers, scanners &amp; cash drawer</CardTitle></CardHeader>
+            <CardContent className="text-sm text-muted-foreground space-y-1">
+              <p>Peripheral drivers (receipt printer, barcode scanner, cash drawer) are attached and configured per-device on the merchant's POS shell. Their live status is only reported inside an active screen-sharing support session — request one from the top of this page to inspect the merchant's hardware panel in real time.</p>
+              <p className="text-xs">Merchants can also run the built-in Hardware Test from Settings → Hardware in their POS.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="offline" className="space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <SummaryCard label="Offline sales (7d)" primary={String(sales_summary.offline_sales_7d)} sub="synced from offline mode" tone={sales_summary.offline_sales_7d > 0 ? "text-amber-600" : undefined} />
+            <SummaryCard label="Offline devices" primary={String(offline_terminals)} sub="no check-in in 24h" tone={offline_terminals > 0 ? "text-amber-600" : undefined} />
+            <SummaryCard label="Devices total" primary={String(counts.terminals)} sub="registered" />
+          </div>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Devices missing check-in</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              {terminals.filter((t: any) => !t.last_seen_at || (Date.now() - new Date(t.last_seen_at).getTime()) > 24 * 3600_000).length === 0 ? (
+                <div className="p-6 text-sm text-muted-foreground text-center">All devices checked in within 24 hours.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40"><tr className="text-left"><th className="p-3">Device</th><th className="p-3">Serial</th><th className="p-3">Last seen</th></tr></thead>
+                  <tbody>
+                    {terminals.filter((t: any) => !t.last_seen_at || (Date.now() - new Date(t.last_seen_at).getTime()) > 24 * 3600_000).map((t: any) => (
+                      <tr key={t.id} className="border-t">
+                        <td className="p-3 text-xs">{t.label}</td>
+                        <td className="p-3 text-xs font-mono">{t.serial ?? "—"}</td>
+                        <td className="p-3 text-xs text-amber-600">{t.last_seen_at ? format(new Date(t.last_seen_at), "MMM d, HH:mm") : "never"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-xs text-muted-foreground">
+              Offline sales sync automatically when the device regains connectivity. To force a re-sync, request a support view and use the merchant's in-app Retry Sync button — Platform Admin cannot push commands to offline devices.
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="support" className="space-y-3">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Support view history</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              {support_sessions.length === 0 ? (
+                <div className="p-6 text-sm text-muted-foreground text-center">No support view requests for this business.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40"><tr className="text-left"><th className="p-3">Requested</th><th className="p-3">Admin</th><th className="p-3">Reason</th><th className="p-3">Status</th><th className="p-3">Ended</th></tr></thead>
+                  <tbody>
+                    {support_sessions.map((s: any) => (
+                      <tr key={s.id} className="border-t">
+                        <td className="p-3 text-xs whitespace-nowrap">{format(new Date(s.requested_at), "MMM d, HH:mm")}</td>
+                        <td className="p-3 text-xs">{s.admin_email ?? "—"}</td>
+                        <td className="p-3 text-xs text-muted-foreground max-w-xs truncate">{s.reason ?? "—"}</td>
+                        <td className="p-3"><Badge variant="outline" className="text-xs">{s.status}</Badge></td>
+                        <td className="p-3 text-xs">{s.ended_at ? format(new Date(s.ended_at), "MMM d, HH:mm") : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+
         <TabsContent value="subscription">
           {!subscription ? (
             <Card><CardContent className="p-6 text-sm text-muted-foreground">No Stripe subscription on file.</CardContent></Card>
@@ -599,6 +875,15 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone?:
     <Card><CardContent className="p-4">
       <div className={`text-2xl font-bold ${tone ?? ""}`}>{value}</div>
       <div className="text-xs text-muted-foreground">{label}</div>
+    </CardContent></Card>
+  );
+}
+function SummaryCard({ label, primary, sub, tone }: { label: string; primary: string; sub?: string; tone?: string }) {
+  return (
+    <Card><CardContent className="p-4">
+      <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className={`text-xl font-bold mt-1 ${tone ?? ""}`}>{primary}</div>
+      {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
     </CardContent></Card>
   );
 }
