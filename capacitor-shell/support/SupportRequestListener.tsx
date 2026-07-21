@@ -143,7 +143,26 @@ export function SupportRequestListener() {
     if (!pending) return;
     setBusy(true);
     const target = pending;
-    const res = await postSupport("support-respond", { sessionId: target.id, decision });
+    let clientMetadata: Record<string, unknown> | null = null;
+    if (decision === "accept") {
+      try {
+        const { collectDiagnostics } = await import("./diagnostics");
+        // Route/store/employee context is not directly available here; the
+        // native app currently only mounts one route, so a minimal snapshot
+        // (device + hardware + app info) is enough for support.
+        clientMetadata = await collectDiagnostics({
+          route: (typeof window !== "undefined" ? window.location.pathname : "/") ?? "/",
+          storeId: storeId ?? null,
+          employeeId: (me.data?.profile?.employee_id ?? null) as string | null,
+        });
+      } catch { /* diagnostics best-effort */ }
+    }
+    const res = await postSupport("support-respond", {
+      sessionId: target.id,
+      decision,
+      clientCapability: decision === "accept" ? "android_diagnostics_only" : undefined,
+      clientMetadata: decision === "accept" ? clientMetadata : undefined,
+    });
     setBusy(false);
     if ("ok" in res) {
       toast[decision === "accept" ? "success" : "message"](
