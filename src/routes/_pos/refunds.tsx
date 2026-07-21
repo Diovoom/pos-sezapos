@@ -206,7 +206,6 @@ function RefundDialog({
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [override, setOverride] = useState<ManagerOverrideResult | null>(null);
   const { has, isSuper } = usePermissions();
-  const canCreate = isSuper || has("refunds.create");
   const canApprove = isSuper || has("refunds.approve");
   const requireApproval =
     (() => {
@@ -236,7 +235,6 @@ function RefundDialog({
 
   const submit = useMutation({
     mutationFn: async () => {
-      if (!canCreate) throw new Error("You do not have permission to create refunds");
       if (!sale) return null;
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
@@ -419,11 +417,11 @@ function RefundDialog({
                 ) : (
                   <Button
                     variant="destructive"
-                    disabled={submit.isPending || refundTotal <= 0 || !canCreate}
+                    disabled={submit.isPending || refundTotal <= 0}
                     onClick={() => submit.mutate()}
                   >
                     {submit.isPending && <Loader2 className="size-4 animate-spin" />}
-                    {canCreate ? "Issue refund" : "Refund permission required"}
+                    Issue refund
                   </Button>
                 )}
               </div>

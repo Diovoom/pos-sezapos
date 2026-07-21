@@ -55,16 +55,13 @@ import { StoreLogo } from "@/components/brand/StoreLogo";
 import { UserAvatar } from "@/components/brand/UserAvatar";
 import { roleDotClass, roleTextClass } from "@/lib/role-visual";
 import { Settings as SettingsIcon } from "lucide-react";
-import { useStoreLanguageSync } from "@/hooks/useStoreLanguageSync";
-import { useTranslation } from "react-i18next";
-import { usePermissions } from "@/hooks/usePermissions";
 
 const POS_NAV = [
-  { to: "/pos", labelKey: "posNav.sell", icon: ScanBarcode },
-  { to: "/register", labelKey: "posNav.register", icon: Wallet },
-  { to: "/refunds", labelKey: "posNav.refunds", icon: RotateCcw },
-  { to: "/timeclock", labelKey: "posNav.timeclock", icon: Clock },
-  { to: "/shifts", labelKey: "posNav.shift", icon: Receipt },
+  { to: "/pos", label: "Sell", icon: ScanBarcode },
+  { to: "/register", label: "Register", icon: Wallet },
+  { to: "/refunds", label: "Refunds", icon: RotateCcw },
+  { to: "/timeclock", label: "Time clock", icon: Clock },
+  { to: "/shifts", label: "Shift", icon: Receipt },
 ] as const;
 
 const MANAGER_ROLES = new Set(["owner", "admin", "manager"]);
@@ -77,18 +74,8 @@ export function PosShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: me } = useMe();
-  const { t } = useTranslation();
-  const permissions = usePermissions();
-  useStoreLanguageSync();
   const canDashboard = (me?.roles ?? []).some((r) => MANAGER_ROLES.has(r));
   const storeId = me?.store?.id as string | undefined;
-  const visibleNav = POS_NAV.filter((item) => {
-    if (permissions.isSuper) return true;
-    if (item.to === "/pos") return permissions.has("sales.create");
-    if (item.to === "/refunds") return permissions.has("refunds.create") || permissions.has("refunds.approve");
-    if (item.to === "/register") return permissions.has("register.open") || permissions.has("register.close");
-    return true;
-  });
 
   // Detect an open shift for this store so Sign Out can warn the cashier.
   const openShift = useQuery({
@@ -170,21 +157,21 @@ export function PosShell({ children }: { children: ReactNode }) {
         </div>
 
         <nav aria-label="POS navigation" className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {visibleNav.map((item) => {
+          {POS_NAV.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.to || pathname.startsWith(item.to + "/");
             return (
               <Link
                 key={item.to}
                 to={item.to}
-                aria-label={t(item.labelKey)}
+                aria-label={item.label}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                   active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
                 <Icon className="size-4 shrink-0" aria-hidden="true" />
-                <span className="hidden lg:inline">{t(item.labelKey)}</span>
+                <span className="hidden lg:inline">{item.label}</span>
               </Link>
             );
           })}
@@ -198,7 +185,7 @@ export function PosShell({ children }: { children: ReactNode }) {
               size="sm"
               className="w-full justify-center"
               onClick={() => setDrawerDialog(true)}
-              aria-label={t("posNav.open_drawer")}
+              aria-label="Open cash drawer"
             >
               <DoorOpen className="size-4 lg:mr-2" />
               <span className="hidden lg:inline">Open Cash Drawer</span>
@@ -339,18 +326,18 @@ export function PosShell({ children }: { children: ReactNode }) {
               {openShift.data && (
                 <MobileMenuRow
                   icon={DoorOpen}
-                  label={t("posNav.open_drawer")}
+                  label="Open cash drawer"
                   onClick={() => { setMobileMenu(false); setDrawerDialog(true); }}
                 />
               )}
               <MobileMenuRow
                 icon={Wallet}
-                label={t("posNav.close_shift")}
+                label="Close shift"
                 onClick={() => { setMobileMenu(false); navigate({ to: "/register" }); }}
               />
               <MobileMenuRow
                 icon={Clock}
-                label={t("posNav.timeclock")}
+                label="Time clock"
                 onClick={() => { setMobileMenu(false); navigate({ to: "/timeclock" }); }}
               />
               {canDashboard && !isNativeShell && (
@@ -364,17 +351,17 @@ export function PosShell({ children }: { children: ReactNode }) {
                 <>
                   <MobileMenuRow
                     icon={ArrowLeftRight}
-                    label={t("posNav.pending_sync")}
+                    label="Pending sync"
                     onClick={() => { setMobileMenu(false); navigate({ to: "/pending-sync" }); }}
                   />
                   <MobileMenuRow
                     icon={LifeBuoy}
-                    label={t("posNav.support")}
+                    label="Support"
                     onClick={() => { setMobileMenu(false); navigate({ to: "/support" }); }}
                   />
                   <MobileMenuRow
                     icon={ChevronRight}
-                    label={t("posNav.settings")}
+                    label="Settings"
                     onClick={() => { setMobileMenu(false); navigate({ to: "/settings" }); }}
                   />
                 </>
@@ -382,12 +369,12 @@ export function PosShell({ children }: { children: ReactNode }) {
               <div className="h-px bg-border my-2" />
               <MobileMenuRow
                 icon={ArrowLeftRight}
-                label={t("posNav.switch_employee")}
+                label="Switch employee"
                 onClick={handleSwitchEmployee}
               />
               <MobileMenuRow
                 icon={LogOut}
-                label={t("posNav.sign_out")}
+                label="Sign out"
                 destructive
                 onClick={requestSignOut}
               />
@@ -404,10 +391,10 @@ export function PosShell({ children }: { children: ReactNode }) {
       {/* Mobile POS bottom nav */}
       <nav
         aria-label="POS navigation"
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 h-14 border-t bg-background/95 backdrop-blur flex"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 h-14 border-t bg-background/95 backdrop-blur grid grid-cols-5"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        {visibleNav.map((item) => {
+        {POS_NAV.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.to || pathname.startsWith(item.to + "/");
           return (
@@ -415,12 +402,12 @@ export function PosShell({ children }: { children: ReactNode }) {
               key={item.to}
               to={item.to}
               className={cn(
-                "flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium",
+                "flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium",
                 active ? "text-primary" : "text-muted-foreground hover:text-primary",
               )}
             >
               <Icon className="size-5" />
-              {t(item.labelKey)}
+              {item.label}
             </Link>
           );
         })}

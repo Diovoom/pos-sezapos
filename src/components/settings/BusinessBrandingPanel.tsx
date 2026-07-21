@@ -1,17 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoreBranding } from "@/hooks/useStoreBranding";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Upload, Trash2, Image as ImageIcon } from "lucide-react";
 import { logAudit } from "@/lib/audit-log";
 
 const MAX_DIM = 512;
-const MAX_BYTES = 220_000;
+const MAX_BYTES = 220_000; // ~220KB data URL
 
 async function fileToResizedDataUrl(file: File): Promise<string> {
   if (!/^image\/(png|jpeg|jpg|webp)$/i.test(file.type)) {
@@ -26,6 +24,7 @@ async function fileToResizedDataUrl(file: File): Promise<string> {
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
   ctx.drawImage(bmp, 0, 0, w, h);
+  // PNG preserves transparency for logos.
   let url = canvas.toDataURL("image/png");
   if (url.length > MAX_BYTES) url = canvas.toDataURL("image/webp", 0.9);
   if (url.length > MAX_BYTES) url = canvas.toDataURL("image/jpeg", 0.85);
@@ -38,44 +37,23 @@ export function BusinessBrandingPanel() {
   const storeId = data?.storeId;
   const primaryRef = useRef<HTMLInputElement>(null);
   const receiptRef = useRef<HTMLInputElement>(null);
-  const [saving, setSaving] = useState<null | "primary" | "receipt" | "text">(null);
-  const [displayText, setDisplayText] = useState("");
+  const [saving, setSaving] = useState<null | "primary" | "receipt">(null);
 
-  useEffect(() => {
-    if (data?.displayText) setDisplayText(data.displayText);
-  }, [data?.displayText]);
-
-  const refresh = () => {
-    void qc.invalidateQueries({ queryKey: ["store-branding"] });
-    void qc.invalidateQueries({ queryKey: ["store"] });
-    void qc.invalidateQueries({ queryKey: ["me"] });
-  };
-
-  const save = async (
-    field: "logo_url" | "receipt_logo_url" | "pos_display_name",
-    value: string | null,
-  ) => {
+  const save = async (field: "logo_url" | "receipt_logo_url", value: string | null) => {
     if (!storeId) return;
-    const kind = field === "logo_url" ? "primary" : field === "receipt_logo_url" ? "receipt" : "text";
-    setSaving(kind);
+    setSaving(field === "logo_url" ? "primary" : "receipt");
+    const patch: Record<string, string | null> = { [field]: value };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
-      .from("stores")
-      .update({ [field]: value })
-      .eq("id", storeId);
+    const { error } = await (supabase as any).from("stores").update(patch).eq("id", storeId);
     setSaving(null);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success(field === "pos_display_name" ? "Fallback text updated" : value ? "Logo updated" : "Logo removed");
-    void logAudit({
-      action: "settings.branding.update",
-      entity: "store",
-      entity_id: storeId,
-      details: { field, cleared: !value },
-    });
-    refresh();
+    toast.success(value ? "Logo updated" : "Logo removed");
+    void logAudit({ action: "settings.branding.update", entity: "store", entity_id: storeId, details: { field, cleared: !value } });
+    qc.invalidateQueries({ queryKey: ["store-branding"] });
+    qc.invalidateQueries({ queryKey: ["me"] });
   };
 
   const onPick = async (field: "logo_url" | "receipt_logo_url", input: HTMLInputElement) => {
@@ -110,9 +88,7 @@ export function BusinessBrandingPanel() {
         {url ? (
           <img src={url} alt={label} className="max-w-full max-h-full object-contain" />
         ) : (
-          <div className="size-full grid place-items-center bg-primary text-primary-foreground font-black text-2xl">
-            {displayText || "S"}
-          </div>
+          <ImageIcon className="size-8 text-muted-foreground" />
         )}
       </div>
       <div className="flex-1 min-w-0">
@@ -149,33 +125,11 @@ export function BusinessBrandingPanel() {
       <CardHeader>
         <CardTitle>Business Branding</CardTitle>
         <CardDescription>
-          Branding is stored in the cloud. Online Android registers refresh automatically when you save a change—no APK rebuild required.
+          One logo across POS header, loading screen, receipts, customer display, dashboard,
+          and the Android app. PNG, JPG or WEBP up to ~1&nbsp;MB. Automatically resized.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="rounded-lg border p-4 space-y-3">
-          <div>
-            <Label htmlFor="pos-display-text">Text shown when no logo is uploaded</Label>
-            <p className="text-xs text-muted-foreground">Use 1–4 short characters, for example EVS, DM, or S.</p>
-          </div>
-          <div className="flex gap-2 max-w-sm">
-            <Input
-              id="pos-display-text"
-              value={displayText}
-              maxLength={4}
-              onChange={(e) => setDisplayText(e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase())}
-              placeholder="EVS"
-            />
-            <Button
-              onClick={() => save("pos_display_name", displayText.trim() || null)}
-              disabled={!storeId || saving === "text"}
-            >
-              {saving === "text" && <Loader2 className="size-4 mr-2 animate-spin" />}
-              Save text
-            </Button>
-          </div>
-        </div>
-
+      <CardContent className="space-y-3">
         <LogoTile
           label="Primary logo"
           description="Shown in the POS header, loading screen, customer display and Android app."
@@ -192,11 +146,6 @@ export function BusinessBrandingPanel() {
           inputRef={receiptRef}
           busy={saving === "receipt"}
         />
-        {!data?.hasCustomLogo && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <ImageIcon className="size-4" /> The fallback text above is currently used in the POS header.
-          </div>
-        )}
       </CardContent>
     </Card>
   );

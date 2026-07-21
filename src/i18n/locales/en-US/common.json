@@ -1,7 +1,5 @@
 {
-  "app": {
-    "name": "POS"
-  },
+  "app": { "name": "POS" },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
@@ -15,10 +13,7 @@
     "loading": "Loading...",
     "confirm": "Confirm",
     "yes": "Yes",
-    "no": "No",
-    "home": "Home",
-    "staff": "Staff",
-    "more": "More"
+    "no": "No"
   },
   "nav": {
     "checkout": "Checkout",
@@ -34,8 +29,7 @@
     "shifts": "Shifts",
     "register": "Register",
     "timeclock": "Time Clock",
-    "payroll": "Payroll",
-    "devices": "POS Devices"
+    "payroll": "Payroll"
   },
   "pos": {
     "cart_empty": "Cart is empty",
@@ -65,61 +59,5 @@
     "timezone": "Time Zone",
     "language": "Language",
     "currency": "Currency"
-  },
-  "posNav": {
-    "sell": "Sell",
-    "register": "Register",
-    "refunds": "Refunds",
-    "timeclock": "Time clock",
-    "shift": "Shift",
-    "support": "Support",
-    "settings": "Settings",
-    "switch_employee": "Switch employee",
-    "sign_out": "Sign out",
-    "close_shift": "Close shift",
-    "open_drawer": "Open cash drawer",
-    "pending_sync": "Pending sync"
-  },
-  "settings": {
-    "title": "Settings",
-    "subtitle": "Store, operations, account, data, and support",
-    "store_group": "Store",
-    "operations_group": "Operations",
-    "account_group": "Account & Business",
-    "data_group": "Data & Support",
-    "store_info": "Store Information",
-    "branding": "Business Branding",
-    "receipts": "Receipts & Customer Messaging",
-    "inventory": "Inventory Preferences",
-    "age": "Age Verification",
-    "terminal": "Payment Terminal",
-    "hardware": "Hardware & Register Status",
-    "cash_rules": "Cash & Register Rules",
-    "reports": "Report Preferences",
-    "roles": "Roles & Permissions",
-    "notifications": "Notifications",
-    "security": "Security",
-    "owner_profile": "Owner Profile",
-    "password": "Password",
-    "manager_pin": "Manager Approval PIN",
-    "billing": "Billing & Subscription",
-    "integrations": "Integrations",
-    "appearance": "Appearance & Language",
-    "backup": "Data Backup & Export",
-    "audit": "Audit Log",
-    "support": "Contact Support",
-    "theme": "Theme",
-    "density": "Layout density",
-    "comfortable": "Comfortable",
-    "compact": "Compact",
-    "text_size": "Text size",
-    "small": "Small",
-    "normal": "Normal",
-    "large": "Large",
-    "touch_mode": "Touch mode",
-    "save_appearance": "Save appearance",
-    "appearance_saved": "Appearance updated",
-    "language": "Interface language",
-    "device_only": "Configure physical hardware in the Android POS app. This dashboard shows status only."
   }
 }

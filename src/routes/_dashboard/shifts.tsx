@@ -59,7 +59,6 @@ function ShiftsList() {
   const me = useMe();
   const canSeeAll = me.data?.roles.some((r) => r === "owner" || r === "manager" || r === "admin");
   const myId = me.data?.user.id;
-  const storeId = (me.data?.profile?.store_id ?? me.data?.store?.id) as string | undefined;
 
   const [range, setRange] = useState<"today" | "week" | "month" | "custom">("week");
   const [from, setFrom] = useState(daysAgoStr(7));
@@ -89,15 +88,11 @@ function ShiftsList() {
   });
 
   const shiftsQ = useQuery<TimeEntry[]>({
-    queryKey: ["shifts-list", storeId, fromIso, toIso, employeeId, status, canSeeAll, myId],
-    enabled: !!myId && !!storeId,
+    queryKey: ["shifts-list", fromIso, toIso, employeeId, status, canSeeAll, myId],
+    enabled: !!myId,
     queryFn: async () => {
-      // time_entries.user_id does not have a database FK to profiles, so a
-      // PostgREST embedded join silently fails. Load entries and employees
-      // separately and join them in memory instead.
       let q = sb.from("time_entries")
-        .select("id,user_id,store_id,clock_in,clock_out,break_minutes,late,late_minutes")
-        .eq("store_id", storeId)
+        .select("*, profiles:user_id(full_name, first_name, last_name, employee_id, email)")
         .gte("clock_in", fromIso)
         .lt("clock_in", toIso)
         .order("clock_in", { ascending: false })
@@ -108,19 +103,7 @@ function ShiftsList() {
       if (status === "closed") q = q.not("clock_out", "is", null);
       const { data, error } = await q;
       if (error) throw error;
-      const entries = (data ?? []) as Omit<TimeEntry, "profiles">[];
-      const ids = Array.from(new Set(entries.map((entry) => entry.user_id)));
-      if (ids.length === 0) return [];
-      const { data: profiles, error: profileError } = await supabase
-        .from("profiles")
-        .select("id,full_name,first_name,last_name,employee_id,email")
-        .in("id", ids);
-      if (profileError) throw profileError;
-      const byId = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
-      return entries.map((entry) => ({
-        ...entry,
-        profiles: byId.get(entry.user_id) ?? null,
-      })) as TimeEntry[];
+      return (data as TimeEntry[]) ?? [];
     },
   });
 
@@ -268,10 +251,6 @@ function ShiftsList() {
           <CardContent>
             {shiftsQ.isLoading ? (
               <div className="flex items-center gap-2 text-muted-foreground text-sm"><Loader2 className="size-4 animate-spin" /> Loading…</div>
-            ) : shiftsQ.isError ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                Could not load shift history: {shiftsQ.error instanceof Error ? shiftsQ.error.message : "Unknown error"}
-              </div>
             ) : rows.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -439,18 +418,10 @@ function ShiftDetail({ id }: { id: string }) {
   const q = useQuery({
     queryKey: ["shift-detail", id],
     queryFn: async () => {
-      const { data: entry, error } = await sb.from("time_entries")
-        .select("*")
+      const { data } = await sb.from("time_entries")
+        .select("*, profiles:user_id(full_name, first_name, last_name, employee_id, email, phone, photo_url, hire_date)")
         .eq("id", id).maybeSingle();
-      if (error) throw error;
-      if (!entry) return null;
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("full_name, first_name, last_name, employee_id, email, phone, photo_url, hire_date")
-        .eq("id", entry.user_id)
-        .maybeSingle();
-      if (profileError) throw profileError;
-      return { ...entry, profiles: profile ?? null };
+      return data;
     },
   });
   const entry = q.data as (TimeEntry & { profiles: NonNullable<TimeEntry["profiles"]> & { phone: string | null; photo_url: string | null; hire_date: string | null } }) | undefined;

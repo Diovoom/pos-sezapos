@@ -37,7 +37,6 @@ import {
 import { loadScannerConfig } from "../lib/scannerConfig";
 import { collectDiagnostics as collectSupportDiagnostics } from "../support/diagnostics";
 import { logAudit } from "@/lib/audit-log";
-import { useTranslation } from "react-i18next";
 
 
 /* ------------------------------ device settings --------------------------- */
@@ -66,11 +65,7 @@ function useLocalString(key: string, def: string) {
   const [v, setV] = useState<string>(() =>
     typeof window === "undefined" ? def : window.localStorage.getItem(key) ?? def,
   );
-  const save = (next: string) => {
-    setV(next);
-    window.localStorage.setItem(key, next);
-    window.dispatchEvent(new CustomEvent("seza:device-config-changed", { detail: { key, value: next } }));
-  };
+  const save = (next: string) => { setV(next); window.localStorage.setItem(key, next); };
   return [v, save] as const;
 }
 function useLocalBool(key: string, def: boolean) {
@@ -79,11 +74,7 @@ function useLocalBool(key: string, def: boolean) {
     const raw = window.localStorage.getItem(key);
     return raw === null ? def : raw === "1";
   });
-  const save = (next: boolean) => {
-    setV(next);
-    window.localStorage.setItem(key, next ? "1" : "0");
-    window.dispatchEvent(new CustomEvent("seza:device-config-changed", { detail: { key, value: next } }));
-  };
+  const save = (next: boolean) => { setV(next); window.localStorage.setItem(key, next ? "1" : "0"); };
   return [v, save] as const;
 }
 
@@ -729,8 +720,8 @@ function HardwareStatusPanel() {
 
         <div className="rounded-md border p-3">
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><Scan className="h-4 w-4" />Barcode Scanner</div>
-          <Row label="Mode" value={scannerCfg.type === "usb-wedge" ? "USB keyboard wedge" : scannerCfg.type === "bluetooth-wedge" ? "Bluetooth keyboard wedge" : "Generic HID"} />
-          <Row label="Suffix" value={scannerCfg.suffixEnter ? "Enter" : scannerCfg.suffixTab ? "Tab" : "None"} />
+          <Row label="Mode" value={scannerCfg.mode === "hid" ? "USB / Bluetooth (HID)" : "Camera (disabled on APK)"} />
+          <Row label="Suffix" value={scannerCfg.suffix === "\n" ? "Enter" : scannerCfg.suffix === "\t" ? "Tab" : "None"} />
           <Row label="Debounce (ms)" value={scannerCfg.debounceMs} />
           <Row label="Last scan" value={scannerLast || "—"} />
         </div>
@@ -776,69 +767,39 @@ function HardwareStatusPanel() {
 /* ---------------------------------- page ---------------------------------- */
 
 const SECTIONS = [
-  { id: "receipt", labelKey: "settings.receipts", Panel: ReceiptPanel },
-  { id: "printer", labelKey: "settings.hardware", Panel: PrinterPanel },
-  { id: "drawer", labelKey: "settings.cash_rules", Panel: CashDrawerPanel },
-  { id: "scanner", labelKey: "settings.hardware", Panel: ScannerPanel },
-  { id: "status", labelKey: "settings.hardware", Panel: HardwareStatusPanel },
-  { id: "terminal", labelKey: "settings.terminal", Panel: TerminalPanel },
+  { id: "receipt", label: "Receipt", Panel: ReceiptPanel },
+  { id: "printer", label: "Printer", Panel: PrinterPanel },
+  { id: "drawer", label: "Cash Drawer", Panel: CashDrawerPanel },
+  { id: "scanner", label: "Barcode Scanner", Panel: ScannerPanel },
+  { id: "status", label: "Hardware Status", Panel: HardwareStatusPanel },
+  { id: "terminal", label: "Payment Terminal", Panel: TerminalPanel },
 
-  { id: "device", labelKey: "nav.devices", Panel: DevicePanel },
-  { id: "register", labelKey: "posNav.register", Panel: RegisterPanel },
-  { id: "shift", labelKey: "posNav.shift", Panel: ShiftPanel },
-  { id: "pin", labelKey: "settings.manager_pin", Panel: PinPanel },
-  { id: "account", labelKey: "settings.owner_profile", Panel: AccountPanel },
+  { id: "device", label: "Device", Panel: DevicePanel },
+  { id: "register", label: "Register", Panel: RegisterPanel },
+  { id: "shift", label: "Shift", Panel: ShiftPanel },
+  { id: "pin", label: "Employee PIN", Panel: PinPanel },
+  { id: "account", label: "Account", Panel: AccountPanel },
 ] as const;
 
 export function SettingsScreen() {
-  const { t } = useTranslation();
   const [active, setActive] = useState<(typeof SECTIONS)[number]["id"]>("receipt");
-  const { data: access, isLoading } = useQuery({
-    queryKey: ["android-settings-access"],
-    queryFn: async () => {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return { privileged: false };
-      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.user.id);
-      const roleNames = (roles ?? []).map((r) => String(r.role));
-      if (roleNames.some((r) => r === "owner" || r === "admin" || r === "manager")) return { privileged: true };
-      const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", user.user.id).maybeSingle();
-      if (!profile?.store_id) return { privileged: false };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: perms } = await (supabase.from as any)("role_permissions")
-        .select("permission")
-        .eq("store_id", profile.store_id)
-        .in("role", roleNames);
-      const keys = new Set((perms ?? []).map((p: { permission: string }) => p.permission));
-      return { privileged: keys.has("*") || keys.has("settings.edit") || keys.has("hardware.configure") };
-    },
-  });
-  const visible = access?.privileged ? SECTIONS : SECTIONS.filter((s) => s.id === "pin" || s.id === "account");
-  useEffect(() => {
-    if (!isLoading && !visible.some((s) => s.id === active)) setActive("pin");
-  }, [active, isLoading, visible]);
-  const selected = visible.find((s) => s.id === active) ?? visible[0];
-  const Panel = selected.Panel;
-
+  const Panel = SECTIONS.find((s) => s.id === active)!.Panel;
   return (
     <div className="h-full overflow-y-auto overscroll-contain">
       <div className="mx-auto grid w-full max-w-5xl gap-4 p-4 md:grid-cols-[220px_1fr] pb-24">
         <nav className="rounded-md border bg-card p-2 md:sticky md:top-4 md:self-start">
           <ul className="grid gap-1 md:grid-cols-1 grid-cols-2">
-            {visible.map((section) => (
-              <li key={section.id}>
+            {SECTIONS.map((s) => (
+              <li key={s.id}>
                 <button
                   type="button"
-                  onClick={() => setActive(section.id)}
-                  className={`w-full rounded px-3 py-2 text-left text-sm min-h-11 ${active === section.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                >{t(section.labelKey)}</button>
+                  onClick={() => setActive(s.id)}
+                  className={`w-full rounded px-3 py-2 text-left text-sm min-h-11 ${active === s.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >{s.label}</button>
               </li>
             ))}
           </ul>
-          <p className="mt-3 px-3 text-xs text-muted-foreground">
-            {access?.privileged
-              ? "Hardware is configured on this physical Android register. Branding, taxes, billing and store-wide language are controlled by the owner dashboard."
-              : "Cashiers can only manage their own PIN and account. Hardware and store configuration require manager access."}
-          </p>
+          <p className="mt-3 px-3 text-xs text-muted-foreground">Owner-only settings (store profile, taxes, billing, integrations) live in the web dashboard. Sign out from the cashier menu.</p>
         </nav>
         <section className="min-w-0"><Panel /></section>
       </div>

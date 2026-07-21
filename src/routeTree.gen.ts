@@ -99,7 +99,6 @@ import { Route as ApiPublicPosSupportRespondRouteImport } from './routes/api/pub
 import { Route as ApiPublicPosSupportEndRouteImport } from './routes/api/public/pos/support-end'
 import { Route as ApiPublicPosSetMyPinRouteImport } from './routes/api/public/pos/set-my-pin'
 import { Route as ApiPublicPosPairDeviceRouteImport } from './routes/api/public/pos/pair-device'
-import { Route as ApiPublicPosDeviceHeartbeatRouteImport } from './routes/api/public/pos/device-heartbeat'
 import { Route as ApiPublicPosCompleteFirstLoginRouteImport } from './routes/api/public/pos/complete-first-login'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as AdminAppAdminSupportTicketIdRouteImport } from './routes/_adminApp/admin.support.$ticketId'
@@ -568,12 +567,6 @@ const ApiPublicPosPairDeviceRoute = ApiPublicPosPairDeviceRouteImport.update({
   path: '/api/public/pos/pair-device',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicPosDeviceHeartbeatRoute =
-  ApiPublicPosDeviceHeartbeatRouteImport.update({
-    id: '/api/public/pos/device-heartbeat',
-    path: '/api/public/pos/device-heartbeat',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiPublicPosCompleteFirstLoginRoute =
   ApiPublicPosCompleteFirstLoginRouteImport.update({
     id: '/api/public/pos/complete-first-login',
@@ -690,7 +683,6 @@ export interface FileRoutesByFullPath {
   '/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
-  '/api/public/pos/device-heartbeat': typeof ApiPublicPosDeviceHeartbeatRoute
   '/api/public/pos/pair-device': typeof ApiPublicPosPairDeviceRoute
   '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
   '/api/public/pos/support-end': typeof ApiPublicPosSupportEndRoute
@@ -786,7 +778,6 @@ export interface FileRoutesByTo {
   '/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
-  '/api/public/pos/device-heartbeat': typeof ApiPublicPosDeviceHeartbeatRoute
   '/api/public/pos/pair-device': typeof ApiPublicPosPairDeviceRoute
   '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
   '/api/public/pos/support-end': typeof ApiPublicPosSupportEndRoute
@@ -886,7 +877,6 @@ export interface FileRoutesById {
   '/_adminApp/admin/support/$ticketId': typeof AdminAppAdminSupportTicketIdRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
-  '/api/public/pos/device-heartbeat': typeof ApiPublicPosDeviceHeartbeatRoute
   '/api/public/pos/pair-device': typeof ApiPublicPosPairDeviceRoute
   '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
   '/api/public/pos/support-end': typeof ApiPublicPosSupportEndRoute
@@ -984,7 +974,6 @@ export interface FileRouteTypes {
     | '/admin/support/$ticketId'
     | '/api/public/payments/webhook'
     | '/api/public/pos/complete-first-login'
-    | '/api/public/pos/device-heartbeat'
     | '/api/public/pos/pair-device'
     | '/api/public/pos/set-my-pin'
     | '/api/public/pos/support-end'
@@ -1080,7 +1069,6 @@ export interface FileRouteTypes {
     | '/admin/support/$ticketId'
     | '/api/public/payments/webhook'
     | '/api/public/pos/complete-first-login'
-    | '/api/public/pos/device-heartbeat'
     | '/api/public/pos/pair-device'
     | '/api/public/pos/set-my-pin'
     | '/api/public/pos/support-end'
@@ -1179,7 +1167,6 @@ export interface FileRouteTypes {
     | '/_adminApp/admin/support/$ticketId'
     | '/api/public/payments/webhook'
     | '/api/public/pos/complete-first-login'
-    | '/api/public/pos/device-heartbeat'
     | '/api/public/pos/pair-device'
     | '/api/public/pos/set-my-pin'
     | '/api/public/pos/support-end'
@@ -1243,7 +1230,6 @@ export interface RootRouteChildren {
   LovableSmsSendRoute: typeof LovableSmsSendRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicPosCompleteFirstLoginRoute: typeof ApiPublicPosCompleteFirstLoginRoute
-  ApiPublicPosDeviceHeartbeatRoute: typeof ApiPublicPosDeviceHeartbeatRoute
   ApiPublicPosPairDeviceRoute: typeof ApiPublicPosPairDeviceRoute
   ApiPublicPosSetMyPinRoute: typeof ApiPublicPosSetMyPinRoute
   ApiPublicPosSupportEndRoute: typeof ApiPublicPosSupportEndRoute
@@ -1892,13 +1878,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPosPairDeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/pos/device-heartbeat': {
-      id: '/api/public/pos/device-heartbeat'
-      path: '/api/public/pos/device-heartbeat'
-      fullPath: '/api/public/pos/device-heartbeat'
-      preLoaderRoute: typeof ApiPublicPosDeviceHeartbeatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/pos/complete-first-login': {
       id: '/api/public/pos/complete-first-login'
       path: '/api/public/pos/complete-first-login'
@@ -2113,7 +2092,6 @@ const rootRouteChildren: RootRouteChildren = {
   LovableSmsSendRoute: LovableSmsSendRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicPosCompleteFirstLoginRoute: ApiPublicPosCompleteFirstLoginRoute,
-  ApiPublicPosDeviceHeartbeatRoute: ApiPublicPosDeviceHeartbeatRoute,
   ApiPublicPosPairDeviceRoute: ApiPublicPosPairDeviceRoute,
   ApiPublicPosSetMyPinRoute: ApiPublicPosSetMyPinRoute,
   ApiPublicPosSupportEndRoute: ApiPublicPosSupportEndRoute,

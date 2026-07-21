@@ -22,7 +22,7 @@ export const listPosDevices = createServerFn({ method: "GET" })
     await assertManager(ctx);
     const { data, error } = await ctx.supabase
       .from("device_registrations")
-      .select("id, label, platform, status, paired_at, last_seen_at, revoked_at, revoke_reason, status_snapshot, app_version, last_sync_at")
+      .select("id, label, platform, status, paired_at, last_seen_at, revoked_at, revoke_reason")
       .order("paired_at", { ascending: false });
     if (error) throw new Error(error.message);
     return { devices: data ?? [] };

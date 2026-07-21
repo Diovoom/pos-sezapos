@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
 
@@ -31,56 +30,14 @@ export const ALL_PERMISSIONS: { key: string; label: string; group: string }[] = 
 export const ROLES = ["owner", "admin", "manager", "cashier"] as const;
 export type Role = (typeof ROLES)[number];
 
-/**
- * Store-scoped role permissions with realtime invalidation.
- * The same hook is bundled into the Android APK, so a checkbox change in the
- * owner dashboard reaches an online register without rebuilding or signing out.
- */
 export function useRolePermissions() {
-  const me = useMe();
-  const qc = useQueryClient();
-  const storeId = (me.data?.profile?.store_id ?? me.data?.store?.id) as string | undefined;
-
-  useEffect(() => {
-    if (!storeId) return;
-    const channel = supabase
-      .channel(`role-permissions:${storeId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "role_permissions",
-          filter: `store_id=eq.${storeId}`,
-        },
-        () => {
-          void qc.invalidateQueries({ queryKey: ["role_permissions", storeId] });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [qc, storeId]);
-
   return useQuery({
-    queryKey: ["role_permissions", storeId],
-    enabled: !!storeId,
+    queryKey: ["role_permissions"],
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from as any)("role_permissions")
-        .select("role, permission")
-        .eq("store_id", storeId);
-      if (error) throw error;
+      const { data } = await (supabase.from as any)("role_permissions").select("role, permission");
       return (data ?? []) as { role: Role; permission: string }[];
     },
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    // Realtime is primary. This small fallback covers deployments where the
-    // table was not yet added to the realtime publication.
-    refetchInterval: 30_000,
   });
 }
 
@@ -94,14 +51,14 @@ export function usePermissions() {
       .filter((r) => myRoles.includes(r.role))
       .map((r) => r.permission),
   );
-
-  // Owners/admins are permanently full-access and cannot be accidentally
-  // locked out by the role matrix.
+  // Owner and admin are always super users — full permissions, never blocked
+  // by manager-approval flows. Enforced client-side so a slow/failed
+  // role_permissions fetch never locks the owner out of their own store.
   const isSuper =
     myRoles.includes("owner") ||
     myRoles.includes("admin") ||
     rows.some((r) => myRoles.includes(r.role) && r.permission === "*");
 
-  const has = (p: string) => isSuper || mine.has("*") || mine.has(p);
+  const has = (p: string) => isSuper || mine.has(p);
   return { has, isSuper, myRoles, loading: me.isLoading || perms.isLoading };
 }

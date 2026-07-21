@@ -10,7 +10,6 @@ import { supabase } from "./supabase";
 import { ExitConfirmToast, initAndroidLifecycle } from "./lifecycle";
 import "@/i18n";
 import "@/styles.css";
-import { startDeviceHeartbeat } from "./lib/deviceHeartbeat";
 
 function ShellApp() {
   const [sessionReady, setSessionReady] = useState(false);
@@ -22,7 +21,6 @@ function ShellApp() {
   useEffect(() => {
     let alive = true;
     void initAndroidLifecycle(router, queryClient);
-    const stopHeartbeat = startDeviceHeartbeat();
     // Warm the session cache so beforeLoad guards are decisive on first render.
     supabase.auth.getSession().then(({ data }) => {
       if (!alive) return;
@@ -65,7 +63,6 @@ function ShellApp() {
     return () => {
       alive = false;
       sub.subscription.unsubscribe();
-      stopHeartbeat();
     };
   }, [router, queryClient]);
 

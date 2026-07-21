@@ -169,22 +169,3 @@ html.native-app [role="button"],
 html.native-app a {
   min-height: 44px;
 }
-
-/* Owner-selected interface sizing. These preferences are applied immediately
-   by src/lib/ui-preferences.ts and do not require a rebuild. */
-html[data-ui-text="small"] { font-size: 14px; }
-html[data-ui-text="normal"] { font-size: 16px; }
-html[data-ui-text="large"] { font-size: 18px; }
-
-html[data-ui-density="compact"] [data-slot="card-header"] { padding: 1rem; gap: 0.2rem; }
-html[data-ui-density="compact"] [data-slot="card-content"] { padding: 0 1rem 1rem; }
-html[data-ui-density="compact"] [data-slot="card-footer"] { padding: 0 1rem 1rem; }
-html[data-ui-density="compact"] [data-slot="button"] { min-height: 2rem; }
-html[data-ui-density="compact"] [data-slot="input"] { height: 2rem; }
-html[data-ui-density="compact"] table th,
-html[data-ui-density="compact"] table td { padding-top: 0.35rem; padding-bottom: 0.35rem; }
-
-html[data-ui-touch="true"] [data-slot="button"],
-html[data-ui-touch="true"] [data-slot="input"],
-html[data-ui-touch="true"] button,
-html[data-ui-touch="true"] [role="button"] { min-height: 44px; }

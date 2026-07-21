@@ -41,24 +41,21 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { StoreLogo } from "@/components/brand/StoreLogo";
 import { UserAvatar } from "@/components/brand/UserAvatar";
 import { roleDotClass, roleTextClass } from "@/lib/role-visual";
-import { useStoreLanguageSync } from "@/hooks/useStoreLanguageSync";
-import { initializeUiPreferences } from "@/lib/ui-preferences";
-import { useTranslation } from "react-i18next";
 
 const NAV: {
   to: string;
-  labelKey: string;
+  label: string;
   icon: any;
   search?: Record<string, string>;
 }[] = [
-  { to: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
-  { to: "/sales", labelKey: "nav.sales", icon: Receipt },
-  { to: "/products", labelKey: "nav.products", icon: Package },
-  { to: "/employees", labelKey: "nav.employees", icon: UserPlus },
-  { to: "/payroll", labelKey: "nav.payroll", icon: BarChart3 },
-  { to: "/shifts", labelKey: "nav.shifts", icon: Clock },
-  { to: "/devices", labelKey: "nav.devices", icon: Monitor },
-  { to: "/settings", labelKey: "nav.settings", icon: Settings },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/sales", label: "Sales", icon: Receipt },
+  { to: "/products", label: "Products", icon: Package },
+  { to: "/employees", label: "Employees", icon: UserPlus },
+  { to: "/payroll", label: "Payroll", icon: BarChart3 },
+  { to: "/shifts", label: "Shifts", icon: Clock },
+  { to: "/devices", label: "POS Devices", icon: Monitor },
+  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 // Route locations that stringify to "path?key=value" for active-state matching.
@@ -75,10 +72,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: me } = useMe();
-  const { t } = useTranslation();
-  useStoreLanguageSync();
-
-  useEffect(() => initializeUiPreferences(), []);
 
   // Force first-login employees through onboarding.
   useEffect(() => {
@@ -139,7 +132,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={locKey(item.to, item.search)}
                 to={item.to}
                 search={item.search as any}
-                aria-label={t(item.labelKey)}
+                aria-label={item.label}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                   active
@@ -148,7 +141,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               >
                 <Icon className="size-4 shrink-0" aria-hidden="true" />
-                <span className="hidden lg:inline">{t(item.labelKey)}</span>
+                <span className="hidden lg:inline">{item.label}</span>
               </Link>
             );
           })}
@@ -270,19 +263,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <MobileNavItem
             to="/dashboard"
-            label={t("common.home")}
+            label="Home"
             icon={LayoutDashboard}
             pathname={pathname}
           />
           <MobileNavItem
             to="/sales"
-            label={t("nav.sales")}
+            label="Sales"
             icon={Receipt}
             pathname={pathname}
           />
           <MobileNavItem
             to="/employees"
-            label={t("common.staff")}
+            label="Staff"
             icon={UserPlus}
             pathname={pathname}
           />
@@ -290,11 +283,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <DropdownMenuTrigger asChild>
               <button className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium text-muted-foreground hover:text-primary">
                 <MoreVertical className="size-5" />
-                {t("common.more")}
+                More
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" side="top" className="w-52 mb-2">
-              <DropdownMenuLabel>{t("common.more")}</DropdownMenuLabel>
+              <DropdownMenuLabel>More</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {MORE.map((item) => {
                 const Icon = item.icon;
@@ -308,7 +301,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       })
                     }
                   >
-                    <Icon className="size-4 mr-2" /> {t(item.labelKey)}
+                    <Icon className="size-4 mr-2" /> {item.label}
                   </DropdownMenuItem>
                 );
               })}

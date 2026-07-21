@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,9 +43,8 @@ import { syncNow } from "@/lib/offline/sync";
 import { useNativeActivitySignal } from "@/lib/native-activity";
 import { isNativeMode } from "@/lib/native";
 import { QuickAddProductDialog, type QuickAddedProduct } from "@/components/pos/QuickAddProductDialog";
-import { useTranslation } from "react-i18next";
 
-type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
+type SaleStep = "validation" | "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
   step: SaleStep;
   cause?: unknown;
@@ -104,6 +103,29 @@ type Product = {
 type Category = { id: string; name: string };
 type CartLine = { product: Product; qty: number };
 
+type SaleSnapshot = {
+  store: ReceiptData["store"];
+  cashierName: string | null;
+  items: Array<{
+    product_id: string | null;
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+    line_total: number;
+  }>;
+  receiptLines: ReceiptData["lines"];
+  subtotal: number;
+  tax: number;
+  discount: number;
+  total: number;
+  currency: string;
+};
+
+type FinalizeInput = {
+  payment: CompletedPayment;
+  snapshot: SaleSnapshot;
+};
+
 const TENDER: Array<{ id: PaymentMethod; label: string; icon: typeof Banknote }> = [
   { id: "cash", label: "Cash", icon: Banknote },
   { id: "card", label: "Card", icon: CreditCard },
@@ -114,8 +136,6 @@ const TENDER: Array<{ id: PaymentMethod; label: string; icon: typeof Banknote }>
 ];
 
 export function PosPage() {
-  const navigate = useNavigate();
-  const { t } = useTranslation();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | "fav" | "all">("fav");
@@ -132,6 +152,11 @@ export function PosPage() {
   const [payOpen, setPayOpen] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  // Immutable copy of the cart/totals captured when checkout starts. The
+  // payment dialog may outlive later cart renders (especially when opened
+  // from the mobile cart sheet), so the completed sale must never rebuild
+  // itself from potentially stale/cleared React state.
+  const [pendingSale, setPendingSale] = useState<SaleSnapshot | null>(null);
   const [ageOpen, setAgeOpen] = useState(false);
   const [ageVerification, setAgeVerification] = useState<SuccessfulVerification | null>(null);
   const [voidLine, setVoidLine] = useState<CartLine | null>(null);
@@ -142,10 +167,6 @@ export function PosPage() {
   const perms = usePermissions();
   // Trusted permission system only — no role-name fallback. Owners and
   // admins remain super-users via perms.isSuper (also computed from roles).
-  const canCreateSale = perms.has("sales.create") || perms.isSuper;
-  const canVoid = perms.has("sales.void") || perms.isSuper;
-  const canDiscount = perms.has("sales.discount") || perms.isSuper;
-  const canRefund = perms.has("refunds.create") || perms.isSuper;
   const canCancelTender = perms.has("payment.cancel") || perms.isSuper;
   const canManage = perms.has("employees.manage") || perms.isSuper;
   const canQuickAdd = perms.has("products.quick_add") || perms.isSuper;
@@ -172,7 +193,7 @@ export function PosPage() {
   const { data: store } = useQuery<any>({
     queryKey: ["store"],
     queryFn: async () => {
-      if (!navigator.onLine) return (await readMeta("store")) ?? null;
+      if (!isOnlineNow()) return (await readMeta("store")) ?? null;
       const { data } = await supabase.from("stores").select("*").limit(1).maybeSingle();
       if (data) await cacheMeta("store", data);
       return data;
@@ -183,7 +204,7 @@ export function PosPage() {
   const { data: profile } = useQuery<any>({
     queryKey: ["me-profile"],
     queryFn: async () => {
-      if (!navigator.onLine) return (await readMeta("profile")) ?? null;
+      if (!isOnlineNow()) return (await readMeta("profile")) ?? null;
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return null;
       const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
@@ -201,7 +222,7 @@ export function PosPage() {
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["categories"],
     queryFn: async () => {
-      if (!navigator.onLine) return (await readMeta<Category[]>("categories")) ?? [];
+      if (!isOnlineNow()) return (await readMeta<Category[]>("categories")) ?? [];
       const { data } = await supabase.from("categories").select("id,name").order("sort_order");
       const rows = data ?? [];
       await cacheMeta("categories", rows);
@@ -212,7 +233,7 @@ export function PosPage() {
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["products"],
     queryFn: async () => {
-      if (!navigator.onLine) {
+      if (!isOnlineNow()) {
         const cached = await loadCachedProducts();
         return cached as unknown as Product[];
       }
@@ -358,7 +379,14 @@ export function PosPage() {
 
   // Sale is written ONLY after payment is confirmed.
   const finalize = useMutation({
-    mutationFn: async (payment: CompletedPayment) => {
+    mutationFn: async ({ payment, snapshot }: FinalizeInput) => {
+      if (snapshot.items.length === 0 || snapshot.total <= 0 || snapshot.subtotal < 0) {
+        throw new SaleError(
+          "validation",
+          "The sale details were lost before checkout completed. Return to the cart and try again.",
+        );
+      }
+
       // ---- OFFLINE CASH PATH ---------------------------------------------
       // When offline, only cash is allowed. Save to IndexedDB, mark
       // Pending sync, and produce a local receipt. Never call the network.
@@ -399,17 +427,14 @@ export function PosPage() {
           updated_at: new Date().toISOString(),
           status: "pending",
           attempts: 0,
-          subtotal, tax, discount: discountAmount, total,
+          subtotal: snapshot.subtotal,
+          tax: snapshot.tax,
+          discount: snapshot.discount,
+          total: snapshot.total,
           amount_tendered: payment.amountTendered,
           change_due: payment.changeDue,
-          currency,
-          items: cart.map((l) => ({
-            product_id: l.product.id.startsWith("custom-") ? null : l.product.id,
-            product_name: l.product.name,
-            quantity: l.qty,
-            unit_price: l.product.price,
-            line_total: Math.round(l.product.price * l.qty * 100) / 100,
-          })),
+          currency: snapshot.currency,
+          items: snapshot.items,
         });
         return {
           sale: {
@@ -419,6 +444,7 @@ export function PosPage() {
             _offline: true,
           },
           payment,
+          snapshot,
         };
       }
 
@@ -457,10 +483,10 @@ export function PosPage() {
         .insert({
           store_id: store?.id ?? null,
           cashier_id: u.user.id,
-          subtotal,
-          tax,
-          discount: discountAmount,
-          total,
+          subtotal: snapshot.subtotal,
+          tax: snapshot.tax,
+          discount: snapshot.discount,
+          total: snapshot.total,
           payment_method: payment.method,
           amount_tendered: payment.amountTendered,
           change_due: payment.changeDue,
@@ -479,14 +505,7 @@ export function PosPage() {
       }
 
       // 4. Insert sale items — DB trigger decrements stock
-      const items = cart.map((l) => ({
-        sale_id: sale.id,
-        product_id: l.product.id.startsWith("custom-") ? null : l.product.id,
-        product_name: l.product.name,
-        quantity: l.qty,
-        unit_price: l.product.price,
-        line_total: Math.round(l.product.price * l.qty * 100) / 100,
-      }));
+      const items = snapshot.items.map((l) => ({ sale_id: sale.id, ...l }));
       const { error: itemsErr } = await supabase.from("sale_items").insert(items);
       if (itemsErr) {
         // Roll back the sale header so we don't leave an orphan
@@ -505,28 +524,23 @@ export function PosPage() {
           itemsErr,
         );
       }
-      return { sale, payment };
+      return { sale, payment, snapshot };
     },
-    onSuccess: ({ sale, payment }) => {
+    onSuccess: ({ sale, payment, snapshot }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const isOffline = (sale as any)._offline === true;
       const rd: ReceiptData = {
-        store: store ?? {},
+        store: snapshot.store,
         receiptNumber: sale.receipt_number ?? sale.id.slice(0, 8),
         transactionId: sale.id,
-        cashierName: profile?.full_name ?? profile?.email ?? null,
+        cashierName: snapshot.cashierName,
         employeeId: null,
         createdAt: sale.created_at,
-        lines: cart.map((l) => ({
-          name: l.product.name,
-          qty: l.qty,
-          unit_price: l.product.price,
-          line_total: Math.round(l.product.price * l.qty * 100) / 100,
-        })),
-        subtotal,
-        tax,
-        discount: discountAmount,
-        total,
+        lines: snapshot.receiptLines,
+        subtotal: snapshot.subtotal,
+        tax: snapshot.tax,
+        discount: snapshot.discount,
+        total: snapshot.total,
         paymentMethod: payment.method,
         amountTendered: payment.amountTendered,
         changeDue: payment.changeDue,
@@ -539,8 +553,8 @@ export function PosPage() {
       setReceiptOpen(true);
       toast.success(
         isOffline
-          ? `Offline sale saved · ${fmtCurrency(total, currency)} — will sync when online`
-          : `Sale completed · ${fmtCurrency(total, currency)}`,
+          ? `Offline sale saved · ${fmtCurrency(snapshot.total, snapshot.currency)} — will sync when online`
+          : `Sale completed · ${fmtCurrency(snapshot.total, snapshot.currency)}`,
       );
       if (loyalty) {
         if (effectiveLoyaltyRedemption > 0) {
@@ -556,17 +570,18 @@ export function PosPage() {
         void import("@/lib/audit-log")
           .then((m) => m.logAudit({
             action: "sale.create", entity: "sale", entity_id: rd.transactionId,
-            details: { total, method: payment.method, items: cart.length },
+            details: { total: snapshot.total, method: payment.method, items: snapshot.items.length },
           }))
           .catch((err) => console.warn("[sale] audit log failed (non-fatal):", err));
       }
       clearCart();
+      setPendingSale(null);
       setPayOpen(false);
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       // If we came back online in the meantime, drain the queue.
-      if (navigator.onLine) void syncNow();
+      if (isOnlineNow()) void syncNow();
     },
     onError: (e) => {
       // Always log the real error for developers
@@ -595,10 +610,6 @@ export function PosPage() {
   }, [online, tender]);
 
   const openPayment = () => {
-    if (!canCreateSale) {
-      toast.error("You do not have permission to create sales.");
-      return;
-    }
     if (cart.length === 0) {
       toast.error("Cart is empty");
       return;
@@ -611,6 +622,35 @@ export function PosPage() {
       setAgeOpen(true);
       return;
     }
+
+    const items = cart.map((l) => ({
+      product_id: l.product.id.startsWith("custom-") ? null : l.product.id,
+      product_name: l.product.name,
+      quantity: l.qty,
+      unit_price: l.product.price,
+      line_total: Math.round(l.product.price * l.qty * 100) / 100,
+    }));
+    const snapshot: SaleSnapshot = {
+      store: (store ?? {}) as ReceiptData["store"],
+      cashierName: profile?.full_name ?? profile?.email ?? null,
+      items,
+      receiptLines: items.map((l) => ({
+        name: l.product_name,
+        qty: l.quantity,
+        unit_price: l.unit_price,
+        line_total: l.line_total,
+      })),
+      subtotal,
+      tax,
+      discount: discountAmount,
+      total,
+      currency,
+    };
+    if (snapshot.items.length === 0 || snapshot.total <= 0) {
+      toast.error("Sale total is invalid. Return to the cart and try again.");
+      return;
+    }
+    setPendingSale(snapshot);
     setPayOpen(true);
   };
 
@@ -623,17 +663,17 @@ export function PosPage() {
   const cartPanel = (
     <>
       <div className="p-4 md:p-6 pb-3 flex items-center justify-between">
-        <h2 className="font-semibold">{t("pos.current_sale")}</h2>
+        <h2 className="font-semibold">Current Sale</h2>
         {cart.length > 0 && (
           <button onClick={clearCart} className="text-xs text-destructive font-medium hover:bg-destructive/10 px-2 py-1 rounded">
-            {t("pos.clear")}
+            Clear
           </button>
         )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 md:px-6 space-y-3">
         {cart.length === 0 ? (
-          <div className="h-full grid place-items-center text-sm text-muted-foreground py-10">{t("pos.cart_empty")}</div>
+          <div className="h-full grid place-items-center text-sm text-muted-foreground py-10">Cart is empty</div>
         ) : (
           cart.map((line) => (
             <div key={line.product.id} className="flex items-start gap-3 group">
@@ -656,9 +696,7 @@ export function PosPage() {
                     size="sm"
                     variant="ghost"
                     className="h-6 px-2 ml-1 text-destructive hover:bg-destructive/10 text-[11px] font-semibold"
-                    onClick={() => { if (canVoid) { setVoidReason(""); setVoidLine(line); } }}
-                    disabled={!canVoid}
-                    title={canVoid ? "Void item" : "Void permission required"}
+                    onClick={() => { setVoidReason(""); setVoidLine(line); }}
                     aria-label="Void item"
                   >
                     <Trash2 className="size-3 mr-1" /> Void
@@ -675,10 +713,10 @@ export function PosPage() {
 
       <div className="p-4 md:p-6 border-t bg-surface/40" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
         <div className="space-y-1.5 mb-4">
-          <Row label={t("pos.subtotal")} value={fmtCurrency(subtotal, currency)} />
+          <Row label="Subtotal" value={fmtCurrency(subtotal, currency)} />
           {discount && (
             <div className="flex justify-between text-sm text-success">
-              <button className="underline underline-offset-2 disabled:no-underline disabled:opacity-50" disabled={!canDiscount} onClick={() => canDiscount && setDiscountOpen(true)}>
+              <button className="underline underline-offset-2" onClick={() => setDiscountOpen(true)}>
                 Discount{discount.code ? ` (${discount.code})` : ""} ({discount.mode === "percent" ? `${discount.value}%` : fmtCurrency(discount.value, currency)})
               </button>
               <span className="font-mono">− {fmtCurrency(manualDiscount, currency)}</span>
@@ -692,9 +730,9 @@ export function PosPage() {
               <span className="font-mono">− {fmtCurrency(effectiveLoyaltyRedemption, currency)}</span>
             </div>
           )}
-          <Row label={`${t("pos.tax")} (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(tax, currency)} />
+          <Row label={`Tax (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(tax, currency)} />
           <div className="flex justify-between text-2xl font-bold pt-2 border-t border-dashed">
-            <span>{t("pos.total")}</span>
+            <span>Total</span>
             <span className="font-mono">{fmtCurrency(total, currency)}</span>
           </div>
           {loyalty && loyaltyEarn > 0 && (
@@ -764,14 +802,14 @@ export function PosPage() {
         )}
         <Button
           onClick={openPayment}
-          disabled={cart.length === 0 || finalize.isPending || !canCreateSale}
+          disabled={cart.length === 0 || finalize.isPending}
           className="w-full h-16 text-lg font-bold rounded-xl shadow-[var(--shadow-charge)]"
         >
           {finalize.isPending
             ? <Loader2 className="size-5 animate-spin" />
             : needsAgeVerification
               ? <>Verify Age to Charge {fmtCurrency(total, currency)}</>
-              : <>{t("pos.charge")} {fmtCurrency(total, currency)}</>}
+              : <>Charge {fmtCurrency(total, currency)}</>}
         </Button>
       </div>
     </>
@@ -782,7 +820,7 @@ export function PosPage() {
   return (
     <>
       <PageHeader
-        title={t("nav.checkout")}
+        title="Checkout"
         subtitle={`${store?.name ?? "Store"} · Terminal 01`}
         actions={
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -812,7 +850,7 @@ export function PosPage() {
                       }
                     }
                   }}
-                  placeholder={`${t("pos.search_placeholder")} (⌘K)`}
+                  placeholder="Search products or scan barcode... (⌘K)"
                   className="h-12 pl-10 pr-14 bg-card text-sm"
                 />
                 <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 border rounded text-[10px] font-mono text-muted-foreground">
@@ -835,8 +873,8 @@ export function PosPage() {
 
 
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-              <CategoryChip active={activeCategory === "fav"} onClick={() => setActiveCategory("fav")}>{t("pos.favorites")}</CategoryChip>
-              <CategoryChip active={activeCategory === "all"} onClick={() => setActiveCategory("all")}>{t("pos.all")}</CategoryChip>
+              <CategoryChip active={activeCategory === "fav"} onClick={() => setActiveCategory("fav")}>Favorites</CategoryChip>
+              <CategoryChip active={activeCategory === "all"} onClick={() => setActiveCategory("all")}>All</CategoryChip>
               {categories.map((c) => (
                 <CategoryChip key={c.id} active={activeCategory === c.id} onClick={() => setActiveCategory(c.id)}>
                   {c.name}
@@ -854,7 +892,7 @@ export function PosPage() {
               >
                 <Plus className="size-4 mr-2" />Add item
               </Button>
-              <Button variant="outline" className="h-10" onClick={() => setDiscountOpen(true)} disabled={!canDiscount} title={canDiscount ? undefined : "Discount permission required"}>
+              <Button variant="outline" className="h-10" onClick={() => setDiscountOpen(true)}>
                 <Percent className="size-4 mr-2" />
                 {discount ? "Edit discount" : "Discount"}
               </Button>
@@ -862,14 +900,8 @@ export function PosPage() {
                 <Heart className="size-4 mr-2" />
                 {loyalty ? "Loyalty ✓" : "Loyalty"}
               </Button>
-              <Button
-                variant="outline"
-                className="h-10"
-                disabled={!canRefund}
-                title={canRefund ? undefined : "Refund permission required"}
-                onClick={() => canRefund && navigate({ to: "/refunds" })}
-              >
-                <RotateCcw className="size-4 mr-2" />Refund
+              <Button variant="outline" className="h-10" asChild>
+                <Link to="/refunds"><RotateCcw className="size-4 mr-2" />Refund</Link>
               </Button>
             </div>
           </div>
@@ -926,7 +958,7 @@ export function PosPage() {
       <Sheet open={cartOpen} onOpenChange={setCartOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
           <SheetHeader className="p-4 pb-0">
-            <SheetTitle>{t("pos.current_sale")}</SheetTitle>
+            <SheetTitle>Current sale</SheetTitle>
           </SheetHeader>
           <div className="flex-1 flex flex-col min-h-0">
             {cartPanel}
@@ -936,11 +968,20 @@ export function PosPage() {
 
       <PaymentDialog
         open={payOpen}
-        onOpenChange={setPayOpen}
+        onOpenChange={(open) => {
+          setPayOpen(open);
+          if (!open && !finalize.isPending) setPendingSale(null);
+        }}
         method={tender}
-        total={total}
-        currency={currency}
-        onComplete={(p) => finalize.mutate(p)}
+        total={pendingSale?.total ?? total}
+        currency={pendingSale?.currency ?? currency}
+        onComplete={(payment) => {
+          if (!pendingSale) {
+            toast.error("Checkout session expired. Return to the cart and try again.");
+            return;
+          }
+          finalize.mutate({ payment, snapshot: pendingSale });
+        }}
         // Owners/managers/admins already possess payment-cancel authority.
         // Requiring a second manager PIN to back out of tender selection
         // is friction, not security — no payment has committed yet.

@@ -36,8 +36,6 @@ import {
   type AgeVerificationSettings,
 } from "@/lib/age-verification";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { useTranslation } from "react-i18next";
-import { loadUiPreferences, saveUiPreferences, type UiPreferences } from "@/lib/ui-preferences";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   head: () => ({ meta: [{ title: "Settings — SEZA POS" }, { name: "description", content: "Store administration, hardware setup, inventory preferences, and billing." }] }),
@@ -48,59 +46,58 @@ export const Route = createFileRoute("/_dashboard/settings")({
   component: SettingsPage,
 });
 
-type Section = { id: string; labelKey: string; icon: React.ComponentType<{ className?: string }>; href?: string };
-type Group = { id: string; labelKey: string; items: Section[] };
+type Section = { id: string; label: string; icon: React.ComponentType<{ className?: string }>; href?: string };
+type Group = { id: string; label: string; items: Section[] };
 
 const GROUPS: Group[] = [
   {
     id: "store",
-    labelKey: "settings.store_group",
+    label: "Store",
     items: [
-      { id: "general", labelKey: "settings.store_info", icon: Building2 },
-      { id: "branding", labelKey: "settings.branding", icon: Palette },
-      { id: "receipt", labelKey: "settings.receipts", icon: ReceiptIcon },
-      { id: "inventory", labelKey: "settings.inventory", icon: Package },
-      { id: "age", labelKey: "settings.age", icon: ShieldAlert },
+      { id: "general", label: "Store Information", icon: Building2 },
+      { id: "branding", label: "Business Branding", icon: Palette },
+      { id: "receipt", label: "Receipts & Customer Messaging", icon: ReceiptIcon },
+      { id: "inventory", label: "Inventory Preferences", icon: Package },
+      { id: "age", label: "Age Verification", icon: ShieldAlert },
     ],
   },
   {
     id: "operations",
-    labelKey: "settings.operations_group",
+    label: "Operations",
     items: [
-      { id: "terminal", labelKey: "settings.terminal", icon: CreditCard },
-      { id: "hardware_setup", labelKey: "settings.hardware", icon: HardDrive },
-      { id: "register", labelKey: "settings.cash_rules", icon: Banknote },
-      { id: "reports", labelKey: "settings.reports", icon: BarChart3 },
-      { id: "roles", labelKey: "settings.roles", icon: Shield },
-      { id: "notifications", labelKey: "settings.notifications", icon: Bell },
-      { id: "security", labelKey: "settings.security", icon: Lock },
+      { id: "terminal", label: "Payment Terminal", icon: CreditCard },
+      { id: "hardware_setup", label: "Hardware & Register Devices", icon: HardDrive },
+      { id: "register", label: "Cash & Register Rules", icon: Banknote },
+      { id: "reports", label: "Report Preferences", icon: BarChart3 },
+      { id: "roles", label: "Roles & Permissions", icon: Shield },
+      { id: "notifications", label: "Notifications", icon: Bell },
+      { id: "security", label: "Security", icon: Lock },
     ],
   },
   {
     id: "account",
-    labelKey: "settings.account_group",
+    label: "Account & Business",
     items: [
-      { id: "account_profile", labelKey: "settings.owner_profile", icon: UserCog },
-      { id: "account_password", labelKey: "settings.password", icon: Lock },
-      { id: "account_pin", labelKey: "settings.manager_pin", icon: KeyRound },
-      { id: "billing", labelKey: "settings.billing", icon: ReceiptIcon },
-      { id: "integrations", labelKey: "settings.integrations", icon: Plug },
-      { id: "appearance", labelKey: "settings.appearance", icon: Palette },
+      { id: "account_profile", label: "Owner Profile", icon: UserCog },
+      { id: "account_password", label: "Password", icon: Lock },
+      { id: "account_pin", label: "Manager Approval PIN", icon: KeyRound },
+      { id: "billing", label: "Billing & Subscription", icon: ReceiptIcon },
+      { id: "integrations", label: "Integrations", icon: Plug },
+      { id: "appearance", label: "Appearance & Language", icon: Palette },
     ],
   },
   {
     id: "data_support",
-    labelKey: "settings.data_group",
+    label: "Data & Support",
     items: [
-      { id: "backup", labelKey: "settings.backup", icon: HardDrive },
-      { id: "audit", labelKey: "settings.audit", icon: ScrollText },
-      { id: "support_contact", labelKey: "settings.support", icon: LifeBuoy },
+      { id: "backup", label: "Data Backup & Export", icon: HardDrive },
+      { id: "audit", label: "Audit Log", icon: ScrollText },
+      { id: "support_contact", label: "Contact Support", icon: LifeBuoy },
     ],
   },
 ];
 
 export function SettingsPage() {
-  const { t } = useTranslation();
   const search = Route.useSearch();
   const [tab, setTab] = useState(search.section ?? "general");
   useEffect(() => {
@@ -116,7 +113,7 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader title={t("settings.title")} subtitle={t("settings.subtitle")} />
+      <PageHeader title="Settings" subtitle="Store, operations, account, data, and support" />
       <div className="flex-1 overflow-hidden flex min-h-0">
         <Tabs value={tab} onValueChange={setTab} orientation="vertical" className="flex flex-1 min-h-0 flex-col md:flex-row">
           {/* Mobile: category selector */}
@@ -128,7 +125,7 @@ export function SettingsPage() {
               className="mt-1 w-full h-11 rounded-md border bg-background px-3 text-sm"
             >
               {GROUPS.flatMap((g) => g.items.filter((s) => !s.href).map((s) => (
-                <option key={s.id} value={s.id}>{t(g.labelKey)} — {t(s.labelKey)}</option>
+                <option key={s.id} value={s.id}>{g.label} — {s.label}</option>
               )))}
             </select>
           </div>
@@ -138,7 +135,7 @@ export function SettingsPage() {
               {GROUPS.map((g) => (
                 <div key={g.id} className="mb-2">
                   <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {t(g.labelKey)}
+                    {g.label}
                   </div>
                   {g.items.map((s) => s.href ? (
                     <Link
@@ -147,7 +144,7 @@ export function SettingsPage() {
                       className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
                     >
                       <s.icon className="size-4 shrink-0" />
-                      <span className="flex-1">{t(s.labelKey)}</span>
+                      <span className="flex-1">{s.label}</span>
                       <ChevronRight className="size-3 opacity-50" />
                     </Link>
                   ) : (
@@ -157,7 +154,7 @@ export function SettingsPage() {
                       className="justify-start gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                     >
                       <s.icon className="size-4 shrink-0" />
-                      <span className="text-sm text-left flex-1">{t(s.labelKey)}</span>
+                      <span className="text-sm text-left flex-1">{s.label}</span>
                     </TabsTrigger>
                   ))}
                 </div>
@@ -500,27 +497,64 @@ function EmployeesPanel() {
 /* ================= Terminal ================= */
 
 function TerminalPanel() {
+  const provider = getActiveProvider();
   return (
-    <Card className="max-w-3xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2"><CreditCard className="size-5" />Payment Terminal</CardTitle>
-        <CardDescription>
-          Payment readers are configured and tested on the physical Android register, where NFC, Bluetooth, USB and the native payment SDK are available.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="rounded-md border p-4 text-sm">
-          <p className="font-medium">Dashboard is status-only</p>
-          <p className="text-muted-foreground mt-1">
-            Open SEZA POS on the register, then go to Settings → Payment Terminal. The register sends its connection state and errors back to this dashboard automatically.
-          </p>
-        </div>
-        <div className="rounded-md border border-warning/40 bg-warning/10 p-4 text-sm">
-          Real card charging requires the certified native provider SDK to be linked in the Android build. SEZA will never display a fake “connected” result when that SDK is missing.
-        </div>
-        <Button asChild><Link to="/devices"><Monitor className="size-4 mr-2" />View Android POS status</Link></Button>
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Payment Terminal</span>
+            {provider ? (
+              <Badge className="bg-success/15 text-success border-success/30" variant="outline">Connected</Badge>
+            ) : (
+              <Badge variant="outline" className="text-muted-foreground">Not connected</Badge>
+            )}
+          </CardTitle>
+          <CardDescription>
+            Card, tap, and mobile-wallet payments require a connected certified terminal.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {provider ? (
+            <div className="rounded-md border p-3 text-sm space-y-1 bg-surface/40">
+              <div><span className="text-muted-foreground">Provider:</span> {provider.name} <span className="text-xs text-muted-foreground">({provider.id})</span></div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No payment terminal is connected. Card payments are blocked until a provider is registered at boot.
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <ProviderCard name="Stripe Terminal" desc="Reader-based EMV, tap, and wallet." status="planned" />
+            <ProviderCard name="Square" desc="Square Terminal & Reader SDK." status="planned" />
+            <ProviderCard name="Clover" desc="Clover devices via Clover SDK." status="planned" />
+            <ProviderCard name="Custom / Future" desc="Register a provider via registerProvider()." status="ready" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <PaymentTerminalsPanel canEdit={true} />
+
+      <HardwareCard
+        kind="terminal"
+        title="Hardware transport"
+        description="For non-cloud terminals connected directly (Serial, USB HID, Bluetooth)."
+        transports={["usb", "bluetooth", "serial", "hid"]}
+      />
+    </div>
+  );
+}
+
+function ProviderCard({ name, desc, status }: { name: string; desc: string; status: "planned" | "ready" }) {
+  return (
+    <div className="rounded-md border p-3 space-y-1">
+      <div className="flex items-center justify-between">
+        <div className="font-medium">{name}</div>
+        <Badge variant="outline" className="text-xs">{status === "ready" ? "Ready to register" : "Coming soon"}</Badge>
+      </div>
+      <div className="text-xs text-muted-foreground">{desc}</div>
+    </div>
   );
 }
 
@@ -566,25 +600,48 @@ function UnifiedReceiptPanel() {
     <div className="space-y-4 max-w-3xl">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><ReceiptIcon className="size-5" />Receipts & Customer Messaging</CardTitle>
+          <CardTitle className="flex items-center gap-2"><ReceiptIcon className="size-5" /> Receipt</CardTitle>
           <CardDescription>
-            Configure receipt content and customer delivery. Printer pairing, paper width, test printing and drawer wiring are configured on the Android register.
+            One place for every receipt setting — paper/printer format, logo and footer, numbering, layout, and email
+            & SMS delivery to customers.
           </CardDescription>
         </CardHeader>
       </Card>
 
+      <HardwareCard
+        kind="printer"
+        title="Receipt printer"
+        description="Connect a thermal receipt printer via USB, Bluetooth, or Serial. Used for auto-print after each sale."
+        transports={["usb", "bluetooth", "serial"]}
+      />
+
       <ReceiptPreferences />
 
       <Card>
-        <CardHeader><CardTitle>Email receipts</CardTitle><CardDescription>Transactional receipts sent through the configured email service.</CardDescription></CardHeader>
+        <CardHeader>
+          <CardTitle>Email receipts</CardTitle>
+          <CardDescription>Transactional receipts sent from your store address through Lovable Cloud.</CardDescription>
+        </CardHeader>
         <CardContent className="space-y-3 text-sm">
-          <div className="rounded-md border p-3 flex items-center justify-between"><span>Delivery status</span><Badge variant="outline" className="bg-success/15 text-success border-success/30">Active</Badge></div>
+          <div className="rounded-md border p-3 flex items-center justify-between">
+            <span>Delivery status</span>
+            <Badge variant="outline" className="bg-success/15 text-success border-success/30">Active</Badge>
+          </div>
+          <p className="text-muted-foreground">
+            To customize the sender domain (for example, receipts.yourdomain.com), open the Email domain settings from
+            the Backend view.
+          </p>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>SMS receipts</CardTitle><CardDescription>Text a receipt link to the customer's phone.</CardDescription></CardHeader>
-        <CardContent><SmsSettingsPanel /></CardContent>
+        <CardHeader>
+          <CardTitle>SMS receipts</CardTitle>
+          <CardDescription>Text a receipt link straight to the customer's phone.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SmsSettingsPanel />
+        </CardContent>
       </Card>
     </div>
   );
@@ -592,20 +649,54 @@ function UnifiedReceiptPanel() {
 
 function UnifiedHardwarePanel() {
   return (
-    <Card className="max-w-3xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2"><HardDrive className="size-5" />Hardware & Register Status</CardTitle>
-        <CardDescription>
-          Physical hardware belongs to each Android POS register. Use the register itself to pair, test or change a printer, scanner, cash drawer, customer display or payment terminal.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          This dashboard receives a read-only heartbeat from every paired register, including online status, printer state, last scan, drawer errors and payment-terminal state.
-        </p>
-        <Button asChild><Link to="/devices"><Monitor className="size-4 mr-2" />Open POS device status</Link></Button>
-      </CardContent>
-    </Card>
+    <div className="space-y-4 max-w-4xl">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><HardDrive className="size-5" /> Hardware Setup</CardTitle>
+          <CardDescription>
+            Pair, test, and manage every device connected to this terminal: receipt printer, barcode scanner, camera
+            scanner, cash drawer, and customer display.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <HardwareCard
+          kind="printer"
+          title="Receipt printer"
+          description="Thermal receipt printer via USB, Bluetooth, or Serial."
+          transports={["usb", "bluetooth", "serial"]}
+        />
+        <HardwareCard
+          kind="scanner"
+          title="Barcode scanner"
+          description="USB or Bluetooth HID scanner. Most keyboard-emulating scanners work automatically without pairing."
+          transports={["usb", "bluetooth", "hid"]}
+        />
+        <HardwareCard
+          kind="drawer"
+          title="Cash drawer"
+          description="Serial or USB cash drawer. Opens automatically after cash payments."
+          transports={["usb", "serial"]}
+        />
+        <HardwareCard
+          kind="display"
+          title="Customer display"
+          description="Second-screen or tablet display for customers to see the cart, tax, and total."
+          transports={["usb", "hid"]}
+        />
+        <HardwareCard
+          kind="terminal"
+          title="Payment terminal (transport)"
+          description="For non-cloud terminals connected directly (Serial, USB HID, Bluetooth)."
+          transports={["usb", "bluetooth", "serial", "hid"]}
+        />
+      </div>
+
+      <CameraPanel />
+      <ScannerPreferences />
+      <CustomerDisplayPanel />
+    </div>
   );
 }
 
@@ -736,61 +827,51 @@ function IntegrationsPanel() {
 }
 
 function AppearancePanel() {
-  const { t } = useTranslation();
-  const [prefs, setPrefs] = useState<UiPreferences>(() => loadUiPreferences());
-
-  const update = <K extends keyof UiPreferences>(key: K, value: UiPreferences[K]) => {
-    const next = { ...prefs, [key]: value };
-    setPrefs(next);
-    saveUiPreferences(next);
+  const [theme, setTheme] = useState<string>(() => localStorage.getItem("pos.theme") ?? "system");
+  const apply = (t: string) => {
+    setTheme(t); localStorage.setItem("pos.theme", t);
+    document.documentElement.classList.toggle("dark", t === "dark" || (t === "system" && matchMedia("(prefers-color-scheme: dark)").matches));
   };
-
   return (
     <Card className="max-w-2xl">
-      <CardHeader>
-        <CardTitle>{t("settings.appearance")}</CardTitle>
-        <CardDescription>Theme, spacing, text size and the store-wide interface language.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="space-y-2">
-          <Label>{t("settings.theme")}</Label>
-          <div className="flex flex-wrap gap-2">
-            {(["light", "dark", "system"] as const).map((theme) => (
-              <Button key={theme} size="sm" variant={prefs.theme === theme ? "default" : "outline"} onClick={() => update("theme", theme)} className="capitalize">{theme}</Button>
-            ))}
-          </div>
+      <CardHeader><CardTitle>Appearance & Language</CardTitle><CardDescription>Theme, accessibility, and interface language.</CardDescription></CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Label className="flex-1">Theme</Label>
+          {(["light", "dark", "system"] as const).map((t) => (
+            <Button key={t} size="sm" variant={theme === t ? "default" : "outline"} onClick={() => apply(t)}>{t}</Button>
+          ))}
         </div>
-
-        <div className="space-y-2">
-          <Label>{t("settings.density")}</Label>
-          <div className="flex gap-2">
-            {(["comfortable", "compact"] as const).map((density) => (
-              <Button key={density} size="sm" variant={prefs.density === density ? "default" : "outline"} onClick={() => update("density", density)}>{t(`settings.${density}`)}</Button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label>{t("settings.text_size")}</Label>
-          <div className="flex gap-2">
-            {(["small", "normal", "large"] as const).map((size) => (
-              <Button key={size} size="sm" variant={prefs.textScale === size ? "default" : "outline"} onClick={() => update("textScale", size)}>{t(`settings.${size}`)}</Button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between gap-4 rounded-md border p-3">
-          <div><Label>{t("settings.touch_mode")}</Label><p className="text-xs text-muted-foreground">Larger buttons and input targets.</p></div>
-          <Switch checked={prefs.touchMode} onCheckedChange={(v) => update("touchMode", v)} />
-        </div>
-
-        <div className="flex items-center gap-3 border-t pt-4">
-          <Label className="flex-1 flex items-center gap-2"><Languages className="size-4" />{t("settings.language")}</Label>
+        <div className="flex items-center gap-2">
+          <Label className="flex-1 flex items-center gap-2"><Languages className="size-4" /> Interface language</Label>
           <LanguageSwitcher />
         </div>
-        <p className="text-xs text-muted-foreground">Changes apply immediately. Store language and branding also sync to online Android registers.</p>
+        <PrefPanelInline prefKey="appearance" fields={[
+          { k: "compact", label: "Compact mode", type: "switch", default: "false" },
+          { k: "touch_mode", label: "Touch mode (larger targets)", type: "switch", default: "false" },
+          { k: "large_text", label: "Large text", type: "switch", default: "false" },
+        ]} />
       </CardContent>
     </Card>
+  );
+}
+
+function PrefPanelInline({ prefKey, fields }: { prefKey: string; fields: Field[] }) {
+  const storageKey = `pos.prefs.${prefKey}`;
+  const [state, setState] = useState<Record<string, string>>(() => {
+    try { return { ...Object.fromEntries(fields.map((f) => [f.k, f.default])), ...JSON.parse(localStorage.getItem(storageKey) ?? "{}") }; }
+    catch { return Object.fromEntries(fields.map((f) => [f.k, f.default])); }
+  });
+  const save = (next: Record<string, string>) => { setState(next); localStorage.setItem(storageKey, JSON.stringify(next)); };
+  return (
+    <div className="space-y-3">
+      {fields.map((f) => (
+        <div key={f.k} className="flex items-center justify-between gap-4">
+          <Label className="flex-1">{f.label}</Label>
+          <Switch checked={state[f.k] === "true"} onCheckedChange={(v) => save({ ...state, [f.k]: v ? "true" : "false" })} />
+        </div>
+      ))}
+    </div>
   );
 }
 
