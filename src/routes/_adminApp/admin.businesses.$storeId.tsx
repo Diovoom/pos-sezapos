@@ -18,8 +18,11 @@ import {
   adminRestoreSubscription,
   adminUpdateBusinessContact,
   adminStartSupportSession,
+  adminCancelSupportRequest,
+  adminEndSupportSession,
   adminCreateTicket,
 } from "@/lib/admin/admin.functions";
+
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
