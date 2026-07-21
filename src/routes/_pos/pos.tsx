@@ -133,7 +133,15 @@ export function PosPage() {
   const ageSettings = useMemo(() => loadAgeSettings(), []);
   const searchRef = useRef<HTMLInputElement>(null);
   const me = useMe();
-  const canManage = (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager");
+  const perms = usePermissions();
+  // Owner/admin/manager remain super-users via usePermissions().isSuper.
+  // Others need the explicit `payment.cancel` grant. Fallback to role labels
+  // ONLY while permissions are still loading so first-render doesn't gate
+  // legitimate managers.
+  const canCancelTender = perms.has("payment.cancel")
+    || (perms.loading && (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager"));
+  const canManage = perms.has("employees.manage") || perms.isSuper
+    || (perms.loading && (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager"));
   const isMobile = useIsMobile();
   const online = useOnline();
   const [cartOpen, setCartOpen] = useState(false);
