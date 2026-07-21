@@ -100,7 +100,12 @@ export async function saveAndSharePdf(d: ShiftSummary): Promise<{ ok: true; uri?
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       return { ok: true };
     }
-    const base64 = btoa(String.fromCharCode(...bytes));
+    // Chunked base64 encode — String.fromCharCode(...large) blows the stack.
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)));
+    }
+    const base64 = btoa(bin);
     const write = await Filesystem.writeFile({
       path: filename,
       data: base64,
