@@ -22,6 +22,7 @@ import { DiscountDialog, type DiscountValue } from "@/components/pos/DiscountDia
 import { LoyaltyDialog, accrueLoyaltyPoints, spendLoyaltyPoints, type LoyaltyCustomer } from "@/components/pos/LoyaltyDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
 import { useMe } from "@/hooks/useMe";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { logAudit } from "@/lib/audit-log";
