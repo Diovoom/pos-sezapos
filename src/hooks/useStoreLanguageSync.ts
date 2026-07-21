@@ -38,7 +38,7 @@ export function useStoreLanguageSync() {
   useEffect(() => {
     if (!storeId) return;
     const channel = supabase
-      .channel(`store-language:${storeId}`)
+      .channel(`store-language:${storeId}:${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "stores", filter: `id=eq.${storeId}` },

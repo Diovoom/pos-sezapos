@@ -32,7 +32,7 @@ export function useStoreBranding() {
   useEffect(() => {
     if (!storeId) return;
     const channel = supabase
-      .channel(`store-branding:${storeId}`)
+      .channel(`store-branding:${storeId}:${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "stores", filter: `id=eq.${storeId}` },

@@ -63,7 +63,7 @@ function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
 }
 
 export function MarketingShell({ children }: { children: ReactNode }) {
-  // Marketing header is always public. Do not reflect any auth session here —
+  // Marketing header is always public. Do not reflect any auth session here Ã¢â‚¬â€
   // Merchant Dashboard, POS, and Platform Admin each own their own surface.
 
   return (
@@ -92,10 +92,10 @@ export function MarketingShell({ children }: { children: ReactNode }) {
 
           <div className="hidden md:flex items-center gap-2">
             <Button asChild size="sm" variant="ghost">
-              <a href={dashboardUrl("/auth")}>Sign In</a>
+              <a href={dashboardUrl("/auth")} target="_blank" rel="noopener noreferrer">Sign In</a>
             </Button>
             <Button asChild size="sm">
-              <a href={dashboardUrl("/signup")}>Create Account</a>
+              <a href={dashboardUrl("/signup")} target="_blank" rel="noopener noreferrer">Create Account</a>
             </Button>
           </div>
 
@@ -166,10 +166,10 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 </div>
                 <div className="pt-4 border-t space-y-2">
                   <Button asChild variant="outline" className="w-full">
-                    <a href={dashboardUrl("/auth")}>Sign In</a>
+                    <a href={dashboardUrl("/auth")} target="_blank" rel="noopener noreferrer">Sign In</a>
                   </Button>
                   <Button asChild className="w-full">
-                    <a href={dashboardUrl("/signup")}>Create Account</a>
+                    <a href={dashboardUrl("/signup")} target="_blank" rel="noopener noreferrer">Create Account</a>
                   </Button>
                 </div>
               </div>
@@ -325,7 +325,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         <div className="border-t">
           <div className="max-w-6xl mx-auto px-6 py-5 text-xs text-muted-foreground flex flex-wrap justify-between gap-3">
             <span>
-              © {new Date().getFullYear()} {LEGAL_CONFIG.companyName}. All
+              Ã‚Â© {new Date().getFullYear()} {LEGAL_CONFIG.companyName}. All
               rights reserved.
             </span>
             <span>Payments processed by {LEGAL_CONFIG.merchantOfRecord}.</span>
@@ -335,3 +335,4 @@ export function MarketingShell({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

@@ -9,10 +9,10 @@ export type UiPreferences = {
   touchMode: boolean;
 };
 
-const KEY = "seza.ui.preferences.v2";
+const KEY = "seza.ui.preferences.v3";
 
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
-  theme: "system",
+  theme: "light",
   density: "comfortable",
   textScale: "normal",
   touchMode: false,
