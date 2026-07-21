@@ -44,11 +44,11 @@ export function supportChannelName(channelToken: string): string {
  */
 export function openSignalingChannel(
   client: SupabaseClient,
-  sessionId: string,
+  channelToken: string,
   onMessage: (msg: SignalPayload) => void,
 ): { channel: RealtimeChannel; send: (msg: SignalPayload) => Promise<void>; close: () => void } {
-  const channel = client.channel(supportChannelName(sessionId), {
-    config: { broadcast: { self: false, ack: false }, private: true },
+  const channel = client.channel(supportChannelName(channelToken), {
+    config: { broadcast: { self: false, ack: false } },
   });
 
   channel.on("broadcast", { event: "signal" }, (payload) => {
