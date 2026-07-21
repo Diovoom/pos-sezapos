@@ -318,15 +318,29 @@ function AdminLayout() {
           </div>
         )}
         {activeSession && activeSession.status === "active" && (
-          <AdminScreenViewer
-            key={activeSession.id}
-            sessionId={activeSession.id}
-            startedAt={activeSession.started_at}
-            businessName={activeSession.store?.name}
-            storeCode={activeSession.store?.store_code}
-            employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
-            onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
-          />
+          activeSession.client_capability === "android_diagnostics_only" ? (
+            <AdminDiagnosticsPanel
+              key={activeSession.id}
+              sessionId={activeSession.id}
+              startedAt={activeSession.started_at}
+              expiresAt={activeSession.expires_at}
+              businessName={activeSession.store?.name}
+              storeCode={activeSession.store?.store_code}
+              employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
+              metadata={(activeSession.client_metadata as Record<string, unknown> | null) ?? null}
+              onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
+            />
+          ) : (
+            <AdminScreenViewer
+              key={activeSession.id}
+              sessionId={activeSession.id}
+              startedAt={activeSession.started_at}
+              businessName={activeSession.store?.name}
+              storeCode={activeSession.store?.store_code}
+              employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
+              onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
+            />
+          )
         )}
 
         <main className="flex-1 p-6 overflow-y-auto">
