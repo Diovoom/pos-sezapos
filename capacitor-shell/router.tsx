@@ -21,6 +21,7 @@ import { TimeclockPage } from "@/routes/_pos/timeclock";
 import { ShiftsPage } from "@/routes/_dashboard/shifts";
 import { SupportScreen } from "./screens/SupportScreen";
 import { AuthRoute } from "./screens/AuthRoute";
+import { PairDeviceScreen } from "./screens/PairDeviceScreen";
 import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { ScannerSettingsScreen } from "./screens/ScannerSettingsScreen";
@@ -45,6 +46,12 @@ const authRoute = createRoute({
   component: AuthRoute,
 });
 
+const pairRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/pair",
+  component: PairDeviceScreen,
+});
+
 const requireAuth = async () => {
   const { data } = await supabase.auth.getSession();
   if (!data.session) throw redirect({ to: "/auth", replace: true });
@@ -65,6 +72,7 @@ const shellRoute = <Path extends string>(path: Path, Component: () => React.JSX.
 const routeTree = rootRoute.addChildren([
   indexRoute,
   authRoute,
+  pairRoute,
   shellRoute("/pos", PosPage),
   shellRoute("/register", RegisterPage),
   shellRoute("/refunds", RefundsPage),

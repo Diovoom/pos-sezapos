@@ -47,7 +47,7 @@ export const Route = createFileRoute("/api/public/pos/verify-employee-pin")({
         if (employeeId) {
           const { data: p } = await admin
             .from("profiles")
-            .select("id, email, pin_hash, status")
+            .select("id, email, pin_hash, pin_fingerprint, store_id, status")
             .eq("employee_id", employeeId)
             .maybeSingle();
           if (!p) return json({ error: "No employee found with that ID" }, 404);
@@ -56,6 +56,17 @@ export const Route = createFileRoute("/api/public/pos/verify-employee-pin")({
           if (!p.pin_hash) return json({ error: "No PIN set for this account" }, 400);
           if (!verifyPin(pin, p.pin_hash)) return json({ error: "Incorrect PIN" }, 401);
           match = { id: p.id, email: p.email };
+
+          // Backfill the fingerprint on first successful sign-in so future
+          // store-scoped uniqueness checks include this employee.
+          if (!p.pin_fingerprint && p.store_id) {
+            try {
+              const { pinFingerprint } = await import("@/lib/pos/fingerprint.server");
+              await admin.from("profiles")
+                .update({ pin_fingerprint: pinFingerprint(p.store_id, pin) })
+                .eq("id", p.id);
+            } catch { /* best effort */ }
+          }
         } else {
           // PIN-only sign-in is disabled: matching a PIN across every store on
           // the platform allowed cross-tenant collisions. Always require the

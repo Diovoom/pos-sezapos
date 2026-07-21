@@ -422,6 +422,116 @@ export type Database = {
         }
         Relationships: []
       }
+      device_pairing_codes: {
+        Row: {
+          code_hash: string
+          consumed_at: string | null
+          consumed_device_id: string | null
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          label: string
+          store_id: string
+        }
+        Insert: {
+          code_hash: string
+          consumed_at?: string | null
+          consumed_device_id?: string | null
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          label: string
+          store_id: string
+        }
+        Update: {
+          code_hash?: string
+          consumed_at?: string | null
+          consumed_device_id?: string | null
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          label?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_pairing_codes_consumed_device_id_fkey"
+            columns: ["consumed_device_id"]
+            isOneToOne: false
+            referencedRelation: "device_registrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_pairing_codes_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_registrations: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          last_seen_at: string | null
+          paired_at: string
+          paired_by: string | null
+          platform: string | null
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          secret_hash: string
+          status: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          last_seen_at?: string | null
+          paired_at?: string
+          paired_by?: string | null
+          platform?: string | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          secret_hash: string
+          status?: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          last_seen_at?: string | null
+          paired_at?: string
+          paired_by?: string | null
+          platform?: string | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          secret_hash?: string
+          status?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_registrations_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -728,6 +838,7 @@ export type Database = {
           must_change_pin: boolean
           phone: string | null
           photo_url: string | null
+          pin_fingerprint: string | null
           pin_hash: string | null
           preferred_language: string | null
           preferred_locale: string | null
@@ -753,6 +864,7 @@ export type Database = {
           must_change_pin?: boolean
           phone?: string | null
           photo_url?: string | null
+          pin_fingerprint?: string | null
           pin_hash?: string | null
           preferred_language?: string | null
           preferred_locale?: string | null
@@ -778,6 +890,7 @@ export type Database = {
           must_change_pin?: boolean
           phone?: string | null
           photo_url?: string | null
+          pin_fingerprint?: string | null
           pin_hash?: string | null
           preferred_language?: string | null
           preferred_locale?: string | null
@@ -1826,6 +1939,26 @@ export type Database = {
         Returns: number
       }
       plan_tier_for_price: { Args: { _price_id: string }; Returns: string }
+      pos_find_pin_candidates: {
+        Args: { _fingerprint: string; _store_id: string }
+        Returns: {
+          email: string
+          id: string
+          pin_hash: string
+        }[]
+      }
+      pos_list_unfingerprinted: {
+        Args: { _store_id: string }
+        Returns: {
+          email: string
+          id: string
+          pin_hash: string
+        }[]
+      }
+      pos_pin_conflict_check: {
+        Args: { _exclude_user: string; _fingerprint: string; _store_id: string }
+        Returns: boolean
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {

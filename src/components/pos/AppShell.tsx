@@ -58,6 +58,7 @@ const NAV: { to: string; label: string; icon: any; search?: Record<string, strin
   { to: "/payroll", label: "Payroll", icon: BarChart3 },
   { to: "/shifts", label: "Shifts", icon: Receipt },
   { to: "/reports", label: "Reports", icon: BarChart3 },
+  { to: "/devices", label: "POS Devices", icon: Settings },
   { to: "/settings", label: "Billing", icon: CreditCard, search: { section: "billing" } },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
