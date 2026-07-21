@@ -55,7 +55,7 @@ export function SupportRequestListener() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await (supabase as any)
       .from("admin_support_sessions")
-      .select("id, store_id, admin_email, reason, status, requested_at, expires_at")
+      .select("id, store_id, admin_email, reason, status, requested_at, expires_at, channel_token")
       .eq("store_id", storeId)
       .in("status", ["pending", "active"])
       .gt("expires_at", new Date().toISOString())
