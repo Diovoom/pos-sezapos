@@ -90,6 +90,20 @@ function SettingsPage() {
       </Card>
 
       <Card>
+        <CardHeader>
+          <CardTitle>Active sessions</CardTitle>
+          <CardDescription>Revoke every SEZA Admin session except this one.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 max-w-md">
+          <p className="text-sm text-muted-foreground">Use this after signing in on a shared device or if you suspect an unauthorized session.</p>
+          <Button variant="outline" onClick={signOutOthers} disabled={busy}>
+            Sign out of other devices
+          </Button>
+        </CardContent>
+      </Card>
+
+
+      <Card>
         <CardHeader><CardTitle>Platform status</CardTitle></CardHeader>
         <CardContent className="text-sm space-y-2">
           <Row label="Database" ok={!!data?.database?.ok} note={data?.database?.ok ? "reachable" : (data as any)?.database?.error ?? "—"} />
