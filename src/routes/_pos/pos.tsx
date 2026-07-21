@@ -969,6 +969,19 @@ export function PosPage() {
         onAdd={addCustomItem}
       />
 
+      <QuickAddProductDialog
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        storeId={store?.id ?? null}
+        initialBarcode={quickAddSeed}
+        onCreated={(p: QuickAddedProduct) => {
+          addToCart(p as unknown as Product);
+          setSearch("");
+          qc.invalidateQueries({ queryKey: ["products"] });
+        }}
+      />
+
+
       <DiscountDialog
         open={discountOpen}
         onOpenChange={setDiscountOpen}
