@@ -41,6 +41,8 @@ import {
 } from "@/lib/offline/db";
 import { syncNow } from "@/lib/offline/sync";
 import { useNativeActivitySignal } from "@/lib/native-activity";
+import { isNativeMode } from "@/lib/native";
+import { QuickAddProductDialog, type QuickAddedProduct } from "@/components/pos/QuickAddProductDialog";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
@@ -233,6 +235,13 @@ export function PosPage() {
     });
   }, [products, activeCategory, search]);
 
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddSeed, setQuickAddSeed] = useState<string>("");
+  const storeAllowsQuickAdd = !!store?.allow_cashier_quick_add;
+  // Owners/managers can always quick-add; cashiers additionally need the
+  // store-level toggle and the products.quick_add permission.
+  const quickAddAllowed = isNativeMode() && (perms.isSuper || (canQuickAdd && storeAllowsQuickAdd));
+
   const tryAddByCode = (code: string) => {
     const norm = code.trim().toLowerCase();
     if (!norm) return false;
@@ -244,8 +253,14 @@ export function PosPage() {
       setSearch("");
       return true;
     }
+    if (quickAddAllowed) {
+      setQuickAddSeed(code.trim());
+      setQuickAddOpen(true);
+      return true;
+    }
     return false;
   };
+
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
