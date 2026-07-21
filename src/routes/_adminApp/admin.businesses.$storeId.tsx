@@ -128,6 +128,8 @@ function BusinessWorkspace() {
   const restoreSub = useServerFn(adminRestoreSubscription);
   const updateContact = useServerFn(adminUpdateBusinessContact);
   const startSupport = useServerFn(adminStartSupportSession);
+  const cancelSupport = useServerFn(adminCancelSupportRequest);
+  const endSupport = useServerFn(adminEndSupportSession);
   const createTicket = useServerFn(adminCreateTicket);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["admin_workspace", storeId] });
@@ -142,7 +144,7 @@ function BusinessWorkspace() {
 
   if (isLoading) return <div className="text-sm text-muted-foreground">Loading…</div>;
   if (error || !data) return <div className="text-sm text-destructive">{(error as any)?.message ?? "Failed to load"}</div>;
-  const { store, owners, counts, employees, terminals, subscription, subscriptions, recent_sales, recent_activity, recent_issues, tickets, offline_terminals, last_activity } = data;
+  const { store, owners, counts, employees, terminals, subscription, subscriptions, recent_sales, recent_activity, recent_issues, tickets, offline_terminals, last_activity, open_shifts, recent_shifts, refunds, cash_movements, sales_summary, active_support_session, support_sessions } = data as any;
 
   async function openSupport() {
     ask("Request Support View", "The merchant will be notified and must accept before you can view their data. Expires in 30 minutes.", async (reason) => {
