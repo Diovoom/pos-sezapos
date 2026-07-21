@@ -42,6 +42,32 @@ export function TimeclockPage() {
   const qc = useQueryClient();
   const me = useMe();
   const canManage = me.data?.roles.some((r) => r === "owner" || r === "manager");
+  const storeId = me.data?.profile?.store_id ?? null;
+
+  // Any register shift currently open for the caller's store — resolves
+  // whether Clock Out must route through Shift Review before finalizing.
+  const { data: openShift } = useQuery({
+    enabled: !!storeId,
+    queryKey: ["timeclock", "open-shift", storeId],
+    staleTime: 15_000,
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any)
+        .from("register_sessions")
+        .select("id, store_id, opened_by, opened_at, opening_cash, status")
+        .eq("store_id", storeId)
+        .eq("status", "open")
+        .order("opened_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data as {
+        id: string; store_id: string; opened_by: string; opened_at: string;
+        opening_cash: number; status: string;
+      } | null;
+    },
+  });
+
+  const [shiftReviewOpen, setShiftReviewOpen] = useState(false);
 
   const { data: open } = useQuery<TimeEntry | null>({
     queryKey: ["myOpenEntry", me.data?.user.id],
