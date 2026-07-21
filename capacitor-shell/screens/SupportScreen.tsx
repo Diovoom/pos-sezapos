@@ -37,6 +37,7 @@ import {
 import { collectDiagnostics, formatDiagnosticsBlock } from "../support/diagnostics";
 import { useBackHandler } from "../lifecycle/useBackHandler";
 import { registerBackHandler } from "../lifecycle/backButtonCoordinator";
+import { SupportErrorBoundary } from "./SupportErrorBoundary";
 
 type TicketStatus = "open" | "in_progress" | "waiting_customer" | "waiting_support" | "resolved" | "closed" | string;
 type TicketPriority = "low" | "normal" | "high" | "urgent" | string;
@@ -158,6 +159,14 @@ function markRead(ticketId: string, at: string) {
 // -----------------------------------------------------------------------
 
 export function SupportScreen() {
+  return (
+    <SupportErrorBoundary>
+      <SupportScreenInner />
+    </SupportErrorBoundary>
+  );
+}
+
+function SupportScreenInner() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Android back button — while a ticket is open, back returns to the list
@@ -180,6 +189,7 @@ export function SupportScreen() {
     <TicketList onOpen={(id) => setSelectedId(id)} />
   );
 }
+
 
 // -----------------------------------------------------------------------
 // LIST + CREATE
@@ -689,6 +699,26 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
     onSettled: () => setSending(false),
   });
 
+  // IMPORTANT: this useMutation MUST be declared before any early return so the
+  // hook order stays stable across loading → error → success renders. Placing
+  // it below the early returns caused React error #310 ("Rendered fewer hooks
+  // than expected") whenever the ticket query resolved after loading.
+  const closeTicket = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("merchant_update_support_ticket", {
+        _ticket_id: id,
+        _status: "resolved",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Ticket closed");
+      qc.invalidateQueries({ queryKey: ["shell", "support", "ticket", id] });
+      if (storeId) qc.invalidateQueries({ queryKey: ["shell", "support", "tickets", storeId] });
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Could not close ticket"),
+  });
+
   async function onSend() {
     if (sending || !reply.trim() || closed) return;
     if (!online) { toast.error("You're offline — can't send yet."); return; }
@@ -722,21 +752,6 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const t = ticketQ.data;
   const notes = notesQ.data ?? [];
 
-  const closeTicket = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.rpc("merchant_update_support_ticket", {
-        _ticket_id: id,
-        _status: "resolved",
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Ticket closed");
-      qc.invalidateQueries({ queryKey: ["shell", "support", "ticket", id] });
-      if (storeId) qc.invalidateQueries({ queryKey: ["shell", "support", "tickets", storeId] });
-    },
-    onError: (e: Error) => toast.error(e.message ?? "Could not close ticket"),
-  });
 
   return (
     <div className="flex flex-col h-full max-w-2xl mx-auto w-full">

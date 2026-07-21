@@ -44,6 +44,11 @@ export default defineConfig(({ mode }) => {
           find: /^@\/components\/SupportRequestListener$/,
           replacement: path.resolve(__dirname, "capacitor-shell/stubs/SupportRequestListener.tsx"),
         },
+        // Camera scanner removed from the APK — physical scanners only.
+        {
+          find: /^@\/components\/pos\/BarcodeScanner$/,
+          replacement: path.resolve(__dirname, "capacitor-shell/stubs/BarcodeScanner.tsx"),
+        },
         { find: "@", replacement: path.resolve(__dirname, "src") },
       ],
     },

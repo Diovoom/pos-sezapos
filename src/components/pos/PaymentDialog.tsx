@@ -76,7 +76,17 @@ export function PaymentDialog({ open, onOpenChange, method, total, currency, onC
         }}
       >
         <DialogContent
-          className="sm:max-w-md p-0 max-h-[90dvh] overflow-y-auto overscroll-contain"
+          // Full-height flex column so children can carve out a scrollable
+          // body between a fixed header and a fixed action footer. Uses
+          // `dvh` (dynamic viewport) so the on-screen keyboard doesn't
+          // clip the action buttons on Android WebView, and adds
+          // safe-area bottom padding for Android nav gestures.
+          className={cn(
+            "p-0 gap-0 overflow-hidden",
+            "flex flex-col",
+            "h-[100dvh] max-h-[100dvh] w-screen max-w-none rounded-none",
+            "sm:h-auto sm:max-h-[92dvh] sm:max-w-md sm:rounded-lg sm:w-full",
+          )}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
           {isCash ? (
@@ -106,6 +116,7 @@ export function PaymentDialog({ open, onOpenChange, method, total, currency, onC
   );
 }
 
+
 /* -------- Cash -------- */
 
 const QUICK = [1, 5, 10, 20, 50, 100];
@@ -128,8 +139,8 @@ function CashPanel({
   const ok = tendered >= total && total > 0;
 
   return (
-    <div>
-      <DialogHeader className="p-6 pb-4 border-b">
+    <div className="flex flex-col min-h-0 flex-1">
+      <DialogHeader className="p-6 pb-4 border-b shrink-0">
         <DialogTitle className="flex items-center gap-2">
           <Banknote className="size-5 text-primary" /> Cash payment
         </DialogTitle>
@@ -138,7 +149,7 @@ function CashPanel({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="p-6 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-4">
         <div className="space-y-2">
           <Label>Amount received</Label>
           <Input
@@ -187,7 +198,7 @@ function CashPanel({
         </div>
       </div>
 
-      <div className="p-4 border-t bg-surface/40 flex gap-2">
+      <div className="p-4 border-t bg-surface/40 flex gap-2 shrink-0 pb-[max(env(safe-area-inset-bottom),1rem)]">
         <Button variant="outline" className="flex-1" onClick={onCancel}>
           Cancel
         </Button>
@@ -212,6 +223,7 @@ function CashPanel({
     </div>
   );
 }
+
 
 /* -------- Terminal -------- */
 
@@ -297,8 +309,8 @@ function TerminalPanel({
   // ---- No provider connected: block card payments entirely. ----
   if (!provider) {
     return (
-      <div>
-        <DialogHeader className="p-6 pb-4 border-b">
+      <div className="flex flex-col min-h-0 flex-1">
+        <DialogHeader className="p-6 pb-4 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <WifiOff className="size-5 text-destructive" /> No payment terminal
           </DialogTitle>
@@ -306,7 +318,7 @@ function TerminalPanel({
             Card, tap, and mobile-wallet payments are unavailable.
           </DialogDescription>
         </DialogHeader>
-        <div className="p-8 flex flex-col items-center justify-center gap-4 min-h-[240px] text-center">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-8 flex flex-col items-center justify-center gap-4 text-center">
           <div className="size-16 rounded-full grid place-items-center bg-destructive/10 text-destructive">
             <WifiOff className="size-10" />
           </div>
@@ -320,7 +332,7 @@ function TerminalPanel({
             </p>
           </div>
         </div>
-        <div className="p-4 border-t bg-surface/40 flex gap-2">
+        <div className="p-4 border-t bg-surface/40 flex gap-2 shrink-0 pb-[max(env(safe-area-inset-bottom),1rem)]">
           <Button variant="outline" className="flex-1" onClick={onCancelNoApproval}>
             Back to cart
           </Button>
@@ -332,6 +344,7 @@ function TerminalPanel({
     );
   }
 
+
   const status: PaymentStatus = result?.finalStatus ?? event.status;
   const isTerminal =
     status === "approved" ||
@@ -342,8 +355,8 @@ function TerminalPanel({
     status === "network_error";
 
   return (
-    <div>
-      <DialogHeader className="p-6 pb-4 border-b">
+    <div className="flex flex-col min-h-0 flex-1">
+      <DialogHeader className="p-6 pb-4 border-b shrink-0">
         <DialogTitle className="flex items-center gap-2">
           <CreditCard className="size-5 text-primary" /> Card payment
         </DialogTitle>
@@ -352,7 +365,7 @@ function TerminalPanel({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="p-8 flex flex-col items-center justify-center gap-4 min-h-[240px]">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-8 flex flex-col items-center justify-center gap-4">
         <StatusIcon status={status} />
         <div className="text-center">
           <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
@@ -372,7 +385,7 @@ function TerminalPanel({
         </div>
       </div>
 
-      <div className="p-4 border-t bg-surface/40 flex gap-2">
+      <div className="p-4 border-t bg-surface/40 flex gap-2 shrink-0 pb-[max(env(safe-area-inset-bottom),1rem)]">
         {!isTerminal && (
           <Button
             variant="outline"
@@ -420,6 +433,7 @@ function TerminalPanel({
         )}
       </div>
     </div>
+
   );
 }
 
