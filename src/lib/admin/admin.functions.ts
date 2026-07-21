@@ -1609,7 +1609,7 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
     const admin: any = supabaseAdmin;
     const { data } = await admin
       .from("admin_support_sessions")
-      .select("id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at, decided_by, client_capability, client_metadata")
+      .select("id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at, decided_by, client_capability, client_metadata, channel_token")
       .eq("admin_id", context.userId)
       .in("status", ["pending", "active"])
       .gt("expires_at", new Date().toISOString())
