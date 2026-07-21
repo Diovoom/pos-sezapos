@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_login_attempts: {
+        Row: {
+          attempted_at: string
+          email: string
+          id: string
+          ip: string | null
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          attempted_at?: string
+          email: string
+          id?: string
+          ip?: string | null
+          success: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          attempted_at?: string
+          email?: string
+          id?: string
+          ip?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      admin_permissions: {
+        Row: {
+          created_at: string
+          permission: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          permission: string
+          role: string
+        }
+        Update: {
+          created_at?: string
+          permission?: string
+          role?: string
+        }
+        Relationships: []
+      }
       admin_support_sessions: {
         Row: {
           admin_email: string | null
@@ -1707,6 +1752,10 @@ export type Database = {
       generate_store_code: { Args: never; Returns: string }
       has_active_plan: {
         Args: { _min_tier?: string; _store_id: string }
+        Returns: boolean
+      }
+      has_admin_permission: {
+        Args: { _permission: string; _user_id: string }
         Returns: boolean
       }
       has_any_role: {

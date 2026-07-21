@@ -49,6 +49,21 @@ function SettingsPage() {
     navigate({ to: "/admin/auth", replace: true });
   }
 
+  async function signOutOthers() {
+    setBusy(true);
+    try {
+      // Supabase supports scope: 'others' to revoke every session except the current one.
+      const { error } = await supabase.auth.signOut({ scope: "others" });
+      if (error) throw error;
+      await logAudit({ action: "override.granted", entity: "admin", details: { scope: "revoke_other_sessions" } });
+      toast.success("Signed out of other devices.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not revoke other sessions");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -73,6 +88,20 @@ function SettingsPage() {
           <Button onClick={changePassword} disabled={busy || !pwd}>Update password</Button>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Active sessions</CardTitle>
+          <CardDescription>Revoke every SEZA Admin session except this one.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 max-w-md">
+          <p className="text-sm text-muted-foreground">Use this after signing in on a shared device or if you suspect an unauthorized session.</p>
+          <Button variant="outline" onClick={signOutOthers} disabled={busy}>
+            Sign out of other devices
+          </Button>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader><CardTitle>Platform status</CardTitle></CardHeader>
