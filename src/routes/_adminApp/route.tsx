@@ -53,16 +53,26 @@ export const Route = createFileRoute("/_adminApp")({
   component: AdminLayout,
 });
 
-type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; permission?: string };
 const NAV: NavItem[] = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
-  { to: "/admin/businesses", label: "Businesses", icon: Building2 },
-  { to: "/admin/subscriptions", label: "Subscriptions", icon: CreditCard },
-  { to: "/admin/devices", label: "Devices", icon: Monitor },
-  { to: "/admin/support", label: "Support", icon: LifeBuoy },
-  { to: "/admin/audit-logs", label: "Audit Logs", icon: ScrollText },
+  { to: "/admin/businesses", label: "Businesses", icon: Building2, permission: "businesses.view" },
+  { to: "/admin/stores", label: "Stores", icon: Building2, permission: "stores.view" },
+  { to: "/admin/employees", label: "Employees", icon: Building2, permission: "employees.view" },
+  { to: "/admin/devices", label: "Devices", icon: Monitor, permission: "devices.view" },
+  { to: "/admin/support", label: "Support", icon: LifeBuoy, permission: "support.view" },
+  { to: "/admin/sales", label: "Sales", icon: CreditCard, permission: "businesses.view" },
+  { to: "/admin/offline-sync", label: "Offline Sync", icon: Monitor, permission: "sync.manage" },
+  { to: "/admin/subscriptions", label: "Subscriptions", icon: CreditCard, permission: "billing.view" },
+  { to: "/admin/payments", label: "Payments", icon: CreditCard, permission: "billing.view" },
+  { to: "/admin/incidents", label: "Incidents", icon: LifeBuoy, permission: "incidents.view" },
+  { to: "/admin/communications", label: "Communications", icon: LifeBuoy, permission: "support.manage" },
+  { to: "/admin/audit-logs", label: "Audit Logs", icon: ScrollText, permission: "audit.view" },
+  { to: "/admin/team", label: "Admin Team", icon: ShieldCheck, permission: "admin_users.view" },
+  { to: "/admin/platform-health", label: "Platform Health", icon: LayoutDashboard, permission: "platform_settings.view" },
   { to: "/admin/settings", label: "Settings", icon: SettingsIcon },
 ];
+
 
 function AdminLayout() {
   const location = useRouterState({ select: (s) => s.location });
