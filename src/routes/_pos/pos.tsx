@@ -912,7 +912,7 @@ export function PosPage() {
         // Owners/managers/admins already possess payment-cancel authority.
         // Requiring a second manager PIN to back out of tender selection
         // is friction, not security — no payment has committed yet.
-        bypassCancelApproval={canManage}
+        bypassCancelApproval={canCancelTender}
       />
 
 
