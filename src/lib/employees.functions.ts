@@ -276,7 +276,7 @@ export const resetEmployeeCredentials = createServerFn({ method: "POST" })
     const admin: any = supabaseAdmin;
     await admin
       .from("profiles")
-      .update({ must_change_password: true, pin_hash: null })
+      .update({ must_change_password: true, pin_hash: null, pin_fingerprint: null })
       .eq("id", data.user_id);
     // Force sign-out of all existing sessions so the old password stops working.
     try {
