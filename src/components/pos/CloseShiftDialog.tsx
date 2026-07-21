@@ -80,6 +80,11 @@ export function CloseShiftDialog({
   const [confirm, setConfirm] = useState(false);
   const [approver, setApprover] = useState<ManagerOverrideResult | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
+  // Post-close hook failure (e.g. clock-out mutation threw AFTER register
+  // shift already closed). Blocks sign-out, keeps summary visible, offers
+  // retry. Do NOT re-run the shift-close mutation from this state.
+  const [postCloseFailed, setPostCloseFailed] = useState<null | { message: string; correlationId: string }>(null);
+  const [retrying, setRetrying] = useState(false);
 
   const threshold = Number(store?.variance_alert_threshold ?? 5);
   const startingFloat = Number(store?.starting_cash_float ?? 100);
@@ -90,8 +95,47 @@ export function CloseShiftDialog({
       setStep(1); setMode("total"); setTotalInput(""); setDenomCounts({});
       setSafeDrop(""); setSafeDropNote(""); setCloseNotes(""); setConfirm(false);
       setApprover(null);
+      setPostCloseFailed(null); setRetrying(false);
     }
   }, [open]);
+
+  const runPostCloseHook = async () => {
+    if (!beforeSignOut) return true;
+    try {
+      await beforeSignOut();
+      return true;
+    } catch (e) {
+      const correlationId = (crypto as { randomUUID?: () => string }).randomUUID?.()
+        ?? `cc-${Date.now().toString(36)}`;
+      const message = e instanceof Error ? e.message : "Post-close step failed";
+      setPostCloseFailed({ message, correlationId });
+      void logAudit({
+        action: "system.error",
+        entity: "register_session",
+        entity_id: session.id,
+        details: {
+          stage: "post_close_hook_failed",
+          correlation_id: correlationId,
+          message,
+        },
+      });
+      toast.error("Shift closed, but post-close step failed.");
+      return false;
+    }
+  };
+
+  const retryPostClose = async () => {
+    if (retrying || !postCloseFailed) return;
+    setRetrying(true);
+    const ok = await runPostCloseHook();
+    setRetrying(false);
+    if (ok) {
+      setPostCloseFailed(null);
+      qc.clear();
+      if (!skipSignOut) await supabase.auth.signOut();
+      onClosed();
+    }
+  };
 
   // Live totals for this shift (sales + refunds + movements).
   const totals = useQuery({
@@ -225,17 +269,13 @@ export function CloseShiftDialog({
     },
     onSuccess: async () => {
       toast.success("Shift closed");
-      // Run any post-close hook (e.g. clock-out) BEFORE tearing down the
+      // Run the post-close hook (e.g. clock-out) BEFORE tearing down the
       // session — the caller may still need an authenticated Supabase
-      // context to complete its own mutation.
-      if (beforeSignOut) {
-        try { await beforeSignOut(); }
-        catch (e) {
-          // Do NOT reopen the shift; surface the failure so the caller UI
-          // can offer a retry.
-          toast.error(e instanceof Error ? e.message : "Post-close step failed");
-        }
-      }
+      // context. On failure the register shift stays closed (never
+      // reopened), the employee stays signed in, and the dialog switches
+      // to a persistent Retry state.
+      const ok = await runPostCloseHook();
+      if (!ok) return; // stay in dialog; user retries or contacts support
       qc.clear();
       if (!skipSignOut) {
         await supabase.auth.signOut();
@@ -262,18 +302,66 @@ export function CloseShiftDialog({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={(v) => { if (!closeMut.isPending) onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!closeMut.isPending && !postCloseFailed && !retrying) onOpenChange(v); }}>
       <DialogContent className="sm:max-w-lg max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Review & Close Shift · Step {step} of 5</DialogTitle>
+          <DialogTitle>
+            {postCloseFailed ? "Shift Closed — Action Required" : `Review & Close Shift · Step ${step} of 5`}
+          </DialogTitle>
           <DialogDescription>
-            {step === 1 && "Review your shift activity."}
-            {step === 2 && "Count all cash currently in the drawer."}
-            {step === 3 && "Variance is calculated by the server."}
-            {step === 4 && "Remove cash for the safe."}
-            {step === 5 && "Confirm and close."}
+            {postCloseFailed
+              ? "Your register shift is closed. One follow-up step did not complete."
+              : (
+                <>
+                  {step === 1 && "Review your shift activity."}
+                  {step === 2 && "Count all cash currently in the drawer."}
+                  {step === 3 && "Variance is calculated by the server."}
+                  {step === 4 && "Remove cash for the safe."}
+                  {step === 5 && "Confirm and close."}
+                </>
+              )}
           </DialogDescription>
         </DialogHeader>
+
+        {postCloseFailed && (
+          <div className="space-y-4">
+            <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="size-4 text-warning shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium">
+                    Your register shift is closed, but employee clock-out could not be completed.
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">{postCloseFailed.message}</div>
+                  <div className="text-xs text-muted-foreground mt-1 font-mono">
+                    Ref: {postCloseFailed.correlationId}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-md border p-3 text-sm space-y-1">
+              <div className="font-medium">Final shift summary</div>
+              <Row label="Expected cash" value={fmt(expected)} />
+              <Row label="Counted cash" value={fmt(counted)} />
+              <Row label={`Variance (${status})`} value={`${variance > 0 ? "+" : ""}${fmt(variance)}`} bold />
+              <Row label="Safe drop" value={fmt(dropAmt)} />
+              <Row label="Cash remaining" value={fmt(remaining)} bold />
+            </div>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button variant="outline" asChild>
+                <a href="/support" target="_blank" rel="noreferrer">Contact Support</a>
+              </Button>
+              <Button onClick={() => void retryPostClose()} disabled={retrying}>
+                {retrying ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+                Retry Clock Out
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+
+        {!postCloseFailed && (
+        <>
+
 
         {totals.isLoading ? (
           <div className="p-6 flex items-center gap-2 text-muted-foreground text-sm">
@@ -452,7 +540,10 @@ export function CloseShiftDialog({
             </Button>
           )}
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
+
     </Dialog>
 
     <ManagerOverrideDialog

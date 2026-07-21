@@ -43,29 +43,38 @@ export function TimeclockPage() {
   const me = useMe();
   const canManage = me.data?.roles.some((r) => r === "owner" || r === "manager");
   const storeId = me.data?.profile?.store_id ?? null;
+  const userId = me.data?.user?.id ?? null;
 
-  // Any register shift currently open for the caller's store — resolves
-  // whether Clock Out must route through Shift Review before finalizing.
-  const { data: openShift } = useQuery({
-    enabled: !!storeId,
-    queryKey: ["timeclock", "open-shift", storeId],
+  // Resolve THIS employee's own open register shift. Scoping by store alone
+  // could close a coworker's shift on a shared device — always narrow by
+  // `opened_by = auth.uid()`. If more than one open shift matches (a stuck
+  // record from a prior crash), refuse to auto-close and surface a clear
+  // ambiguity error with a correlation ID; only a manager should intervene
+  // via the existing management workflow.
+  const openShiftQ = useQuery({
+    enabled: !!storeId && !!userId,
+    queryKey: ["timeclock", "open-shift", storeId, userId],
     staleTime: 15_000,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("register_sessions")
-        .select("id, store_id, opened_by, opened_at, opening_cash, status")
+        .select("id, store_id, opened_by, opened_at, opening_cash, status, terminal_id")
         .eq("store_id", storeId)
+        .eq("opened_by", userId)
         .eq("status", "open")
         .order("opened_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data as {
+        .limit(5);
+      if (error) throw error;
+      const rows = (data ?? []) as Array<{
         id: string; store_id: string; opened_by: string; opened_at: string;
-        opening_cash: number; status: string;
-      } | null;
+        opening_cash: number; status: string; terminal_id: string | null;
+      }>;
+      return { rows };
     },
   });
+  const openShift = openShiftQ.data?.rows?.[0] ?? null;
+  const shiftAmbiguous = (openShiftQ.data?.rows?.length ?? 0) > 1;
 
   const [shiftReviewOpen, setShiftReviewOpen] = useState(false);
 
@@ -204,18 +213,49 @@ export function TimeclockPage() {
   const handleClockOut = async () => {
     if (!open) return;
     if (isNativeShell) {
-      // Never clock out while a payment / shift-close mutation is running.
+      // Ambiguous open shifts: refuse to auto-close either one.
+      if (shiftAmbiguous) {
+        const correlationId = (crypto as { randomUUID?: () => string }).randomUUID?.()
+          ?? `cc-${Date.now().toString(36)}`;
+        void logAudit({
+          action: "system.error",
+          entity: "register_session",
+          details: {
+            stage: "clock_out_ambiguous_open_shifts",
+            correlation_id: correlationId,
+            count: openShiftQ.data?.rows?.length ?? 0,
+            channel: "native_shell",
+          },
+        });
+        toast.error(
+          `Multiple open shifts detected. A manager must resolve this from the dashboard. Ref: ${correlationId}`,
+        );
+        return;
+      }
+
       try {
         const { getNativeActivityFlags } = await import("@/lib/native-activity");
-        if (getNativeActivityFlags().paymentBusy) {
-          toast.error("A payment is in progress. Wait for it to finish before clocking out.");
+        const flags = getNativeActivityFlags();
+        if (flags.paymentBusy) {
+          // Covers active payment, refund, void, and any unknown/unresolved
+          // tender — the register broadcasts paymentBusy for all of them
+          // via useNativeActivitySignal. Recovery lives in the POS itself.
+          toast.error("A transaction is in progress. Complete or cancel it in the register before clocking out.");
           return;
         }
-      } catch { /* module unavailable — allow */ }
+        if (flags.hasCart) {
+          // Never silently discard a cart. Send the user back to the
+          // register — they can complete the sale or use the register's
+          // existing (permission-gated) cancel flow, which already routes
+          // through ManagerOverrideDialog for cashiers.
+          toast.error("You have an active cart. Complete or cancel the sale in the register before clocking out.");
+          return;
+        }
+      } catch { /* module unavailable — proceed */ }
 
-      // If a register shift is open under this cashier's store, force the
-      // Shift Review flow first. CloseShiftDialog re-checks pending offline
-      // sales and manager approval; we chain clock-out into beforeSignOut.
+      // If a register shift is open under THIS cashier, force Shift Review
+      // first. CloseShiftDialog re-checks pending offline sales and manager
+      // approval; the clock-out mutation is chained into beforeSignOut.
       if (openShift?.id) {
         try {
           if (await hasUnsyncedOfflineSales(openShift.id)) {
@@ -227,7 +267,13 @@ export function TimeclockPage() {
           action: "clock_out",
           entity: "time_entry",
           entity_id: open.id,
-          details: { channel: "native_shell", stage: "shift_review_opened", shift_id: openShift.id },
+          details: {
+            channel: "native_shell",
+            stage: "shift_review_opened",
+            shift_id: openShift.id,
+            opened_by: openShift.opened_by,
+            terminal_id: openShift.terminal_id,
+          },
         });
         setShiftReviewOpen(true);
         return;
