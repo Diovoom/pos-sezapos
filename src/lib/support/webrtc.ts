@@ -43,7 +43,7 @@ export function openSignalingChannel(
   onMessage: (msg: SignalPayload) => void,
 ): { channel: RealtimeChannel; send: (msg: SignalPayload) => Promise<void>; close: () => void } {
   const channel = client.channel(supportChannelName(sessionId), {
-    config: { broadcast: { self: false, ack: false } },
+    config: { broadcast: { self: false, ack: false }, private: true },
   });
 
   channel.on("broadcast", { event: "signal" }, (payload) => {
