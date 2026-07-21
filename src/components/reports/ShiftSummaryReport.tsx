@@ -5,11 +5,60 @@ import { fetchShiftSummary, type ShiftSummary } from "@/lib/shift-summary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Printer, FileDown, Loader2, AlertTriangle } from "lucide-react";
+import { Printer, FileDown, Loader2, AlertTriangle, FileText } from "lucide-react";
+import { useState } from "react";
+import { isNativeMode } from "@/lib/native";
+import { toast } from "sonner";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   PieChart, Pie, Cell, Legend,
 } from "recharts";
+
+// Native-only print via configured ESC/POS printer; web falls back to browser print.
+function NativePrintButton({ d }: { d: ShiftSummary }) {
+  const [busy, setBusy] = useState(false);
+  const onClick = async () => {
+    if (!isNativeMode()) { window.print(); return; }
+    setBusy(true);
+    try {
+      const { printShiftSummary } = await import("../../../capacitor-shell/lib/shiftSummaryReceipt");
+      const r = await printShiftSummary(d);
+      if (r.ok) toast.success("Shift summary sent to printer");
+      else toast.error(r.error);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Printer error");
+    } finally { setBusy(false); }
+  };
+  return (
+    <Button variant="outline" onClick={onClick} disabled={busy}>
+      {busy ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Printer className="size-4 mr-2" />}
+      Print
+    </Button>
+  );
+}
+
+// Native-only real PDF via jsPDF + Filesystem/Share; web falls back to browser print (which offers Save as PDF).
+function NativePdfButton({ d }: { d: ShiftSummary }) {
+  const [busy, setBusy] = useState(false);
+  const onClick = async () => {
+    if (!isNativeMode()) { window.print(); return; }
+    setBusy(true);
+    try {
+      const { saveAndSharePdf } = await import("../../../capacitor-shell/lib/shiftSummaryPdf");
+      const r = await saveAndSharePdf(d);
+      if (r.ok) toast.success("Shift summary PDF ready");
+      else toast.error(r.error);
+    } catch {
+      toast.error("PDF could not be generated. Try again.");
+    } finally { setBusy(false); }
+  };
+  return (
+    <Button variant="outline" onClick={onClick} disabled={busy}>
+      {busy ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
+      PDF
+    </Button>
+  );
+}
 
 const fmt = (n: number) => `$${Number(n || 0).toFixed(2)}`;
 const fmtInt = (n: number) => Number(n || 0).toLocaleString();
