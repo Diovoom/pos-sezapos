@@ -302,18 +302,66 @@ export function CloseShiftDialog({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={(v) => { if (!closeMut.isPending) onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!closeMut.isPending && !postCloseFailed && !retrying) onOpenChange(v); }}>
       <DialogContent className="sm:max-w-lg max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Review & Close Shift · Step {step} of 5</DialogTitle>
+          <DialogTitle>
+            {postCloseFailed ? "Shift Closed — Action Required" : `Review & Close Shift · Step ${step} of 5`}
+          </DialogTitle>
           <DialogDescription>
-            {step === 1 && "Review your shift activity."}
-            {step === 2 && "Count all cash currently in the drawer."}
-            {step === 3 && "Variance is calculated by the server."}
-            {step === 4 && "Remove cash for the safe."}
-            {step === 5 && "Confirm and close."}
+            {postCloseFailed
+              ? "Your register shift is closed. One follow-up step did not complete."
+              : (
+                <>
+                  {step === 1 && "Review your shift activity."}
+                  {step === 2 && "Count all cash currently in the drawer."}
+                  {step === 3 && "Variance is calculated by the server."}
+                  {step === 4 && "Remove cash for the safe."}
+                  {step === 5 && "Confirm and close."}
+                </>
+              )}
           </DialogDescription>
         </DialogHeader>
+
+        {postCloseFailed && (
+          <div className="space-y-4">
+            <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="size-4 text-warning shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium">
+                    Your register shift is closed, but employee clock-out could not be completed.
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">{postCloseFailed.message}</div>
+                  <div className="text-xs text-muted-foreground mt-1 font-mono">
+                    Ref: {postCloseFailed.correlationId}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-md border p-3 text-sm space-y-1">
+              <div className="font-medium">Final shift summary</div>
+              <Row label="Expected cash" value={fmt(expected)} />
+              <Row label="Counted cash" value={fmt(counted)} />
+              <Row label={`Variance (${status})`} value={`${variance > 0 ? "+" : ""}${fmt(variance)}`} bold />
+              <Row label="Safe drop" value={fmt(dropAmt)} />
+              <Row label="Cash remaining" value={fmt(remaining)} bold />
+            </div>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button variant="outline" asChild>
+                <a href="/support" target="_blank" rel="noreferrer">Contact Support</a>
+              </Button>
+              <Button onClick={() => void retryPostClose()} disabled={retrying}>
+                {retrying ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+                Retry Clock Out
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+
+        {!postCloseFailed && (
+        <>
+
 
         {totals.isLoading ? (
           <div className="p-6 flex items-center gap-2 text-muted-foreground text-sm">
