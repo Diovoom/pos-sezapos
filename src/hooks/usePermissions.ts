@@ -17,10 +17,13 @@ export const ALL_PERMISSIONS: { key: string; label: string; group: string }[] = 
   { key: "reports.export", label: "Export reports", group: "Reports" },
   { key: "register.open", label: "Open register", group: "Register" },
   { key: "register.close", label: "Close register", group: "Register" },
+  { key: "payment.cancel", label: "Cancel/change an uncommitted tender without manager PIN", group: "Register" },
   { key: "employees.view", label: "View employees", group: "Employees" },
   { key: "employees.manage", label: "Manage employees", group: "Employees" },
   { key: "settings.view", label: "View settings", group: "Settings" },
   { key: "settings.edit", label: "Edit settings", group: "Settings" },
+  { key: "hardware.configure", label: "Configure printer/drawer/scanner/terminal", group: "Settings" },
+  { key: "products.quick_add", label: "Quick-add product from Register (unknown barcode)", group: "Products" },
   { key: "audit.view", label: "View audit log", group: "Security" },
 ];
 
