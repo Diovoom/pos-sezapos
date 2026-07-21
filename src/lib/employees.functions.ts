@@ -486,14 +486,33 @@ export const updateEmployee = createServerFn({ method: "POST" })
       hire_date?: string | null;
       photo_url?: string | null;
       role?: "owner" | "manager" | "cashier" | "admin";
+      reason?: string;
     }) => data,
   )
   .handler(async ({ data, context }) => {
-    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
-    const callerIsOwnerOrAdmin = await isOwnerOrAdmin(context as unknown as { supabase: SupabaseCtx; userId: string });
-    if (data.role && !callerIsOwnerOrAdmin) {
-      throw new Error("Only owners or admins can change a role");
+    const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
+    await assertOwnerAdminOrManager(ctx);
+    await assertCanManage(ctx, data.user_id, { allowSelf: true });
+
+    if (data.role) {
+      const callerIsOwner = await isOwner(ctx);
+      const callerIsOwnerOrAdmin = await isOwnerOrAdmin(ctx);
+      if (!callerIsOwnerOrAdmin) {
+        throw new Error("Only owners or admins can change a role");
+      }
+      if ((data.role === "owner" || data.role === "admin") && !callerIsOwner) {
+        throw new Error("Only owners can grant the owner or admin role");
+      }
+      // Never let a caller act on themselves for role changes.
+      if (data.user_id === ctx.userId) {
+        throw new Error("You cannot change your own role");
+      }
+      // Demoting an owner? Make sure at least one other owner remains.
+      if (data.role !== "owner") {
+        await assertNotLastOwner(ctx, data.user_id);
+      }
     }
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
@@ -528,7 +547,17 @@ export const updateEmployee = createServerFn({ method: "POST" })
         await admin.from("user_roles").insert({ user_id: data.user_id, role: data.role });
       }
     }
-    return { ok: true };
+
+    const correlationId = await auditMerchant(ctx.userId, {
+      action: "employee.update",
+      entity_id: data.user_id,
+      reason: data.reason ?? null,
+      details: {
+        fields: Object.keys(patch),
+        role_change: data.role ?? null,
+      },
+    });
+    return { ok: true, correlation_id: correlationId };
   });
 
 /* -------------------------- employee ID mgmt --------------------------- */
@@ -537,7 +566,9 @@ export const setEmployeeCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { user_id: string; employee_id: string }) => data)
   .handler(async ({ data, context }) => {
-    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
+    await assertOwnerAdminOrManager(ctx);
+    await assertCanManage(ctx, data.user_id, { allowSelf: true });
     if (!/^\d{6}$/.test(data.employee_id)) throw new Error("Employee ID must be 6 digits");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -546,6 +577,11 @@ export const setEmployeeCode = createServerFn({ method: "POST" })
     if (dup) throw new Error("That Employee ID is already taken");
     const { error } = await admin.from("profiles").update({ employee_id: data.employee_id }).eq("id", data.user_id);
     if (error) throw new Error(error.message);
+    await auditMerchant(ctx.userId, {
+      action: "employee.update",
+      entity_id: data.user_id,
+      details: { field: "employee_id" },
+    });
     return { employee_id: data.employee_id };
   });
 
@@ -553,7 +589,9 @@ export const regenerateEmployeeCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { user_id: string }) => data)
   .handler(async ({ data, context }) => {
-    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
+    await assertOwnerAdminOrManager(ctx);
+    await assertCanManage(ctx, data.user_id, { allowSelf: true });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
@@ -563,6 +601,11 @@ export const regenerateEmployeeCode = createServerFn({ method: "POST" })
       if (!dup) {
         const { error } = await admin.from("profiles").update({ employee_id: candidate }).eq("id", data.user_id);
         if (error) throw new Error(error.message);
+        await auditMerchant(ctx.userId, {
+          action: "employee.update",
+          entity_id: data.user_id,
+          details: { field: "employee_id", regenerated: true },
+        });
         return { employee_id: candidate };
       }
     }
@@ -576,16 +619,26 @@ export const regenerateEmployeeCode = createServerFn({ method: "POST" })
 export const adminResetPin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (data: { user_id: string; pin?: string | null; force_change?: boolean; clear?: boolean }) => data,
+    (data: { user_id: string; pin?: string | null; force_change?: boolean; clear?: boolean; reason?: string }) => data,
   )
   .handler(async ({ data, context }) => {
-    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
+    await assertOwnerAdminOrManager(ctx);
+    await assertCanManage(ctx, data.user_id);
+    const reason = (data.reason ?? "").trim();
+    if (reason.length < 4) throw new Error("A reason of at least 4 characters is required");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
 
     if (data.clear) {
       await admin.from("profiles").update({ pin_hash: null, must_change_pin: !!data.force_change }).eq("id", data.user_id);
+      await auditMerchant(ctx.userId, {
+        action: "employee.reset",
+        entity_id: data.user_id,
+        reason,
+        details: { credential: "pin", cleared: true },
+      });
       return { pin: null };
     }
 
@@ -596,23 +649,84 @@ export const adminResetPin = createServerFn({ method: "POST" })
       .update({ pin_hash: hashPin(pin), must_change_pin: !!data.force_change })
       .eq("id", data.user_id);
     if (error) throw new Error(error.message);
-    return { pin };
+    const correlationId = await auditMerchant(ctx.userId, {
+      action: "employee.reset",
+      entity_id: data.user_id,
+      reason,
+      details: { credential: "pin", force_change: !!data.force_change },
+    });
+    return { pin, correlation_id: correlationId };
   });
 
-/* --------------------------- delete employee --------------------------- */
+/* --------------- remove employee (soft-delete when history exists) ----- */
 
 export const deleteEmployee = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { user_id: string }) => data)
+  .inputValidator(
+    (data: { user_id: string; reason: string; confirm: true }) => data,
+  )
   .handler(async ({ data, context }) => {
-    const ctx = context as { userId: string };
-    await assertOwner(context as unknown as { supabase: SupabaseCtx; userId: string });
-    if (data.user_id === ctx.userId) throw new Error("You cannot delete your own account");
+    const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
+    await assertOwner(ctx);
+    await assertCanManage(ctx, data.user_id);
+    await assertNotLastOwner(ctx, data.user_id);
+    const reason = (data.reason ?? "").trim();
+    if (!data.confirm) throw new Error("Confirmation is required");
+    if (reason.length < 4) throw new Error("A reason of at least 4 characters is required");
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+
+    // Preserve historical integrity: if the employee has any linked history,
+    // deactivate the account and mark it removed instead of hard-deleting.
+    const historyChecks = await Promise.all([
+      admin.from("sales").select("id", { count: "exact", head: true }).eq("cashier_id", data.user_id),
+      admin.from("refunds").select("id", { count: "exact", head: true }).eq("cashier_id", data.user_id),
+      admin.from("time_entries").select("id", { count: "exact", head: true }).eq("user_id", data.user_id),
+      admin.from("cash_movements").select("id", { count: "exact", head: true }).eq("actor_id", data.user_id),
+      admin.from("audit_log").select("id", { count: "exact", head: true }).eq("actor_id", data.user_id),
+    ]);
+    const hasHistory = historyChecks.some((r) => (r.count ?? 0) > 0);
+
+    if (hasHistory) {
+      // Soft delete: keep the profile row but scrub sign-in ability.
+      await admin
+        .from("profiles")
+        .update({
+          status: "removed",
+          pin_hash: null,
+          must_change_password: true,
+          must_change_pin: true,
+        })
+        .eq("id", data.user_id);
+      await admin.from("user_roles").delete().eq("user_id", data.user_id);
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(data.user_id, { ban_duration: "876000h" });
+        await supabaseAdmin.auth.admin.signOut(data.user_id, "global");
+      } catch { /* best effort */ }
+      const correlationId = await auditMerchant(ctx.userId, {
+        action: "employee.disable",
+        entity_id: data.user_id,
+        reason,
+        details: { removal: "soft", preserved_history: true },
+      });
+      return { ok: true, soft_deleted: true, correlation_id: correlationId };
+    }
+
+    // No linked history: safe to hard-delete the auth user (cascades profile).
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
     if (error) throw new Error(error.message);
-    return { ok: true };
+    const correlationId = await auditMerchant(ctx.userId, {
+      action: "employee.disable",
+      entity_id: data.user_id,
+      reason,
+      details: { removal: "hard" },
+    });
+    return { ok: true, soft_deleted: false, correlation_id: correlationId };
   });
+
+
 
 
 /* ------------------------- pay & schedule ------------------------------ */
