@@ -309,8 +309,8 @@ function TerminalPanel({
   // ---- No provider connected: block card payments entirely. ----
   if (!provider) {
     return (
-      <div>
-        <DialogHeader className="p-6 pb-4 border-b">
+      <div className="flex flex-col min-h-0 flex-1">
+        <DialogHeader className="p-6 pb-4 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <WifiOff className="size-5 text-destructive" /> No payment terminal
           </DialogTitle>
@@ -318,7 +318,7 @@ function TerminalPanel({
             Card, tap, and mobile-wallet payments are unavailable.
           </DialogDescription>
         </DialogHeader>
-        <div className="p-8 flex flex-col items-center justify-center gap-4 min-h-[240px] text-center">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-8 flex flex-col items-center justify-center gap-4 text-center">
           <div className="size-16 rounded-full grid place-items-center bg-destructive/10 text-destructive">
             <WifiOff className="size-10" />
           </div>
@@ -332,7 +332,7 @@ function TerminalPanel({
             </p>
           </div>
         </div>
-        <div className="p-4 border-t bg-surface/40 flex gap-2">
+        <div className="p-4 border-t bg-surface/40 flex gap-2 shrink-0 pb-[max(env(safe-area-inset-bottom),1rem)]">
           <Button variant="outline" className="flex-1" onClick={onCancelNoApproval}>
             Back to cart
           </Button>
@@ -343,6 +343,7 @@ function TerminalPanel({
       </div>
     );
   }
+
 
   const status: PaymentStatus = result?.finalStatus ?? event.status;
   const isTerminal =
