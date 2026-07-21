@@ -93,7 +93,7 @@ export function AdminScreenViewer({
       }
     };
 
-    const signaling = openSignalingChannel(supabaseAdminAuth, sessionId, (msg) => {
+    const signaling = openSignalingChannel(supabaseAdminAuth, channelToken, (msg) => {
       if (disposed) return;
       handleSignal(msg).catch((e) => console.error("[admin-rtc]", e));
     });
@@ -168,7 +168,7 @@ export function AdminScreenViewer({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+  }, [sessionId, channelToken]);
 
   // Attach remote stream to the <video> element once we have one.
   useEffect(() => {
