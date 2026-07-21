@@ -225,8 +225,21 @@ export function CloseShiftDialog({
     },
     onSuccess: async () => {
       toast.success("Shift closed");
+      // Run any post-close hook (e.g. clock-out) BEFORE tearing down the
+      // session — the caller may still need an authenticated Supabase
+      // context to complete its own mutation.
+      if (beforeSignOut) {
+        try { await beforeSignOut(); }
+        catch (e) {
+          // Do NOT reopen the shift; surface the failure so the caller UI
+          // can offer a retry.
+          toast.error(e instanceof Error ? e.message : "Post-close step failed");
+        }
+      }
       qc.clear();
-      await supabase.auth.signOut();
+      if (!skipSignOut) {
+        await supabase.auth.signOut();
+      }
       onClosed();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to close shift"),
