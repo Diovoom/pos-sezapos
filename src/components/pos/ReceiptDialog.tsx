@@ -67,7 +67,9 @@ export function ReceiptDialog({
       const p = await autoPrintOnComplete(data);
       if (cancelled) return;
       if (!p.ok && p.reason === "driver_error") toast.error("Printer error — receipt not printed");
-      const d = await openDrawerAfterCashSale(data);
+      const d = data.refund
+        ? await openDrawerAfterCashRefund(data)
+        : await openDrawerAfterCashSale(data);
       if (cancelled) return;
       if (!d.ok && d.reason === "driver_error") toast.error("Cash drawer failed to open");
     })().catch(() => { /* safe-fail */ });
