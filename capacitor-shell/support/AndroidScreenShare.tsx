@@ -261,16 +261,7 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelToken, sessionId]);
 
-  const stateLabel =
-    encoderState === "active"
-      ? "Sharing"
-      : encoderState === "starting"
-        ? "Starting…"
-        : encoderState === "paused"
-          ? "Paused"
-          : encoderState === "permission_revoked"
-            ? "Permission ended"
-            : "Stopping";
+  void encoderState;
 
   return (
     <div
