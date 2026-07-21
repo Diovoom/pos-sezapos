@@ -540,7 +540,10 @@ export function CloseShiftDialog({
             </Button>
           )}
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
+
     </Dialog>
 
     <ManagerOverrideDialog
