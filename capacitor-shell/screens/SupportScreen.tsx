@@ -159,6 +159,14 @@ function markRead(ticketId: string, at: string) {
 // -----------------------------------------------------------------------
 
 export function SupportScreen() {
+  return (
+    <SupportErrorBoundary>
+      <SupportScreenInner />
+    </SupportErrorBoundary>
+  );
+}
+
+function SupportScreenInner() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Android back button — while a ticket is open, back returns to the list
@@ -181,6 +189,7 @@ export function SupportScreen() {
     <TicketList onOpen={(id) => setSelectedId(id)} />
   );
 }
+
 
 // -----------------------------------------------------------------------
 // LIST + CREATE
