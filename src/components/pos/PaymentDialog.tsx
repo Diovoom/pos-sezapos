@@ -139,8 +139,8 @@ function CashPanel({
   const ok = tendered >= total && total > 0;
 
   return (
-    <div>
-      <DialogHeader className="p-6 pb-4 border-b">
+    <div className="flex flex-col min-h-0 flex-1">
+      <DialogHeader className="p-6 pb-4 border-b shrink-0">
         <DialogTitle className="flex items-center gap-2">
           <Banknote className="size-5 text-primary" /> Cash payment
         </DialogTitle>
@@ -149,7 +149,7 @@ function CashPanel({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="p-6 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-4">
         <div className="space-y-2">
           <Label>Amount received</Label>
           <Input
@@ -198,7 +198,7 @@ function CashPanel({
         </div>
       </div>
 
-      <div className="p-4 border-t bg-surface/40 flex gap-2">
+      <div className="p-4 border-t bg-surface/40 flex gap-2 shrink-0 pb-[max(env(safe-area-inset-bottom),1rem)]">
         <Button variant="outline" className="flex-1" onClick={onCancel}>
           Cancel
         </Button>
@@ -223,6 +223,7 @@ function CashPanel({
     </div>
   );
 }
+
 
 /* -------- Terminal -------- */
 
