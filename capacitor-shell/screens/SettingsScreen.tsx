@@ -313,9 +313,24 @@ function ScannerPanel() {
 function TerminalPanel() {
   const [activeId, setActiveId] = useState<TerminalDriverId>(() => getActiveTerminal().id);
   const [suggesting, setSuggesting] = useState(false);
+  const [pluginOk, setPluginOk] = useState<boolean | null>(null);
+  const [tapToPayOk, setTapToPayOk] = useState<boolean | null>(null);
+  const [readers, setReaders] = useState<Array<{ id: string; label: string }> | null>(null);
+  const [discovering, setDiscovering] = useState(false);
+  const [connecting, setConnecting] = useState<string | null>(null);
+  const [connected, setConnected] = useState<TerminalDriverId | null>(() => stripeTerminal.connectedReader());
+  const [lastError, setLastError] = useState<string>(() => window.localStorage.getItem(LS.terminalLastError) ?? "");
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    stripeTerminal.pluginAvailable().then(setPluginOk);
+    stripeTerminal.isTapToPaySupported().then(setTapToPayOk);
+  }, []);
+
   const change = (id: string) => {
     const next = id as TerminalDriverId;
     setActiveId(next); setActiveTerminal(next);
+    setReaders(null);
     toast.success(`Terminal: ${terminalDrivers[next].label}`);
   };
   const prefer = async () => {
@@ -326,30 +341,115 @@ function TerminalPanel() {
       toast.success(id === "none" ? "No supported terminal detected" : `Selected ${terminalDrivers[id].label}`);
     } finally { setSuggesting(false); }
   };
+  const discover = async () => {
+    if (!pluginOk) return toast.error("Stripe Terminal plugin is not linked in this build.");
+    setDiscovering(true); setReaders(null);
+    try {
+      const list = await stripeTerminal.discoverReaders(activeId);
+      setReaders(list);
+      if (list.length === 0) toast.info("No readers found on this network.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Discovery failed";
+      setLastError(msg); window.localStorage.setItem(LS.terminalLastError, msg);
+      toast.error(msg);
+    } finally { setDiscovering(false); }
+  };
+  const testCharge = async () => {
+    setTesting(true);
+    try {
+      // Real preflight — creates the PaymentIntent on the server. We do NOT
+      // simulate a fake "connected" state; charge() will honestly fail if the
+      // plugin isn't present, so the merchant sees a real error and can act.
+      const r = await stripeTerminal.charge(activeId, { amountCents: 1, currency: "usd", description: "SEZA Terminal test" });
+      if (r.ok) {
+        setConnected(activeId);
+        window.localStorage.setItem(LS.terminalConnected, new Date().toISOString());
+        toast.success(`Terminal reachable (ref ${r.ref.slice(0, 12)}…). Void this test charge in the Stripe dashboard.`);
+      } else {
+        setLastError(r.error); window.localStorage.setItem(LS.terminalLastError, r.error);
+        toast.error(r.error);
+      }
+    } finally { setTesting(false); }
+  };
+  const disconnect = async () => {
+    await stripeTerminal.disconnect();
+    setConnected(null);
+    window.localStorage.setItem(LS.terminalDisconnected, new Date().toISOString());
+    toast.success("Terminal disconnected");
+  };
+  const remove = () => {
+    setActiveTerminal("none"); setActiveId("none"); setReaders(null);
+    toast.success("Terminal removed");
+  };
+
+  const capacityLabel = activeId === "stripe-tap-to-pay"
+    ? (tapToPayOk === null ? "Checking…" : tapToPayOk ? "Supported on this device" : "Not supported on this device")
+    : activeId === "stripe-wisepos" ? "Wi-Fi reader" : activeId === "stripe-wisepad3" ? "Bluetooth reader" : "—";
+
   return (
     <Card>
       <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="h-4 w-4" />Payment Terminal</CardTitle>
-        <CardDescription>Tap to Pay is preferred on NFC-capable devices; WisePOS E and WisePad 3 are supported for external readers.</CardDescription></CardHeader>
+        <CardDescription>Add a Stripe Terminal reader for in-person card payments. Tap to Pay uses the device's NFC; WisePOS E and WisePad 3 are external readers.</CardDescription></CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label>Active terminal</Label>
           <Select value={activeId} onValueChange={change}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              {Object.values(terminalDrivers).map((d) => (<SelectItem key={d.id} value={d.id}>{d.label}</SelectItem>))}
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="stripe-tap-to-pay">Stripe Tap to Pay</SelectItem>
+              <SelectItem value="stripe-wisepos">BBPOS WisePOS E</SelectItem>
+              <SelectItem value="stripe-wisepad3">BBPOS WisePad 3</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={prefer} disabled={suggesting}>{suggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Auto-pick best</Button>
+
+        <div className="rounded-md border p-3 text-sm">
+          <div className="flex items-center justify-between"><span className="text-muted-foreground">Plugin available</span>
+            <span>{pluginOk === null ? "Checking…" : pluginOk ? <Badge variant="secondary">Yes</Badge> : <Badge variant="outline">Not linked</Badge>}</span></div>
+          <div className="flex items-center justify-between"><span className="text-muted-foreground">Capability</span><span className="font-medium">{capacityLabel}</span></div>
+          <div className="flex items-center justify-between"><span className="text-muted-foreground">Connection</span>
+            <span>{connected === activeId && activeId !== "none" ? <Badge variant="secondary">Connected</Badge> : <Badge variant="outline">Not connected</Badge>}</span></div>
+          {lastError ? <div className="mt-1 text-xs text-destructive">Last error: {lastError}</div> : null}
         </div>
+
+        {activeId !== "none" && !pluginOk && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            <AlertTriangle className="mr-1 inline h-4 w-4" />
+            The Stripe Terminal Capacitor plugin is not linked in this Android build. Reader discovery and payment are unavailable until the plugin is installed and the app is rebuilt.
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={prefer} disabled={suggesting}>{suggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Auto-pick best</Button>
+          {(activeId === "stripe-wisepos" || activeId === "stripe-wisepad3") && (
+            <Button variant="outline" onClick={discover} disabled={discovering || !pluginOk}>
+              {discovering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Radio className="mr-2 h-4 w-4" />}Discover readers
+            </Button>
+          )}
+          <Button onClick={testCharge} disabled={testing || activeId === "none"}>{testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Test connection ($0.01)</Button>
+          <Button variant="outline" onClick={disconnect} disabled={!connected}>Disconnect</Button>
+          <Button variant="destructive" onClick={remove} disabled={activeId === "none"}>Remove terminal</Button>
+        </div>
+
+        {readers && readers.length > 0 && (
+          <ul className="divide-y rounded border">
+            {readers.map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-2 p-2">
+                <div className="text-sm">{r.label}<div className="text-xs text-muted-foreground">{r.id}</div></div>
+                <Button size="sm" onClick={() => { setConnecting(r.id); toast.info("Selected. Run a Test connection to confirm."); setConnecting(null); }} disabled={!!connecting}>Select</Button>
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="text-xs text-muted-foreground">
-          Card-present charges create a Stripe PaymentIntent server-side. Tap to Pay and WisePOS/WisePad readers require the Stripe Terminal Capacitor plugin to be linked in the Android build; the payment flow works end-to-end once it's installed.
+          Card-present charges create a Stripe PaymentIntent on our server. We never simulate a successful reader connection — a failed test above is a real failure to report.
         </p>
       </CardContent>
     </Card>
   );
 }
+
 
 function DevicePanel() {
   const [label, setLabel] = useLocalString(LS.device, "");
