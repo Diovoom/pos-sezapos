@@ -701,6 +701,7 @@ export const deleteEmployee = createServerFn({ method: "POST" })
         .update({
           status: "removed",
           pin_hash: null,
+          pin_fingerprint: null,
           must_change_password: true,
           must_change_pin: true,
         })
