@@ -135,16 +135,14 @@ export function PosPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const me = useMe();
   const perms = usePermissions();
-  // Owner/admin/manager remain super-users via usePermissions().isSuper.
-  // Others need the explicit `payment.cancel` grant. Fallback to role labels
-  // ONLY while permissions are still loading so first-render doesn't gate
-  // legitimate managers.
-  const canCancelTender = perms.has("payment.cancel")
-    || (perms.loading && (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager"));
-  const canManage = perms.has("employees.manage") || perms.isSuper
-    || (perms.loading && (me.data?.roles ?? []).some((r) => r === "owner" || r === "admin" || r === "manager"));
+  // Trusted permission system only — no role-name fallback. Owners and
+  // admins remain super-users via perms.isSuper (also computed from roles).
+  const canCancelTender = perms.has("payment.cancel") || perms.isSuper;
+  const canManage = perms.has("employees.manage") || perms.isSuper;
+  const canQuickAdd = perms.has("products.quick_add") || perms.isSuper;
   const isMobile = useIsMobile();
   const online = useOnline();
+
   const [cartOpen, setCartOpen] = useState(false);
   const [hasCameraCap, setHasCameraCap] = useState(false);
   useEffect(() => {
