@@ -900,7 +900,12 @@ export function PosPage() {
         total={total}
         currency={currency}
         onComplete={(p) => finalize.mutate(p)}
+        // Owners/managers/admins already possess payment-cancel authority.
+        // Requiring a second manager PIN to back out of tender selection
+        // is friction, not security — no payment has committed yet.
+        bypassCancelApproval={canManage}
       />
+
 
       <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receipt} />
 
