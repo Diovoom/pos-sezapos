@@ -21,6 +21,7 @@ import { TimeclockPage } from "@/routes/_pos/timeclock";
 import { ShiftsPage } from "@/routes/_dashboard/shifts";
 import { SupportScreen } from "./screens/SupportScreen";
 import { AuthRoute } from "./screens/AuthRoute";
+import { PairDeviceScreen } from "./screens/PairDeviceScreen";
 import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { ScannerSettingsScreen } from "./screens/ScannerSettingsScreen";
