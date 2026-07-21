@@ -115,18 +115,48 @@ async function ensureInit(readerKind: TerminalDriverId): Promise<UnknownRecord |
   return p;
 }
 
+export async function pluginAvailable(): Promise<boolean> {
+  return (await loadPlugin()) != null;
+}
+
+export async function isTapToPaySupported(): Promise<boolean> {
+  const p = await loadPlugin();
+  if (!p) return false;
+  const check = (p as UnknownRecord).isTapToPaySupported;
+  if (typeof check !== "function") return false;
+  try {
+    const r = await (check as () => Promise<{ supported: boolean }>)();
+    return !!r.supported;
+  } catch { return false; }
+}
+
+export async function discoverReaders(readerKind: TerminalDriverId): Promise<Array<{ id: string; label: string }>> {
+  const p = await loadPlugin();
+  if (!p) return [];
+  const fn = (p as UnknownRecord).discoverReaders ?? (p as UnknownRecord).discover;
+  if (typeof fn !== "function") return [];
+  try {
+    const out = (await (fn as (o: unknown) => Promise<{ readers?: Array<{ id?: string; serialNumber?: string; label?: string }> }>)({ kind: readerKind })) ?? {};
+    return (out.readers ?? []).map((r) => ({
+      id: r.id ?? r.serialNumber ?? "unknown",
+      label: r.label ?? r.serialNumber ?? r.id ?? "Reader",
+    }));
+  } catch { return []; }
+}
+
+export function connectedReader(): TerminalDriverId | null {
+  return (currentReader as TerminalDriverId | null) ?? null;
+}
+
 export async function isReady(readerKind: TerminalDriverId): Promise<boolean> {
   const p = await loadPlugin();
   if (!p) return false;
   if (readerKind === "stripe-tap-to-pay") {
-    const check = (p as UnknownRecord).isTapToPaySupported;
-    if (typeof check === "function") {
-      try { const r = await (check as () => Promise<{ supported: boolean }>)(); return !!r.supported; }
-      catch { return false; }
-    }
+    return await isTapToPaySupported();
   }
   return currentReader === readerKind;
 }
+
 
 export async function charge(
   readerKind: TerminalDriverId,
