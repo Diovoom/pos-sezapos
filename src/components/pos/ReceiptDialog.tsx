@@ -12,7 +12,7 @@ import { sendTransactionalEmail } from "@/lib/email/send";
 import { supabase } from "@/integrations/supabase/client";
 import type { CountryCode } from "libphonenumber-js";
 import { isNativeMode } from "@/lib/native";
-import { autoPrintOnComplete, reprintReceipt, openDrawerAfterCashSale } from "@/lib/hardware/native-receipt";
+import { autoPrintOnComplete, reprintReceipt, openDrawerAfterCashSale, openDrawerAfterCashRefund } from "@/lib/hardware/native-receipt";
 
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
