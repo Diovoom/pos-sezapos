@@ -194,12 +194,15 @@ function PrinterPanel() {
                 <Bluetooth className="h-4 w-4" />
                 <span className="text-sm">{saved ? `Paired: ${saved.name ?? saved.deviceId.slice(0, 8)}` : "No printer paired"}</span>
               </div>
-              {saved ? <Badge variant="secondary"><CheckCircle2 className="mr-1 h-3 w-3" />Ready</Badge> : null}
+              {saved ? <Badge variant="secondary"><CheckCircle2 className="mr-1 h-3 w-3" />Saved</Badge> : <Badge variant="outline">Not paired</Badge>}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Bluetooth ESC/POS printers reconnect on demand for each print job — there is no persistent session to end. Use <em>Remove printer</em> to forget the pairing on this device.
+            </p>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" onClick={scan} disabled={scanning}>{scanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Scan for printers</Button>
-              {saved ? <Button size="sm" variant="outline" onClick={() => { escposBle.saveTarget(null); setSaved(null); }}>Forget</Button> : null}
               <Button size="sm" variant="outline" onClick={test} disabled={testing || !saved}>{testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Test print</Button>
+              {saved ? <Button size="sm" variant="destructive" onClick={() => { escposBle.saveTarget(null); setSaved(null); toast.success("Printer removed"); }}>Remove printer</Button> : null}
             </div>
             {devices.length > 0 && (
               <ul className="divide-y rounded border">
@@ -226,15 +229,20 @@ function PrinterPanel() {
 }
 
 function CashDrawerPanel() {
+  const [enabled, setEnabled] = useLocalBool(LS.drawerEnabled, true);
   const [kickOnCash, setKickOnCash] = useLocalBool(LS.kickOnCash, true);
+  const [kickOnRefund, setKickOnRefund] = useLocalBool(LS.kickOnRefund, false);
+  const [pulseMs, setPulseMs] = useLocalString(LS.drawerPulseMs, "120");
   const [busy, setBusy] = useState(false);
+  const linkedPrinter = getActivePrinter();
+  const bleSaved = escposBle.getSavedTarget();
   const test = async () => {
     setBusy(true);
     try {
       const r = await runTestDrawer();
       if (r.ok) toast.success("Drawer pulse sent");
       else if (r.reason === "no_driver") toast.error("Select a printer driver first");
-      else if (r.reason === "not_ready") toast.error("Printer not connected");
+      else if (r.reason === "not_ready") toast.error("Printer not connected — pair a printer to open the drawer.");
       else if (r.reason === "not_native") toast.error("Available only in the SEZA POS app.");
       else toast.error(r.error ?? "Drawer failed");
     } finally { setBusy(false); }
@@ -243,17 +251,41 @@ function CashDrawerPanel() {
   return (
     <Card>
       <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign className="h-4 w-4" />Cash Drawer</CardTitle>
-        <CardDescription>Cash drawers open via the connected receipt printer's kick-out signal.</CardDescription></CardHeader>
+        <CardDescription>Cash drawers open via the connected receipt printer's kick-out signal (RJ-11).</CardDescription></CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div><Label>Open drawer on cash sale</Label><p className="text-sm text-muted-foreground">Automatically pulses the drawer when a cash payment completes.</p></div>
-          <Switch checked={kickOnCash} onCheckedChange={setKickOnCash} />
+        <div className="rounded-md border p-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Linked printer</span>
+            <span className="font-medium">{linkedPrinter.label}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Printer state</span>
+            <span>{bleSaved ? <Badge variant="secondary">Paired</Badge> : <Badge variant="outline">Not paired</Badge>}</span>
+          </div>
         </div>
-        <Button variant="outline" onClick={test} disabled={busy}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Test open drawer</Button>
+        <div className="flex items-center justify-between">
+          <div><Label>Drawer enabled</Label><p className="text-sm text-muted-foreground">Master switch for this device.</p></div>
+          <Switch checked={enabled} onCheckedChange={setEnabled} />
+        </div>
+        <div className="flex items-center justify-between">
+          <div><Label>Open on cash sale</Label><p className="text-sm text-muted-foreground">Pulse the drawer when a cash payment completes.</p></div>
+          <Switch checked={kickOnCash} onCheckedChange={setKickOnCash} disabled={!enabled} />
+        </div>
+        <div className="flex items-center justify-between">
+          <div><Label>Open on cash refund</Label><p className="text-sm text-muted-foreground">Pulse the drawer when a cash refund is issued.</p></div>
+          <Switch checked={kickOnRefund} onCheckedChange={setKickOnRefund} disabled={!enabled} />
+        </div>
+        <div className="space-y-2">
+          <Label>Pulse duration (ms)</Label>
+          <Input inputMode="numeric" value={pulseMs} onChange={(e) => setPulseMs(e.target.value.replace(/\D/g, "").slice(0, 4) || "120")} disabled={!enabled} />
+          <p className="text-xs text-muted-foreground">Most drawers respond well to 100–200 ms. Increase only if your drawer fails to open reliably.</p>
+        </div>
+        <Button variant="outline" onClick={test} disabled={busy || !enabled}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Test open drawer</Button>
       </CardContent>
     </Card>
   );
 }
+
 
 function ScannerPanel() {
   const [beep, setBeep] = useLocalBool(LS.scannerBeep, true);
