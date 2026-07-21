@@ -1434,19 +1434,20 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
         : Promise.resolve({ data: null }),
     ]);
 
-    return {
-      session: {
-        id: data.id as string,
-        store_id: data.store_id as string,
-        status: data.status as string,
-        started_at: (data.started_at as string | null) ?? null,
-        expires_at: data.expires_at as string,
-        client_capability: (data.client_capability as string | null) ?? null,
-        client_metadata: (data.client_metadata as Record<string, unknown> | null) ?? null,
-        store: storeRes.data ?? null,
-        accepted_by: employeeRes.data ?? null,
-      },
+    const session = {
+      id: data.id as string,
+      store_id: data.store_id as string,
+      status: data.status as string,
+      started_at: (data.started_at as string | null) ?? null,
+      expires_at: data.expires_at as string,
+      client_capability: (data.client_capability as string | null) ?? null,
+      // Serialize metadata as a JSON string to satisfy strict server-fn
+      // serializer; consumers parse it back.
+      client_metadata_json: data.client_metadata ? JSON.stringify(data.client_metadata) : null,
+      store: storeRes.data ?? null,
+      accepted_by: employeeRes.data ?? null,
     };
+    return { session };
   });
 
 // ============================================================================
