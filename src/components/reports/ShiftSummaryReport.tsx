@@ -43,7 +43,8 @@ export function ShiftSummaryReport({ sessionId }: { sessionId: string }) {
           <p className="text-sm text-muted-foreground">Complete end-of-shift report</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.print()}><Printer className="size-4 mr-2" /> Print / PDF</Button>
+          <NativePrintButton d={d} />
+          <NativePdfButton d={d} />
           <Button variant="outline" onClick={() => downloadCsv(d)}><FileDown className="size-4 mr-2" /> Export CSV</Button>
         </div>
       </div>
