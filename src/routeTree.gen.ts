@@ -61,6 +61,7 @@ import { Route as DashboardOnboardingRouteImport } from './routes/_dashboard/onb
 import { Route as DashboardInventoryRouteImport } from './routes/_dashboard/inventory'
 import { Route as DashboardHelpRouteImport } from './routes/_dashboard/help'
 import { Route as DashboardEmployeesRouteImport } from './routes/_dashboard/employees'
+import { Route as DashboardDevicesRouteImport } from './routes/_dashboard/devices'
 import { Route as DashboardDashboardRouteImport } from './routes/_dashboard/dashboard'
 import { Route as DashboardCustomersRouteImport } from './routes/_dashboard/customers'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
@@ -362,6 +363,11 @@ const DashboardEmployeesRoute = DashboardEmployeesRouteImport.update({
   path: '/employees',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardDevicesRoute = DashboardDevicesRouteImport.update({
+  id: '/devices',
+  path: '/devices',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardDashboardRoute = DashboardDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -629,6 +635,7 @@ export interface FileRoutesByFullPath {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/customers': typeof DashboardCustomersRoute
   '/dashboard': typeof DashboardDashboardRoute
+  '/devices': typeof DashboardDevicesRoute
   '/employees': typeof DashboardEmployeesRouteWithChildren
   '/help': typeof DashboardHelpRoute
   '/inventory': typeof DashboardInventoryRoute
@@ -723,6 +730,7 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/customers': typeof DashboardCustomersRoute
   '/dashboard': typeof DashboardDashboardRoute
+  '/devices': typeof DashboardDevicesRoute
   '/employees': typeof DashboardEmployeesRouteWithChildren
   '/help': typeof DashboardHelpRoute
   '/inventory': typeof DashboardInventoryRoute
@@ -821,6 +829,7 @@ export interface FileRoutesById {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_dashboard/customers': typeof DashboardCustomersRoute
   '/_dashboard/dashboard': typeof DashboardDashboardRoute
+  '/_dashboard/devices': typeof DashboardDevicesRoute
   '/_dashboard/employees': typeof DashboardEmployeesRouteWithChildren
   '/_dashboard/help': typeof DashboardHelpRoute
   '/_dashboard/inventory': typeof DashboardInventoryRoute
@@ -917,6 +926,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/customers'
     | '/dashboard'
+    | '/devices'
     | '/employees'
     | '/help'
     | '/inventory'
@@ -1011,6 +1021,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/customers'
     | '/dashboard'
+    | '/devices'
     | '/employees'
     | '/help'
     | '/inventory'
@@ -1108,6 +1119,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/_dashboard/customers'
     | '/_dashboard/dashboard'
+    | '/_dashboard/devices'
     | '/_dashboard/employees'
     | '/_dashboard/help'
     | '/_dashboard/inventory'
@@ -1600,6 +1612,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardEmployeesRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/_dashboard/devices': {
+      id: '/_dashboard/devices'
+      path: '/devices'
+      fullPath: '/devices'
+      preLoaderRoute: typeof DashboardDevicesRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/_dashboard/dashboard': {
       id: '/_dashboard/dashboard'
       path: '/dashboard'
@@ -1973,6 +1992,7 @@ const DashboardEmployeesRouteWithChildren =
 interface DashboardRouteRouteChildren {
   DashboardCustomersRoute: typeof DashboardCustomersRoute
   DashboardDashboardRoute: typeof DashboardDashboardRoute
+  DashboardDevicesRoute: typeof DashboardDevicesRoute
   DashboardEmployeesRoute: typeof DashboardEmployeesRouteWithChildren
   DashboardHelpRoute: typeof DashboardHelpRoute
   DashboardInventoryRoute: typeof DashboardInventoryRoute
@@ -1989,6 +2009,7 @@ interface DashboardRouteRouteChildren {
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardCustomersRoute: DashboardCustomersRoute,
   DashboardDashboardRoute: DashboardDashboardRoute,
+  DashboardDevicesRoute: DashboardDevicesRoute,
   DashboardEmployeesRoute: DashboardEmployeesRouteWithChildren,
   DashboardHelpRoute: DashboardHelpRoute,
   DashboardInventoryRoute: DashboardInventoryRoute,
