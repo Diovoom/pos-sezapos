@@ -12,6 +12,7 @@ import {
   Receipt,
   Boxes,
   LogOut,
+  Clock,
   UserPlus,
   MoreVertical,
   Wifi,
@@ -27,8 +28,6 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { SupportRequestListener } from "@/components/SupportRequestListener";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,19 +51,10 @@ const NAV: {
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/sales", label: "Sales", icon: Receipt },
   { to: "/products", label: "Products", icon: Package },
-  { to: "/inventory", label: "Inventory", icon: Boxes },
-  { to: "/customers", label: "Customers", icon: Users },
   { to: "/employees", label: "Employees", icon: UserPlus },
   { to: "/payroll", label: "Payroll", icon: BarChart3 },
-  { to: "/shifts", label: "Shifts", icon: Receipt },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
-  { to: "/devices", label: "POS Devices", icon: Settings },
-  {
-    to: "/settings",
-    label: "Billing",
-    icon: CreditCard,
-    search: { section: "billing" },
-  },
+  { to: "/shifts", label: "Shifts", icon: Clock },
+  { to: "/devices", label: "POS Devices", icon: Monitor },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -101,10 +91,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const role = me?.roles?.[0];
 
   const PRIMARY = NAV.filter((n) =>
-    ["/dashboard", "/inventory", "/employees"].includes(n.to),
+    ["/dashboard", "/sales", "/employees"].includes(n.to),
   );
   const MORE = NAV.filter(
-    (n) => !["/dashboard", "/inventory", "/employees"].includes(n.to),
+    (n) => !["/dashboard", "/sales", "/employees"].includes(n.to),
   );
 
   return (
@@ -131,11 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             const wantSection = item.search?.section;
             let active: boolean;
             if (item.to === "/settings") {
-              active =
-                pathname === "/settings" &&
-                (wantSection
-                  ? currentSection === wantSection
-                  : currentSection !== "billing");
+              active = pathname === "/settings";
             } else {
               active =
                 pathname === item.to ||
@@ -265,7 +251,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           </DropdownMenu>
         </div>
 
-        <SupportRequestListener />
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden pb-16 md:pb-0">
           {children}
         </div>
@@ -283,9 +268,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             pathname={pathname}
           />
           <MobileNavItem
-            to="/inventory"
-            label="Inventory"
-            icon={Boxes}
+            to="/sales"
+            label="Sales"
+            icon={Receipt}
             pathname={pathname}
           />
           <MobileNavItem

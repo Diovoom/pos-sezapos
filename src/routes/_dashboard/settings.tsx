@@ -51,89 +51,48 @@ type Group = { id: string; label: string; items: Section[] };
 
 const GROUPS: Group[] = [
   {
-    id: "mode",
-    label: "Mode",
+    id: "store",
+    label: "Store",
     items: [
-      { id: "mode_quickorder", label: "Quick Order", icon: Zap, href: "/pos" },
-      { id: "mode_retail", label: "Retail Mode", icon: Store, href: "/pos" },
+      { id: "general", label: "Store Information", icon: Building2 },
+      { id: "branding", label: "Business Branding", icon: Palette },
+      { id: "receipt", label: "Receipts & Customer Messaging", icon: ReceiptIcon },
+      { id: "inventory", label: "Inventory Preferences", icon: Package },
+      { id: "age", label: "Age Verification", icon: ShieldAlert },
+    ],
+  },
+  {
+    id: "operations",
+    label: "Operations",
+    items: [
       { id: "terminal", label: "Payment Terminal", icon: CreditCard },
-      { id: "mode_pending", label: "Pending Orders", icon: ClipboardList, href: "/sales" },
-    ],
-  },
-  {
-    id: "manager",
-    label: "Manager Activities",
-    items: [
-      { id: "mgr_shifts", label: "Review Employee Shifts", icon: Clock, href: "/shifts" },
-      { id: "mgr_timecards", label: "Review Time Cards", icon: Clock, href: "/timeclock" },
-      { id: "mgr_close", label: "Close Out Day", icon: Wallet, href: "/register" },
-      { id: "mgr_service", label: "Service Reports", icon: BarChart3, href: "/reports" },
-      { id: "mgr_find_sales", label: "Find Sales", icon: FileSearch, href: "/sales" },
-      { id: "mgr_find_refunds", label: "Find Refunds", icon: RotateCcw, href: "/refunds" },
-    ],
-  },
-  {
-    id: "cash",
-    label: "Cash Management",
-    items: [
-      { id: "cash_drawers", label: "Cash Drawers", icon: DollarSign },
-      { id: "register", label: "Cash Payouts & Deposits", icon: Banknote },
-    ],
-  },
-  {
-    id: "reports",
-    label: "Reports",
-    items: [
-      { id: "reports_sales", label: "Sales Reports", icon: BarChart3, href: "/reports" },
-      { id: "reports_menu", label: "Menu / Product Reports", icon: Package, href: "/products" },
-      { id: "reports_labor", label: "Labor Reports", icon: Users, href: "/payroll" },
+      { id: "hardware_setup", label: "Hardware & Register Devices", icon: HardDrive },
+      { id: "register", label: "Cash & Register Rules", icon: Banknote },
       { id: "reports", label: "Report Preferences", icon: BarChart3 },
+      { id: "roles", label: "Roles & Permissions", icon: Shield },
+      { id: "notifications", label: "Notifications", icon: Bell },
+      { id: "security", label: "Security", icon: Lock },
     ],
   },
   {
     id: "account",
-    label: "My Account",
+    label: "Account & Business",
     items: [
-      { id: "account_preshift", label: "Pre-Shift Notes", icon: ClipboardList, href: "/shifts" },
-      { id: "account_review", label: "Shift Review", icon: FileSearch, href: "/shifts" },
-      { id: "account_timeclock", label: "Time Clock", icon: Clock, href: "/timeclock" },
-      { id: "account_pin", label: "Change PIN", icon: KeyRound },
-      { id: "account_password", label: "Change Password", icon: Lock },
-      { id: "account_profile", label: "Update Profile", icon: UserCog },
-    ],
-  },
-  {
-    id: "setup",
-    label: "Store Setup",
-    items: [
-      { id: "general", label: "Store Information", icon: Building2 },
-      { id: "branding", label: "Business Branding", icon: Palette },
-      { id: "receipt", label: "Receipt", icon: ReceiptIcon },
-      { id: "hardware_setup", label: "Hardware Setup", icon: HardDrive },
-      { id: "employees", label: "Employees", icon: Users },
-      { id: "roles", label: "Roles & Permissions", icon: Shield },
-      { id: "inventory", label: "Menu / Inventory", icon: Package },
-      { id: "age", label: "Age Verification", icon: ShieldAlert },
-      { id: "notifications", label: "Notifications", icon: Bell },
-      { id: "security", label: "Security", icon: Lock },
-      { id: "appearance", label: "Appearance & Language", icon: Palette },
+      { id: "account_profile", label: "Owner Profile", icon: UserCog },
+      { id: "account_password", label: "Password", icon: Lock },
+      { id: "account_pin", label: "Manager Approval PIN", icon: KeyRound },
+      { id: "billing", label: "Billing & Subscription", icon: ReceiptIcon },
       { id: "integrations", label: "Integrations", icon: Plug },
-      { id: "backup", label: "Backup", icon: HardDrive },
-      { id: "billing", label: "Billing", icon: ReceiptIcon },
-      { id: "audit", label: "Audit Log", icon: ScrollText },
+      { id: "appearance", label: "Appearance & Language", icon: Palette },
     ],
   },
   {
-    id: "support",
-    label: "Support",
+    id: "data_support",
+    label: "Data & Support",
     items: [
+      { id: "backup", label: "Data Backup & Export", icon: HardDrive },
+      { id: "audit", label: "Audit Log", icon: ScrollText },
       { id: "support_contact", label: "Contact Support", icon: LifeBuoy },
-      { id: "support_website", label: "Support Website", icon: ExternalLink },
-      { id: "support_status", label: "System Status", icon: Zap },
-      { id: "support_releases", label: "Release Notes", icon: ScrollText },
-      { id: "support_terms", label: "Terms of Service", icon: ScrollText, href: "/terms" },
-      { id: "support_privacy", label: "Privacy Policy", icon: ScrollText, href: "/privacy" },
-      { id: "about", label: "About", icon: Info },
     ],
   },
 ];
@@ -154,7 +113,7 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" subtitle="Modes, hardware, staff, cash, reports, and account" />
+      <PageHeader title="Settings" subtitle="Store, operations, account, data, and support" />
       <div className="flex-1 overflow-hidden flex min-h-0">
         <Tabs value={tab} onValueChange={setTab} orientation="vertical" className="flex flex-1 min-h-0 flex-col md:flex-row">
           {/* Mobile: category selector */}
@@ -812,18 +771,25 @@ function BackupPanel() {
     const dump = { exported_at: new Date().toISOString(), stores: stores.data, products: products.data, categories: categories.data, sales: sales.data, sale_items: sale_items.data, refunds: refunds.data, refund_items: refund_items.data };
     const blob = new Blob([JSON.stringify(dump, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `pos-backup-${Date.now()}.json`; a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement("a"); a.href = url; a.download = `seza-store-data-${Date.now()}.json`; a.click(); URL.revokeObjectURL(url);
     void logAudit({ action: "settings.update", entity: "backup", details: { type: "manual_export" } });
   };
   return (
     <Card className="max-w-2xl">
-      <CardHeader><CardTitle>Backup</CardTitle><CardDescription>Cloud backup runs automatically. Export a local JSON snapshot any time.</CardDescription></CardHeader>
+      <CardHeader>
+        <CardTitle>Data Backup & Export</CardTitle>
+        <CardDescription>
+          Download a JSON copy of this store's business data. This exports merchant data—not the SEZA application source code. Your code history is stored in GitHub.
+        </CardDescription>
+      </CardHeader>
       <CardContent className="space-y-3">
-        <div className="rounded-md border p-3 text-sm bg-surface/40">
-          <div className="flex justify-between"><span className="text-muted-foreground">Cloud backup</span><Badge variant="outline" className="bg-success/15 text-success border-success/30">Active</Badge></div>
-          <div className="flex justify-between mt-1"><span className="text-muted-foreground">Retention</span><span>30 days</span></div>
+        <div className="rounded-md border p-3 text-sm bg-surface/40 space-y-1">
+          <div className="font-medium">Included in this export</div>
+          <div className="text-muted-foreground">
+            Store settings, products, categories, sales, sale items, refunds, and refund items available to your account.
+          </div>
         </div>
-        <Button onClick={doExport}>Download manual backup</Button>
+        <Button onClick={doExport}>Download store data</Button>
       </CardContent>
     </Card>
   );
@@ -917,7 +883,7 @@ function AboutPanel() {
         <Row k="Software version" v="1.0.0" />
         <Row k="Build" v={new Date().toISOString().slice(0, 10)} />
         <Row k="License" v="Commercial" />
-        <Row k="Support" v="support@example.com" />
+        <Row k="Support" v="support@sezapos.com" />
       </CardContent>
     </Card>
   );

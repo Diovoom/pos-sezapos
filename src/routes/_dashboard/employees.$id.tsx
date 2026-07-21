@@ -453,17 +453,17 @@ function PinCard({ profile, onChanged }: { profile: Profile; onChanged: () => vo
   const [issued, setIssued] = useState<string | null>(null);
 
   const generateM = useMutation({
-    mutationFn: async () => reset({ data: { user_id: profile.id, force_change: force } }),
+    mutationFn: async () => reset({ data: { user_id: profile.id, force_change: force, reason: "Owner generated a new employee PIN" } }),
     onSuccess: (r) => { setIssued(r.pin ?? null); onChanged(); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
   const setM = useMutation({
-    mutationFn: async () => reset({ data: { user_id: profile.id, pin: manual, force_change: force } }),
+    mutationFn: async () => reset({ data: { user_id: profile.id, pin: manual, force_change: force, reason: "Owner set a new employee PIN" } }),
     onSuccess: () => { toast.success("PIN set"); setManual(""); onChanged(); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
   const clearM = useMutation({
-    mutationFn: async () => reset({ data: { user_id: profile.id, clear: true, force_change: force } }),
+    mutationFn: async () => reset({ data: { user_id: profile.id, clear: true, force_change: force, reason: "Owner cleared the employee PIN" } }),
     onSuccess: () => { toast.success("PIN cleared"); onChanged(); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
@@ -471,7 +471,7 @@ function PinCard({ profile, onChanged }: { profile: Profile; onChanged: () => vo
   return (
     <Card>
       <CardHeader className="pb-2"><CardTitle className="text-base">PIN</CardTitle>
-        <CardDescription>PINs are hashed and never shown after being set.</CardDescription></CardHeader>
+        <CardDescription>Used for sign-in and approvals on paired Android registers. PINs are hashed and never shown after being set.</CardDescription></CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center gap-2">
           {profile.pin_hash ? <Badge variant="outline" className="border-success text-success">PIN configured</Badge> : <Badge variant="outline">No PIN</Badge>}

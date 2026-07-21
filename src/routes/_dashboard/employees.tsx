@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -55,6 +55,7 @@ function EmployeesPage() {
   const qc = useQueryClient();
   const me = useMe();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isOwner = me.data?.roles.includes("owner");
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -104,11 +105,15 @@ function EmployeesPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
+  if (pathname.startsWith("/employees/")) {
+    return <Outlet />;
+  }
+
   return (
     <>
       <PageHeader
         title="Employees"
-        subtitle="Owners create accounts. Employees sign in with their 6-digit ID."
+        subtitle="Manage employee contact details, roles, pay, status, and Android register PINs."
         actions={
           isOwner ? (
             <Button onClick={() => setCreateOpen(true)}>
