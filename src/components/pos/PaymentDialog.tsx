@@ -76,7 +76,17 @@ export function PaymentDialog({ open, onOpenChange, method, total, currency, onC
         }}
       >
         <DialogContent
-          className="sm:max-w-md p-0 max-h-[90dvh] overflow-y-auto overscroll-contain"
+          // Full-height flex column so children can carve out a scrollable
+          // body between a fixed header and a fixed action footer. Uses
+          // `dvh` (dynamic viewport) so the on-screen keyboard doesn't
+          // clip the action buttons on Android WebView, and adds
+          // safe-area bottom padding for Android nav gestures.
+          className={cn(
+            "p-0 gap-0 overflow-hidden",
+            "flex flex-col",
+            "h-[100dvh] max-h-[100dvh] w-screen max-w-none rounded-none",
+            "sm:h-auto sm:max-h-[92dvh] sm:max-w-md sm:rounded-lg sm:w-full",
+          )}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
           {isCash ? (
@@ -105,6 +115,7 @@ export function PaymentDialog({ open, onOpenChange, method, total, currency, onC
     </>
   );
 }
+
 
 /* -------- Cash -------- */
 
