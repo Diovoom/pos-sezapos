@@ -60,9 +60,22 @@ function AdminAuthPage() {
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error || !data.session) {
+      const success = !error && !!data?.session;
+
+      // Record + check rate limit (does both in one call).
+      let limitInfo: { rate_limited: boolean; remaining_seconds: number } | null = null;
+      try {
+        limitInfo = await recordAttempt({ data: { email, success } });
+      } catch { /* audit best-effort */ }
+
+      if (!success) {
         await logAudit({ action: "login", entity: "admin", details: { ok: false, email, reason: "invalid_credentials" } }).catch(() => {});
-        toast.error(GENERIC_ERROR);
+        if (limitInfo?.rate_limited) {
+          const mins = Math.ceil((limitInfo.remaining_seconds || 0) / 60);
+          toast.error(`Too many attempts. Try again in ~${Math.max(1, mins)} minute${mins === 1 ? "" : "s"}.`);
+        } else {
+          toast.error(GENERIC_ERROR);
+        }
         return;
       }
       const ok = await isPlatformStaff(data.session.user.id);
