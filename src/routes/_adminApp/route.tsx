@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { logAudit } from "@/lib/audit-log";
 import { adminGlobalSearch, adminMyActiveSupportSession, adminEndSupportSession, adminCancelSupportRequest } from "@/lib/admin/admin.functions";
 import { AdminScreenViewer } from "@/components/support/AdminScreenViewer";
+import { AdminDiagnosticsPanel } from "@/components/support/AdminDiagnosticsPanel";
 
 import {
   LayoutDashboard,
