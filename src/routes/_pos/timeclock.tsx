@@ -9,6 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { LogIn, LogOut, Coffee, PlayCircle, Loader2 } from "lucide-react";
 import { format, formatDistanceStrict } from "date-fns";
+import { useState } from "react";
+import { CloseShiftDialog } from "@/components/pos/CloseShiftDialog";
+import { hasUnsyncedOfflineSales } from "@/lib/offline/db";
+import { logAudit } from "@/lib/audit-log";
+
+// Native APK shell detection — Clock Out on the APK routes through the
+// existing Shift Review flow when a register shift is open, and enforces
+// the offline-sale / payment-busy guardrails. Web POS behavior is unchanged.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isNativeShell = typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.();
 
 export const Route = createFileRoute("/_pos/timeclock")({
   head: () => ({ meta: [{ title: "Time Clock — SEZA POS" }, { name: "description", content: "Clock in, take breaks, and clock out for the current shift." }] }),
@@ -32,6 +42,32 @@ export function TimeclockPage() {
   const qc = useQueryClient();
   const me = useMe();
   const canManage = me.data?.roles.some((r) => r === "owner" || r === "manager");
+  const storeId = me.data?.profile?.store_id ?? null;
+
+  // Any register shift currently open for the caller's store — resolves
+  // whether Clock Out must route through Shift Review before finalizing.
+  const { data: openShift } = useQuery({
+    enabled: !!storeId,
+    queryKey: ["timeclock", "open-shift", storeId],
+    staleTime: 15_000,
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any)
+        .from("register_sessions")
+        .select("id, store_id, opened_by, opened_at, opening_cash, status")
+        .eq("store_id", storeId)
+        .eq("status", "open")
+        .order("opened_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data as {
+        id: string; store_id: string; opened_by: string; opened_at: string;
+        opening_cash: number; status: string;
+      } | null;
+    },
+  });
+
+  const [shiftReviewOpen, setShiftReviewOpen] = useState(false);
 
   const { data: open } = useQuery<TimeEntry | null>({
     queryKey: ["myOpenEntry", me.data?.user.id],
@@ -163,6 +199,43 @@ export function TimeclockPage() {
 
   const totals = computeTotals(history);
 
+  // Native APK Clock Out decision flow. Web POS keeps the direct
+  // clockOut.mutate() call so nothing changes on the desktop dashboard.
+  const handleClockOut = async () => {
+    if (!open) return;
+    if (isNativeShell) {
+      // Never clock out while a payment / shift-close mutation is running.
+      try {
+        const { getNativeActivityFlags } = await import("@/lib/native-activity");
+        if (getNativeActivityFlags().paymentBusy) {
+          toast.error("A payment is in progress. Wait for it to finish before clocking out.");
+          return;
+        }
+      } catch { /* module unavailable — allow */ }
+
+      // If a register shift is open under this cashier's store, force the
+      // Shift Review flow first. CloseShiftDialog re-checks pending offline
+      // sales and manager approval; we chain clock-out into beforeSignOut.
+      if (openShift?.id) {
+        try {
+          if (await hasUnsyncedOfflineSales(openShift.id)) {
+            toast.error("Pending offline sales must sync before closing this shift.");
+            return;
+          }
+        } catch { /* IndexedDB missing — CloseShiftDialog will re-check. */ }
+        void logAudit({
+          action: "clock_out",
+          entity: "time_entry",
+          entity_id: open.id,
+          details: { channel: "native_shell", stage: "shift_review_opened", shift_id: openShift.id },
+        });
+        setShiftReviewOpen(true);
+        return;
+      }
+    }
+    clockOut.mutate();
+  };
+
   return (
     <>
       <PageHeader title="Time Clock" subtitle="Clock in, take breaks, clock out." />
@@ -186,7 +259,7 @@ export function TimeclockPage() {
               <Button size="lg" onClick={() => clockIn.mutate()} disabled={!!open || anyBusy}>
                 <LogIn className="size-4 mr-2" /> Clock in
               </Button>
-              <Button size="lg" variant="outline" onClick={() => clockOut.mutate()} disabled={!open || anyBusy}>
+              <Button size="lg" variant="outline" onClick={() => void handleClockOut()} disabled={!open || anyBusy}>
                 <LogOut className="size-4 mr-2" /> Clock out
               </Button>
               <Button size="lg" variant="outline" onClick={() => startBreak.mutate()} disabled={!open || !!open.break_start || anyBusy}>
@@ -266,6 +339,62 @@ export function TimeclockPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/*
+        Native-shell Shift Review — reuses the production CloseShiftDialog.
+        Clock-out runs inside `beforeSignOut`: shift closes first, then time
+        entry closes with the authenticated session, then the dialog signs
+        the cashier out and we route back to the PIN screen. If the register
+        shift closes but clock-out fails, we surface a retry toast and leave
+        the closed shift alone (do NOT reopen).
+      */}
+      {openShift && me.data?.user?.id && (
+        <CloseShiftDialog
+          open={shiftReviewOpen}
+          onOpenChange={(v) => setShiftReviewOpen(v)}
+          session={{
+            id: openShift.id,
+            store_id: openShift.store_id,
+            opened_by: openShift.opened_by,
+            opened_at: openShift.opened_at,
+            opening_cash: Number(openShift.opening_cash ?? 0),
+          }}
+          store={me.data?.store ?? null}
+          cashierUserId={me.data.user.id}
+          beforeSignOut={async () => {
+            try {
+              await clockOut.mutateAsync();
+              void logAudit({
+                action: "clock_out",
+                entity: "time_entry",
+                entity_id: open?.id,
+                details: { channel: "native_shell", stage: "clock_out_completed", shift_id: openShift.id },
+              });
+            } catch (e) {
+              void logAudit({
+                action: "system.error",
+                entity: "time_entry",
+                entity_id: open?.id,
+                details: {
+                  stage: "clock_out_failed_after_close",
+                  shift_id: openShift.id,
+                  channel: "native_shell",
+                  message: e instanceof Error ? e.message : String(e),
+                },
+              });
+              toast.error(
+                "Your register shift is closed, but employee clock-out could not be completed. Try again from Time Clock.",
+              );
+              throw e;
+            }
+          }}
+          onClosed={() => {
+            setShiftReviewOpen(false);
+            qc.invalidateQueries({ queryKey: ["timeclock", "open-shift"] });
+            invalidate();
+          }}
+        />
+      )}
     </>
   );
 }
