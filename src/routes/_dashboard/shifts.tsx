@@ -88,7 +88,7 @@ function ShiftsList() {
   });
 
   const shiftsQ = useQuery<TimeEntry[]>({
-    queryKey: ["shifts-list", dateFrom, dateTo, employeeId, status, canSeeAll, myId],
+    queryKey: ["shifts-list", fromIso, toIso, employeeId, status, canSeeAll, myId],
     enabled: !!myId,
     queryFn: async () => {
       let q = sb.from("time_entries")
