@@ -188,7 +188,7 @@ function AdminLayout() {
           </div>
         </div>
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-          {NAV.map((item) => {
+          {NAV.filter((item) => !item.permission || !perms || perms.has(item.permission)).map((item) => {
             const active = item.exact ? pathname === item.to : pathname === item.to || pathname.startsWith(item.to + "/");
             const Icon = item.icon;
             return (
