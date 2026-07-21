@@ -239,7 +239,7 @@ export function SupportRequestListener() {
 
       {active && captureStream && streamSessionIdRef.current === active.id && (
         <MerchantScreenShare
-          sessionId={active.id}
+          channelToken={active.channel_token}
           stream={captureStream}
           onEnded={async (reason) => {
             setCaptureStream(null);
