@@ -31,7 +31,7 @@ export interface PrinterDriver {
   capable(): Promise<boolean>;
   isReady(): Promise<boolean>;
   printReceipt(payload: ReceiptPayload): Promise<void>;
-  kickDrawer(): Promise<void>;
+  kickDrawer(pulseMs?: number): Promise<void>;
 }
 
 export interface TerminalDriver {
