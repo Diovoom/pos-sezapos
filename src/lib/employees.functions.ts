@@ -342,7 +342,20 @@ export const completeFirstLogin = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
     const patch: Record<string, unknown> = { must_change_password: false };
-    if (data.pin) patch.pin_hash = hashPin(data.pin);
+    if (data.pin) {
+      const { isWeakPin, pinFingerprint } = await import("./pos/fingerprint.server");
+      if (isWeakPin(data.pin)) throw new Error("That PIN is too easy to guess. Pick a less obvious 6-digit code.");
+      const { data: prof } = await admin.from("profiles").select("store_id").eq("id", ctx.userId).maybeSingle();
+      if (!prof?.store_id) throw new Error("You are not assigned to a store");
+      const fp = pinFingerprint(prof.store_id, data.pin);
+      const { data: conflict } = await admin.rpc("pos_pin_conflict_check", {
+        _store_id: prof.store_id, _fingerprint: fp, _exclude_user: ctx.userId,
+      });
+      if (conflict) throw new Error("Another active employee at this store already uses that PIN. Pick a different one.");
+      patch.pin_hash = hashPin(data.pin);
+      patch.pin_fingerprint = fp;
+      patch.must_change_pin = false;
+    }
 
     const { error: profErr } = await admin
       .from("profiles")
@@ -365,15 +378,26 @@ export const setMyPin = createServerFn({ method: "POST" })
     const admin: any = supabaseAdmin;
 
     if (data.pin === null || data.pin === "") {
-      await admin.from("profiles").update({ pin_hash: null }).eq("id", ctx.userId);
+      await admin.from("profiles").update({ pin_hash: null, pin_fingerprint: null }).eq("id", ctx.userId);
       return { ok: true };
     }
     if (!/^\d{6}$/.test(data.pin)) throw new Error("PIN must be exactly 6 digits");
 
     const { hashPin } = await import("./pin.server");
+    const { isWeakPin, pinFingerprint } = await import("./pos/fingerprint.server");
+    if (isWeakPin(data.pin)) throw new Error("That PIN is too easy to guess. Pick a less obvious 6-digit code.");
+
+    const { data: prof } = await admin.from("profiles").select("store_id").eq("id", ctx.userId).maybeSingle();
+    if (!prof?.store_id) throw new Error("You are not assigned to a store");
+    const fp = pinFingerprint(prof.store_id, data.pin);
+    const { data: conflict } = await admin.rpc("pos_pin_conflict_check", {
+      _store_id: prof.store_id, _fingerprint: fp, _exclude_user: ctx.userId,
+    });
+    if (conflict) throw new Error("Another active employee at this store already uses that PIN. Pick a different one.");
+
     await admin
       .from("profiles")
-      .update({ pin_hash: hashPin(data.pin) })
+      .update({ pin_hash: hashPin(data.pin), pin_fingerprint: fp, must_change_pin: false })
       .eq("id", ctx.userId);
     return { ok: true };
   });
