@@ -640,7 +640,25 @@ function SignOutPanel() {
 function HardwareStatusPanel() {
   const [snap, setSnap] = useState(() => hardwareSnapshot());
   const [busy, setBusy] = useState<"print" | "drawer" | null>(null);
-  const refresh = () => setSnap(hardwareSnapshot());
+  const [scannerLast, setScannerLast] = useState<string>(() => window.localStorage.getItem("pos.scanner.lastScan") ?? "");
+  const [terminalCap, setTerminalCap] = useState<{ pluginOk: boolean | null; tapToPay: boolean | null }>({ pluginOk: null, tapToPay: null });
+  const [connected, setConnected] = useState<TerminalDriverId | null>(() => stripeTerminal.connectedReader());
+  const [copyingDiag, setCopyingDiag] = useState(false);
+  const scannerCfg = useMemo(() => loadScannerConfig(), []);
+  const activeTerminal = getActiveTerminal();
+
+  useEffect(() => {
+    stripeTerminal.pluginAvailable().then((pluginOk) =>
+      setTerminalCap((c) => ({ ...c, pluginOk })));
+    stripeTerminal.isTapToPaySupported().then((tapToPay) =>
+      setTerminalCap((c) => ({ ...c, tapToPay })));
+  }, []);
+
+  const refresh = () => {
+    setSnap(hardwareSnapshot());
+    setScannerLast(window.localStorage.getItem("pos.scanner.lastScan") ?? "");
+    setConnected(stripeTerminal.connectedReader());
+  };
   const runPrint = async () => {
     setBusy("print");
     try {
@@ -655,30 +673,69 @@ function HardwareStatusPanel() {
       r.ok ? toast.success("Drawer pulse sent") : toast.error(r.reason === "not_ready" ? "Drawer/printer not connected" : (r.error ?? "Drawer error"));
     } finally { setBusy(null); refresh(); }
   };
+  const copyDiag = async () => {
+    setCopyingDiag(true);
+    try {
+      const diag = await collectSupportDiagnostics();
+      await navigator.clipboard.writeText(JSON.stringify(diag, null, 2));
+      toast.success("Diagnostics copied to clipboard");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not copy diagnostics");
+    } finally { setCopyingDiag(false); }
+  };
+
   const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="flex items-center justify-between border-b py-2 text-sm last:border-0">
       <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
+      <span className="font-medium text-right">{value}</span>
     </div>
   );
+
+  const bleSaved = escposBle.getSavedTarget();
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Activity className="h-4 w-4" />Hardware Status</CardTitle>
-        <CardDescription>Live status of the printer and cash drawer on this device.</CardDescription>
+        <CardDescription>Live status of the printer, cash drawer, barcode scanner, and payment terminal on this device.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="rounded-md border p-3">
-          <Row label="Printer driver" value={snap.driverLabel} />
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><Printer className="h-4 w-4" />Printer</div>
+          <Row label="Driver" value={snap.driverLabel} />
+          <Row label="Paired" value={bleSaved ? (bleSaved.name ?? bleSaved.deviceId.slice(0, 10)) : "—"} />
           <Row label="Paper width" value={snap.paperWidth} />
           <Row label="Auto-print" value={snap.autoPrint ? "On" : "Off"} />
           <Row label="Copies per sale" value={snap.copies} />
-          <Row label="Open drawer on cash sale" value={snap.kickOnCash ? "On" : "Off"} />
           <Row label="Last successful print" value={snap.lastPrintOk ? new Date(snap.lastPrintOk).toLocaleString() : "—"} />
           <Row label="Last print error" value={snap.lastPrintErr || "—"} />
+        </div>
+
+        <div className="rounded-md border p-3">
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><DollarSign className="h-4 w-4" />Cash Drawer</div>
+          <Row label="Open on cash sale" value={snap.kickOnCash ? "On" : "Off"} />
           <Row label="Last drawer open" value={snap.lastDrawerOk ? new Date(snap.lastDrawerOk).toLocaleString() : "—"} />
           <Row label="Last drawer error" value={snap.lastDrawerErr || "—"} />
         </div>
+
+        <div className="rounded-md border p-3">
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><Scan className="h-4 w-4" />Barcode Scanner</div>
+          <Row label="Mode" value={scannerCfg.mode === "hid" ? "USB / Bluetooth (HID)" : "Camera (disabled on APK)"} />
+          <Row label="Suffix" value={scannerCfg.suffix === "\n" ? "Enter" : scannerCfg.suffix === "\t" ? "Tab" : "None"} />
+          <Row label="Debounce (ms)" value={scannerCfg.debounceMs} />
+          <Row label="Last scan" value={scannerLast || "—"} />
+        </div>
+
+        <div className="rounded-md border p-3">
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><CreditCard className="h-4 w-4" />Payment Terminal</div>
+          <Row label="Active" value={activeTerminal.label} />
+          <Row label="Plugin linked" value={terminalCap.pluginOk === null ? "Checking…" : terminalCap.pluginOk ? "Yes" : "No"} />
+          <Row label="Tap to Pay" value={terminalCap.tapToPay === null ? "Checking…" : terminalCap.tapToPay ? "Supported" : "Not supported"} />
+          <Row label="Connected reader" value={connected ?? "—"} />
+          <Row label="Last connect" value={(() => { const v = window.localStorage.getItem(LS.terminalConnected); return v ? new Date(v).toLocaleString() : "—"; })()} />
+          <Row label="Last error" value={window.localStorage.getItem(LS.terminalLastError) || "—"} />
+        </div>
+
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={refresh}>Refresh</Button>
           <Button onClick={runPrint} disabled={busy !== null}>
@@ -687,14 +744,25 @@ function HardwareStatusPanel() {
           <Button variant="outline" onClick={runDrawer} disabled={busy !== null}>
             {busy === "drawer" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Test cash drawer
           </Button>
+          <Button variant="outline" onClick={() => { window.history.pushState({}, "", "/settings/scanner"); window.dispatchEvent(new PopStateEvent("popstate")); }}>
+            <Scan className="mr-2 h-4 w-4" />Configure scanner
+          </Button>
+          <Button variant="outline" onClick={copyDiag} disabled={copyingDiag}>
+            {copyingDiag ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LifeBuoy className="mr-2 h-4 w-4" />}Copy diagnostics
+          </Button>
+          <Button variant="outline" onClick={() => { window.history.pushState({}, "", "/support"); window.dispatchEvent(new PopStateEvent("popstate")); }}>
+            <LifeBuoy className="mr-2 h-4 w-4" />Open Support
+          </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Hardware failure never blocks a completed sale. Use the Support screen to send diagnostics if the printer or drawer is misbehaving.
+          Hardware failure never blocks a completed sale. Copy diagnostics into a Support ticket if the printer, drawer, scanner, or terminal is misbehaving.
         </p>
       </CardContent>
     </Card>
   );
 }
+
+
 
 /* ---------------------------------- page ---------------------------------- */
 
