@@ -36,7 +36,7 @@ import {
 } from "@/lib/support/webrtc";
 import { getActivityState } from "../lifecycle/activityState";
 import { toast } from "sonner";
-import { Eye } from "lucide-react";
+// (Eye icon dropped — banner uses a compact red dot indicator only.)
 
 type Props = {
   sessionId: string;
