@@ -23,6 +23,7 @@ import { SupportScreen } from "./screens/SupportScreen";
 import { AuthRoute } from "./screens/AuthRoute";
 import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { ScannerSettingsScreen } from "./screens/ScannerSettingsScreen";
 import { PendingSyncScreen } from "./screens/PendingSyncScreen";
 import { supabase } from "./supabase";
 
@@ -72,6 +73,7 @@ const routeTree = rootRoute.addChildren([
   shellRoute("/support", SupportScreen),
   shellRoute("/help", SupportScreen),
   shellRoute("/settings", SettingsScreen),
+  shellRoute("/settings/scanner", ScannerSettingsScreen),
   shellRoute("/onboarding", OnboardingScreen),
   shellRoute("/pending-sync", PendingSyncScreen),
 ]);
