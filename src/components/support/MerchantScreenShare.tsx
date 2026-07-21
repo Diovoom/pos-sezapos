@@ -4,7 +4,7 @@ import { RTC_CONFIG, openSignalingChannel, type SignalPayload } from "@/lib/supp
 import { toast } from "sonner";
 
 type Props = {
-  sessionId: string;
+  channelToken: string;
   stream: MediaStream;
   onEnded: (reason: string) => void;
 };
