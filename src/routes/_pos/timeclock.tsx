@@ -43,29 +43,38 @@ export function TimeclockPage() {
   const me = useMe();
   const canManage = me.data?.roles.some((r) => r === "owner" || r === "manager");
   const storeId = me.data?.profile?.store_id ?? null;
+  const userId = me.data?.user?.id ?? null;
 
-  // Any register shift currently open for the caller's store — resolves
-  // whether Clock Out must route through Shift Review before finalizing.
-  const { data: openShift } = useQuery({
-    enabled: !!storeId,
-    queryKey: ["timeclock", "open-shift", storeId],
+  // Resolve THIS employee's own open register shift. Scoping by store alone
+  // could close a coworker's shift on a shared device — always narrow by
+  // `opened_by = auth.uid()`. If more than one open shift matches (a stuck
+  // record from a prior crash), refuse to auto-close and surface a clear
+  // ambiguity error with a correlation ID; only a manager should intervene
+  // via the existing management workflow.
+  const openShiftQ = useQuery({
+    enabled: !!storeId && !!userId,
+    queryKey: ["timeclock", "open-shift", storeId, userId],
     staleTime: 15_000,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("register_sessions")
-        .select("id, store_id, opened_by, opened_at, opening_cash, status")
+        .select("id, store_id, opened_by, opened_at, opening_cash, status, terminal_id")
         .eq("store_id", storeId)
+        .eq("opened_by", userId)
         .eq("status", "open")
         .order("opened_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data as {
+        .limit(5);
+      if (error) throw error;
+      const rows = (data ?? []) as Array<{
         id: string; store_id: string; opened_by: string; opened_at: string;
-        opening_cash: number; status: string;
-      } | null;
+        opening_cash: number; status: string; terminal_id: string | null;
+      }>;
+      return { rows };
     },
   });
+  const openShift = openShiftQ.data?.rows?.[0] ?? null;
+  const shiftAmbiguous = (openShiftQ.data?.rows?.length ?? 0) > 1;
 
   const [shiftReviewOpen, setShiftReviewOpen] = useState(false);
 
