@@ -116,8 +116,9 @@ export function AdminDiagnosticsPanel({
       {!minimized || expanded ? (
         <div className={cn("overflow-y-auto p-3", expanded ? "max-h-[calc(100vh-8rem)]" : "max-h-[60vh]")}>
           <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-800 dark:text-amber-200">
-            Live screen viewing is not available for the Android APK in this version.
-            You can still help using the diagnostics and account context below.
+            Live screen viewing wasn't granted for this Android session — the
+            merchant accepted diagnostics only. You can still help using the
+            device context and hardware state shared below.
           </div>
           {metadata ? (
             <DiagnosticsViewer diagnostics={metadata} />

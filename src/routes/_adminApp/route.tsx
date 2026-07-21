@@ -340,7 +340,20 @@ function AdminLayout() {
           </div>
         )}
         {activeSession && activeSession.status === "active" && (
-          activeSession.client_capability === "android_diagnostics_only" ? (
+          activeSession.client_capability === "web_screen_share" ||
+          activeSession.client_capability === "android_screen_share" ? (
+            <AdminScreenViewer
+              key={activeSession.id}
+              sessionId={activeSession.id}
+              channelToken={activeSession.channel_token}
+              startedAt={activeSession.started_at}
+              businessName={activeSession.store?.name}
+              storeCode={activeSession.store?.store_code}
+              employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
+              capability={activeSession.client_capability}
+              onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
+            />
+          ) : (
             <AdminDiagnosticsPanel
               key={activeSession.id}
               sessionId={activeSession.id}
@@ -350,17 +363,6 @@ function AdminLayout() {
               storeCode={activeSession.store?.store_code}
               employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
               metadata={activeSessionMetadata}
-              onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
-            />
-          ) : (
-            <AdminScreenViewer
-              key={activeSession.id}
-              sessionId={activeSession.id}
-              channelToken={activeSession.channel_token}
-              startedAt={activeSession.started_at}
-              businessName={activeSession.store?.name}
-              storeCode={activeSession.store?.store_code}
-              employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
               onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
             />
           )
