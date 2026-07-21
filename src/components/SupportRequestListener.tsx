@@ -155,7 +155,29 @@ export function SupportRequestListener() {
     }
 
     try {
-      await respond({ data: { sessionId: target.id, decision: "accept" } });
+      await respond({
+        data: {
+          sessionId: target.id,
+          decision: "accept",
+          clientCapability: "web_screen_share",
+          clientMetadata: {
+            app: {
+              platform: "web",
+              userAgent: navigator.userAgent,
+              language: navigator.language,
+              online: typeof navigator.onLine === "boolean" ? navigator.onLine : true,
+            },
+            device: {
+              screen: {
+                width: window.screen?.width ?? window.innerWidth,
+                height: window.screen?.height ?? window.innerHeight,
+                dpr: window.devicePixelRatio ?? 1,
+              },
+            },
+            context: { route: window.location.pathname, capturedAt: new Date().toISOString() },
+          },
+        },
+      });
     } catch (e: any) {
       try {
         stream.getTracks().forEach((t) => t.stop());
