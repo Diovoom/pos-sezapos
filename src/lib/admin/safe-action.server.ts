@@ -111,10 +111,10 @@ export async function runSafeAction<T>(input: SafeActionInput<T>): Promise<SafeA
         danger: input.danger,
         permission: input.permission,
         reason: reason || null,
-        before: input.before ?? null,
-        after: after ?? null,
+        before: (input.before ?? null) as any,
+        after: (after ?? null) as any,
         correlation_id: correlationId,
-      },
+      } as any,
     });
     return { ok: true, result, correlation_id: correlationId };
   } catch (err) {
