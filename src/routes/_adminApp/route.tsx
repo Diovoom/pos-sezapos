@@ -119,6 +119,7 @@ function AdminLayout() {
         expires_at: string;
         client_capability: string | null;
         client_metadata_json: string | null;
+        channel_token: string;
         store?: { id: string; name: string; store_code: string | null } | null;
         accepted_by?: { full_name: string | null; email: string | null; employee_id: string | null } | null;
       }
