@@ -356,6 +356,7 @@ function AdminLayout() {
             <AdminScreenViewer
               key={activeSession.id}
               sessionId={activeSession.id}
+              channelToken={activeSession.channel_token}
               startedAt={activeSession.started_at}
               businessName={activeSession.store?.name}
               storeCode={activeSession.store?.store_code}
