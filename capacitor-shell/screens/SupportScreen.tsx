@@ -497,7 +497,12 @@ function CreateTicketForm({
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-4 pb-24">
+    <div
+      className="h-[100dvh] overflow-y-auto overscroll-contain"
+      style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
+    >
+    <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-4 pb-32">
+
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onCancel} className="min-h-11">
           <ArrowLeft className="size-4 mr-1" /> Back
