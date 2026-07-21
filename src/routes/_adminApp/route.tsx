@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { logAudit } from "@/lib/audit-log";
 import { adminGlobalSearch, adminMyActiveSupportSession, adminEndSupportSession, adminCancelSupportRequest } from "@/lib/admin/admin.functions";
 import { AdminScreenViewer } from "@/components/support/AdminScreenViewer";
+import { AdminDiagnosticsPanel } from "@/components/support/AdminDiagnosticsPanel";
 
 import {
   LayoutDashboard,
@@ -104,11 +105,19 @@ function AdminLayout() {
         status: string;
         started_at: string | null;
         expires_at: string;
+        client_capability: string | null;
+        client_metadata_json: string | null;
         store?: { id: string; name: string; store_code: string | null } | null;
         accepted_by?: { full_name: string | null; email: string | null; employee_id: string | null } | null;
       }
     | null
     | undefined;
+
+  const activeSessionMetadata = useMemo<Record<string, unknown> | null>(() => {
+    if (!activeSession?.client_metadata_json) return null;
+    try { return JSON.parse(activeSession.client_metadata_json) as Record<string, unknown>; }
+    catch { return null; }
+  }, [activeSession?.client_metadata_json]);
 
   // Live-updating duration timer for the accepted support session.
   const [tick, setTick] = useState(0);
@@ -318,15 +327,29 @@ function AdminLayout() {
           </div>
         )}
         {activeSession && activeSession.status === "active" && (
-          <AdminScreenViewer
-            key={activeSession.id}
-            sessionId={activeSession.id}
-            startedAt={activeSession.started_at}
-            businessName={activeSession.store?.name}
-            storeCode={activeSession.store?.store_code}
-            employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
-            onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
-          />
+          activeSession.client_capability === "android_diagnostics_only" ? (
+            <AdminDiagnosticsPanel
+              key={activeSession.id}
+              sessionId={activeSession.id}
+              startedAt={activeSession.started_at}
+              expiresAt={activeSession.expires_at}
+              businessName={activeSession.store?.name}
+              storeCode={activeSession.store?.store_code}
+              employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
+              metadata={activeSessionMetadata}
+              onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
+            />
+          ) : (
+            <AdminScreenViewer
+              key={activeSession.id}
+              sessionId={activeSession.id}
+              startedAt={activeSession.started_at}
+              businessName={activeSession.store?.name}
+              storeCode={activeSession.store?.store_code}
+              employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
+              onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
+            />
+          )
         )}
 
         <main className="flex-1 p-6 overflow-y-auto">

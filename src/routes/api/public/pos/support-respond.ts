@@ -34,11 +34,29 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
         const token = authz.toLowerCase().startsWith("bearer ") ? authz.slice(7).trim() : "";
         if (!token) return json({ error: "Unauthorized" }, 401);
 
-        let body: { sessionId?: unknown; decision?: unknown; note?: unknown };
+        let body: { sessionId?: unknown; decision?: unknown; note?: unknown; clientCapability?: unknown; clientMetadata?: unknown };
         try { body = await request.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
         const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
         const decision = body.decision === "accept" || body.decision === "decline" ? body.decision : null;
         const note = typeof body.note === "string" ? body.note.slice(0, 500) : null;
+        const capability =
+          body.clientCapability === "web_screen_share" || body.clientCapability === "android_diagnostics_only"
+            ? body.clientCapability
+            : null;
+        // Redact obvious secret keys from client-supplied metadata.
+        const FORBIDDEN = /(pin|password|token|secret|apikey|api_key|authorization|card|cvv|cvc|track|pan|refresh)/i;
+        const scrub = (v: unknown): unknown => {
+          if (v == null || typeof v !== "object") return v;
+          const out: Record<string, unknown> = Array.isArray(v) ? ([] as unknown as Record<string, unknown>) : {};
+          for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+            if (FORBIDDEN.test(k)) continue;
+            out[k] = typeof val === "object" && val !== null ? scrub(val) : val;
+          }
+          return out;
+        };
+        const safeMetadata = body.clientMetadata && typeof body.clientMetadata === "object"
+          ? scrub(body.clientMetadata)
+          : null;
         if (!sessionId || !decision) return json({ error: "Invalid request" }, 400);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -78,6 +96,8 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
               decision_note: note,
               started_at: now,
               expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+              client_capability: capability ?? "android_diagnostics_only",
+              client_metadata: safeMetadata,
             }
           : {
               status: "declined",
@@ -112,6 +132,7 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
               reason: sess.reason,
               note,
               channel: "native_shell",
+              client_capability: capability ?? "android_diagnostics_only",
             },
           });
         } catch { /* ignore */ }

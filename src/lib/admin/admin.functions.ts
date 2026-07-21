@@ -1413,9 +1413,11 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await ensureSuperAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data } = await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+    const { data } = await admin
       .from("admin_support_sessions")
-      .select("id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at, decided_by")
+      .select("id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at, decided_by, client_capability, client_metadata")
       .eq("admin_id", context.userId)
       .in("status", ["pending", "active"])
       .gt("expires_at", new Date().toISOString())
@@ -1432,13 +1434,20 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
         : Promise.resolve({ data: null }),
     ]);
 
-    return {
-      session: {
-        ...data,
-        store: storeRes.data ?? null,
-        accepted_by: employeeRes.data ?? null,
-      },
+    const session = {
+      id: data.id as string,
+      store_id: data.store_id as string,
+      status: data.status as string,
+      started_at: (data.started_at as string | null) ?? null,
+      expires_at: data.expires_at as string,
+      client_capability: (data.client_capability as string | null) ?? null,
+      // Serialize metadata as a JSON string to satisfy strict server-fn
+      // serializer; consumers parse it back.
+      client_metadata_json: data.client_metadata ? JSON.stringify(data.client_metadata) : null,
+      store: storeRes.data ?? null,
+      accepted_by: employeeRes.data ?? null,
     };
+    return { session };
   });
 
 // ============================================================================
@@ -1447,23 +1456,31 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
 
 export const merchantRespondSupportSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { sessionId: string; decision: "accept" | "decline"; note?: string }) => data)
+  .inputValidator(
+    (data: {
+      sessionId: string;
+      decision: "accept" | "decline";
+      note?: string;
+      clientCapability?: "web_screen_share" | "android_diagnostics_only";
+      clientMetadata?: Record<string, unknown> | null;
+    }) => data,
+  )
   .handler(async ({ data, context }) => {
     if (data.decision !== "accept" && data.decision !== "decline") {
       throw new Error("Invalid decision");
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
 
-    // Look up the caller's store + profile.
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await admin
       .from("profiles")
       .select("id, store_id, full_name, email, employee_id")
       .eq("id", context.userId)
       .maybeSingle();
     if (!profile?.store_id) throw new Error("No store associated with this user");
 
-    // Load the session and verify it belongs to this store and is still pending.
-    const { data: sess } = await supabaseAdmin
+    const { data: sess } = await admin
       .from("admin_support_sessions")
       .select("id, store_id, status, admin_id, admin_email, reason")
       .eq("id", data.sessionId)
@@ -1472,8 +1489,25 @@ export const merchantRespondSupportSession = createServerFn({ method: "POST" })
     if (sess.store_id !== profile.store_id) throw new Error("Not authorized");
     if (sess.status !== "pending") throw new Error("Request already resolved");
 
+    // Sanitize any client-supplied metadata — strip forbidden keys.
+    const FORBIDDEN = /(pin|password|token|secret|apikey|api_key|authorization|card|cvv|cvc|track|pan|refresh)/i;
+    function scrub(v: unknown): unknown {
+      if (v == null || typeof v !== "object") return v;
+      const out: Record<string, unknown> = Array.isArray(v) ? ([] as unknown as Record<string, unknown>) : {};
+      for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+        if (FORBIDDEN.test(k)) continue;
+        out[k] = typeof val === "object" && val !== null ? scrub(val) : val;
+      }
+      return out;
+    }
+    const safeMetadata = data.clientMetadata ? scrub(data.clientMetadata) : null;
+    const capability =
+      data.clientCapability === "web_screen_share" || data.clientCapability === "android_diagnostics_only"
+        ? data.clientCapability
+        : null;
+
     const now = new Date().toISOString();
-    const patch =
+    const patch: Record<string, unknown> =
       data.decision === "accept"
         ? {
             status: "active",
@@ -1482,6 +1516,8 @@ export const merchantRespondSupportSession = createServerFn({ method: "POST" })
             decision_note: data.note ?? null,
             started_at: now,
             expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+            client_capability: capability,
+            client_metadata: safeMetadata,
           }
         : {
             status: "declined",
@@ -1490,7 +1526,7 @@ export const merchantRespondSupportSession = createServerFn({ method: "POST" })
             decision_note: data.note ?? null,
             ended_at: now,
           };
-    const { error } = await supabaseAdmin
+    const { error } = await admin
       .from("admin_support_sessions")
       .update(patch)
       .eq("id", data.sessionId)
@@ -1514,9 +1550,10 @@ export const merchantRespondSupportSession = createServerFn({ method: "POST" })
         employee_id: profile.employee_id,
         reason: sess.reason,
         note: data.note ?? null,
+        client_capability: capability,
       },
     });
-    return { ok: true, status: patch.status };
+    return { ok: true, status: patch.status as string };
   });
 
 export const merchantEndSupportSession = createServerFn({ method: "POST" })

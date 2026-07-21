@@ -68,6 +68,15 @@ function ShiftsList() {
 
   const dateFrom = range === "today" ? todayStr() : range === "week" ? daysAgoStr(7) : range === "month" ? daysAgoStr(30) : from;
   const dateTo = range === "custom" ? to : todayStr();
+  // Convert the user-facing yyyy-MM-dd range to an inclusive UTC window
+  // based on the local business day, so a shift that clocked in at 11pm
+  // local still shows up on the correct day.
+  const fromIso = useMemo(() => new Date(`${dateFrom}T00:00:00`).toISOString(), [dateFrom]);
+  const toIso = useMemo(() => {
+    const d = new Date(`${dateTo}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    return d.toISOString();
+  }, [dateTo]);
 
   const employeesQ = useQuery({
     enabled: !!canSeeAll,
@@ -79,13 +88,13 @@ function ShiftsList() {
   });
 
   const shiftsQ = useQuery<TimeEntry[]>({
-    queryKey: ["shifts-list", dateFrom, dateTo, employeeId, status, canSeeAll, myId],
+    queryKey: ["shifts-list", fromIso, toIso, employeeId, status, canSeeAll, myId],
     enabled: !!myId,
     queryFn: async () => {
       let q = sb.from("time_entries")
         .select("*, profiles:user_id(full_name, first_name, last_name, employee_id, email)")
-        .gte("clock_in", `${dateFrom}T00:00:00Z`)
-        .lte("clock_in", `${dateTo}T23:59:59Z`)
+        .gte("clock_in", fromIso)
+        .lt("clock_in", toIso)
         .order("clock_in", { ascending: false })
         .limit(500);
       if (!canSeeAll) q = q.eq("user_id", myId);
@@ -99,13 +108,13 @@ function ShiftsList() {
   });
 
   const salesQ = useQuery<Sale[]>({
-    queryKey: ["shifts-sales", dateFrom, dateTo],
+    queryKey: ["shifts-sales", fromIso, toIso],
     enabled: !!shiftsQ.data && shiftsQ.data.length > 0,
     queryFn: async () => {
       const { data } = await supabase.from("sales")
         .select("id, cashier_id, created_at, total, status")
-        .gte("created_at", `${dateFrom}T00:00:00Z`)
-        .lte("created_at", `${dateTo}T23:59:59Z`)
+        .gte("created_at", fromIso)
+        .lt("created_at", toIso)
         .limit(5000);
       return (data as Sale[]) ?? [];
     },
