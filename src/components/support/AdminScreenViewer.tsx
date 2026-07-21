@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 type Props = {
   sessionId: string;
+  channelToken: string;
   startedAt: string | null;
   businessName: string | undefined | null;
   storeCode: string | undefined | null;
@@ -26,6 +27,7 @@ type Props = {
  */
 export function AdminScreenViewer({
   sessionId,
+  channelToken,
   startedAt,
   businessName,
   storeCode,
