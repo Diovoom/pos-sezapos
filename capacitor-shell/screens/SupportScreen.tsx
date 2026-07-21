@@ -597,6 +597,7 @@ function CreateTicketForm({
         </CardContent>
       </Card>
     </div>
+    </div>
   );
 }
 
