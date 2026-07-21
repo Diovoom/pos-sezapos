@@ -26,6 +26,7 @@ type SupportRequest = {
   status: string;
   requested_at: string;
   expires_at: string;
+  channel_token: string;
 };
 
 /**
