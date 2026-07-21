@@ -274,24 +274,19 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
 
   return (
     <div
-      className="bg-red-600/95 text-white px-3 py-1.5 flex items-center gap-2 text-xs"
+      className="bg-red-600 text-white px-2 h-6 flex items-center gap-1.5 text-[11px] leading-none"
       role="status"
       aria-live="polite"
     >
-      <span className="h-2 w-2 rounded-full bg-white animate-pulse" aria-hidden />
-      <Eye className="h-3.5 w-3.5 shrink-0" />
-      <div className="min-w-0 flex-1 flex items-center gap-2">
-        <span className="font-semibold truncate">Screen Sharing Active · SEZA Support</span>
-        <span className="opacity-80 hidden sm:inline">·</span>
-        <span className="opacity-80 hidden sm:inline">{stateLabel}</span>
-      </div>
-      <span className="font-mono opacity-90 tabular-nums">{durationLabel}</span>
+      <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse shrink-0" aria-hidden />
+      <span className="font-semibold shrink-0">Screen sharing active</span>
+      <span className="font-mono tabular-nums ml-auto shrink-0">{durationLabel}</span>
       <button
         type="button"
         onClick={() => end("merchant_stopped")}
-        className="ml-1 rounded bg-white/15 hover:bg-white/25 px-2 py-0.5 text-[11px] font-semibold"
+        className="ml-1 rounded bg-white/20 hover:bg-white/30 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide shrink-0"
       >
-        Stop Sharing
+        Stop
       </button>
     </div>
   );
