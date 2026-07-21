@@ -501,7 +501,7 @@ function RegisterPanel() {
       if (error) throw error;
       toast.success(next ? "Cashier quick-add enabled" : "Cashier quick-add disabled");
       qc.invalidateQueries({ queryKey: ["register-panel-ctx"] });
-      logAudit("settings.quick_add.toggle", { store_id: ctx.store.id, enabled: next }).catch(() => {});
+      logAudit({ action: "settings.update", entity: "stores", entity_id: ctx.store.id, details: { field: "allow_cashier_quick_add", enabled: next } }).catch(() => {});
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save");
     } finally { setSaving(false); }
@@ -640,7 +640,7 @@ function SignOutPanel() {
 function HardwareStatusPanel() {
   const [snap, setSnap] = useState(() => hardwareSnapshot());
   const [busy, setBusy] = useState<"print" | "drawer" | null>(null);
-  const [scannerLast, setScannerLast] = useState<string>(() => window.localStorage.getItem("pos.scanner.lastScan") ?? "");
+  const [scannerLast, setScannerLast] = useState<string>(() => loadScannerConfig().lastScanAt ?? "");
   const [terminalCap, setTerminalCap] = useState<{ pluginOk: boolean | null; tapToPay: boolean | null }>({ pluginOk: null, tapToPay: null });
   const [connected, setConnected] = useState<TerminalDriverId | null>(() => stripeTerminal.connectedReader());
   const [copyingDiag, setCopyingDiag] = useState(false);
@@ -656,7 +656,7 @@ function HardwareStatusPanel() {
 
   const refresh = () => {
     setSnap(hardwareSnapshot());
-    setScannerLast(window.localStorage.getItem("pos.scanner.lastScan") ?? "");
+    setScannerLast(loadScannerConfig().lastScanAt ?? "");
     setConnected(stripeTerminal.connectedReader());
   };
   const runPrint = async () => {
@@ -676,7 +676,7 @@ function HardwareStatusPanel() {
   const copyDiag = async () => {
     setCopyingDiag(true);
     try {
-      const diag = await collectSupportDiagnostics();
+      const diag = await collectSupportDiagnostics({ route: window.location.pathname, storeId: null, employeeId: null });
       await navigator.clipboard.writeText(JSON.stringify(diag, null, 2));
       toast.success("Diagnostics copied to clipboard");
     } catch (e) {
