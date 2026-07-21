@@ -3,8 +3,9 @@ import { useStoreBranding } from "@/hooks/useStoreBranding";
 import { Logo } from "./Logo";
 
 /**
- * Displays the merchant's uploaded logo when available; falls back to SEZA.
- * Safe to use everywhere in the POS/dashboard header.
+ * Displays the merchant logo when available. If the merchant intentionally
+ * has no logo, show their short POS display text/initials instead of a broken
+ * image or the old placeholder mark.
  */
 export function StoreLogo({
   className,
@@ -13,13 +14,32 @@ export function StoreLogo({
   className?: string;
   alt?: string;
 }) {
-  const { data } = useStoreBranding();
-  const src = data?.logoUrl;
+  const { data, isLoading } = useStoreBranding();
   const label = alt ?? data?.name ?? "Store logo";
-  if (!src) return <Logo className={className} alt={label} />;
+
+  if (isLoading && !data) return <Logo className={className} alt={label} />;
+
+  if (!data?.hasCustomLogo) {
+    return (
+      <span
+        role="img"
+        aria-label={label}
+        title={label}
+        className={cn(
+          "grid place-items-center overflow-hidden bg-primary text-primary-foreground font-black tracking-tight leading-none select-none",
+          className,
+        )}
+      >
+        <span className="max-w-full truncate px-0.5 text-[0.45em] sm:text-[0.5em]">
+          {data?.displayText || "S"}
+        </span>
+      </span>
+    );
+  }
+
   return (
     <img
-      src={src}
+      src={data.logoUrl}
       alt={label}
       className={cn("object-contain bg-white", className)}
       draggable={false}

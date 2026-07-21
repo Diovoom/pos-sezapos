@@ -36,7 +36,10 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
       }
       void logAudit({ action: "role_permissions.update", entity: "role", entity_id: role, details: { permission, enabled } });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["role_permissions"] }),
+    onSuccess: (_data, vars) => {
+      toast.success(`${vars.role} permission ${vars.enabled ? "enabled" : "removed"}`);
+      void qc.invalidateQueries({ queryKey: ["role_permissions"] });
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
 
@@ -79,8 +82,9 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
                         </td>
                         {ROLES.map((role) => {
                           const set = map.get(role)!;
-                          const enabled = set.has("*") || set.has(p.key);
-                          const isSuper = set.has("*");
+                          const builtInSuper = role === "owner" || role === "admin";
+                          const enabled = builtInSuper || set.has("*") || set.has(p.key);
+                          const isSuper = builtInSuper || set.has("*");
                           return (
                             <td key={role} className="p-2 text-center">
                               <Checkbox

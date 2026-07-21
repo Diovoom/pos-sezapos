@@ -475,10 +475,12 @@ export type Database = {
       }
       device_registrations: {
         Row: {
+          app_version: string | null
           created_at: string
           id: string
           label: string
           last_seen_at: string | null
+          last_sync_at: string | null
           paired_at: string
           paired_by: string | null
           platform: string | null
@@ -487,14 +489,17 @@ export type Database = {
           revoked_by: string | null
           secret_hash: string
           status: string
+          status_snapshot: Json
           store_id: string
           updated_at: string
         }
         Insert: {
+          app_version?: string | null
           created_at?: string
           id?: string
           label: string
           last_seen_at?: string | null
+          last_sync_at?: string | null
           paired_at?: string
           paired_by?: string | null
           platform?: string | null
@@ -503,14 +508,17 @@ export type Database = {
           revoked_by?: string | null
           secret_hash: string
           status?: string
+          status_snapshot?: Json
           store_id: string
           updated_at?: string
         }
         Update: {
+          app_version?: string | null
           created_at?: string
           id?: string
           label?: string
           last_seen_at?: string | null
+          last_sync_at?: string | null
           paired_at?: string
           paired_by?: string | null
           platform?: string | null
@@ -519,6 +527,7 @@ export type Database = {
           revoked_by?: string | null
           secret_hash?: string
           status?: string
+          status_snapshot?: Json
           store_id?: string
           updated_at?: string
         }
@@ -1429,6 +1438,7 @@ export type Database = {
           plan_period_end: string | null
           plan_status: string
           plan_tier: string
+          pos_display_name: string | null
           receipt_footer: string | null
           receipt_header: string | null
           receipt_logo_url: string | null
@@ -1482,6 +1492,7 @@ export type Database = {
           plan_period_end?: string | null
           plan_status?: string
           plan_tier?: string
+          pos_display_name?: string | null
           receipt_footer?: string | null
           receipt_header?: string | null
           receipt_logo_url?: string | null
@@ -1535,6 +1546,7 @@ export type Database = {
           plan_period_end?: string | null
           plan_status?: string
           plan_tier?: string
+          pos_display_name?: string | null
           receipt_footer?: string | null
           receipt_header?: string | null
           receipt_logo_url?: string | null
