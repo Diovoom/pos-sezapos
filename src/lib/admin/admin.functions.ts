@@ -1544,7 +1544,7 @@ export const merchantRespondSupportSession = createServerFn({ method: "POST" })
         client_capability: capability,
       },
     });
-    return { ok: true, status: patch.status };
+    return { ok: true, status: patch.status as string };
   });
 
 export const merchantEndSupportSession = createServerFn({ method: "POST" })
