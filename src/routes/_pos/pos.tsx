@@ -334,8 +334,20 @@ export function PosPage() {
       // When offline, only cash is allowed. Save to IndexedDB, mark
       // Pending sync, and produce a local receipt. Never call the network.
       if (!isOnlineNow() && payment.method === "cash") {
-        const { data: u } = await supabase.auth.getUser();
-        if (!u.user) throw new SaleError("auth", "Sign in required.");
+        // getSession() reads from local storage (no network). getUser()
+        // hits /auth/v1/user and stalls / fails while offline, which
+        // previously prevented the sale from ever persisting.
+        const { data: sess } = await supabase.auth.getSession();
+        const cachedProfile = await readMeta<{ id?: string } | null>("profile");
+        const uid = sess.session?.user?.id ?? cachedProfile?.id ?? profile?.id ?? null;
+        if (!uid) throw new SaleError("auth", "You are signed out. Sign in while online, then try again.");
+        const storeId = store?.id ?? (await readMeta<{ id?: string } | null>("store"))?.id ?? null;
+        if (!storeId) {
+          throw new SaleError(
+            "auth",
+            "Store information hasn't synced to this device yet. Connect to the internet once to prepare offline mode.",
+          );
+        }
         const localId = crypto.randomUUID();
         const seq = await nextSeq();
         // Best-effort register session from cache (never fatal offline).
@@ -349,9 +361,9 @@ export function PosPage() {
           idempotency_key: localId,
           correlation_id: crypto.randomUUID(),
           payload_version: OFFLINE_PAYLOAD_VERSION,
-          store_id: store?.id ?? "",
+          store_id: storeId,
           register_session_id: registerSessionId,
-          cashier_id: u.user.id,
+          cashier_id: uid,
           device_id: getDeviceId(),
           local_seq: seq,
           local_created_at: new Date().toISOString(),
@@ -380,6 +392,7 @@ export function PosPage() {
           payment,
         };
       }
+
 
       // 1. Auth
       const { data: u, error: authErr } = await supabase.auth.getUser();
@@ -887,7 +900,12 @@ export function PosPage() {
         total={total}
         currency={currency}
         onComplete={(p) => finalize.mutate(p)}
+        // Owners/managers/admins already possess payment-cancel authority.
+        // Requiring a second manager PIN to back out of tender selection
+        // is friction, not security — no payment has committed yet.
+        bypassCancelApproval={canManage}
       />
+
 
       <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receipt} />
 

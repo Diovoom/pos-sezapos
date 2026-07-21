@@ -86,9 +86,16 @@ export function RegisterPage() {
         .order("opened_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      // Cache so offline cash sales can attach to the current shift
+      // without a live register_sessions lookup.
+      try {
+        const { cacheMeta } = await import("@/lib/offline/db");
+        await cacheMeta("open_register_session", data ?? null);
+      } catch { /* offline db unavailable */ }
       return data;
     },
   });
+
 
   const history = useQuery({
     queryKey: ["register", "history", storeId],

@@ -55,16 +55,26 @@ type Props = {
   total: number;
   currency: string;
   onComplete: (p: CompletedPayment) => void;
+  // When true (owner / admin / manager or holder of an equivalent
+  // permission), backing out of an uncommitted tender does NOT require a
+  // second manager PIN. No payment has been captured at this point, so
+  // asking the already-authorized user for another manager PIN is
+  // friction rather than security.
+  bypassCancelApproval?: boolean;
 };
 
 // Once cash or card is selected we lock the payment flow — cashiers cannot
 // silently back out. A manager PIN is required to cancel. Cash panel handles
 // its own gate; TerminalPanel gates cancel unless the provider is missing.
-export function PaymentDialog({ open, onOpenChange, method, total, currency, onComplete }: Props) {
+export function PaymentDialog({ open, onOpenChange, method, total, currency, onComplete, bypassCancelApproval = false }: Props) {
   const isCash = method === "cash";
   const [managerOpen, setManagerOpen] = useState(false);
-  const requestCancel = () => setManagerOpen(true);
+  const requestCancel = () => {
+    if (bypassCancelApproval) { onOpenChange(false); return; }
+    setManagerOpen(true);
+  };
   const approveCancel = () => { setManagerOpen(false); onOpenChange(false); };
+
 
   return (
     <>
