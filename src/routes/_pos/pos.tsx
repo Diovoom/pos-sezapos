@@ -140,6 +140,12 @@ export function PosPage() {
   const [hasCameraCap, setHasCameraCap] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Android APK ships without the camera scanner — the WebView cannot
+    // reliably request camera permission for POS scanning, so the button
+    // must not appear. Detection still runs for the mobile web POS.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
+    if (isNative) { setHasCameraCap(false); return; }
     const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
     const hasMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     setHasCameraCap(coarse && hasMedia);
