@@ -219,29 +219,53 @@ export const createEmployee = createServerFn({ method: "POST" })
 
 export const setEmployeeStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { user_id: string; status: "active" | "disabled" }) => data)
+  .inputValidator(
+    (data: {
+      user_id: string;
+      status: "active" | "disabled" | "suspended";
+      reason?: string;
+    }) => data,
+  )
   .handler(async ({ data, context }) => {
-    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
+    await assertOwnerAdminOrManager(ctx);
+    await assertCanManage(ctx, data.user_id);
+    if (data.status !== "active") await assertNotLastOwner(ctx, data.user_id);
+    const reason = (data.reason ?? "").trim();
+    if (data.status !== "active" && reason.length < 4) {
+      throw new Error("A reason of at least 4 characters is required");
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
+    const dbStatus = data.status === "suspended" ? "disabled" : data.status;
     const { error } = await admin
       .from("profiles")
-      .update({ status: data.status })
+      .update({ status: dbStatus })
       .eq("id", data.user_id);
     if (error) throw new Error(error.message);
     // Also ban / unban at the auth layer to fully block sign-in.
     await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
-      ban_duration: data.status === "disabled" ? "876000h" : "none",
+      ban_duration: dbStatus === "disabled" ? "876000h" : "none",
     });
-    return { ok: true };
+    const correlationId = await auditMerchant(ctx.userId, {
+      action: dbStatus === "disabled" ? "employee.disable" : "employee.enable",
+      entity_id: data.user_id,
+      reason,
+      details: { requested_status: data.status },
+    });
+    return { ok: true, correlation_id: correlationId };
   });
 
 export const resetEmployeeCredentials = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { user_id: string }) => data)
+  .inputValidator((data: { user_id: string; reason?: string }) => data)
   .handler(async ({ data, context }) => {
-    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
+    await assertOwnerAdminOrManager(ctx);
+    await assertCanManage(ctx, data.user_id, { allowSelf: false });
+    const reason = (data.reason ?? "").trim();
+    if (reason.length < 4) throw new Error("A reason of at least 4 characters is required");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const tempPassword = generateTempPassword();
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
@@ -254,7 +278,44 @@ export const resetEmployeeCredentials = createServerFn({ method: "POST" })
       .from("profiles")
       .update({ must_change_password: true, pin_hash: null })
       .eq("id", data.user_id);
-    return { temp_password: tempPassword };
+    // Force sign-out of all existing sessions so the old password stops working.
+    try {
+      await supabaseAdmin.auth.admin.signOut(data.user_id, "global");
+    } catch {
+      /* older SDKs may not expose signOut(scope) — best effort */
+    }
+    const correlationId = await auditMerchant(ctx.userId, {
+      action: "employee.reset",
+      entity_id: data.user_id,
+      reason,
+      details: { credential: "password+pin" },
+    });
+    return { temp_password: tempPassword, correlation_id: correlationId };
+  });
+
+/* --------------- force logout from every device / session -------------- */
+
+export const forceLogoutEmployee = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { user_id: string; reason?: string }) => data)
+  .handler(async ({ data, context }) => {
+    const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
+    await assertOwnerAdminOrManager(ctx);
+    await assertCanManage(ctx, data.user_id, { allowSelf: false });
+    const reason = (data.reason ?? "").trim();
+    if (reason.length < 4) throw new Error("A reason of at least 4 characters is required");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    try {
+      await supabaseAdmin.auth.admin.signOut(data.user_id, "global");
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : "Sign-out failed");
+    }
+    const correlationId = await auditMerchant(ctx.userId, {
+      action: "employee.force_logout",
+      entity_id: data.user_id,
+      reason,
+    });
+    return { ok: true, correlation_id: correlationId };
   });
 
 /* ------------------------- first-login onboarding --------------------- */
