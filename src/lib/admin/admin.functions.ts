@@ -1382,28 +1382,42 @@ export const adminCancelSupportRequest = createServerFn({ method: "POST" })
 
 export const adminEndSupportSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { sessionId: string }) => data)
+  .inputValidator((data: { sessionId: string; reason?: string }) => data)
   .handler(async ({ data, context }) => {
-    const admin = await ensureSuperAdmin(context);
+    const { runSafeAction } = await import("@/lib/admin/safe-action.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: sess } = await supabaseAdmin
+    const { data: before } = await supabaseAdmin
       .from("admin_support_sessions")
-      .select("store_id")
+      .select("id, store_id, status, ended_at, expires_at")
       .eq("id", data.sessionId)
       .maybeSingle();
-    const { error } = await supabaseAdmin
-      .from("admin_support_sessions")
-      .update({ ended_at: new Date().toISOString(), status: "ended" })
-      .eq("id", data.sessionId)
-      .is("ended_at", null);
-    if (error) throw new Error(error.message);
-    await writeAudit(supabaseAdmin, {
-      actor_id: context.userId,
-      actor_email: admin.email,
-      store_id: sess?.store_id ?? null,
+    await runSafeAction({
+      context,
+      permission: "support.end_view",
+      danger: "sensitive",
       action: "admin.support_view.end",
       entity: "support_session",
-      entity_id: data.sessionId,
+      entityId: data.sessionId,
+      storeId: before?.store_id ?? null,
+      reason: data.reason ?? "Admin ended support view",
+      before,
+      apply: async () => {
+        const { error } = await supabaseAdmin
+          .from("admin_support_sessions")
+          .update({ ended_at: new Date().toISOString(), status: "ended" })
+          .eq("id", data.sessionId)
+          .is("ended_at", null);
+        if (error) throw new Error(error.message);
+        return { ended: true };
+      },
+      captureAfter: async () => {
+        const { data: after } = await supabaseAdmin
+          .from("admin_support_sessions")
+          .select("id, status, ended_at")
+          .eq("id", data.sessionId)
+          .maybeSingle();
+        return after;
+      },
     });
     return { ok: true };
   });
