@@ -14,32 +14,12 @@ export const RTL_LANGUAGES = new Set(["ar", "he", "fa", "ur"]);
 
 export const SUPPORTED_LANGUAGES = [
   { code: "en-US", name: "English (US)" },
-  { code: "en-GB", name: "English (UK)" },
   { code: "es", name: "Español" },
   { code: "fr", name: "Français" },
   { code: "ht", name: "Kreyòl Ayisyen" },
   { code: "pt-BR", name: "Português (Brasil)" },
-  { code: "pt", name: "Português" },
-  { code: "de", name: "Deutsch" },
-  { code: "it", name: "Italiano" },
-  { code: "nl", name: "Nederlands" },
-  { code: "pl", name: "Polski" },
-  { code: "ro", name: "Română" },
-  { code: "tr", name: "Türkçe" },
-  { code: "el", name: "Ελληνικά" },
-  { code: "ru", name: "Русский" },
-  { code: "uk", name: "Українська" },
   { code: "ar", name: "العربية" },
   { code: "he", name: "עברית" },
-  { code: "hi", name: "हिन्दी" },
-  { code: "zh-CN", name: "简体中文" },
-  { code: "zh-TW", name: "繁體中文" },
-  { code: "ja", name: "日本語" },
-  { code: "ko", name: "한국어" },
-  { code: "th", name: "ไทย" },
-  { code: "vi", name: "Tiếng Việt" },
-  { code: "id", name: "Bahasa Indonesia" },
-  { code: "ms", name: "Bahasa Melayu" },
 ];
 
 void i18n
