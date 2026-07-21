@@ -11,6 +11,7 @@ import {
   resetEmployeeCredentials,
   setEmployeeStatus,
   deleteEmployee,
+  forceLogoutEmployee,
   updateEmployeePay,
   adjustTimeEntry,
 } from "@/lib/employees.functions";
@@ -590,33 +591,76 @@ function DangerZoneCard({ profile, isSelf, isOwner, onChanged, onDeleted }: {
 }) {
   const toggleStatus = useServerFn(setEmployeeStatus);
   const resetCreds = useServerFn(resetEmployeeCredentials);
+  const forceLogout = useServerFn(forceLogoutEmployee);
   const del = useServerFn(deleteEmployee);
   const [tempPw, setTempPw] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+
+  const askReason = (label: string) => {
+    const r = window.prompt(`${label}\n\nReason (min 4 characters):`) ?? "";
+    if (r.trim().length < 4) {
+      toast.error("A reason of at least 4 characters is required");
+      return null;
+    }
+    return r.trim();
+  };
 
   const disableM = useMutation({
-    mutationFn: async () => toggleStatus({ data: { user_id: profile.id, status: profile.status === "active" ? "disabled" : "active" } }),
+    mutationFn: async () => {
+      const nextStatus = profile.status === "active" ? "disabled" : "active";
+      let reason: string | undefined;
+      if (nextStatus !== "active") {
+        const r = askReason(`Disable ${profile.full_name || profile.email}?`);
+        if (r === null) throw new Error("Cancelled");
+        reason = r;
+      }
+      return toggleStatus({ data: { user_id: profile.id, status: nextStatus, reason } });
+    },
     onSuccess: () => { toast.success("Status updated"); onChanged(); },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => { const m = e instanceof Error ? e.message : "Failed"; if (m !== "Cancelled") toast.error(m); },
   });
   const resetM = useMutation({
-    mutationFn: async () => resetCreds({ data: { user_id: profile.id } }),
+    mutationFn: async () => {
+      const reason = askReason("Reset password (issues a one-time temporary password and signs the user out everywhere)");
+      if (reason === null) throw new Error("Cancelled");
+      return resetCreds({ data: { user_id: profile.id, reason } });
+    },
     onSuccess: (r) => { setTempPw(r.temp_password); onChanged(); },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => { const m = e instanceof Error ? e.message : "Failed"; if (m !== "Cancelled") toast.error(m); },
+  });
+  const logoutM = useMutation({
+    mutationFn: async () => {
+      const reason = askReason("Force sign-out of all devices?");
+      if (reason === null) throw new Error("Cancelled");
+      return forceLogout({ data: { user_id: profile.id, reason } });
+    },
+    onSuccess: () => { toast.success("Signed out from all devices"); onChanged(); },
+    onError: (e) => { const m = e instanceof Error ? e.message : "Failed"; if (m !== "Cancelled") toast.error(m); },
   });
   const deleteM = useMutation({
-    mutationFn: async () => del({ data: { user_id: profile.id } }),
-    onSuccess: () => { toast.success("Employee deleted"); onDeleted(); },
+    mutationFn: async () => del({ data: { user_id: profile.id, reason: deleteReason.trim(), confirm: true } }),
+    onSuccess: (r) => {
+      toast.success(r.soft_deleted ? "Employee deactivated (history preserved)" : "Employee removed");
+      onDeleted();
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
+
+  const expectedName = (profile.full_name || profile.email || "").trim();
+  const canConfirmDelete = deleteReason.trim().length >= 4 && deleteConfirmName.trim() === expectedName;
 
   return (
     <Card className="border-destructive/40">
       <CardHeader className="pb-2"><CardTitle className="text-base text-destructive">Danger zone</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => resetM.mutate()} disabled={resetM.isPending}>
+          <Button variant="outline" onClick={() => resetM.mutate()} disabled={resetM.isPending || isSelf}>
             {resetM.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : <KeyRound className="size-4 mr-2" />}Reset password
+          </Button>
+          <Button variant="outline" onClick={() => logoutM.mutate()} disabled={logoutM.isPending || isSelf}>
+            {logoutM.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : <Ban className="size-4 mr-2" />}Force sign-out
           </Button>
           <Button
             variant={profile.status === "active" ? "outline" : "default"}
@@ -628,18 +672,21 @@ function DangerZoneCard({ profile, isSelf, isOwner, onChanged, onDeleted }: {
               : <><Check className="size-4 mr-2" />Enable</>}
           </Button>
           {isOwner && (
-            <Button variant="destructive" onClick={() => setConfirmDelete(true)} disabled={isSelf}>
-              <Trash2 className="size-4 mr-2" />Delete employee
+            <Button variant="destructive" onClick={() => { setDeleteReason(""); setDeleteConfirmName(""); setConfirmDelete(true); }} disabled={isSelf}>
+              <Trash2 className="size-4 mr-2" />Remove employee
             </Button>
           )}
         </div>
-        {isSelf && <p className="text-xs text-muted-foreground">You cannot disable or delete your own account.</p>}
+        {isSelf && <p className="text-xs text-muted-foreground">You cannot disable, reset, or remove your own account.</p>}
+        <p className="text-xs text-muted-foreground">
+          Employees with sales, refunds, shifts, or audit history are deactivated instead of deleted so historical records stay intact.
+        </p>
       </CardContent>
 
       <Dialog open={!!tempPw} onOpenChange={(v) => !v && setTempPw(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Temporary password issued</DialogTitle>
-            <DialogDescription>Share this with the employee. They'll set a new password at next sign-in.</DialogDescription></DialogHeader>
+            <DialogDescription>Share this with the employee. They'll set a new password at next sign-in. All existing sessions have been signed out.</DialogDescription></DialogHeader>
           <div className="rounded-md bg-muted p-4 font-mono text-lg text-center">{tempPw}</div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { navigator.clipboard.writeText(tempPw ?? ""); toast.success("Copied"); }}><Copy className="size-4 mr-2" />Copy</Button>
@@ -651,15 +698,38 @@ function DangerZoneCard({ profile, isSelf, isOwner, onChanged, onDeleted }: {
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {profile.full_name || profile.email}?</AlertDialogTitle>
+            <AlertDialogTitle>Remove {expectedName}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes the account and revokes access. Historical records (sales, refunds, shifts) will remain but no longer link to a live account.
+              Access is revoked immediately. If the employee has any linked history (sales, refunds, shifts, cash movements, audit entries) the account is deactivated and their name stays on those records. Otherwise the account is deleted permanently.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Reason (required, min 4 chars)</label>
+              <input
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="e.g. Left the company on 2026-07-21"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Type <span className="font-mono">{expectedName}</span> to confirm</label>
+              <input
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={deleteConfirmName}
+                onChange={(e) => setDeleteConfirmName(e.target.value)}
+              />
+            </div>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground" onClick={() => deleteM.mutate()}>
-              {deleteM.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : null}Delete permanently
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground"
+              disabled={!canConfirmDelete || deleteM.isPending}
+              onClick={(e) => { e.preventDefault(); if (canConfirmDelete) deleteM.mutate(); }}
+            >
+              {deleteM.isPending ? <Loader2 className="size-4 animate-spin mr-2" /> : null}Remove
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

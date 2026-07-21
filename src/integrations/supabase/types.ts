@@ -1734,6 +1734,10 @@ export type Database = {
           sublabel: string
         }[]
       }
+      can_manage_employee: {
+        Args: { _actor: string; _target: string }
+        Returns: boolean
+      }
       current_store_id: { Args: never; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
@@ -1776,6 +1780,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_last_owner: { Args: { _user_id: string }; Returns: boolean }
       is_platform_staff: { Args: { _user_id: string }; Returns: boolean }
       is_read_only: { Args: { _store_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
