@@ -1633,6 +1633,7 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
       started_at: (data.started_at as string | null) ?? null,
       expires_at: data.expires_at as string,
       client_capability: (data.client_capability as string | null) ?? null,
+      channel_token: data.channel_token as string,
       // Serialize metadata as a JSON string to satisfy strict server-fn
       // serializer; consumers parse it back.
       client_metadata_json: data.client_metadata ? JSON.stringify(data.client_metadata) : null,
