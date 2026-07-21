@@ -234,6 +234,36 @@ function BusinessWorkspace() {
         </div>
       </div>
 
+      {active_support_session && (
+        <Card className="border-amber-400 bg-amber-50 dark:bg-amber-950/30">
+          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm">
+              <div className="font-medium text-amber-900 dark:text-amber-200">
+                Support view {active_support_session.status === "pending" ? "pending merchant approval" : "active"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Requested {format(new Date(active_support_session.requested_at), "MMM d, HH:mm")}
+                {active_support_session.expires_at && ` · expires ${format(new Date(active_support_session.expires_at), "MMM d, HH:mm")}`}
+                {active_support_session.reason && ` · "${active_support_session.reason}"`}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {active_support_session.status === "pending" ? (
+                <Button size="sm" variant="outline" onClick={async () => {
+                  try { await cancelSupport({ data: { sessionId: active_support_session.id } }); toast.success("Request cancelled"); refresh(); }
+                  catch (e: any) { toast.error(e?.message ?? "Failed"); }
+                }}>Cancel request</Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => ask("End support session", "The read-only support session will be closed immediately.", async (reason) => {
+                  await endSupport({ data: { sessionId: active_support_session.id, reason } });
+                  toast.success("Support session ended"); refresh();
+                })}>End session</Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard label="Employees" value={counts.employees} />
         <StatCard label="Products" value={counts.products} />
@@ -243,12 +273,18 @@ function BusinessWorkspace() {
       </div>
 
       <Tabs defaultValue="overview">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="health">Health</TabsTrigger>
           <TabsTrigger value="employees">Employees</TabsTrigger>
+          <TabsTrigger value="registers">Registers &amp; Shifts</TabsTrigger>
+          <TabsTrigger value="sales">Sales</TabsTrigger>
+          <TabsTrigger value="refunds">Refunds</TabsTrigger>
           <TabsTrigger value="devices">Devices</TabsTrigger>
+          <TabsTrigger value="hardware">Hardware</TabsTrigger>
+          <TabsTrigger value="offline">Offline sync</TabsTrigger>
           <TabsTrigger value="subscription">Subscription</TabsTrigger>
+          <TabsTrigger value="support">Support</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="tickets">Tickets ({tickets.length})</TabsTrigger>
         </TabsList>
