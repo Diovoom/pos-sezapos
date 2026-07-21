@@ -740,10 +740,13 @@ export const updateEmployeePay = createServerFn({ method: "POST" })
       scheduled_start_time?: string | null;
       scheduled_end_time?: string | null;
       late_threshold_minutes?: number | null;
+      reason?: string;
     }) => data,
   )
   .handler(async ({ data, context }) => {
-    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
+    await assertOwnerAdminOrManager(ctx);
+    await assertCanManage(ctx, data.user_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
@@ -754,7 +757,13 @@ export const updateEmployeePay = createServerFn({ method: "POST" })
     if (Object.keys(patch).length === 0) return { ok: true };
     const { error } = await admin.from("profiles").update(patch).eq("id", data.user_id);
     if (error) throw new Error(error.message);
-    return { ok: true };
+    const correlationId = await auditMerchant(ctx.userId, {
+      action: "employee.update",
+      entity_id: data.user_id,
+      reason: data.reason ?? null,
+      details: { fields: Object.keys(patch), section: "pay_schedule" },
+    });
+    return { ok: true, correlation_id: correlationId };
   });
 
 /* ------------------------- adjust time entry --------------------------- */
