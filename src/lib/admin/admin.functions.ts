@@ -1360,7 +1360,7 @@ export const adminAddTicketNote = createServerFn({ method: "POST" })
 export const adminListAuditLogs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (data: { storeId?: string; action?: string; actorEmail?: string; page?: number; pageSize?: number }) => data,
+    (data: { storeId?: string; action?: string; actorEmail?: string; entity?: string; from?: string; to?: string; page?: number; pageSize?: number }) => data,
   )
   .handler(async ({ data, context }) => {
     await ensureSuperAdmin(context);
@@ -1377,10 +1377,110 @@ export const adminListAuditLogs = createServerFn({ method: "POST" })
     if (data.storeId) q = q.eq("store_id", data.storeId);
     if (data.action) q = q.ilike("action", `%${data.action}%`);
     if (data.actorEmail) q = q.ilike("actor_email", `%${data.actorEmail}%`);
+    if (data.entity) q = q.eq("entity", data.entity);
+    if (data.from) q = q.gte("created_at", data.from);
+    if (data.to) q = q.lte("created_at", data.to);
     const { data: rows, count, error } = await q;
     if (error) throw new Error(error.message);
     return { rows: rows ?? [], count: count ?? 0, page, pageSize };
   });
+
+export const adminAuditFacets = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Pull recent distinct action/entity values for facet dropdowns.
+    const { data: rows } = await supabaseAdmin
+      .from("audit_log")
+      .select("action, entity")
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    const actions = Array.from(new Set((rows ?? []).map((r: any) => r.action).filter(Boolean))).sort();
+    const entities = Array.from(new Set((rows ?? []).map((r: any) => r.entity).filter(Boolean))).sort();
+    return { actions, entities };
+  });
+
+export const adminExportAuditLogs = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: { storeId?: string; action?: string; actorEmail?: string; entity?: string; from?: string; to?: string }) => data,
+  )
+  .handler(async ({ data, context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin
+      .from("audit_log")
+      .select("created_at, actor_email, action, entity, entity_id, store_id, details")
+      .order("created_at", { ascending: false })
+      .limit(10000);
+    if (data.storeId) q = q.eq("store_id", data.storeId);
+    if (data.action) q = q.ilike("action", `%${data.action}%`);
+    if (data.actorEmail) q = q.ilike("actor_email", `%${data.actorEmail}%`);
+    if (data.entity) q = q.eq("entity", data.entity);
+    if (data.from) q = q.gte("created_at", data.from);
+    if (data.to) q = q.lte("created_at", data.to);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    const esc = (v: any) => {
+      if (v == null) return "";
+      const s = typeof v === "string" ? v : JSON.stringify(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = "created_at,actor_email,action,entity,entity_id,store_id,details";
+    const body = (rows ?? []).map((r: any) => [r.created_at, r.actor_email, r.action, r.entity, r.entity_id, r.store_id, r.details].map(esc).join(",")).join("\n");
+    return { csv: `${header}\n${body}`, count: rows?.length ?? 0 };
+  });
+
+export const adminSubscriptionStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: subs } = await supabaseAdmin
+      .from("subscriptions")
+      .select("id, store_id, status, price_id, environment, current_period_end, cancel_at_period_end, updated_at");
+    const rows = subs ?? [];
+    const counts: Record<string, number> = { total: rows.length };
+    const byTier: Record<string, number> = {};
+    const byEnv: Record<string, number> = { sandbox: 0, live: 0 };
+    let mrrCents = 0;
+    // Rough price mapping in USD cents; matches plan_tier_for_price mapping.
+    const priceMap: Record<string, number> = { starter_monthly: 2900, pro_monthly: 6900, business_monthly: 14900 };
+    for (const r of rows) {
+      counts[r.status] = (counts[r.status] ?? 0) + 1;
+      byEnv[r.environment] = (byEnv[r.environment] ?? 0) + 1;
+      if (r.status === "active" || r.status === "trialing") {
+        byTier[r.price_id ?? "unknown"] = (byTier[r.price_id ?? "unknown"] ?? 0) + 1;
+        if (r.status === "active" && r.environment === "live") {
+          mrrCents += priceMap[r.price_id ?? ""] ?? 0;
+        }
+      }
+    }
+    const pastDue = rows.filter((r: any) => r.status === "past_due");
+    const storeIds = Array.from(new Set(pastDue.map((r: any) => r.store_id).filter(Boolean)));
+    const storesMap = new Map<string, { name: string; email: string | null }>();
+    if (storeIds.length) {
+      const { data: stores } = await supabaseAdmin.from("stores").select("id, name, email").in("id", storeIds);
+      (stores ?? []).forEach((s: any) => storesMap.set(s.id, { name: s.name, email: s.email }));
+    }
+    return {
+      counts,
+      by_tier: byTier,
+      by_env: byEnv,
+      mrr_usd: mrrCents / 100,
+      past_due: pastDue.map((r: any) => ({
+        id: r.id,
+        store_id: r.store_id,
+        store_name: storesMap.get(r.store_id)?.name ?? "—",
+        store_email: storesMap.get(r.store_id)?.email ?? null,
+        price_id: r.price_id,
+        current_period_end: r.current_period_end,
+      })),
+    };
+  });
+
+
 
 // ============================================================================
 // Support view sessions
