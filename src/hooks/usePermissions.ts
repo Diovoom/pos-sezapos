@@ -44,7 +44,7 @@ export function useRolePermissions() {
   useEffect(() => {
     if (!storeId) return;
     const channel = supabase
-      .channel(`role-permissions:${storeId}`)
+      .channel(`role-permissions:${storeId}:${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {
