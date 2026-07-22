@@ -1,117 +1,74 @@
-# Live Screen Viewing for the SEZA POS Android APK
 
-Replace the "android_diagnostics_only" capability with a real, view-only MediaProjection + WebRTC pipeline. All existing approval, `channel_token` signaling, RLS, audit, and device-pairing flows stay intact — we only swap the merchant-side stream source and lift the admin gating.
+# SEZA Platform Admin Operations — Implementation Plan
 
-## Architecture
+This spec is very large (17 admin surfaces, new case lifecycle, live chat, incidents, device source-of-truth fix, permissions overhaul, platform health, etc.). Landing it in a single turn would produce an unreviewable diff and a high risk of regressing the marketing site, owner dashboard, and Android APK — all of which the spec explicitly says must be preserved.
 
-```text
-Merchant APK                                                Admin browser
-────────────                                                ─────────────
-[Accept dialog] ──► SezaScreenCapture (native)              AdminScreenViewer
-     │                 ├─ MediaProjection (foreground svc)  (unchanged; sees
-     │                 ├─ VirtualDisplay → Surface           video track)
-     │                 └─ H264 encoded frames               ▲
-     ▼                        │                              │
-NativeRTCPeer (TS wrapper) ◄──┘   RTCPeerConnection ─────► WebRTC (P2P media)
-     │                                        ▲
-     └── signaling ─── Supabase Realtime broadcast (channel_token) ─┘
-```
+I want to ship it as **five sequenced phases**, each ending with a green `bun run build` and a clear report before moving on. Every phase reuses existing tables and server functions; migrations are additive only.
 
-Signaling stays on the existing `support-rtc-<channel_token>` Realtime channel. Media goes P2P via WebRTC with the current STUN config (`src/lib/support/webrtc.ts`).
+## Phase 1 — Foundations (fixes the "known problems" first)
 
-## New Android Capacitor plugin: `SezaScreenCapture`
+Goal: unblock the three current bugs and set up shared infra everything else depends on.
 
-Location: `android/app/src/main/java/com/sezapos/screen/`
+- **Devices source-of-truth fix (G)**: rewrite `admin.devices.tsx` to query `device_registrations` for Android registers, with a separate Payment Terminals tab reading `payment_terminals`. Fix Ops Center device counts to match. Online = ≤5m, Stale 5–30m, Offline >30m. Never expose `device_secret`/`secret_hash`.
+- **Support "disappearing ticket" fix (C, partial)**:
+  - Migration: extend `support_tickets` status check to include `new`, `claimed`, `investigating`, `waiting_for_merchant`, `resolved`, `closed`, `reopened`; keep legacy `open` accepted and treated as active.
+  - Add `claimed_at`, `claimed_by`, `resolved_at`, `resolved_by`, `closed_at`, `closed_by`, `resolution_summary`, `root_cause`, `reopen_reason` columns (nullable, additive).
+  - Add `support_ticket_activity` table (append-only case timeline) with RLS + GRANTs per project rules.
+  - Support list default view = "Active Problems" (new/claimed/investigating/waiting_for_merchant/reopened/legacy-open). Claim keeps the row visible and routes to case workspace.
+- **Permissions catalog audit (M, partial)**: seed `admin_permissions` rows for operations_admin/support_admin/billing_admin/analyst against the existing catalog in `src/lib/admin/permissions.ts`. Sidebar hides unauthorized pages via `useAdminPermissions`. No changes to `super_admin`.
+- **Realtime safety helper**: small util that enforces "register callbacks before subscribe, cleanup on unmount, polling fallback". Used by every realtime surface in later phases.
 
-- `SezaScreenCapturePlugin.java` — `@CapacitorPlugin` exposing:
-  - `requestPermission()` → launches system MediaProjection consent intent, resolves `{ granted }`.
-  - `start({ maxWidth, maxFps, bitrateKbps })` → starts foreground service, begins encoding.
-  - `stop()` → tears down encoder, projection, and service.
-  - Emits events: `frame` (H.264 NAL byte[] via base64), `state` (`starting|active|paused|stopped`), `error`.
-- `ScreenCaptureService.java` — `Service` with `FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION`; shows the persistent Android notification "SEZA Support is viewing your screen — Tap to stop" that also stops the session on tap.
-- `H264Encoder.java` — `MediaCodec` (`video/avc`) fed by a `VirtualDisplay` → `Surface`. Adaptive bitrate (200–1500 kbps), keyframe every 2 s, 20–30 FPS target, drops to 10 FPS on backpressure.
-- Register the plugin in `MainActivity.java`.
+Exit criteria: paired Android device shows in Admin Devices; claim no longer hides tickets; sidebar reflects role; build green.
 
-`AndroidManifest.xml` additions:
-- `<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />`
-- `<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />`
-- `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />`
-- `<service android:name=".screen.ScreenCaptureService" android:foregroundServiceType="mediaProjection" android:exported="false" />`
-- Target SDK bump reviewed to ≥34 for the new mediaProjection foreground-service type (only if not already).
+## Phase 2 — Case management + Communications (C, D)
 
-## TS bridge: `capacitor-shell/support/nativeScreenCapture.ts`
+- Full case workspace (`admin.support.$ticketId.tsx`): reported-problem header, status/priority/category/assignee, requester, business/store, linked device, app version/heartbeat/sync, sanitized diagnostics, related sales/refunds/payments/sync failures near report time, merchant messages vs internal notes (separate), activity timeline. Actions: claim, assign/transfer (reason), start investigation, request info, reply, internal note, change category/priority (reason for escalation), link device/sale/refund/payment/sync, start Support View, resolve (summary required), close (confirmation), reopen (reason). All audited via `runSafeAction`.
+- Support list rework: queue cards (New, Unassigned, Mine, Urgent, Waiting, Resolved Today, All); filters; URL-persisted; SLA/age badges.
+- Communications system:
+  - New tables `support_conversations` and `support_conversation_messages` (+ RLS + GRANTs). Lifecycle: waiting/active/waiting_for_merchant/ended. Merchant-visible vs internal messages. Optional link to `support_tickets` and `device_registrations`.
+  - Merchant entry points: owner dashboard support page + Android support screen (reuses existing entry points; no redesign).
+  - Admin Communications page: Waiting / My active / Team active / Ended. Realtime via the safety helper with polling fallback. Claim keeps convo visible; only explicit End removes it from active. Transfer + create/link ticket, both audited.
 
-Wraps `registerPlugin<SezaScreenCapturePlugin>('SezaScreenCapture')`. Exposes an async iterator of H.264 NAL units plus start/stop. On non-Android hosts, throws so we fall back to `getDisplayMedia`.
+Exit criteria: acceptance tests 7–15 pass; build green.
 
-## WebRTC merchant peer (new): `capacitor-shell/support/AndroidScreenShare.tsx`
+## Phase 3 — Businesses, Stores, Employees, Sales, Offline Sync (E, F, H, I)
 
-Replaces the diagnostics-only path in `capacitor-shell/support/SupportRequestListener.tsx`:
+- Businesses page: real directory with owner/plan/trial/devices/employees/open cases/active chats/offline count; safe CSV export; opens Business Support Workspace (already exists — extend tabs Overview/Health/Activity/Employees/Devices/Sales/Payments/Offline Sync/Support/Subscription/Audit).
+- Stores page (replaces placeholder): production `stores` data with location, code, plan, employees, devices, open shifts, last sale, last heartbeat, open cases, health.
+- Employees page: real `profiles` + `user_roles`; safe platform actions only (view, password reset, resend verification, revoke sessions, suspend/reactivate where policy allows); never expose PIN hashes; wages/schedules/roles stay in owner dashboard.
+- Sales page: cross-store investigation over `sales`/`sale_items`/`refunds`; filters, detail drawer, read-only.
+- Offline Sync page: pending/retrying/failed/completed over existing offline structures; safe retry/dismiss (reason); no PII/tokens.
 
-- Requests MediaProjection consent (`requestPermission()`) BEFORE calling `postSupport("support-respond", { decision: "accept", clientCapability: "android_screen_share" })`. Decline path unchanged.
-- Builds `RTCPeerConnection` (reuses `RTC_CONFIG` from `src/lib/support/webrtc.ts`) and creates a single video sender fed by an `RTCRtpSender` with `insertableStreams` receiving encoded H.264 NALs from the plugin (WebCodecs `EncodedVideoChunk` path — WebView on Android 14+ supports encoded transforms). If unavailable, fall back to publishing via a `MediaStreamTrackGenerator`.
-- Uses `openSignalingChannel(supabase, channelToken, …)` — identical to the web merchant peer.
-- Lifecycle hooks (via existing `androidLifecycle.ts`): pause encoder on background, resume on foreground; auto-reconnect signaling with exponential backoff (max 5 attempts, 30 s cap); hard-stop on merchant sign-out, device unregister, ticket close, session expiry, or 60 s network timeout.
-- Persistent compact banner (top-of-screen, ~40 px): red dot, "Screen Sharing Active · SEZA Support · mm:ss · Stop Sharing". POS layout untouched — banner slides in above `AppShell`.
+Exit criteria: no placeholders in these five pages; build green.
 
-## Admin side changes
+## Phase 4 — Subscriptions, Payments, Incidents, Audit, Admin Team, Platform Health, Settings (J–O)
 
-- `src/lib/admin/admin.functions.ts`: extend the `clientCapability` union to include `"android_screen_share"` in `merchantRespondSupportSession` input, in `adminOpenSupportSession` output, and in stored `client_capability` (validated in `src/routes/api/public/pos/support-respond.ts` too).
-- `src/routes/_adminApp/route.tsx` (line ~343): drop the diagnostics-only branch and render `AdminScreenViewer` for both `web_screen_share` and `android_screen_share`.
-- `src/components/support/AdminScreenViewer.tsx`: unchanged transport; add small badge showing capability ("Android live view") plus existing FPS/bitrate/latency/quality readouts already sampled via `sampleQuality`. Keep End Session, Pause/Resume (Pause = `receiver.track.enabled = false`, no signal to merchant beyond quality drop). Screenshot button gated behind a separate merchant-approved event — deferred (out of scope for this pass; explicitly not added to avoid silent capture).
-- `src/components/support/AdminDiagnosticsPanel.tsx`: remove the "Live screen viewing is not available for the Android APK" copy; keep the diagnostics tab as a supplementary panel.
+- Subscriptions/Payments: keep existing Stripe-connected views; add past-due queue, safe refresh/cancel/restore with confirm+reason+audit; Payments cross-store filter/search/export from `payment_attempts` + related sale/refund.
+- Incidents: new `platform_incidents` + `platform_incident_updates` tables (RLS + GRANTs). Lifecycle investigating/identified/monitoring/resolved. Ops Center surfaces active incidents. Reopen with reason. Link support cases. No auto-publish to public status page.
+- Audit Logs: keep viewer immutable; add filters + safe CSV export; every new action writes meaningful rows.
+- Admin Team: list platform staff via `user_roles` + `is_platform_staff`; invite/add via existing auth flow; change role with confirmation + audit; prevent removing last active super_admin; enforce lower roles cannot modify higher.
+- Platform Health: honest signals (DB reachable, Stripe configured, email configured, background jobs, heartbeat rate, sync failures, incident count, build version). States: Healthy/Degraded/Down/Not configured/Unknown.
+- Settings: Admin Profile, Notifications, Platform, Security, Integrations/System Status. No secrets exposed.
 
-## Server / DB
+Exit criteria: acceptance test 18 passes for every listed page; build green.
 
-No schema change. `client_capability` already `text`; we simply add `"android_screen_share"` as an accepted value in server-side validators:
-- `src/routes/api/public/pos/support-respond.ts`
-- `src/lib/admin/admin.functions.ts` (`merchantRespondSupportSession`)
+## Phase 5 — Operations Center + polish (B, P) and acceptance sweep
 
-## Audit events
+- Rebuild `/admin` as the live Operations Center: real metrics + the five panels (New Problems, My Active Work, Active Communications, Device/Sync Attention, Platform Alerts). Uses realtime safety helper + polling fallback.
+- Global search: businesses, stores, owners, employees, devices, terminals, tickets, subscription refs.
+- UX pass: loading/empty/retry states, URL-persisted filters, pagination, CSV exports, double-submit guards, no dark flash, no duplicated sidebar names, noindex/nofollow on all admin routes.
+- Run the 20-point acceptance list; confirm marketing (`sezapos.com`), owner dashboard (`dashboard.sezapos.com`), and Android web assets still build clean.
 
-Extend `src/lib/audit-log.ts` calls emitted from `SupportRequestListener` and admin session functions to include:
-- `support.session.requested` (already)
-- `support.session.approved` / `declined` with `client_capability`
-- `support.stream.started` (new — fired after first ICE `connected`)
-- `support.stream.stopped` with `reason` in `{ merchant_stopped, admin_ended, ticket_closed, signed_out, device_unregistered, session_expired, network_timeout, app_closed }`
-- `support.stream.paused_background` / `resumed_foreground`
+## Ground rules applied to every phase
 
-Each includes correlation id (= `session.id`), `store_id`, `register_id` (if any), `employee_id`, `admin_id`, duration_ms.
+- Reuse existing tables/functions; migrations are additive only, always with GRANTs then RLS then policies.
+- Every sensitive write wrapped in `runSafeAction` (permission + reason + audit + correlation id).
+- No secrets, PIN hashes, device secrets, card data, or private internal notes leak to merchant surfaces.
+- Realtime: callbacks before `.subscribe()`, cleanup on unmount, polling fallback.
+- Admin routes stay `noindex, nofollow`.
+- No fake data, no "Coming soon" left behind in listed sections.
+- End of each phase: `bun run build` must pass; I'll report files changed, migrations added, tables reused vs added, permissions wired, anything deferred, and test results.
 
-## Security & privacy invariants (unchanged / reinforced)
+## What I need from you
 
-- MediaProjection consent required per session (Android enforces).
-- Foreground-service notification is non-dismissible and stops session on tap.
-- Banner always visible while active; no background streaming — encoder pauses when app is not resumed.
-- Signaling still keyed by unguessable `channel_token`.
-- No DataChannel is created on either peer (already true for admin) — enforces view-only.
-- Nothing new logged that could contain PII: no frames written to disk, no clipboard/mic/camera access, no screenshots server-side.
-
-## Files changed / added
-
-Added:
-- `android/app/src/main/java/com/sezapos/screen/SezaScreenCapturePlugin.java`
-- `android/app/src/main/java/com/sezapos/screen/ScreenCaptureService.java`
-- `android/app/src/main/java/com/sezapos/screen/H264Encoder.java`
-- `capacitor-shell/support/nativeScreenCapture.ts`
-- `capacitor-shell/support/AndroidScreenShare.tsx`
-
-Edited:
-- `android/app/src/main/AndroidManifest.xml` (permissions + service)
-- `android/app/src/main/java/com/sezapos/app/MainActivity.java` (register plugin)
-- `android/app/build.gradle` (targetSdk review if needed)
-- `capacitor-shell/support/SupportRequestListener.tsx` (swap diagnostics path for `AndroidScreenShare`, request MediaProjection consent before accept)
-- `src/lib/admin/admin.functions.ts` (accept `android_screen_share`)
-- `src/routes/api/public/pos/support-respond.ts` (validator)
-- `src/routes/_adminApp/route.tsx` (render viewer for android capability)
-- `src/components/support/AdminScreenViewer.tsx` (capability badge)
-- `src/components/support/AdminDiagnosticsPanel.tsx` (remove "not available" copy)
-- `src/lib/audit-log.ts` (new event constants)
-
-## Testing plan
-
-Web build + typecheck (`bun run build`, `tsgo --noEmit`), then `bun run android:build` and manual Android device pass covering: approval required, decline, stop-sharing, admin end, POS remains usable, orientation change, background/foreground pause+resume, network drop reconnect, session expiry, low-bandwidth adaptive bitrate, no orphan sessions after force-quit.
-
-## Notes / risks
-
-- WebRTC inside the Android WebView requires piping encoded H.264 to the peer connection. Preferred path: WebCodecs `MediaStreamTrackGenerator` + `EncodedVideoChunk`. If the shipped WebView version doesn't expose it, plugin will decode-then-recompose using `VideoFrame` from the encoded stream (slightly higher CPU). Both paths are view-only and covered by MediaProjection consent — decision made at plugin init based on `window.MediaStreamTrackGenerator` feature detection.
-- Screenshot-on-admin-side intentionally deferred: it requires a second merchant approval channel and belongs in a follow-up to keep this change scoped to live viewing.
+Confirm you want me to proceed **phase by phase in this order**, starting with Phase 1 now. If you'd rather reorder (e.g. Communications before Devices), tell me and I'll adjust before writing code. If you want it all in one shot anyway, say so explicitly — I'll do it, but the diff will be very large and higher risk.

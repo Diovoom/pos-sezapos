@@ -77,6 +77,7 @@ import { Route as AdminAppAdminSubscriptionsRouteImport } from './routes/_adminA
 import { Route as AdminAppAdminStoresRouteImport } from './routes/_adminApp/admin.stores'
 import { Route as AdminAppAdminSettingsRouteImport } from './routes/_adminApp/admin.settings'
 import { Route as AdminAppAdminSalesRouteImport } from './routes/_adminApp/admin.sales'
+import { Route as AdminAppAdminRegistersRouteImport } from './routes/_adminApp/admin.registers'
 import { Route as AdminAppAdminPlatformHealthRouteImport } from './routes/_adminApp/admin.platform-health'
 import { Route as AdminAppAdminPaymentsRouteImport } from './routes/_adminApp/admin.payments'
 import { Route as AdminAppAdminOfflineSyncRouteImport } from './routes/_adminApp/admin.offline-sync'
@@ -448,6 +449,11 @@ const AdminAppAdminSalesRoute = AdminAppAdminSalesRouteImport.update({
   path: '/admin/sales',
   getParentRoute: () => AdminAppRouteRoute,
 } as any)
+const AdminAppAdminRegistersRoute = AdminAppAdminRegistersRouteImport.update({
+  id: '/admin/registers',
+  path: '/admin/registers',
+  getParentRoute: () => AdminAppRouteRoute,
+} as any)
 const AdminAppAdminPlatformHealthRoute =
   AdminAppAdminPlatformHealthRouteImport.update({
     id: '/admin/platform-health',
@@ -682,6 +688,7 @@ export interface FileRoutesByFullPath {
   '/admin/offline-sync': typeof AdminAppAdminOfflineSyncRoute
   '/admin/payments': typeof AdminAppAdminPaymentsRoute
   '/admin/platform-health': typeof AdminAppAdminPlatformHealthRoute
+  '/admin/registers': typeof AdminAppAdminRegistersRoute
   '/admin/sales': typeof AdminAppAdminSalesRoute
   '/admin/settings': typeof AdminAppAdminSettingsRoute
   '/admin/stores': typeof AdminAppAdminStoresRoute
@@ -779,6 +786,7 @@ export interface FileRoutesByTo {
   '/admin/offline-sync': typeof AdminAppAdminOfflineSyncRoute
   '/admin/payments': typeof AdminAppAdminPaymentsRoute
   '/admin/platform-health': typeof AdminAppAdminPlatformHealthRoute
+  '/admin/registers': typeof AdminAppAdminRegistersRoute
   '/admin/sales': typeof AdminAppAdminSalesRoute
   '/admin/settings': typeof AdminAppAdminSettingsRoute
   '/admin/stores': typeof AdminAppAdminStoresRoute
@@ -880,6 +888,7 @@ export interface FileRoutesById {
   '/_adminApp/admin/offline-sync': typeof AdminAppAdminOfflineSyncRoute
   '/_adminApp/admin/payments': typeof AdminAppAdminPaymentsRoute
   '/_adminApp/admin/platform-health': typeof AdminAppAdminPlatformHealthRoute
+  '/_adminApp/admin/registers': typeof AdminAppAdminRegistersRoute
   '/_adminApp/admin/sales': typeof AdminAppAdminSalesRoute
   '/_adminApp/admin/settings': typeof AdminAppAdminSettingsRoute
   '/_adminApp/admin/stores': typeof AdminAppAdminStoresRoute
@@ -979,6 +988,7 @@ export interface FileRouteTypes {
     | '/admin/offline-sync'
     | '/admin/payments'
     | '/admin/platform-health'
+    | '/admin/registers'
     | '/admin/sales'
     | '/admin/settings'
     | '/admin/stores'
@@ -1076,6 +1086,7 @@ export interface FileRouteTypes {
     | '/admin/offline-sync'
     | '/admin/payments'
     | '/admin/platform-health'
+    | '/admin/registers'
     | '/admin/sales'
     | '/admin/settings'
     | '/admin/stores'
@@ -1176,6 +1187,7 @@ export interface FileRouteTypes {
     | '/_adminApp/admin/offline-sync'
     | '/_adminApp/admin/payments'
     | '/_adminApp/admin/platform-health'
+    | '/_adminApp/admin/registers'
     | '/_adminApp/admin/sales'
     | '/_adminApp/admin/settings'
     | '/_adminApp/admin/stores'
@@ -1750,6 +1762,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAppAdminSalesRouteImport
       parentRoute: typeof AdminAppRouteRoute
     }
+    '/_adminApp/admin/registers': {
+      id: '/_adminApp/admin/registers'
+      path: '/admin/registers'
+      fullPath: '/admin/registers'
+      preLoaderRoute: typeof AdminAppAdminRegistersRouteImport
+      parentRoute: typeof AdminAppRouteRoute
+    }
     '/_adminApp/admin/platform-health': {
       id: '/_adminApp/admin/platform-health'
       path: '/admin/platform-health'
@@ -1983,6 +2002,7 @@ interface AdminAppRouteRouteChildren {
   AdminAppAdminOfflineSyncRoute: typeof AdminAppAdminOfflineSyncRoute
   AdminAppAdminPaymentsRoute: typeof AdminAppAdminPaymentsRoute
   AdminAppAdminPlatformHealthRoute: typeof AdminAppAdminPlatformHealthRoute
+  AdminAppAdminRegistersRoute: typeof AdminAppAdminRegistersRoute
   AdminAppAdminSalesRoute: typeof AdminAppAdminSalesRoute
   AdminAppAdminSettingsRoute: typeof AdminAppAdminSettingsRoute
   AdminAppAdminStoresRoute: typeof AdminAppAdminStoresRoute
@@ -2003,6 +2023,7 @@ const AdminAppRouteRouteChildren: AdminAppRouteRouteChildren = {
   AdminAppAdminOfflineSyncRoute: AdminAppAdminOfflineSyncRoute,
   AdminAppAdminPaymentsRoute: AdminAppAdminPaymentsRoute,
   AdminAppAdminPlatformHealthRoute: AdminAppAdminPlatformHealthRoute,
+  AdminAppAdminRegistersRoute: AdminAppAdminRegistersRoute,
   AdminAppAdminSalesRoute: AdminAppAdminSalesRoute,
   AdminAppAdminSettingsRoute: AdminAppAdminSettingsRoute,
   AdminAppAdminStoresRoute: AdminAppAdminStoresRoute,

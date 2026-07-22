@@ -24,7 +24,7 @@ export function useStoreLanguageSync() {
       const { data, error } = await supabase
         .from("stores")
         .select("language, locale")
-        .eq("id", storeId)
+        .eq("id", storeId as string)
         .maybeSingle();
       if (error) throw error;
       return data?.language || data?.locale || "en-US";
