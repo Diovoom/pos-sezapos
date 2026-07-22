@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -180,20 +179,26 @@ function OwnerEmailLogin() {
 
   const handleOAuth = async (provider: "google" | "apple") => {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth(provider, {
-      redirect_uri: oauthRedirect(),
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: oauthRedirect(),
+        queryParams: provider === "google" ? { prompt: "select_account" } : undefined,
+      },
     });
 
-    if (result.error) {
-      toast.error(result.error.message ?? `${provider} sign in failed`);
+    if (error) {
+      toast.error(error.message ?? `${provider} sign in failed`);
       setBusy(false);
       return;
     }
 
-    if (result.redirected) return;
+    // Supabase redirects the browser to the provider when a URL is returned.
+    if (data.url) return;
 
-    const { data } = await supabase.auth.getUser();
-    if (data.user) await finishSignIn(data.user.id);
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData.user) await finishSignIn(userData.user.id);
     setBusy(false);
   };
 

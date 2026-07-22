@@ -64,7 +64,7 @@ export const Route = createFileRoute("/lovable/email/suppression")({
           return Response.json({ error: 'Server configuration error' }, { status: 500 })
         }
 
-        // Verify HMAC signature using the Lovable API Key (same as auth-email-hook)
+        // Verify HMAC signature using the configured email service API key (same as auth-email-hook)
         let payload: SuppressionPayload
         try {
           const verified = await verifyWebhookRequest({

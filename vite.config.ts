@@ -1,4 +1,4 @@
-// @lovable.dev/vite-tanstack-config already includes the following — do NOT add them manually
+// The hosted web Vite configuration already includes the following — do NOT add them manually
 // or the app will break with duplicate plugins:
 //   - tanstackStart, viteReact, tailwindcss, tsConfigPaths, nitro (build-only using cloudflare as a default target),
 //     componentTagger (dev-only), VITE_* env injection, @ path alias, React/TanStack dedupe,
@@ -7,10 +7,10 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
 
-// @lovable.dev/mcp-js currently fails to normalize TanStack route paths on
+// The hosted MCP plugin currently fails to normalize TanStack route paths on
 // native Windows builds (for example F:\\pos-sezapos versus F:/pos-sezapos).
 // The MCP build plugin is only development/build tooling; it is not required
-// for the Android APK or the merchant-facing UI. Lovable's cloud builder runs
+// for the Android APK or the merchant-facing UI. The hosted web builder runs
 // on Linux, so keep the plugin enabled there and skip it only on Windows.
 const enableMcpPlugin = process.platform !== "win32";
 

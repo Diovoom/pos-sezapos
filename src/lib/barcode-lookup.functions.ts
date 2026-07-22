@@ -15,7 +15,7 @@ const inputSchema = z.object({ barcode: z.string().trim().min(4).max(32) });
 async function lookupOpenFoodFacts(barcode: string): Promise<BarcodeLookupResult | null> {
   try {
     const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`, {
-      headers: { "User-Agent": "LovablePOS/1.0" },
+      headers: { "User-Agent": "SEZAPOS/1.0 (+https://sezapos.com)" },
     });
     if (!res.ok) return null;
     const json = (await res.json()) as {

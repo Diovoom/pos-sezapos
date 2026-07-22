@@ -38,7 +38,7 @@ function rel(path: string): string {
 
 function urlFor(host: string, path: string): string {
   const normalizedPath = rel(path);
-  // Keep localhost and Lovable preview navigation inside the current origin.
+  // Keep localhost and hosted preview navigation inside the current origin.
   // Production custom domains use explicit cross-subdomain URLs.
   if (currentApp() === "unknown") return normalizedPath;
   return `https://${host}${normalizedPath}`;

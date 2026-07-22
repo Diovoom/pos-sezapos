@@ -347,7 +347,7 @@ function ProfilePanel() {
 function EmailSetupPanel() {
   return (
     <Card className="max-w-2xl">
-      <CardHeader><CardTitle>Email Setup</CardTitle><CardDescription>Transactional and receipt emails are sent through Lovable Cloud.</CardDescription></CardHeader>
+      <CardHeader><CardTitle>Email Setup</CardTitle><CardDescription>Transactional and receipt emails are managed by SEZA Technologies Inc.</CardDescription></CardHeader>
       <CardContent className="space-y-3 text-sm">
         <div className="rounded-md border p-3 flex items-center justify-between">
           <span>Delivery status</span>

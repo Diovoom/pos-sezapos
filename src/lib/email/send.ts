@@ -20,7 +20,7 @@ function sendUrl(): string {
 }
 
 /**
- * Sends a transactional email through the built-in Lovable Emails queue.
+ * Sends a transactional email through the SEZA transactional email queue.
  * Requires a signed-in user — the JWT is used to authorize the send route.
  */
 export async function sendTransactionalEmail(args: SendTransactionalArgs): Promise<

@@ -625,7 +625,7 @@ export const accessibilityStatement: LegalDocument = {
   title: "Accessibility Statement",
   category: "Trust",
   summary:
-    "SEZA Technologies' commitment to making the SEZA website and point-of-sale experience usable by people with disabilities.",
+    "SEZA Technologies Inc.'s commitment to making the SEZA website and point-of-sale experience usable by people with disabilities.",
   effectiveDate: C.effectiveDate,
   lastUpdated: C.lastUpdated,
   sections: [

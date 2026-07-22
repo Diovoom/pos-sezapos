@@ -696,7 +696,7 @@ function StepFinish({ onDone, onSettings }: { onDone: () => void; onSettings: ()
       <div className="flex items-center justify-center gap-2 flex-wrap">
         <Button size="lg" onClick={onDone}>Go to Dashboard</Button>
         <Button size="lg" variant="outline" onClick={onSettings}>Open Settings</Button>
-        <Button size="lg" variant="ghost" asChild><a href="https://docs.lovable.dev" target="_blank" rel="noreferrer"><ExternalLink className="size-4" /> User Guide</a></Button>
+        <Button size="lg" variant="ghost" asChild><a href="https://sezapos.com/support" target="_blank" rel="noreferrer"><ExternalLink className="size-4" /> User Guide</a></Button>
       </div>
     </div>
   );

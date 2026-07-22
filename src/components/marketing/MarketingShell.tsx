@@ -231,9 +231,6 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               <NavDropdown label="Resources" items={RESOURCE_ITEMS} />
             </nav>
 
-            <Button asChild size="sm" variant="outline" className="h-9 rounded-full px-3 text-xs font-bold lg:hidden">
-              <a href={dashboardUrl("/dashboard")}>Login</a>
-            </Button>
           </div>
 
           <div className="flex min-w-0 items-center justify-center">
@@ -368,7 +365,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
 
           <div className="mt-12 grid gap-4 border-t border-white/10 pt-6 text-xs text-slate-400 md:grid-cols-[1fr_auto] md:items-center">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <span>© {new Date().getFullYear()} SEZA Technologies. All rights reserved.</span>
+              <span>© {new Date().getFullYear()} SEZA Technologies Inc. All rights reserved.</span>
               <a href={`mailto:${LEGAL_CONFIG.supportEmail}`} className="transition-colors hover:text-white">{LEGAL_CONFIG.supportEmail}</a>
               <a href={`tel:${LEGAL_CONFIG.phone}`} className="transition-colors hover:text-white">{LEGAL_CONFIG.phoneDisplay}</a>
             </div>

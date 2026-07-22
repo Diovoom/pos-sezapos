@@ -82,7 +82,7 @@ function ContactPage() {
 
             <div className="rounded-xl border p-5">
               <MapPin className="h-5 w-5 text-primary" />
-              <div className="mt-2 font-medium">SEZA Technologies</div>
+              <div className="mt-2 font-medium">SEZA Technologies Inc.</div>
               <p className="text-sm text-muted-foreground">Serving retailers worldwide</p>
             </div>
             <div className="rounded-xl border p-5">

@@ -1,6 +1,6 @@
 // Standalone Vite build for the bundled Capacitor Android shell.
 //
-// This intentionally does NOT use @lovable.dev/vite-tanstack-config — the
+// This intentionally does not use the hosted web Vite configuration — the
 // Android app is a plain client-side SPA, not a TanStack Start SSR bundle.
 // Output goes to android-webdir/ which Capacitor packages into the APK via
 // `bunx cap sync android`.

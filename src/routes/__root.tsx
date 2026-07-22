@@ -157,7 +157,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             "@context": "https://schema.org",
             "@type": "Organization",
             name: "SEZA POS",
-            legalName: "SEZA Technologies",
+            legalName: "SEZA Technologies Inc.",
             logo: "https://sezapos.com/seza-logo-v2-512.png",
             image: "https://sezapos.com/seza-og.jpg",
             url: "https://sezapos.com",
@@ -233,13 +233,13 @@ function RootComponent() {
   }, [router, queryClient]);
 
   // Keep each public hostname on one clear product surface. This is host-aware
-  // routing inside one Lovable project: marketing on sezapos.com, merchant
+  // routing inside one deployed SEZA project: marketing on sezapos.com, merchant
   // owner access on dashboard.sezapos.com, and platform staff on admin.sezapos.com.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const app = currentApp();
-    if (app === "unknown") return; // localhost / Lovable preview
+    if (app === "unknown") return; // localhost / hosted preview
 
     const path = window.location.pathname;
     const suffix = `${path}${window.location.search}${window.location.hash}`;

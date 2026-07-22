@@ -5,7 +5,7 @@
  * A physical mailing address is not published until one is formally adopted.
  */
 export const LEGAL_CONFIG = {
-  companyName: "SEZA Technologies",
+  companyName: "SEZA Technologies Inc.",
   productName: "SEZA POS",
   website: "https://sezapos.com",
   businessAddress: "",
