@@ -1947,10 +1947,10 @@ export const adminSalesOverview = createServerFn({ method: "POST" })
       totals.gross += Number(r.total ?? 0);
       if (r.synced_from_offline) totals.offline += 1;
       if (r.status === "refunded" || r.status === "voided") totals.refunded += 1;
-      const cur = byStore.get(r.store_id) ?? { count: 0, gross: 0 };
+      const cur = byStore.get(r.store_id ?? "") ?? { count: 0, gross: 0 };
       cur.count += 1;
       cur.gross += Number(r.total ?? 0);
-      byStore.set(r.store_id, cur);
+      byStore.set(r.store_id ?? "", cur);
     }
     const storeIds = [...byStore.keys()];
     const storesMap = new Map<string, string>();
