@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
+import { SocialLinks } from "@/components/marketing/SocialLinks";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 
 export const Route = createFileRoute("/contact")({
@@ -83,6 +84,11 @@ function ContactPage() {
               <MapPin className="h-5 w-5 text-primary" />
               <div className="mt-2 font-medium">SEZA Technologies</div>
               <p className="text-sm text-muted-foreground">Serving retailers worldwide</p>
+            </div>
+            <div className="rounded-xl border p-5">
+              <div className="font-medium">Follow SEZA POS</div>
+              <p className="mt-1 text-xs text-muted-foreground">Open our official social pages.</p>
+              <SocialLinks className="mt-4" />
             </div>
           </div>
 

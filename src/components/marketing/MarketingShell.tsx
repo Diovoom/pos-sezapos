@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import {
   ArrowUpRight,
   ChevronDown,
@@ -27,6 +27,7 @@ import { Logo } from "@/components/brand/Logo";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { dashboardUrl } from "@/lib/host";
 import { CookieConsent, OPEN_COOKIE_SETTINGS_EVENT } from "@/components/marketing/CookieConsent";
+import { SocialLinks } from "@/components/marketing/SocialLinks";
 import { cn } from "@/lib/utils";
 
 type NavItem = { to: string; label: string; description?: string; badge?: string };
@@ -55,6 +56,7 @@ const MOBILE_ITEMS: NavItem[] = [
 ];
 
 const SUPPORT_DISMISSED_KEY = "seza-customer-support-hidden";
+const useBrowserLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
   return (
@@ -66,7 +68,7 @@ function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
       <DropdownMenuContent align="start" className="w-72 rounded-2xl p-2 shadow-xl">
         {items.map((item) => (
           <DropdownMenuItem asChild key={`${item.label}-${item.to}`} className="rounded-xl p-0">
-            <Link to={item.to} className="group block cursor-pointer px-3 py-3">
+            <Link to={item.to} resetScroll className="group block cursor-pointer px-3 py-3">
               <span className="block text-sm font-semibold text-foreground group-hover:text-primary">{item.label}</span>
               {item.description && (
                 <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{item.description}</span>
@@ -93,21 +95,19 @@ function MorphingBrand({ expanded }: { expanded: boolean }) {
   return (
     <Link
       to="/"
+      resetScroll
       aria-label="SEZA POS home"
       className={cn(
-        "group relative flex h-12 items-center justify-center overflow-visible transition-[width] duration-500 ease-out",
-        expanded ? "w-[122px]" : "w-12",
+        "group relative flex h-12 items-center justify-center transition-[width] duration-500 ease-out",
+        expanded ? "w-[118px]" : "w-12",
       )}
     >
-      <span className="relative block h-12 w-full [perspective:500px]">
+      <span className="relative block h-12 w-full overflow-hidden">
         <span
-          className="absolute inset-0 grid place-items-center transition-all duration-500 ease-out [backface-visibility:hidden]"
-          style={{
-            opacity: expanded ? 0 : 1,
-            transform: expanded
-              ? "translateY(-18px) rotateX(88deg) scale(.82)"
-              : "translateY(0) rotateX(0deg) scale(1)",
-          }}
+          className={cn(
+            "absolute inset-0 grid place-items-center transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)]",
+            expanded ? "-translate-y-full opacity-0" : "translate-y-0 opacity-100",
+          )}
         >
           <span className="relative grid size-11 place-items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_28px_-14px_rgba(37,99,235,0.65)] dark:border-white/10 dark:bg-slate-900">
             <Logo className="size-8 rounded-xl" alt="SEZA POS" />
@@ -116,17 +116,11 @@ function MorphingBrand({ expanded }: { expanded: boolean }) {
         </span>
 
         <span
-          className="absolute inset-0 flex items-center justify-center whitespace-nowrap text-[15px] font-black tracking-[-0.02em] text-slate-950 transition-all duration-500 ease-out dark:text-white"
-          style={{
-            opacity: expanded ? 1 : 0,
-            transform: expanded
-              ? "translateY(0) rotateX(0deg) scale(1)"
-              : "translateY(18px) rotateX(-88deg) scale(.9)",
-          }}
+          className={cn(
+            "absolute inset-0 flex items-center justify-center whitespace-nowrap text-[16px] font-black tracking-[-0.035em] text-slate-950 transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)] dark:text-white",
+            expanded ? "translate-y-0 opacity-100" : "translate-y-full opacity-0",
+          )}
         >
-          <span className="mr-2 grid size-8 place-items-center rounded-xl border border-blue-100 bg-blue-50 shadow-sm dark:border-blue-400/15 dark:bg-blue-500/10">
-            <Logo className="size-6 rounded-lg" alt="" />
-          </span>
           SEZA POS
         </span>
       </span>
@@ -134,27 +128,25 @@ function MorphingBrand({ expanded }: { expanded: boolean }) {
   );
 }
 
-function HardwareCartButton({ mobile = false }: { mobile?: boolean }) {
+function HardwareCartButton() {
   return (
     <Link
       to="/hardware"
+      resetScroll
       aria-label="Open SEZA hardware shop — coming soon"
       title="Hardware shop coming soon"
-      className={cn(
-        "relative grid place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white",
-        mobile ? "size-10" : "size-9",
-      )}
+      className="group relative grid size-13 place-items-center rounded-full border-4 border-white bg-blue-600 text-white shadow-[0_15px_35px_-12px_rgba(37,99,235,0.85)] transition-all hover:-translate-y-0.5 hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 dark:border-slate-950"
     >
-      <ShoppingCart className={mobile ? "size-[18px]" : "size-4"} />
-      <span className="absolute -right-0.5 -top-0.5 grid size-3.5 place-items-center rounded-full border-2 border-white bg-blue-600 text-[7px] font-bold text-white dark:border-slate-950">
-        0
+      <ShoppingCart className="size-6" />
+      <span className="absolute -right-1 -top-2 rounded-full border-2 border-white bg-slate-950 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-white shadow-sm dark:border-slate-950">
+        Soon
       </span>
     </Link>
   );
 }
 
 export function MarketingShell({ children }: { children: ReactNode }) {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const locationHref = useRouterState({ select: (state) => state.location.href });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [supportVisible, setSupportVisible] = useState(false);
@@ -167,28 +159,35 @@ export function MarketingShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
+  useBrowserLayoutEffect(() => {
     setMobileOpen(false);
 
     const resetPosition = () => {
-      if (window.location.hash) {
-        document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "start" });
-        return;
+      const hash = window.location.hash.slice(1);
+      if (hash) {
+        const target = document.getElementById(hash);
+        if (target) {
+          target.scrollIntoView({ block: "start", behavior: "auto" });
+          return;
+        }
       }
+
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
     };
 
     resetPosition();
     const frame = window.requestAnimationFrame(() => {
       window.requestAnimationFrame(resetPosition);
     });
-    const timer = window.setTimeout(resetPosition, 120);
+    const timers = [40, 160, 360].map((delay) => window.setTimeout(resetPosition, delay));
 
     return () => {
       window.cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
+      timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [pathname]);
+  }, [locationHref]);
 
   useEffect(() => {
     try {
@@ -215,22 +214,26 @@ export function MarketingShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-[70] border-b border-slate-200/80 bg-white/88 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/88">
-        <div className="mx-auto grid h-[76px] max-w-7xl grid-cols-[96px_minmax(0,1fr)_96px] items-center gap-1 px-3 sm:px-6 lg:grid-cols-[1fr_auto_1fr] lg:gap-3 lg:px-8">
+        <div className="mx-auto grid h-[76px] max-w-7xl grid-cols-[76px_minmax(0,1fr)_76px] items-center px-2 sm:px-6 lg:grid-cols-[1fr_auto_1fr] lg:gap-3 lg:px-8">
           <div className="flex min-w-0 items-center justify-start">
             <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary navigation">
-              <Link to="/hardware" className="inline-flex h-10 items-center gap-2 rounded-full bg-blue-50 px-3 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/15">
+              <Link resetScroll to="/hardware" className="inline-flex h-10 items-center gap-2 rounded-full bg-blue-50 px-3 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/15">
                 Shop now
                 <span className="hidden rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white xl:inline-flex">Soon</span>
               </Link>
               <NavDropdown label="Product" items={PRODUCT_ITEMS} />
-              <Link to="/industries" className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white">
+              <Link resetScroll to="/industries" className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white">
                 Industries
               </Link>
-              <Link to="/pricing" className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white">
+              <Link resetScroll to="/pricing" className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white">
                 Pricing
               </Link>
               <NavDropdown label="Resources" items={RESOURCE_ITEMS} />
             </nav>
+
+            <Button asChild size="sm" variant="outline" className="h-9 rounded-full px-3 text-xs font-bold lg:hidden">
+              <a href={dashboardUrl("/dashboard")}>Login</a>
+            </Button>
           </div>
 
           <div className="flex min-w-0 items-center justify-center">
@@ -238,43 +241,25 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <div className="hidden items-center gap-2 lg:flex">
-              <HardwareCartButton />
-              <Button asChild size="sm" variant="ghost" className="rounded-full px-4">
-                <a href={dashboardUrl("/auth")} target="_blank" rel="noopener noreferrer">Sign in</a>
-              </Button>
-              <Button asChild size="sm" className="rounded-full px-5 shadow-[0_10px_25px_-12px_rgba(37,99,235,0.8)]">
-                <a href={dashboardUrl("/signup")} target="_blank" rel="noopener noreferrer">Start free trial</a>
-              </Button>
-            </div>
+            <Button asChild size="sm" className="hidden rounded-full px-5 shadow-[0_10px_25px_-12px_rgba(37,99,235,0.8)] lg:inline-flex">
+              <a href={dashboardUrl("/dashboard")}>Login</a>
+            </Button>
 
-            <div className="flex items-center gap-1.5 lg:hidden">
-              <HardwareCartButton mobile />
-              <button
-                type="button"
-                className="group grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white"
-                aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-                aria-expanded={mobileOpen}
-                onClick={() => setMobileOpen((value) => !value)}
-              >
-                <MenuGlyph open={mobileOpen} />
-              </button>
-            </div>
+            <button
+              type="button"
+              className="group grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white lg:hidden"
+              aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={mobileOpen}
+              onClick={() => setMobileOpen((value) => !value)}
+            >
+              <MenuGlyph open={mobileOpen} />
+            </button>
           </div>
         </div>
       </header>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="right" className="z-[75] h-full w-[min(92vw,390px)] border-0 bg-transparent p-0 shadow-none [&>button:first-of-type]:hidden">
-          <button
-            type="button"
-            onClick={() => setMobileOpen(false)}
-            aria-label="Close navigation menu"
-            className="absolute right-3 top-4 z-[80] grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white sm:right-6"
-          >
-            <MenuGlyph open />
-          </button>
-          <div className="absolute inset-x-0 bottom-0 top-[76px] overflow-y-auto border-l bg-background shadow-lg">
+        <SheetContent side="right" className="bottom-0 top-[76px] z-[60] h-[calc(100dvh-76px)] w-[min(92vw,390px)] overflow-y-auto border-l bg-background p-0 shadow-lg [&>button:first-of-type]:hidden">
           <SheetHeader className="border-b px-6 py-5 text-left">
             <SheetTitle>
               <span className="block text-lg font-black tracking-tight">Explore SEZA POS</span>
@@ -287,6 +272,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               <Link
                 key={item.label}
                 to={item.to}
+                resetScroll
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   "group flex items-center justify-between rounded-2xl border px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.035] hover:shadow-sm",
@@ -309,11 +295,16 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               </Link>
             ))}
           </nav>
+
+          <div className="border-t p-4">
+            <Button asChild className="h-11 w-full rounded-full font-bold">
+              <a href={dashboardUrl("/dashboard")}>Login to owner dashboard</a>
+            </Button>
           </div>
         </SheetContent>
       </Sheet>
 
-      <main>{children}</main>
+      <main id="seza-page-top" tabIndex={-1}>{children}</main>
 
       <footer className="relative overflow-hidden border-t border-slate-200 bg-slate-950 text-white">
         <div className="pointer-events-none absolute -right-48 -top-48 size-[420px] rounded-full bg-blue-600/15 blur-3xl" />
@@ -337,6 +328,10 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300">
                 <LockKeyhole className="size-3.5 text-blue-300" />
                 Subscription payments securely processed by Stripe
+              </div>
+              <div className="mt-5">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Follow SEZA POS</div>
+                <SocialLinks tone="dark" />
               </div>
             </div>
 
@@ -384,6 +379,10 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         </div>
       </footer>
 
+      <div className="fixed bottom-24 right-3 z-[65] sm:bottom-6 sm:right-5" aria-label="SEZA hardware cart">
+        <HardwareCartButton />
+      </div>
+
       {supportVisible && (
         <div className="fixed bottom-24 left-3 z-[65] sm:bottom-6 sm:left-5" aria-label="SEZA customer service">
           {supportOpen && (
@@ -408,7 +407,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                     <span className="block text-sm font-black">{LEGAL_CONFIG.phoneDisplay}</span>
                   </span>
                 </a>
-                <Link to="/support" className="block text-center text-xs font-semibold text-muted-foreground transition-colors hover:text-primary">Open Support Center</Link>
+                <Link to="/support" resetScroll className="block text-center text-xs font-semibold text-muted-foreground transition-colors hover:text-primary">Open Support Center</Link>
               </div>
             </div>
           )}
@@ -444,7 +443,7 @@ function FooterColumn({ title, links }: { title: string; links: Array<{ to: stri
       <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
         {links.map((link) => (
           <li key={`${title}-${link.to}-${link.label}`}>
-            <Link to={link.to} className="transition-colors hover:text-white">{link.label}</Link>
+            <Link to={link.to} resetScroll className="transition-colors hover:text-white">{link.label}</Link>
           </li>
         ))}
       </ul>

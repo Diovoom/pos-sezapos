@@ -90,6 +90,7 @@ function LegalCenterPage() {
                   <Link
                     key={d.slug}
                     to={`/legal/${d.slug}`}
+                    resetScroll
                     className="group relative rounded-xl border bg-card p-5 transition-all hover:border-primary/50 hover:shadow-md"
                   >
                     <h3 className="font-semibold text-foreground leading-tight">{d.title}</h3>

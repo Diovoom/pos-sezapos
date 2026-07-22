@@ -22,6 +22,7 @@ import { detectAndPersistNative, isPathAllowedInNative } from "@/lib/native";
 import { NativeLoadingOverlay } from "@/components/NativeLoadingOverlay";
 import { currentApp, dashboardUrl, marketingUrl } from "@/lib/host";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
+import { SOCIAL_LINKS } from "@/lib/social";
 
 function NotFoundComponent() {
   return (
@@ -118,23 +119,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       ],
       links: [
         { rel: "stylesheet", href: appCss },
-        { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
+        { rel: "icon", type: "image/x-icon", href: "/seza-logo-v2.ico" },
+        { rel: "shortcut icon", href: "/seza-logo-v2.ico" },
         {
           rel: "icon",
           type: "image/png",
-          sizes: "32x32",
-          href: "/favicon.png",
+          sizes: "48x48",
+          href: "/seza-logo-v2-48.png",
         },
         {
           rel: "icon",
           type: "image/png",
           sizes: "192x192",
-          href: "/icon-192.png",
+          href: "/seza-logo-v2-192.png",
         },
         {
           rel: "apple-touch-icon",
           sizes: "180x180",
-          href: "/apple-touch-icon.png",
+          href: "/seza-logo-v2-180.png",
         },
         { rel: "manifest", href: "/manifest.json" },
         { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -156,7 +158,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             "@type": "Organization",
             name: "SEZA POS",
             legalName: "SEZA Technologies",
-            logo: "https://sezapos.com/icon-512.png",
+            logo: "https://sezapos.com/seza-logo-v2-512.png",
             image: "https://sezapos.com/seza-og.jpg",
             url: "https://sezapos.com",
             telephone: LEGAL_CONFIG.phone,
@@ -168,7 +170,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             },
             description:
               "Modern cloud point-of-sale platform for convenience stores, mini marts, liquor, and retail.",
-            sameAs: ["https://sezapos.com"],
+            sameAs: SOCIAL_LINKS.map((link) => link.href),
           }),
         },
         {
