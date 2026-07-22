@@ -81,6 +81,84 @@ function requireReason(value: unknown, label = "Reason", min = 4) {
   return reason;
 }
 
+function isMissingRelationError(error: any, relation?: string) {
+  const message = String(error?.message ?? error ?? "").toLowerCase();
+  return error?.code === "42P01"
+    || error?.code === "PGRST205"
+    || message.includes("schema cache")
+    || message.includes("does not exist")
+    || Boolean(relation && message.includes(relation.toLowerCase()) && message.includes("not find"));
+}
+
+async function withTimeout<T>(promise: PromiseLike<T>, fallback: T, timeoutMs = 7000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.resolve(promise).catch(() => fallback),
+      new Promise<T>((resolve) => { timer = setTimeout(() => resolve(fallback), timeoutMs); }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function readOptionalStaffProfile(supabaseAdmin: any, userId: string) {
+  const result = await (supabaseAdmin.from as any)("admin_staff_profiles")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (result.error && !isMissingRelationError(result.error, "admin_staff_profiles")) {
+    throw new Error(result.error.message);
+  }
+  return result.data ?? null;
+}
+
+async function readOptionalStaffProfiles(supabaseAdmin: any, userIds: string[]) {
+  if (!userIds.length) return [];
+  const result = await (supabaseAdmin.from as any)("admin_staff_profiles")
+    .select("user_id,title,department,employment_status,phone,started_on,manager_user_id,notification_preferences,notes,updated_at")
+    .in("user_id", userIds);
+  if (result.error && !isMissingRelationError(result.error, "admin_staff_profiles")) {
+    throw new Error(result.error.message);
+  }
+  return result.data ?? [];
+}
+
+async function upsertOptionalStaffProfile(supabaseAdmin: any, row: Record<string, unknown>) {
+  const result = await (supabaseAdmin.from as any)("admin_staff_profiles")
+    .upsert(row, { onConflict: "user_id" });
+  if (result.error && !isMissingRelationError(result.error, "admin_staff_profiles")) {
+    throw new Error(result.error.message);
+  }
+  return !result.error;
+}
+
+async function ensureAdminProfile(supabaseAdmin: any, userId: string) {
+  const existing = await supabaseAdmin
+    .from("profiles")
+    .select("id,email,full_name,phone,status,avatar_url,created_at")
+    .eq("id", userId)
+    .maybeSingle();
+  if (existing.error) throw new Error(existing.error.message);
+  if (existing.data) return existing.data;
+
+  const authResult = await supabaseAdmin.auth.admin.getUserById(userId);
+  const user = authResult?.data?.user;
+  if (!user) throw new Error("Staff member not found");
+  const fullName = cleanText(user.user_metadata?.full_name || user.user_metadata?.name || user.email, 160);
+  const row = {
+    id: user.id,
+    email: user.email ?? null,
+    full_name: fullName || user.email || "SEZA Staff",
+    phone: cleanText(user.user_metadata?.phone, 80) || null,
+    store_id: null,
+    status: "active",
+  };
+  const saved = await supabaseAdmin.from("profiles").upsert(row, { onConflict: "id" }).select("id,email,full_name,phone,status,avatar_url,created_at").maybeSingle();
+  if (saved.error) throw new Error(saved.error.message);
+  return saved.data ?? row;
+}
+
 async function companyStaffRows(supabaseAdmin: any) {
   const { data: roleRows, error } = await supabaseAdmin
     .from("user_roles")
@@ -88,28 +166,36 @@ async function companyStaffRows(supabaseAdmin: any) {
     .in("role", COMPANY_ROLES as unknown as any);
   if (error) throw new Error(error.message);
 
-  const userIds = Array.from(new Set((roleRows ?? []).map((row: any) => row.user_id).filter(Boolean)));
+  const userIds: string[] = Array.from(new Set<string>((roleRows ?? []).map((row: any) => String(row.user_id)).filter(Boolean)));
   if (!userIds.length) return [];
 
-  const [{ data: profiles }, { data: staff }, { data: activeCases }, { data: audits }] = await Promise.all([
-    supabaseAdmin.from("profiles").select("id, full_name, email, avatar_url, status, created_at").in("id", userIds),
-    (supabaseAdmin.from as any)("admin_staff_profiles")
-      .select("user_id, title, department, employment_status, phone, started_on, manager_user_id, notification_preferences, notes, updated_at")
-      .in("user_id", userIds),
-    supabaseAdmin
-      .from("support_tickets")
-      .select("assigned_admin_id")
-      .in("assigned_admin_id", userIds)
-      .not("status", "in", "(resolved,closed)"),
-    supabaseAdmin
-      .from("audit_log")
-      .select("actor_id, created_at, action")
-      .in("actor_id", userIds)
-      .order("created_at", { ascending: false })
-      .limit(1000),
+  const [profilesResult, staff, activeCasesResult, auditsResult] = await Promise.all([
+    withTimeout(
+      supabaseAdmin.from("profiles").select("id, full_name, email, phone, avatar_url, status, created_at").in("id", userIds),
+      { data: [], error: null } as any,
+    ),
+    readOptionalStaffProfiles(supabaseAdmin, userIds),
+    withTimeout(
+      supabaseAdmin.from("support_tickets").select("assigned_admin_id").in("assigned_admin_id", userIds).not("status", "in", "(resolved,closed)"),
+      { data: [], error: null } as any,
+    ),
+    withTimeout(
+      supabaseAdmin.from("audit_log").select("actor_id, created_at, action").in("actor_id", userIds).order("created_at", { ascending: false }).limit(500),
+      { data: [], error: null } as any,
+    ),
   ]);
 
-  const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+  const profiles = [...(profilesResult.data ?? [])];
+  const existingIds = new Set(profiles.map((profile: any) => profile.id));
+  const missingIds = userIds.filter((id) => !existingIds.has(id));
+  if (missingIds.length) {
+    const recovered = await Promise.all(missingIds.map(async (id) => {
+      try { return await ensureAdminProfile(supabaseAdmin, id); } catch { return null; }
+    }));
+    profiles.push(...recovered.filter(Boolean));
+  }
+
+  const profileMap = new Map(profiles.map((p: any) => [p.id, p]));
   const staffMap = new Map((staff ?? []).map((p: any) => [p.user_id, p]));
   const rolesMap = new Map<string, string[]>();
   for (const row of roleRows ?? []) {
@@ -118,41 +204,37 @@ async function companyStaffRows(supabaseAdmin: any) {
     rolesMap.set(row.user_id, list);
   }
   const workload = new Map<string, number>();
-  for (const row of activeCases ?? []) {
+  for (const row of activeCasesResult.data ?? []) {
     if (row.assigned_admin_id) workload.set(row.assigned_admin_id, (workload.get(row.assigned_admin_id) ?? 0) + 1);
   }
   const lastActivity = new Map<string, { created_at: string; action: string }>();
-  for (const row of audits ?? []) {
-    if (row.actor_id && !lastActivity.has(row.actor_id)) {
-      lastActivity.set(row.actor_id, { created_at: row.created_at, action: row.action });
-    }
+  for (const row of auditsResult.data ?? []) {
+    if (row.actor_id && !lastActivity.has(row.actor_id)) lastActivity.set(row.actor_id, { created_at: row.created_at, action: row.action });
   }
 
-  return userIds
-    .map((id) => {
-      const profile: any = profileMap.get(id) ?? {};
-      const meta: any = staffMap.get(id) ?? {};
-      const email = String(profile.email ?? "").toLowerCase();
-      const founder = email === FOUNDER_EMAIL;
-      return {
-        id,
-        full_name: profile.full_name || profile.email || (founder ? "SEZA Founder" : "SEZA Staff"),
-        email: profile.email ?? null,
-        avatar_url: profile.avatar_url ?? null,
-        account_status: profile.status ?? "active",
-        title: founder ? "Founder & CEO" : meta.title ?? null,
-        department: founder ? "Executive" : meta.department ?? "Operations",
-        employment_status: founder ? "active" : meta.employment_status ?? "active",
-        phone: meta.phone ?? null,
-        started_on: meta.started_on ?? null,
-        roles: rolesMap.get(id) ?? [],
-        active_cases: workload.get(id) ?? 0,
-        last_activity_at: lastActivity.get(id)?.created_at ?? null,
-        last_action: lastActivity.get(id)?.action ?? null,
-        is_founder: founder,
-      };
-    })
-    .sort((a, b) => Number(b.is_founder) - Number(a.is_founder) || a.full_name.localeCompare(b.full_name));
+  return userIds.map((id) => {
+    const profile: any = profileMap.get(id) ?? {};
+    const meta: any = staffMap.get(id) ?? {};
+    const email = String(profile.email ?? "").toLowerCase();
+    const founder = email === FOUNDER_EMAIL;
+    return {
+      id,
+      full_name: profile.full_name || profile.email || (founder ? "Dave Marcelin" : "SEZA Staff"),
+      email: profile.email ?? null,
+      avatar_url: profile.avatar_url ?? null,
+      account_status: profile.status ?? "active",
+      title: founder ? "Founder & CEO" : meta.title ?? null,
+      department: founder ? "Executive" : meta.department ?? "Operations",
+      employment_status: founder ? "active" : meta.employment_status ?? "active",
+      phone: meta.phone ?? profile.phone ?? null,
+      started_on: meta.started_on ?? null,
+      roles: rolesMap.get(id) ?? [],
+      active_cases: workload.get(id) ?? 0,
+      last_activity_at: lastActivity.get(id)?.created_at ?? null,
+      last_action: lastActivity.get(id)?.action ?? null,
+      is_founder: founder,
+    };
+  }).sort((a, b) => Number(b.is_founder) - Number(a.is_founder) || a.full_name.localeCompare(b.full_name));
 }
 
 
@@ -227,101 +309,53 @@ export const adminOperationsOverview = createServerFn({ method: "GET" })
     monthStart.setUTCHours(0, 0, 0, 0);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toISOString();
 
-    const [
-      businesses,
-      active,
-      trials,
-      pastDue,
-      registers,
-      offlineRegisters,
-      openCases,
-      urgentCases,
-      activeChats,
-      payments,
-      conversions,
-      recentCases,
-      recentPaymentRows,
-    ] = await Promise.all([
-      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }),
-      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }).eq("plan_status", "active"),
-      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }).eq("plan_status", "trialing"),
-      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }).eq("plan_status", "past_due"),
-      supabaseAdmin.from("device_registrations").select("*", { count: "exact", head: true }).eq("status", "active"),
-      supabaseAdmin
-        .from("device_registrations")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "active")
-        .or(`last_seen_at.is.null,last_seen_at.lt.${offlineCutoff}`),
-      supabaseAdmin
-        .from("support_tickets")
-        .select("*", { count: "exact", head: true })
-        .not("status", "in", "(resolved,closed)"),
-      supabaseAdmin
-        .from("support_tickets")
-        .select("*", { count: "exact", head: true })
-        .eq("priority", "urgent")
-        .not("status", "in", "(resolved,closed)"),
-      (supabaseAdmin.from as any)("support_tickets")
-        .select("*", { count: "exact", head: true })
-        .neq("chat_status", "ended"),
-      (supabaseAdmin.from as any)("merchant_billing_payments")
-        .select("amount_paid_cents,status", { count: "exact" })
-        .in("status", ["paid", "succeeded"])
-        .gte("occurred_at", monthStart.toISOString()),
-      loadTrialConversionRows(supabaseAdmin),
-      supabaseAdmin
-        .from("support_tickets")
-        .select("id,ticket_number,subject,status,priority,store_id,assigned_admin_id,updated_at,chat_status,last_message_at")
-        .order("updated_at", { ascending: false })
-        .limit(8),
-      (supabaseAdmin.from as any)("merchant_billing_payments")
-        .select("id,store_id,status,amount_paid_cents,currency,occurred_at,environment")
-        .order("occurred_at", { ascending: false })
-        .limit(8),
+    const safe = <T>(promise: PromiseLike<T>, fallback: T) => withTimeout(promise, fallback, 8000);
+    const emptyCount = { count: 0, data: [], error: null } as any;
+    const emptyRows = { data: [], error: null } as any;
+
+    const [businesses, active, trials, pastDue, registers, offlineRegisters, openCases, urgentCases, activeChats, paidThisMonth, conversions, recentCases, recentPayments] = await Promise.all([
+      safe(supabaseAdmin.from("stores").select("id", { count: "exact", head: true }), emptyCount),
+      safe(supabaseAdmin.from("stores").select("id", { count: "exact", head: true }).eq("plan_status", "active"), emptyCount),
+      safe(supabaseAdmin.from("stores").select("id", { count: "exact", head: true }).eq("plan_status", "trialing"), emptyCount),
+      safe(supabaseAdmin.from("stores").select("id", { count: "exact", head: true }).eq("plan_status", "past_due"), emptyCount),
+      safe(supabaseAdmin.from("device_registrations").select("id", { count: "exact", head: true }).eq("status", "active"), emptyCount),
+      safe(supabaseAdmin.from("device_registrations").select("id", { count: "exact", head: true }).eq("status", "active").or(`last_seen_at.is.null,last_seen_at.lt.${offlineCutoff}`), emptyCount),
+      safe(supabaseAdmin.from("support_tickets").select("id", { count: "exact", head: true }).not("status", "in", "(resolved,closed)"), emptyCount),
+      safe(supabaseAdmin.from("support_tickets").select("id", { count: "exact", head: true }).eq("priority", "urgent").not("status", "in", "(resolved,closed)"), emptyCount),
+      safe((supabaseAdmin.from as any)("support_tickets").select("id", { count: "exact", head: true }).neq("chat_status", "ended"), emptyCount),
+      safe((supabaseAdmin.from as any)("merchant_billing_payments").select("amount_paid_cents,status", { count: "exact" }).in("status", ["paid", "succeeded"]).gte("occurred_at", monthStart.toISOString()).limit(1000), emptyRows),
+      safe((supabaseAdmin.from as any)("merchant_billing_payments").select("store_id").in("status", ["paid", "succeeded"]).eq("billing_reason", "subscription_create").gte("occurred_at", thirtyDaysAgo).limit(1000), emptyRows),
+      safe(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,status,priority,store_id,assigned_admin_id,updated_at,chat_status,last_message_at").order("updated_at", { ascending: false }).limit(8), emptyRows),
+      safe((supabaseAdmin.from as any)("merchant_billing_payments").select("id,store_id,status,amount_paid_cents,currency,occurred_at,environment").order("occurred_at", { ascending: false }).limit(8), emptyRows),
     ]);
 
-    const paidRows = payments.data ?? [];
+    const paidRows = paidThisMonth.data ?? [];
     const paymentVolumeCents = paidRows.reduce((sum: number, row: any) => sum + Number(row.amount_paid_cents ?? 0), 0);
-    const conversionRows30d = (conversions ?? []).filter(
-      (row: any) => new Date(row.converted_at).getTime() >= new Date(thirtyDaysAgo).getTime(),
-    );
-    const storeIds = Array.from(
-      new Set([
-        ...(recentCases.data ?? []).map((r: any) => r.store_id),
-        ...(recentPaymentRows.data ?? []).map((r: any) => r.store_id),
-      ].filter(Boolean)),
-    );
+    const conversionStoreIds = new Set((conversions.data ?? []).map((row: any) => row.store_id).filter(Boolean));
+    const storeIds = Array.from(new Set([
+      ...(recentCases.data ?? []).map((row: any) => row.store_id),
+      ...(recentPayments.data ?? []).map((row: any) => row.store_id),
+    ].filter(Boolean)));
     const storeMap = new Map<string, string>();
     if (storeIds.length) {
-      const { data: stores } = await supabaseAdmin.from("stores").select("id,name").in("id", storeIds);
-      for (const store of stores ?? []) storeMap.set(store.id, store.name);
+      const storesResult = await safe(supabaseAdmin.from("stores").select("id,name").in("id", storeIds), emptyRows);
+      for (const store of storesResult.data ?? []) storeMap.set(store.id, store.name);
     }
 
     return {
       totals: {
-        businesses: businesses.count ?? 0,
-        active: active.count ?? 0,
-        trialing: trials.count ?? 0,
-        past_due: pastDue.count ?? 0,
-        registers: registers.count ?? 0,
-        offline_registers: offlineRegisters.count ?? 0,
-        open_cases: openCases.count ?? 0,
-        urgent_cases: urgentCases.count ?? 0,
-        active_chats: activeChats.count ?? 0,
-        payments_this_month: payments.count ?? 0,
-        payment_volume_cents: paymentVolumeCents,
-        conversions_30d: conversionRows30d.length,
+        businesses: businesses.count ?? 0, active: active.count ?? 0, trialing: trials.count ?? 0, past_due: pastDue.count ?? 0,
+        registers: registers.count ?? 0, offline_registers: offlineRegisters.count ?? 0, open_cases: openCases.count ?? 0,
+        urgent_cases: urgentCases.count ?? 0, active_chats: activeChats.count ?? 0, payments_this_month: paidThisMonth.count ?? paidRows.length,
+        payment_volume_cents: paymentVolumeCents, conversions_30d: conversionStoreIds.size,
       },
-      recent_cases: (recentCases.data ?? []).map((row: any) => ({
-        ...row,
-        store_name: storeMap.get(row.store_id) ?? null,
-      })),
-      recent_payments: (recentPaymentRows.data ?? []).map((row: any) => ({
-        ...row,
-        store_name: storeMap.get(row.store_id) ?? null,
-      })),
+      recent_cases: (recentCases.data ?? []).map((row: any) => ({ ...row, store_name: storeMap.get(row.store_id) ?? null })),
+      recent_payments: (recentPayments.data ?? []).map((row: any) => ({ ...row, store_name: storeMap.get(row.store_id) ?? null })),
+      partial: [businesses, active, trials, pastDue, registers, openCases].some((result: any) => result.error),
+      generated_at: new Date().toISOString(),
     };
   });
+
 
 export const adminListCompanyEmployees = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -383,12 +417,12 @@ export const adminInviteCompanyStaff = createServerFn({ method: "POST" })
     });
     if (roleError) throw new Error(roleError.message);
 
-    await (supabaseAdmin.from as any)("admin_staff_profiles").upsert({
+    await upsertOptionalStaffProfile(supabaseAdmin, {
       user_id: userId,
       title: cleanText(data.title, 160) || null,
       department: cleanText(data.department, 120) || "Operations",
       employment_status: "invited",
-    }, { onConflict: "user_id" });
+    });
 
     await audit(supabaseAdmin, context, identity, {
       action: "admin.staff.invite",
@@ -416,12 +450,15 @@ export const adminUpdateCompanyStaff = createServerFn({ method: "POST" })
     const reason = requireReason(data.reason);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: target } = await supabaseAdmin.from("profiles").select("id,email").eq("id", data.userId).maybeSingle();
-    if (!target) throw new Error("Staff member not found");
+    const target = await ensureAdminProfile(supabaseAdmin, data.userId);
     const isFounder = String(target.email ?? "").toLowerCase() === FOUNDER_EMAIL;
 
-    if (data.fullName !== undefined) {
-      await supabaseAdmin.from("profiles").update({ full_name: cleanText(data.fullName, 160) }).eq("id", data.userId);
+    const profilePatch: Record<string, unknown> = {};
+    if (data.fullName !== undefined) profilePatch.full_name = cleanText(data.fullName, 160) || target.full_name || target.email;
+    if (data.phone !== undefined) profilePatch.phone = cleanText(data.phone, 80) || null;
+    if (Object.keys(profilePatch).length) {
+      const profileUpdate = await supabaseAdmin.from("profiles").update(profilePatch).eq("id", data.userId);
+      if (profileUpdate.error) throw new Error(profileUpdate.error.message);
     }
 
     const staffPatch: Record<string, unknown> = {};
@@ -433,10 +470,7 @@ export const adminUpdateCompanyStaff = createServerFn({ method: "POST" })
     }
     if (data.phone !== undefined) staffPatch.phone = cleanText(data.phone, 80) || null;
     if (Object.keys(staffPatch).length) {
-      await (supabaseAdmin.from as any)("admin_staff_profiles").upsert({
-        user_id: data.userId,
-        ...staffPatch,
-      }, { onConflict: "user_id" });
+      await upsertOptionalStaffProfile(supabaseAdmin, { user_id: data.userId, ...staffPatch });
       if (data.employmentStatus === "active" && !isFounder) {
         await supabaseAdmin.auth.admin.updateUserById(data.userId, { ban_duration: "none" }).catch(() => undefined);
       }
@@ -472,17 +506,13 @@ export const adminDeactivateCompanyStaff = createServerFn({ method: "POST" })
     const identity = await ensureFounder(context);
     const reason = requireReason(data.reason);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: target } = await supabaseAdmin.from("profiles").select("id,email").eq("id", data.userId).maybeSingle();
-    if (!target) throw new Error("Staff member not found");
+    const target = await ensureAdminProfile(supabaseAdmin, data.userId);
     if (String(target.email ?? "").toLowerCase() === FOUNDER_EMAIL || data.userId === context.userId) {
       throw new Error("The founder account cannot be deactivated");
     }
 
     await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId).in("role", COMPANY_ROLES as unknown as any);
-    await (supabaseAdmin.from as any)("admin_staff_profiles").upsert({
-      user_id: data.userId,
-      employment_status: "inactive",
-    }, { onConflict: "user_id" });
+    await upsertOptionalStaffProfile(supabaseAdmin, { user_id: data.userId, employment_status: "inactive" });
     await supabaseAdmin.auth.admin.updateUserById(data.userId, { ban_duration: "876000h" }).catch(() => undefined);
 
     await audit(supabaseAdmin, context, identity, {
@@ -499,19 +529,25 @@ export const adminGetPlatformSettings = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const identity = await ensurePlatformStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [{ data: settings }, { data: profile }, { data: staff }] = await Promise.all([
-      (supabaseAdmin.from as any)("platform_settings").select("*").eq("id", "global").maybeSingle(),
-      supabaseAdmin.from("profiles").select("id,email,full_name,avatar_url,status,created_at").eq("id", context.userId).maybeSingle(),
-      (supabaseAdmin.from as any)("admin_staff_profiles").select("*").eq("user_id", context.userId).maybeSingle(),
-    ]);
+    const profile = await ensureAdminProfile(supabaseAdmin, context.userId);
+    const staff = await readOptionalStaffProfile(supabaseAdmin, context.userId);
+    const settingsResult = await (supabaseAdmin.from as any)("platform_settings").select("*").eq("id", "global").maybeSingle();
+    if (settingsResult.error && !isMissingRelationError(settingsResult.error, "platform_settings")) throw new Error(settingsResult.error.message);
+    const isFounder = identity.email === FOUNDER_EMAIL && identity.roles.includes("super_admin");
     return {
-      settings,
+      settings: settingsResult.data ?? {
+        id: "global", company_name: "SEZA POS", support_email: "support@sezapos.com", billing_email: "billing@sezapos.com",
+        incident_email: FOUNDER_EMAIL, timezone: "America/New_York", default_trial_days: 14, support_sla_minutes: 60,
+        live_chat_enabled: true, maintenance_mode: false, maintenance_message: null, merchant_banner: null,
+      },
       profile,
-      staff,
+      staff: { ...(staff ?? {}), phone: staff?.phone ?? profile?.phone ?? null, title: isFounder ? "Founder & CEO" : staff?.title ?? null },
       roles: identity.roles,
-      is_founder: identity.email === FOUNDER_EMAIL && identity.roles.includes("super_admin"),
+      is_founder: isFounder,
+      schema_ready: Boolean(staff) && !settingsResult.error,
     };
   });
+
 
 export const adminUpdatePlatformSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -1009,43 +1045,118 @@ export const adminMarkCommunicationRead = createServerFn({ method: "POST" })
 export const adminUpdateMyProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: {
-    fullName: string;
-    phone?: string;
-    emailNotifications: boolean;
-    urgentCaseNotifications: boolean;
-    liveChatNotifications: boolean;
+    fullName: string; phone?: string; emailNotifications: boolean; urgentCaseNotifications: boolean; liveChatNotifications: boolean;
   }) => data)
   .handler(async ({ data, context }) => {
     const identity = await ensurePlatformStaff(context);
     const fullName = cleanText(data.fullName, 160);
     if (!fullName) throw new Error("Full name is required");
+    const phone = cleanText(data.phone, 80) || null;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .update({ full_name: fullName })
-      .eq("id", context.userId);
-    if (profileError) throw new Error(profileError.message);
+    await ensureAdminProfile(supabaseAdmin, context.userId);
+    const profileUpdate = await supabaseAdmin.from("profiles").update({ full_name: fullName, phone }).eq("id", context.userId);
+    if (profileUpdate.error) throw new Error(profileUpdate.error.message);
 
-    const { error: staffError } = await (supabaseAdmin.from as any)("admin_staff_profiles").upsert({
+    await upsertOptionalStaffProfile(supabaseAdmin, {
       user_id: context.userId,
-      phone: cleanText(data.phone, 80) || null,
+      title: identity.email === FOUNDER_EMAIL ? "Founder & CEO" : undefined,
+      department: identity.email === FOUNDER_EMAIL ? "Executive" : undefined,
+      employment_status: "active",
+      phone,
       notification_preferences: {
-        email: Boolean(data.emailNotifications),
-        urgent_cases: Boolean(data.urgentCaseNotifications),
-        live_chat: Boolean(data.liveChatNotifications),
+        email: Boolean(data.emailNotifications), urgent_cases: Boolean(data.urgentCaseNotifications), live_chat: Boolean(data.liveChatNotifications),
       },
-    }, { onConflict: "user_id" });
-    if (staffError) throw new Error(staffError.message);
+    });
 
     await audit(supabaseAdmin, context, identity, {
-      action: "admin.profile.update",
-      entity: "admin_staff",
-      entityId: context.userId,
-      details: { full_name: fullName, notification_preferences: {
-        email: Boolean(data.emailNotifications),
-        urgent_cases: Boolean(data.urgentCaseNotifications),
-        live_chat: Boolean(data.liveChatNotifications),
+      action: "admin.profile.update", entity: "admin_staff", entityId: context.userId,
+      details: { full_name: fullName, phone_updated: Boolean(phone), notification_preferences: {
+        email: Boolean(data.emailNotifications), urgent_cases: Boolean(data.urgentCaseNotifications), live_chat: Boolean(data.liveChatNotifications),
       }},
     });
-    return { ok: true };
+    return { ok: true, full_name: fullName, phone };
   });
+
+export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { storeId: string }) => data)
+  .handler(async ({ data, context }) => {
+    // Privacy-first merchant account workspace. It never queries or returns
+    // checkout sales, refunds, cash movements, products, employee records, or shifts.
+    await ensurePlatformStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const storeId = data.storeId;
+    const offlineCutoff = new Date(Date.now() - 5 * 60_000).toISOString();
+    const emptyRows = { data: [], error: null } as any;
+
+    const [storeResult, rolesResult, devicesResult, subscriptionsResult, ticketsResult, activityResult, supportSessionsResult] = await Promise.all([
+      withTimeout(supabaseAdmin.from("stores").select("id,name,email,phone,address,city,state,zip,country,time_zone,store_code,plan_tier,plan_status,trial_ends_at,plan_period_end,suspended_at,suspended_reason,created_at,updated_at").eq("id", storeId).maybeSingle(), { data: null, error: null } as any, 7000),
+      withTimeout(supabaseAdmin.from("user_roles").select("user_id,role").eq("store_id", storeId).in("role", ["owner", "admin"]), emptyRows, 7000),
+      withTimeout(supabaseAdmin.from("device_registrations").select("id,label,status,platform,app_version,paired_at,last_seen_at,last_sync_at,revoked_at,revoke_reason").eq("store_id", storeId).order("paired_at", { ascending: false }), emptyRows, 7000),
+      withTimeout(supabaseAdmin.from("subscriptions").select("id,status,environment,stripe_customer_id,stripe_subscription_id,price_id,product_id,current_period_start,current_period_end,cancel_at_period_end,canceled_at,created_at,updated_at").eq("store_id", storeId).order("created_at", { ascending: false }), emptyRows, 7000),
+      withTimeout(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,status,priority,created_at,updated_at,assigned_admin_id,chat_status").eq("store_id", storeId).order("updated_at", { ascending: false }).limit(30), emptyRows, 7000),
+      withTimeout(supabaseAdmin.from("audit_log").select("id,action,actor_email,entity,entity_id,created_at,details").eq("store_id", storeId).order("created_at", { ascending: false }).limit(100), emptyRows, 7000),
+      withTimeout(supabaseAdmin.from("admin_support_sessions").select("id,admin_id,admin_email,reason,status,requested_at,decided_at,started_at,ended_at,expires_at,client_capability").eq("store_id", storeId).order("requested_at", { ascending: false }).limit(10), emptyRows, 7000),
+    ]);
+
+    if (!storeResult.data) throw new Error(storeResult.error?.message ?? "Business not found");
+    const ownerIds: string[] = (rolesResult.data ?? []).map((row: any) => String(row.user_id)).filter(Boolean);
+    const ownersResult = ownerIds.length
+      ? await withTimeout(supabaseAdmin.from("profiles").select("id,full_name,email,phone,status,created_at").in("id", ownerIds), emptyRows, 5000)
+      : emptyRows;
+
+    const devices = devicesResult.data ?? [];
+    const tickets = ticketsResult.data ?? [];
+    const now = Date.now();
+    const activeSupportSession = (supportSessionsResult.data ?? []).find((session: any) =>
+      ["pending", "accepted"].includes(session.status) && (!session.expires_at || new Date(session.expires_at).getTime() > now),
+    ) ?? null;
+    const offlineDevices = devices.filter((device: any) => device.status === "active" && (!device.last_seen_at || device.last_seen_at < offlineCutoff)).length;
+    const lastDevice = devices.map((device: any) => device.last_seen_at).filter(Boolean).sort().reverse()[0] ?? null;
+    const lastAudit = activityResult.data?.[0]?.created_at ?? null;
+    const lastTicket = tickets[0]?.updated_at ?? null;
+    const lastActivity = [lastDevice, lastAudit, lastTicket].filter(Boolean).sort().reverse()[0] ?? null;
+    const openTickets = tickets.filter((ticket: any) => !["resolved", "closed"].includes(ticket.status));
+
+    return {
+      store: storeResult.data,
+      owners: ownersResult.data ?? [],
+      devices,
+      offline_devices: offlineDevices,
+      subscription: subscriptionsResult.data?.[0] ?? null,
+      subscriptions: subscriptionsResult.data ?? [],
+      tickets,
+      open_tickets: openTickets,
+      recent_activity: activityResult.data ?? [],
+      support_sessions: supportSessionsResult.data ?? [],
+      active_support_session: activeSupportSession,
+      counts: { devices: devices.length, offline_devices: offlineDevices, open_cases: openTickets.length },
+      last_activity: lastActivity,
+      generated_at: new Date().toISOString(),
+      privacy_mode: true,
+    };
+  });
+
+export const adminListPlatformIncidents = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { days?: number }) => data)
+  .handler(async ({ data, context }) => {
+    await ensurePlatformStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const days = Math.max(1, Math.min(90, Number(data.days) || 7));
+    const since = new Date(Date.now() - days * 86400_000).toISOString();
+    const emptyRows = { data: [], error: null } as any;
+    const [ticketsResult, billingResult] = await Promise.all([
+      withTimeout(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,description,priority,status,store_id,assigned_admin_id,created_at,updated_at,chat_status").in("priority", ["high", "urgent"]).not("status", "in", "(resolved,closed)").gte("updated_at", since).order("updated_at", { ascending: false }).limit(100), emptyRows, 7000),
+      withTimeout((supabaseAdmin.from as any)("merchant_billing_payments").select("id,store_id,status,amount_due_cents,currency,failure_message,occurred_at,environment,stripe_invoice_id").in("status", ["failed", "uncollectible", "void"]).gte("occurred_at", since).order("occurred_at", { ascending: false }).limit(100), emptyRows, 7000),
+    ]);
+    const storeIds = Array.from(new Set([...(ticketsResult.data ?? []), ...(billingResult.data ?? [])].map((row: any) => row.store_id).filter(Boolean)));
+    const storesResult = storeIds.length ? await withTimeout(supabaseAdmin.from("stores").select("id,name,email,plan_status").in("id", storeIds), emptyRows, 5000) : emptyRows;
+    const storeMap = new Map((storesResult.data ?? []).map((row: any) => [row.id, row]));
+    return {
+      tickets: (ticketsResult.data ?? []).map((row: any) => ({ ...row, store: storeMap.get(row.store_id) ?? null })),
+      billing_alerts: (billingResult.data ?? []).map((row: any) => ({ ...row, store: storeMap.get(row.store_id) ?? null })),
+      days, generated_at: new Date().toISOString(),
+    };
+  });
+

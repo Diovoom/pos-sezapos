@@ -79,7 +79,7 @@ function SettingsPage() {
     const prefs = data.staff?.notification_preferences ?? {};
     setProfile({
       fullName: data.profile?.full_name ?? "",
-      phone: data.staff?.phone ?? "",
+      phone: data.staff?.phone ?? data.profile?.phone ?? "",
       emailNotifications: prefs.email ?? true,
       urgentCaseNotifications: prefs.urgent_cases ?? true,
       liveChatNotifications: prefs.live_chat ?? true,
@@ -108,8 +108,12 @@ function SettingsPage() {
     try {
       await saveProfile({ data: profile });
       toast.success("Admin profile and notifications updated");
-      qc.invalidateQueries({ queryKey: ["admin_real_settings"] });
-      qc.invalidateQueries({ queryKey: ["admin_company_employees"] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin_real_settings"] }),
+        qc.invalidateQueries({ queryKey: ["admin_company_employees"] }),
+        qc.invalidateQueries({ queryKey: ["admin_founder_team"] }),
+      ]);
+      await settingsQuery.refetch();
     } catch (error: any) {
       toast.error(error?.message ?? "Could not update profile");
     } finally {
@@ -175,7 +179,13 @@ function SettingsPage() {
 
   const data = settingsQuery.data;
   const health = healthQuery.data;
-  if (settingsQuery.isLoading || !data) return <div className="text-sm text-muted-foreground">Loading real Admin settings…</div>;
+  if (settingsQuery.isLoading) return <div className="text-sm text-muted-foreground">Loading real Admin settings…</div>;
+  if (settingsQuery.isError || !data) return (
+    <Card className="border-destructive"><CardContent className="p-6">
+      <div className="text-sm text-destructive">{(settingsQuery.error as any)?.message ?? "Could not load Admin settings"}</div>
+      <Button className="mt-3" variant="outline" onClick={() => settingsQuery.refetch()}>Retry</Button>
+    </CardContent></Card>
+  );
 
   return (
     <div className="space-y-6">
@@ -185,6 +195,13 @@ function SettingsPage() {
           Company identity, your Admin account, security, alerts, support rules, and live platform configuration.
         </p>
       </div>
+      {!data.schema_ready && (
+        <Card className="border-amber-400 bg-amber-50/50 dark:bg-amber-950/10">
+          <CardContent className="p-4 text-sm">
+            Your name and phone now save safely in the main profile. Run <code className="rounded bg-muted px-1 py-0.5">npx supabase db push</code> once to enable the full company-staff metadata table and notification storage.
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>

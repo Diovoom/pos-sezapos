@@ -73,7 +73,9 @@ function OperationsCenter() {
   const query = useQuery({
     queryKey: ["admin_operations_overview"],
     queryFn: () => load(),
-    refetchInterval: 20_000,
+    refetchInterval: 30_000,
+    retry: 1,
+    staleTime: 10_000,
   });
   const data = query.data;
   const t = data?.totals;
@@ -93,10 +95,13 @@ function OperationsCenter() {
         </Button>
       </div>
 
-      {!t ? (
-        <Card><CardContent className="p-8 text-sm text-muted-foreground">Loading platform operations…</CardContent></Card>
+      {query.isError ? (
+        <Card className="border-destructive"><CardContent className="p-8"><div className="text-sm text-destructive">{(query.error as any)?.message ?? "Could not load platform operations"}</div><Button className="mt-3" variant="outline" onClick={() => query.refetch()}>Retry</Button></CardContent></Card>
+      ) : !t ? (
+        <Card><CardContent className="p-8 text-sm text-muted-foreground">Loading platform operations… This now stops safely instead of hanging if one service is unavailable.</CardContent></Card>
       ) : (
         <>
+          {data?.partial && <Card className="border-amber-400"><CardContent className="p-3 text-sm">Some service metrics were temporarily unavailable. The Operations Center loaded the available data instead of remaining stuck.</CardContent></Card>}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <MetricCard
               label="Businesses"

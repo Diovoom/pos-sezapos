@@ -55,6 +55,7 @@ const ROLE_OPTIONS = [
 
 type EditState = {
   id: string;
+  isFounder: boolean;
   fullName: string;
   role: string;
   title: string;
@@ -122,10 +123,10 @@ function AdminTeamPage() {
         data: {
           userId: edit.id,
           fullName: edit.fullName,
-          role: edit.role,
-          title: edit.title,
-          department: edit.department,
-          employmentStatus: edit.employmentStatus,
+          role: edit.isFounder ? undefined : edit.role,
+          title: edit.isFounder ? "Founder & CEO" : edit.title,
+          department: edit.isFounder ? "Executive" : edit.department,
+          employmentStatus: edit.isFounder ? "active" : edit.employmentStatus,
           phone: edit.phone,
           reason,
         },
@@ -208,6 +209,8 @@ function AdminTeamPage() {
         <CardContent className="p-0 overflow-x-auto">
           {teamQuery.isLoading ? (
             <div className="p-8 text-sm text-muted-foreground">Loading company team…</div>
+          ) : teamQuery.isError ? (
+            <div className="p-8"><div className="text-sm text-destructive">{(teamQuery.error as any)?.message ?? "Could not load company team"}</div><Button className="mt-3" variant="outline" onClick={() => teamQuery.refetch()}>Retry</Button></div>
           ) : (
             <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
@@ -240,35 +243,34 @@ function AdminTeamPage() {
                     <td className="p-3">{person.active_cases}</td>
                     <td className="p-3 text-xs text-muted-foreground">{person.last_activity_at ? new Date(person.last_activity_at).toLocaleString() : "—"}</td>
                     <td className="p-3 text-right whitespace-nowrap">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEdit({
+                            id: person.id,
+                            isFounder: Boolean(person.is_founder),
+                            fullName: person.full_name ?? "",
+                            role: person.is_founder ? "super_admin" : person.roles.find((role: string) => role !== "super_admin") ?? "support_admin",
+                            title: person.is_founder ? "Founder & CEO" : person.title ?? "",
+                            department: person.is_founder ? "Executive" : person.department ?? "Operations",
+                            employmentStatus: person.is_founder ? "active" : person.employment_status ?? "active",
+                            phone: person.phone ?? "",
+                          });
+                          setReason("");
+                        }}
+                      >
+                        <Pencil className="mr-1 h-3.5 w-3.5" /> {person.is_founder ? "Edit my profile" : "Edit"}
+                      </Button>
                       {!person.is_founder && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEdit({
-                                id: person.id,
-                                fullName: person.full_name ?? "",
-                                role: person.roles.find((role: string) => role !== "super_admin") ?? "support_admin",
-                                title: person.title ?? "",
-                                department: person.department ?? "Operations",
-                                employmentStatus: person.employment_status ?? "active",
-                                phone: person.phone ?? "",
-                              });
-                              setReason("");
-                            }}
-                          >
-                            <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="ml-2"
-                            onClick={() => { setDeactivateTarget(person); setReason(""); }}
-                          >
-                            <UserX className="mr-1 h-3.5 w-3.5" /> Deactivate
-                          </Button>
-                        </>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="ml-2"
+                          onClick={() => { setDeactivateTarget(person); setReason(""); }}
+                        >
+                          <UserX className="mr-1 h-3.5 w-3.5" /> Deactivate
+                        </Button>
                       )}
                     </td>
                   </tr>
@@ -313,17 +315,17 @@ function AdminTeamPage() {
           {edit && (
             <div className="grid gap-3">
               <Field label="Full name"><Input value={edit.fullName} onChange={(e) => setEdit({ ...edit, fullName: e.target.value })} /></Field>
-              <Field label="Job title"><Input value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></Field>
-              <Field label="Department"><Input value={edit.department} onChange={(e) => setEdit({ ...edit, department: e.target.value })} /></Field>
+              <Field label="Job title"><Input disabled={edit.isFounder} value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></Field>
+              <Field label="Department"><Input disabled={edit.isFounder} value={edit.department} onChange={(e) => setEdit({ ...edit, department: e.target.value })} /></Field>
               <Field label="Phone"><Input value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></Field>
               <Field label="Admin role">
-                <Select value={edit.role} onValueChange={(role) => setEdit({ ...edit, role })}>
+                <Select disabled={edit.isFounder} value={edit.role} onValueChange={(role) => setEdit({ ...edit, role })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{ROLE_OPTIONS.map((role) => <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
               <Field label="Employment status">
-                <Select value={edit.employmentStatus} onValueChange={(value) => setEdit({ ...edit, employmentStatus: value as EditState["employmentStatus"] })}>
+                <Select disabled={edit.isFounder} value={edit.employmentStatus} onValueChange={(value) => setEdit({ ...edit, employmentStatus: value as EditState["employmentStatus"] })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="invited">Invited</SelectItem>
