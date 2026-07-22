@@ -1980,7 +1980,7 @@ export const adminOfflineSyncOverview = createServerFn({ method: "GET" })
       .limit(200);
     if (error) throw new Error(error.message);
     const byStore = new Map<string, number>();
-    for (const r of rows ?? []) byStore.set(r.store_id, (byStore.get(r.store_id) ?? 0) + 1);
+    for (const r of rows ?? []) { const sid = r.store_id ?? ""; byStore.set(sid, (byStore.get(sid) ?? 0) + 1); }
     const storeIds = [...byStore.keys()];
     const storesMap = new Map<string, string>();
     if (storeIds.length) {
