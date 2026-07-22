@@ -40,7 +40,7 @@ export const privacyPolicy: LegalDocument = {
           id: "business-info",
           title: "Business Information",
           body: P(
-            `Legal business name, trade name, business address, tax identifiers, industry, and information required by our Merchant of Record for anti-fraud, sanctions screening, and tax collection.`
+            `Legal business name, trade name, business address, tax identifiers, industry, and information requested by Stripe or another connected payment provider for billing, fraud prevention, sanctions screening, identity verification, or financial compliance.`
           ),
         },
         {
@@ -92,7 +92,7 @@ export const privacyPolicy: LegalDocument = {
           id: "analytics",
           title: "Analytics",
           body: P(
-            `We use privacy-respecting analytics to understand aggregate usage of the Service, measure performance, and improve features. Analytics data is de-identified or pseudonymized where feasible.`
+            `If optional analytics are enabled, we may use usage and diagnostic information to understand performance and improve features. Optional analytics cookies are disabled by default on the public website unless the visitor consents.`
           ),
         },
         {
@@ -124,7 +124,7 @@ export const privacyPolicy: LegalDocument = {
       body: (
         <ul>
           <li>Provide, maintain, and secure the Service.</li>
-          <li>Process Subscriptions, billing, and payments via our Merchant of Record.</li>
+          <li>Process Subscriptions, invoices, and billing through Stripe.</li>
           <li>Provide customer and technical support.</li>
           <li>Send transactional messages such as receipts, alerts, and service notices.</li>
           <li>Send product updates and marketing communications (only where permitted; opt-out available).</li>
@@ -157,7 +157,7 @@ export const privacyPolicy: LegalDocument = {
           id: "payment-providers",
           title: "Payment Providers",
           body: P(
-            `Our Merchant of Record and its payment processors receive information needed to process Subscription payments and comply with financial regulations.`
+            `Stripe receives the account, billing, device, and payment information needed to process SEZA Subscription payments, prevent fraud, and comply with its legal obligations. Stripe handles full payment-card details; SEZA receives tokens, identifiers, status, and limited billing details needed to operate the Subscription.`
           ),
         },
         {
@@ -171,7 +171,7 @@ export const privacyPolicy: LegalDocument = {
           id: "cloud-providers",
           title: "Cloud Providers",
           body: P(
-            `We use reputable cloud infrastructure providers to host and operate the Service. Data may be stored in and processed from multiple regions for resilience.`
+            `We use cloud hosting, database, authentication, and operational service providers to run the Service. Data is processed in the locations used by those providers and the deployed SEZA environment.`
           ),
         },
         {
@@ -187,7 +187,7 @@ export const privacyPolicy: LegalDocument = {
       id: "retention",
       title: "Data Retention",
       body: P(
-        `We retain personal information for as long as necessary to provide the Service and for legitimate business, legal, tax, and accounting purposes. Transaction and financial records are typically retained for at least seven years. Account and Customer Data are deleted or de-identified within a reasonable period after account termination, subject to legal holds.`
+        `We retain personal information for as long as reasonably necessary to provide the Service, protect accounts, resolve disputes, and meet legal, tax, accounting, or contractual requirements. Retention periods vary by record type, merchant instructions, backup cycles, and applicable law. Data may be deleted, aggregated, or de-identified when it is no longer required.`
       ),
     },
     {
@@ -205,7 +205,7 @@ export const privacyPolicy: LegalDocument = {
       id: "encryption",
       title: "Encryption",
       body: P(
-        `Data is encrypted in transit using industry-standard TLS and at rest using AES-256 or equivalent. Sensitive credentials are stored using strong one-way hashing.`
+        `SEZA uses protected network connections and managed-service security features intended to safeguard stored information. Authentication credentials are handled through the configured authentication provider. No method of storage or transmission is completely secure.`
       ),
     },
     {
@@ -233,14 +233,14 @@ export const privacyPolicy: LegalDocument = {
       id: "deletion",
       title: "Data Deletion Requests",
       body: P(
-        `You may request deletion of your Account data at any time. We will delete or de-identify Personal Information within 30 days of a verified request unless retention is required by law or a compelling legitimate interest (for example, ongoing fraud investigations).`
+        `You may request deletion of eligible Account data. After verifying the request and confirming authority over the Account, we will take reasonable steps to delete or de-identify information that is not required for legal, tax, security, dispute-resolution, backup, or fraud-prevention purposes.`
       ),
     },
     {
       id: "international",
       title: "International Transfers",
       body: P(
-        `Your information may be transferred to, and processed in, countries other than your own. When we transfer personal data across borders we rely on appropriate safeguards, such as the European Commission's Standard Contractual Clauses, adequacy decisions, or comparable mechanisms.`
+        `Your information may be processed in a country other than the one where you live. Where a cross-border transfer requires a specific legal safeguard, SEZA and the relevant service provider will use an available lawful mechanism as applicable to that transfer.`
       ),
     },
     {
@@ -254,7 +254,7 @@ export const privacyPolicy: LegalDocument = {
       id: "changes",
       title: "Changes to Privacy Policy",
       body: P(
-        `We may update this Privacy Policy from time to time. Material changes will be communicated by email or in-product notice at least 15 days before taking effect. The "Last updated" date at the top reflects the latest revision.`
+        `We may update this Privacy Policy as the Service, providers, or legal requirements change. When required, we will provide notice through the Service, email, or the website. The "Last updated" date at the top identifies the current version.`
       ),
     },
     {
@@ -263,7 +263,7 @@ export const privacyPolicy: LegalDocument = {
       body: (
         <>
           <p>{C.companyName}</p>
-          <p>{C.businessAddress}</p>
+          <p>Privacy requests and legal privacy notices are accepted electronically.</p>
           <p>Privacy: <a href={`mailto:${C.privacyEmail}`}>{C.privacyEmail}</a></p>
           <p>General: <a href={`mailto:${C.supportEmail}`}>{C.supportEmail}</a></p>
         </>

@@ -1,25 +1,21 @@
 import { cn } from "@/lib/utils";
-import logoAsset from "@/assets/seza-logo.png.asset.json";
+import logoUrl from "@/assets/seza-mark.jpg";
 
-// In the bundled Capacitor Android app, the WebView origin is
-// `capacitor://localhost` (or `http://localhost`), so a relative Lovable
-// CDN URL like `/__l5e/assets-v1/...` resolves to a local path that does
-// not exist and the image breaks. Force an absolute HTTPS URL when we're
-// not being served from a real https origin.
-export function resolveLogoUrl(url: string = logoAsset.url): string {
-  if (typeof window === "undefined") return url;
-  if (/^https?:\/\//i.test(url)) return url;
-  const origin = window.location.origin;
-  if (origin.startsWith("https://")) return url;
-  return `https://sezapos.com${url.startsWith("/") ? "" : "/"}${url}`;
+/**
+ * The primary SEZA mark is bundled with the application instead of relying on
+ * an external asset host. That keeps the website, authentication pages and
+ * generated builds consistently branded even before a network request is made.
+ */
+export function resolveLogoUrl(url: string = logoUrl): string {
+  return url;
 }
 
-export const LOGO_URL_FN = () => resolveLogoUrl(logoAsset.url);
+export const LOGO_URL_FN = () => resolveLogoUrl();
 
 export function Logo({ className, alt = "SEZA POS" }: { className?: string; alt?: string }) {
   return (
     <img
-      src={resolveLogoUrl(logoAsset.url)}
+      src={resolveLogoUrl()}
       alt={alt}
       className={cn("object-contain", className)}
       draggable={false}

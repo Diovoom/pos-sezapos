@@ -90,7 +90,7 @@ const SITE_TITLE =
 const SITE_DESCRIPTION =
   "SEZA POS is a modern point-of-sale system for retail stores, convenience stores, liquor stores, grocery stores, and small businesses. Manage sales, inventory, employees, receipts, reports, and payments in one platform.";
 const OG_IMAGE =
-  "https://sezapos.com/__l5e/assets-v1/5cbb57a3-89b6-4c34-9e82-d3c4e406f71a/seza-og.jpg";
+  "https://sezapos.com/seza-og.jpg";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
@@ -154,7 +154,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             "@context": "https://schema.org",
             "@type": "Organization",
             name: "SEZA POS",
-            legalName: "SEZA TECHNOLOGIES",
+            legalName: "SEZA Technologies",
+            logo: "https://sezapos.com/icon-512.png",
+            image: "https://sezapos.com/seza-og.jpg",
             url: "https://sezapos.com",
             description:
               "Modern cloud point-of-sale platform for convenience stores, mini marts, liquor, and retail.",

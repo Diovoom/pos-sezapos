@@ -13,9 +13,9 @@ export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
       { title: "Contact — SEZA POS" },
-      { name: "description", content: "Talk to the SEZA POS team about pricing, hardware, migrations, or a demo. We respond within one business day." },
+      { name: "description", content: "Talk to the SEZA POS team about pricing, hardware, migrations, or a demo. Send a message about pricing, hardware, migrations, or a demo." },
       { property: "og:title", content: "Contact — SEZA POS" },
-      { property: "og:description", content: "Talk to the SEZA POS team. We respond within one business day." },
+      { property: "og:description", content: "Talk to the SEZA POS team. Send a message about pricing, hardware, migrations, or a demo." },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://sezapos.com/contact" },
     ],
@@ -82,7 +82,7 @@ function ContactPage() {
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>Send us a message</CardTitle>
-              <CardDescription>We usually respond within one business day.</CardDescription>
+              <CardDescription>Messages are reviewed as soon as practical during normal support operations.</CardDescription>
             </CardHeader>
             <CardContent>
               {sent ? (

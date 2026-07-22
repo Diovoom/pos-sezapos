@@ -12,4 +12,4 @@ SEZA POS is built and operated by SEZA TECHNOLOGIES. New customers get a 14-day 
 - [Sign in](/auth): Existing merchants and employees sign in here.
 - [Terms of Service](/terms): SEZA TECHNOLOGIES terms of service.
 - [Privacy Notice](/privacy): How SEZA TECHNOLOGIES collects, uses, and protects personal data.
-- [Refund Policy](/refund): 30-day money-back guarantee and refund process.
+- [Refund Policy](/refund): Eligibility rules and the process for verified billing errors, duplicate charges, and approved refunds.

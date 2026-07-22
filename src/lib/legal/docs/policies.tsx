@@ -22,7 +22,7 @@ export const cookiePolicy: LegalDocument = {
     },
     {
       id: "categories",
-      title: "Categories of Cookies We Use",
+      title: "Categories of Cookies and Similar Storage",
       body: (
         <ul>
           <li>
@@ -33,13 +33,26 @@ export const cookiePolicy: LegalDocument = {
             <strong>Preferences</strong> — remember your language, currency, and interface settings.
           </li>
           <li>
-            <strong>Analytics</strong> — help us understand aggregate usage and improve the Service.
+            <strong>Analytics</strong> — may be used, with permission where required, to understand aggregate usage and improve the Service.
           </li>
           <li>
-            <strong>Marketing</strong> — used only where you have opted in, to measure the
-            effectiveness of our marketing campaigns.
+            <strong>Marketing</strong> — may be used only where you have opted in, to measure campaigns or provide relevant advertising.
           </li>
         </ul>
+      ),
+    },
+    {
+      id: "current-defaults",
+      title: "Current Website Defaults",
+      body: (
+        <>
+          <p>
+            The public SEZA website stores your cookie preference in local browser storage under <code>seza.cookie-consent.v1</code>. Strictly necessary storage is active by default. Optional analytics and marketing choices default to off unless you select them.
+          </p>
+          <p>
+            Selecting an optional category records your preference, but a third-party tool will only receive data if SEZA has actually enabled that tool on the relevant page. Changing a preference does not retroactively delete information already processed by a third party; use the provider's controls or contact us for help where applicable.
+          </p>
+        </>
       ),
     },
     {
@@ -89,14 +102,14 @@ export const refundPolicy: LegalDocument = {
       id: "scope",
       title: "Scope",
       body: P(
-        `This Policy applies to Subscription fees paid to ${C.companyName} through our Merchant of Record, ${C.merchantOfRecord}. It does not apply to third-party charges (for example, payment processing fees, SMS carrier fees, or hardware) or to sales you make to your own customers.`
+        `This Policy applies to SEZA POS Subscription fees sold by ${C.companyName} and securely processed through ${C.billingProcessor}. It does not apply to third-party charges (for example, payment-processing fees charged under a Merchant's own processor agreement, SMS carrier fees, or hardware purchases governed by separate sale terms) or to sales a Merchant makes to its own customers.`
       ),
     },
     {
       id: "trial",
       title: "Free Trials",
       body: P(
-        `You will not be charged during a free trial. You may cancel at any time before the trial ends to avoid being billed. If you continue past the trial, your payment method is charged and normal refund terms apply.`
+        `You will not be charged during the current 14-day free trial because no payment card is required and the trial does not automatically convert to a paid Subscription. To continue paid access after the trial, an authorized Owner must select a plan and complete Stripe checkout.`
       ),
     },
     {
@@ -104,6 +117,13 @@ export const refundPolicy: LegalDocument = {
       title: "Monthly Subscriptions",
       body: P(
         `Monthly Subscription fees are generally non-refundable. Cancelling a monthly Subscription stops future renewals; you retain access until the end of the current billing period.`
+      ),
+    },
+    {
+      id: "billing-errors",
+      title: "Duplicate Charges and Billing Errors",
+      body: P(
+        `If you believe you were charged twice, charged after a confirmed cancellation, or billed an amount different from the checkout total, contact ${C.supportEmail} within 30 days of the charge. We will investigate verified billing errors and, when appropriate, correct or refund the affected amount to the original payment method.`
       ),
     },
     {
@@ -204,81 +224,49 @@ export const acceptableUsePolicy: LegalDocument = {
 
 export const dpa: LegalDocument = {
   slug: "dpa",
-  shortTitle: "Data Processing Agreement",
-  title: "Data Processing Agreement",
+  shortTitle: "Data Processing Information",
+  title: "Data Processing Information",
   category: "Privacy",
   summary:
-    "Contractual terms governing the processing of personal data by SEZA POS on behalf of Merchants under GDPR, UK GDPR, and comparable regulations.",
+    "How SEZA handles merchant-controlled personal data and how to request a signed data-processing addendum when one is required.",
   effectiveDate: C.effectiveDate,
   lastUpdated: C.lastUpdated,
   sections: [
     {
       id: "roles",
-      title: "Roles and Scope",
+      title: "Merchant and SEZA Roles",
       body: P(
-        `Where the Merchant acts as a controller of personal data (for example, Customer Data collected through the Store), ${C.companyName} acts as a processor. This DPA forms part of the Terms of Service.`
+        `For personal data a Merchant submits about employees or customers, the Merchant generally decides why and how that data is used. SEZA processes that data to provide the Service, subject to the Terms, Privacy Policy, merchant instructions, and applicable law.`
       ),
     },
     {
-      id: "subject-matter",
-      title: "Subject Matter, Duration & Purpose",
+      id: "processing",
+      title: "Processing Activities",
       body: P(
-        `The subject matter is the provision of the Service. The duration matches the term of the Subscription. The purpose of processing is to operate the Service in accordance with Merchant instructions and the Terms.`
+        `Processing may include hosting, organizing, retrieving, transmitting, troubleshooting, securing, backing up, and deleting data as necessary to operate the Service. The categories involved may include account details, employee records, customer contact details, transaction information, and device or diagnostic information.`
       ),
     },
     {
-      id: "data-categories",
-      title: "Categories of Data & Data Subjects",
+      id: "providers",
+      title: "Service Providers",
       body: P(
-        `Personal data processed may include identification and contact details, transaction records, communication preferences, and technical identifiers. Data subjects include Merchant personnel and Merchant's end customers.`
+        `SEZA may use hosting, database, authentication, payment, email, SMS, monitoring, and support providers to operate the Service. Those providers receive only the information reasonably necessary for their role and are subject to their own contractual and legal obligations.`
       ),
     },
     {
-      id: "processor-obligations",
-      title: "Processor Obligations",
+      id: "requests",
+      title: "Rights Requests and Security Incidents",
+      body: P(
+        `SEZA will provide reasonable assistance when a Merchant needs to respond to a verified privacy request or investigate a confirmed incident involving Merchant-controlled data, taking into account the nature of the Service and information available to SEZA.`
+      ),
+    },
+    {
+      id: "signed-addendum",
+      title: "Signed Addendum",
       body: (
-        <ul>
-          <li>Process personal data only on documented instructions from the Merchant.</li>
-          <li>Ensure that persons authorized to process personal data are bound by confidentiality obligations.</li>
-          <li>Implement appropriate technical and organizational security measures.</li>
-          <li>Assist the Merchant in responding to data subject requests and complying with security, breach notification, and impact assessment obligations.</li>
-          <li>Delete or return personal data at the end of the Subscription, subject to legal retention.</li>
-        </ul>
-      ),
-    },
-    {
-      id: "subprocessors",
-      title: "Sub-processors",
-      body: P(
-        `The Merchant provides general authorization for the use of sub-processors, subject to our maintaining a current list available on request. We will impose on each sub-processor data protection obligations that are no less protective than this DPA and remain responsible for their performance.`
-      ),
-    },
-    {
-      id: "transfers",
-      title: "International Transfers",
-      body: P(
-        `Where personal data is transferred outside the EEA, UK, or Switzerland, we rely on the European Commission's Standard Contractual Clauses (and the UK IDTA / addendum where relevant) or another lawful transfer mechanism.`
-      ),
-    },
-    {
-      id: "breach",
-      title: "Personal Data Breach",
-      body: P(
-        `We will notify the Merchant without undue delay after becoming aware of a personal data breach affecting the Merchant's personal data and provide reasonable information to enable the Merchant to meet its notification obligations.`
-      ),
-    },
-    {
-      id: "audit",
-      title: "Audits",
-      body: P(
-        `We make available on reasonable request the information necessary to demonstrate compliance with this DPA. Audits may be conducted through independent third-party attestations (for example, SOC 2 reports, if available) or, where required by law, through on-site inspection subject to reasonable notice and confidentiality.`
-      ),
-    },
-    {
-      id: "contact",
-      title: "Contact",
-      body: (
-        <p>DPA requests: <a href={`mailto:${C.privacyEmail}`}>{C.privacyEmail}</a>.</p>
+        <p>
+          This page is informational and is not a signed data-processing agreement. Merchants that require a separate DPA or international-transfer terms should contact <a href={`mailto:${C.privacyEmail}`}>{C.privacyEmail}</a> before placing regulated data in the Service.
+        </p>
       ),
     },
   ],
@@ -290,73 +278,58 @@ export const securityPolicy: LegalDocument = {
   title: "Security Policy",
   category: "Trust",
   summary:
-    "Our approach to protecting the confidentiality, integrity, and availability of the SEZA POS platform and the data entrusted to us.",
+    "A practical description of the safeguards SEZA uses and the responsibilities shared with merchants.",
   effectiveDate: C.effectiveDate,
   lastUpdated: C.lastUpdated,
   sections: [
     {
-      id: "governance",
-      title: "Security Governance",
+      id: "connections",
+      title: "Protected Connections",
       body: P(
-        `Security is owned at the executive level and operationalized across engineering, IT, and operations. Policies are reviewed at least annually and following material changes to the Service or the threat landscape.`
+        `SEZA production services are intended to use HTTPS/TLS for data moving between supported devices, browsers, payment services, and SEZA infrastructure. Merchants should use supported software, trusted networks, and current operating-system security updates.`
       ),
     },
     {
       id: "access",
-      title: "Access Control",
+      title: "Authentication and Access Control",
       body: P(
-        `Access to production systems is limited to personnel with a documented business need, granted on the principle of least privilege, and reviewed on a recurring basis. Administrative access requires multi-factor authentication and is logged.`
+        `SEZA uses account authentication, store-scoped authorization, employee roles, manager approvals, and separate platform-admin access. Merchants are responsible for protecting passwords and PINs, removing former employees, and assigning only the permissions each person needs.`
       ),
     },
     {
-      id: "encryption",
-      title: "Encryption",
+      id: "payments",
+      title: "Payment Information",
       body: P(
-        `Data in transit is protected with TLS 1.2 or higher. Data at rest is protected with AES-256 or equivalent. Cryptographic keys are managed by our cloud provider's key management service and rotated on a defined schedule.`
+        `SEZA subscription card details are entered into Stripe-hosted payment experiences. SEZA is designed to receive tokens, identifiers, and payment status instead of full subscription card numbers. Merchant card acceptance depends on the connected payment provider and supported hardware.`
       ),
     },
     {
-      id: "network",
-      title: "Network Security",
+      id: "audit",
+      title: "Audit and Operational Records",
       body: P(
-        `Production infrastructure is segmented and protected by firewalls, security groups, and intrusion detection. Public endpoints are protected by rate limits, WAF rules, and DDoS mitigations provided by our infrastructure partners.`
+        `The Service includes audit-oriented records for sensitive workflows such as refunds, voids, cash movements, permission changes, device changes, and administrative actions. Coverage depends on the feature, configuration, and successful delivery of the event.`
       ),
     },
     {
-      id: "vuln",
-      title: "Vulnerability Management",
+      id: "availability",
+      title: "Availability and Recovery",
       body: P(
-        `We maintain a vulnerability management program that includes dependency scanning, static analysis, container image scanning, and periodic third-party assessments. Critical vulnerabilities are remediated on an expedited timeline.`
+        `SEZA uses managed service providers and application safeguards intended to reduce data-loss and outage risk. No internet service or software platform is completely secure or continuously available, and merchants should retain appropriate business records and contingency procedures.`
       ),
     },
     {
-      id: "logging",
-      title: "Logging & Monitoring",
-      body: P(
-        `Security-relevant events across our infrastructure and application are logged, retained for an appropriate period, and monitored for anomalies. Alerts trigger a documented response process.`
-      ),
-    },
-    {
-      id: "personnel",
-      title: "Personnel Security",
-      body: P(
-        `Personnel undergo background checks where permitted by law, sign confidentiality agreements, and complete recurring security awareness training. Access is revoked promptly on role change or departure.`
-      ),
-    },
-    {
-      id: "response",
+      id: "incident",
       title: "Incident Response",
       body: P(
-        `We maintain a documented incident response plan covering detection, containment, eradication, recovery, and post-incident review. Affected customers are notified without undue delay in accordance with law and contract.`
+        `SEZA investigates credible security reports, works to contain confirmed incidents, restores safe operation, and provides notices when required by applicable law or contract. The timing and content of any notice depend on the facts available during the investigation.`
       ),
     },
     {
-      id: "contact",
-      title: "Report a Vulnerability",
+      id: "report",
+      title: "Report a Security Issue",
       body: (
         <p>
-          Please report suspected vulnerabilities to <a href={`mailto:${C.securityEmail}`}>{C.securityEmail}</a>.
-          See our <a href="/legal/security-center">Security Center</a> for our responsible disclosure program.
+          Send suspected vulnerabilities to <a href={`mailto:${C.securityEmail}`}>{C.securityEmail}</a>. Do not disrupt live stores, use social engineering, access unrelated data, or publicly disclose sensitive details before SEZA has a reasonable opportunity to investigate.
         </p>
       ),
     },
@@ -365,66 +338,47 @@ export const securityPolicy: LegalDocument = {
 
 export const sla: LegalDocument = {
   slug: "sla",
-  shortTitle: "Service Level Agreement",
-  title: "Service Level Agreement",
+  shortTitle: "Service Availability",
+  title: "Service Availability Notice",
   category: "Trust",
   summary:
-    "Our target service availability for the SEZA POS platform and the remedies available when we fall short.",
+    "Important information about availability, maintenance, third-party dependencies, and continuity planning.",
   effectiveDate: C.effectiveDate,
   lastUpdated: C.lastUpdated,
   sections: [
     {
-      id: "target",
-      title: "Availability Target",
+      id: "no-public-sla",
+      title: "No Public Uptime Guarantee",
       body: P(
-        `We target a monthly uptime percentage of 99.9% for the core Service (checkout, sync, and read APIs), measured as (Total Minutes - Downtime Minutes) / Total Minutes × 100.`
+        `Unless SEZA and a Merchant sign a separate written service-level agreement, the Service is provided under the availability terms in the Terms of Service and does not include a guaranteed uptime percentage or automatic service credits.`
       ),
     },
     {
-      id: "exclusions",
-      title: "Exclusions",
-      body: (
-        <ul>
-          <li>Scheduled maintenance announced in advance.</li>
-          <li>Force majeure events (as defined in the Terms).</li>
-          <li>Failures of third-party services outside our control, including internet, payment processors, and SMS carriers.</li>
-          <li>Issues caused by customer misuse, misconfiguration, or unsupported hardware.</li>
-        </ul>
-      ),
-    },
-    {
-      id: "credits",
-      title: "Service Credits",
-      body: (
-        <>
-          <p>
-            If we fail to meet the availability target in a calendar month, eligible paying
-            Merchants may request a service credit against future Subscription fees:
-          </p>
-          <ul>
-            <li>Uptime between 99.0% and 99.9%: 10% of that month's fees.</li>
-            <li>Uptime between 95.0% and 99.0%: 25% of that month's fees.</li>
-            <li>Uptime below 95.0%: 50% of that month's fees.</li>
-          </ul>
-          <p>
-            Credits are the sole and exclusive remedy for availability failures. Requests must be
-            submitted within 30 days of the affected month.
-          </p>
-        </>
-      ),
-    },
-    {
-      id: "support",
-      title: "Support Response",
+      id: "maintenance",
+      title: "Maintenance and Changes",
       body: P(
-        `We target first-response times based on issue severity: Critical (production outage) within 2 hours, High within 8 business hours, Medium within 1 business day, Low within 3 business days.`
+        `SEZA may perform maintenance or deploy changes that temporarily affect access. When practical, material planned interruptions will be communicated through the Service, email, or an available status channel.`
       ),
     },
     {
-      id: "contact",
-      title: "Contact",
-      body: (
-        <p>Status updates: <a href={C.website}>{C.website}</a> · Support: <a href={`mailto:${C.supportEmail}`}>{C.supportEmail}</a></p>
+      id: "dependencies",
+      title: "Third-Party Dependencies",
+      body: P(
+        `Availability can be affected by internet providers, cloud platforms, payment processors, messaging providers, device manufacturers, app stores, and merchant hardware that SEZA does not control.`
+      ),
+    },
+    {
+      id: "offline",
+      title: "Offline Operations",
+      body: P(
+        `Supported Android configurations may record eligible cash sales while offline and synchronize later. Offline mode has limits, requires prior setup, and does not make card payments or cloud-only functions available without connectivity.`
+      ),
+    },
+    {
+      id: "continuity",
+      title: "Merchant Continuity Planning",
+      body: P(
+        `Merchants should maintain working internet or backup connectivity where appropriate, keep required tax and accounting records, train staff on outage procedures, and verify that devices have synchronized before closing a shift or uninstalling the application.`
       ),
     },
   ],
@@ -568,9 +522,10 @@ export const dmcaPolicy: LegalDocument = {
       title: "Designated Agent",
       body: (
         <>
-          <p>{C.companyName} — DMCA Designated Agent</p>
-          <p>{C.businessAddress}</p>
+          <p>{C.companyName} — Copyright Notice Contact</p>
+          <p>Electronic copyright notices may be sent to:</p>
           <p>Email: <a href={`mailto:${C.dmcaAgentEmail}`}>{C.dmcaAgentEmail}</a></p>
+          <p>We may request additional information or a physical delivery method when required to process a notice under applicable law.</p>
         </>
       ),
     },
@@ -664,75 +619,114 @@ export const apiTerms: LegalDocument = {
   ],
 };
 
-export const compliance: LegalDocument = {
-  slug: "compliance",
-  shortTitle: "Compliance",
-  title: "Compliance",
+export const accessibilityStatement: LegalDocument = {
+  slug: "accessibility",
+  shortTitle: "Accessibility",
+  title: "Accessibility Statement",
   category: "Trust",
   summary:
-    "Overview of the regulatory frameworks and industry standards our platform aligns with, and how we support customer compliance.",
+    "SEZA Technologies' commitment to making the SEZA website and point-of-sale experience usable by people with disabilities.",
   effectiveDate: C.effectiveDate,
   lastUpdated: C.lastUpdated,
-  intro: (
-    <p>
-      This page summarizes the regulatory frameworks and industry standards that inform how we
-      build and operate {C.productName}. It is provided for informational purposes only and does
-      not by itself constitute a certification or legal advice.
-    </p>
-  ),
   sections: [
     {
-      id: "pci",
-      title: "PCI DSS",
+      id: "commitment",
+      title: "Our Commitment",
       body: P(
-        `We do not store full primary account numbers (PANs) on our servers. Payment card data is captured and tokenized by PCI-DSS certified payment providers. Our platform is designed to help Merchants stay within the applicable SAQ scope for their integration.`
+        `${C.companyName} is committed to providing digital experiences that are usable by people with a wide range of abilities, devices, and assistive technologies. Accessibility is considered in our design, engineering, content, and support processes.`
       ),
     },
     {
-      id: "gdpr",
-      title: "GDPR",
+      id: "standards",
+      title: "Standards We Use",
       body: P(
-        `We support Merchants subject to the EU General Data Protection Regulation with a Data Processing Agreement, appropriate international transfer mechanisms, sub-processor transparency, and tools to help respond to data subject rights requests.`
+        `We aim to align the public website and core merchant workflows with the Web Content Accessibility Guidelines (WCAG) 2.1 Level AA where reasonably achievable. This is an ongoing effort and does not mean every page or third-party integration is currently fully conformant.`
       ),
     },
     {
-      id: "ccpa",
-      title: "CCPA / CPRA",
-      body: P(
-        `We assist Merchants subject to the California Consumer Privacy Act (as amended by the CPRA) in responding to consumer requests. We do not "sell" or "share" personal information within the meaning of the CCPA.`
-      ),
-    },
-    {
-      id: "soc2",
-      title: "SOC 2",
-      body: P(
-        `Our long-term roadmap includes formal SOC 2 attestation covering Security and Availability trust services criteria. Interim status and current control coverage are available on request under NDA.`
-      ),
-    },
-    {
-      id: "other",
-      title: "Other Frameworks",
+      id: "features",
+      title: "Accessibility Practices",
       body: (
         <ul>
-          <li>Payment card network rules (Visa, Mastercard, American Express, Discover) applicable to integrated payments.</li>
-          <li>Anti-money-laundering (AML) and know-your-customer (KYC) obligations handled by our Merchant of Record.</li>
-          <li>Consumer protection and telecom regulations applicable to receipts and messaging (TCPA, CAN-SPAM, CASL, ePrivacy).</li>
-          <li>Regional accessibility standards (WCAG 2.1 AA) guide our product design.</li>
+          <li>Keyboard-accessible navigation and visible focus states.</li>
+          <li>Semantic headings, labels, landmarks, and descriptive link text.</li>
+          <li>Color contrast and status indicators that do not rely on color alone.</li>
+          <li>Support for browser zoom, responsive layouts, and reduced-motion preferences.</li>
+          <li>Alternative text for meaningful images and accessible names for controls.</li>
         </ul>
       ),
     },
     {
-      id: "shared",
-      title: "Shared Responsibility",
+      id: "third-party",
+      title: "Third-Party Services",
       body: P(
-        `Compliance is a shared responsibility. We are responsible for the security and compliance of the platform; Merchants are responsible for the lawful operation of their business, accurate configuration of the Service, and their own compliance programs.`
+        `Some functions are provided through third parties, including Stripe checkout, device operating systems, browser features, and connected hardware. Those services have their own accessibility practices, but we welcome reports when an integration creates a barrier.`
       ),
     },
     {
-      id: "contact",
-      title: "Contact",
+      id: "feedback",
+      title: "Feedback and Assistance",
       body: (
-        <p>Compliance inquiries: <a href={`mailto:${C.legalEmail}`}>{C.legalEmail}</a>.</p>
+        <p>
+          If you encounter an accessibility barrier or need information in another format, email <a href={`mailto:${C.supportEmail}`}>{C.supportEmail}</a>. Please include the page or feature, the assistive technology or device you used when relevant, and the problem you experienced. We will make reasonable efforts to respond and provide an accessible alternative.
+        </p>
+      ),
+    },
+    {
+      id: "updates",
+      title: "Ongoing Improvement",
+      body: P(
+        `We review accessibility as the product changes and prioritize issues that block account access, checkout, merchant administration, support, or legal information. This Statement will be updated as our practices and testing mature.`
+      ),
+    },
+  ],
+};
+
+export const compliance: LegalDocument = {
+  slug: "compliance",
+  shortTitle: "Compliance Information",
+  title: "Compliance Information",
+  category: "Trust",
+  summary:
+    "A transparent overview of payment handling, merchant obligations, and the limits of SEZA's compliance role.",
+  effectiveDate: C.effectiveDate,
+  lastUpdated: C.lastUpdated,
+  sections: [
+    {
+      id: "merchant-responsibility",
+      title: "Merchant Responsibility",
+      body: P(
+        `Each Merchant is responsible for laws that apply to its business, products, employees, taxes, receipts, refunds, customer communications, privacy notices, age-restricted sales, and required licenses. SEZA provides software tools and does not act as the Merchant's lawyer, accountant, tax adviser, or licensing authority.`
+      ),
+    },
+    {
+      id: "billing",
+      title: "SEZA Subscription Billing",
+      body: P(
+        `SEZA uses Stripe to process subscription checkout and billing. Stripe's services, verification requirements, availability, and separate terms apply. SEZA does not claim to be a bank, card network, or payment processor.`
+      ),
+    },
+    {
+      id: "card-data",
+      title: "Card Data",
+      body: P(
+        `SEZA is designed so full subscription card details are entered into Stripe-hosted payment fields rather than stored by SEZA. Merchant payment acceptance must use a supported payment provider and integration, and the Merchant remains responsible for its own applicable payment-security obligations.`
+      ),
+    },
+    {
+      id: "certifications",
+      title: "Certifications and Attestations",
+      body: P(
+        `SEZA does not represent that it holds a certification, audit report, or regulatory approval unless that status is expressly identified in current written materials from SEZA. Provider certifications do not automatically certify SEZA or any Merchant.`
+      ),
+    },
+    {
+      id: "questions",
+      title: "Compliance Questions",
+      body: (
+        <p>
+          Contact <a href={`mailto:${C.legalEmail}`}>{C.legalEmail}</a> before relying on SEZA for a regulated workflow or contractual compliance requirement.
+        </p>
       ),
     },
   ],
@@ -744,86 +738,40 @@ export const securityCenter: LegalDocument = {
   title: "Security Center",
   category: "Trust",
   summary:
-    "A single place to learn how we protect the SEZA POS platform, our infrastructure, and your data.",
+    "Security contacts, responsible disclosure expectations, and links to SEZA's current public security information.",
   effectiveDate: C.effectiveDate,
   lastUpdated: C.lastUpdated,
   sections: [
     {
-      id: "encryption",
-      title: "Encryption",
-      body: P(
-        `Data is encrypted in transit with TLS 1.2 or higher and at rest with AES-256 or equivalent. Encryption keys are managed by our cloud provider's managed key service and rotated on a defined schedule.`
-      ),
-    },
-    {
-      id: "auth",
-      title: "Secure Authentication",
-      body: P(
-        `We support strong password requirements and offer multi-factor authentication for account owners. Sessions are protected against CSRF and hijacking, and suspicious sign-in attempts are throttled and monitored.`
-      ),
-    },
-    {
-      id: "access",
-      title: "Access Controls",
-      body: P(
-        `Role-based access control lets Merchants grant Employees the minimum permissions needed to do their job. Administrative access to production systems is limited to a small group of authorized personnel, is logged, and requires multi-factor authentication.`
-      ),
-    },
-    {
-      id: "backups",
-      title: "Data Backups",
-      body: P(
-        `Production data is backed up automatically to durable storage on a recurring schedule, with point-in-time recovery for the primary database. Backup restoration is tested periodically.`
-      ),
-    },
-    {
-      id: "dr",
-      title: "Disaster Recovery",
-      body: P(
-        `Our disaster recovery plan covers loss of a data center, region-wide provider outages, and data corruption. Recovery time and recovery point objectives are documented and reviewed regularly.`
-      ),
-    },
-    {
-      id: "ir",
-      title: "Incident Response",
-      body: P(
-        `A documented incident response plan governs how we detect, contain, eradicate, recover from, and communicate about security incidents. Affected customers are notified without undue delay in accordance with law and contract.`
-      ),
-    },
-    {
-      id: "infra",
-      title: "Infrastructure Security",
-      body: P(
-        `The platform runs on reputable cloud infrastructure with strong physical, network, and platform security. Environments are isolated between production, staging, and development. Secrets are stored in a managed secrets service and never checked into source code.`
-      ),
-    },
-    {
-      id: "vm",
-      title: "Vulnerability Management",
-      body: P(
-        `We continuously scan dependencies, container images, and infrastructure for known vulnerabilities. Findings are triaged based on severity and exploitability. Critical fixes are prioritized on an expedited timeline and independent assessments are conducted periodically.`
+      id: "overview",
+      title: "Current Public Information",
+      body: (
+        <p>
+          Review the <a href="/security">Security page</a>, <a href="/legal/security-policy">Security Policy</a>, <a href="/legal/privacy">Privacy Policy</a>, and <a href="/legal/compliance">Compliance Information</a> for SEZA's current public statements. These pages are not independent certifications or audit reports.
+        </p>
       ),
     },
     {
       id: "disclosure",
       title: "Responsible Disclosure",
+      body: P(
+        `Security research must avoid disrupting live services, changing or deleting data, accessing data beyond what is necessary to demonstrate a finding, social engineering, denial-of-service testing, and public disclosure before SEZA has had a reasonable opportunity to investigate.`
+      ),
+    },
+    {
+      id: "report",
+      title: "Report a Vulnerability",
       body: (
-        <>
-          <p>
-            We appreciate the security research community. If you believe you have discovered a
-            vulnerability affecting {C.productName}, please report it to{" "}
-            <a href={`mailto:${C.securityEmail}`}>{C.securityEmail}</a>. Please:
-          </p>
-          <ul>
-            <li>Give us a reasonable time to investigate and remediate before public disclosure.</li>
-            <li>Avoid privacy violations, service disruption, or data destruction while researching.</li>
-            <li>Only test against Accounts you own or have explicit permission to test.</li>
-          </ul>
-          <p>
-            We will not pursue legal action against researchers who follow these guidelines in
-            good faith.
-          </p>
-        </>
+        <p>
+          Email <a href={`mailto:${C.securityEmail}`}>{C.securityEmail}</a> with the affected page or feature, reproduction steps, potential impact, and a safe way to contact you. Please do not include unnecessary personal information or full payment credentials.
+        </p>
+      ),
+    },
+    {
+      id: "response",
+      title: "Response Expectations",
+      body: P(
+        `SEZA will review good-faith reports and prioritize them based on reproducibility, severity, affected data, and risk to merchants. A submission does not create a contractual right to payment, public credit, or a specific remediation deadline unless SEZA agrees in writing.`
       ),
     },
   ],

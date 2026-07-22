@@ -167,8 +167,7 @@ export function LegalDocumentView({ doc }: Props) {
                 Questions about this document? Contact us at{" "}
                 <a className="text-foreground underline" href={`mailto:${LEGAL_CONFIG.legalEmail}`}>
                   {LEGAL_CONFIG.legalEmail}
-                </a>{" "}
-                or write to {LEGAL_CONFIG.companyName}, {LEGAL_CONFIG.businessAddress}.
+                </a>. Electronic legal notices are accepted at the address above.
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <Button asChild variant="outline" size="sm">

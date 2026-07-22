@@ -17,13 +17,13 @@ export const Route = createFileRoute("/trust")({
 
 const TILES = [
   { icon: Shield, title: "Security", body: "Encryption, access control, and defense in depth.", to: "/security", external: false },
-  { icon: FileCheck, title: "Compliance", body: "Regulatory posture and merchant-of-record model.", slug: "compliance" },
+  { icon: FileCheck, title: "Compliance", body: "Merchant obligations, Stripe billing and certification limits.", slug: "compliance" },
   { icon: Activity, title: "System status", body: "A public real-time status page is coming soon.", to: "/status", external: false },
   { icon: Lock, title: "Privacy", body: "How we collect, use, and protect your data.", slug: "privacy" },
-  { icon: BookOpen, title: "Legal Center", body: "Terms, DPA, SLA, and all published policies.", to: "/legal", external: false },
+  { icon: BookOpen, title: "Legal Center", body: "Terms, privacy, availability, and all published policies.", to: "/legal", external: false },
   { icon: AlertCircle, title: "Incident response", body: "How we detect, contain, and communicate incidents.", to: "/security", external: false },
-  { icon: Lock, title: "Encryption", body: "TLS in transit, encryption at rest, key management via managed services.", to: "/security", external: false },
-  { icon: Database, title: "Backups", body: "Continuous managed backups with point-in-time recovery.", to: "/security", external: false },
+  { icon: Lock, title: "Encryption", body: "Protected connections and managed-service security controls.", to: "/security", external: false },
+  { icon: Database, title: "Backups", body: "Managed-provider recovery capabilities and merchant continuity planning.", to: "/security", external: false },
   { icon: HeartHandshake, title: "Responsible disclosure", body: `Report issues to ${LEGAL_CONFIG.securityEmail}.`, mail: true },
 ];
 

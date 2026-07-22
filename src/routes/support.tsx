@@ -25,13 +25,13 @@ export const Route = createFileRoute("/support")({
 });
 
 const FAQS = [
-  { q: "How does the free trial work?", a: "Every new account gets a 14-day free trial of the Pro plan. You add a payment method during signup, and you're only charged when the trial ends. Cancel any time before then and you won't be billed." },
-  { q: "Can I use my existing hardware?", a: "Yes. SEZA POS works with standard receipt printers, USB / Bluetooth barcode scanners, cash drawers, and card terminals. See the Hardware page for tested models." },
+  { q: "How does the free trial work?", a: "Every new merchant can start a 14-day trial without entering a payment card. The trial does not automatically charge you; an authorized owner chooses a paid plan through Stripe to continue paid access after the trial." },
+  { q: "Can I use my existing hardware?", a: "SEZA can work with supported scanners, ESC/POS-oriented receipt printers, printer-driven cash drawers, and configured payment readers. Compatibility depends on the exact model, connection, device, and required drivers or native plugins." },
   { q: "How do I change my plan?", a: "Sign in and go to Settings → Billing. You can upgrade, downgrade, update your card, or cancel. Upgrades are prorated; downgrades apply at the next billing cycle." },
-  { q: "What happens if my internet goes down?", a: "Checkout continues to work in a limited offline mode and syncs to the cloud as soon as you're back online." },
-  { q: "How is my data backed up?", a: "All data is stored in the cloud, encrypted at rest and in transit, and backed up automatically. You can export sales, products, and reports at any time." },
+  { q: "What happens if my internet goes down?", a: "Supported Android registers can record eligible cash sales in a limited offline mode and synchronize them after connectivity returns. Card payments and cloud-only functions still require a connection." },
+  { q: "How is my data backed up?", a: "Store data is held in the configured managed cloud environment and protected with provider and application safeguards. Export availability depends on the record type, and merchants should maintain appropriate accounting and continuity records." },
   { q: "How do refunds work?", a: "Any sale can be fully or partially refunded from the Sales page. Refunds can restock inventory automatically and require manager approval by default." },
-  { q: "Do you support multiple stores?", a: "The Business plan supports multi-store operations with a shared product catalog and per-store reporting." },
+  { q: "Do you support multiple stores?", a: "The platform is being prepared for expanded multi-store operations. Review the current pricing and product pages before relying on a specific multi-location workflow." },
   { q: "How do I cancel?", a: "Go to Settings → Billing → Cancel plan. Your access continues through the end of your current billing period." },
 ];
 
@@ -81,7 +81,7 @@ function MarketingSupportPage() {
         {[
           { icon: BookOpen, title: "Getting started", body: "Set up your first store, add products, and take your first sale.", cta: "Create account", to: "/signup" as const },
           { icon: MessageSquare, title: "Contact us", body: "Talk to a real person about pricing, hardware, or migrations.", cta: "Send a message", to: "/contact" as const },
-          { icon: Mail, title: "Email support", body: "support@sezapos.com — we respond within one business day.", href: "mailto:support@sezapos.com", cta: "Email us" },
+          { icon: Mail, title: "Email support", body: "support@sezapos.com — send account, billing, or register questions here.", href: "mailto:support@sezapos.com", cta: "Email us" },
         ].map((c) => (
           <div key={c.title} className="rounded-xl border p-6 flex flex-col">
             <c.icon className="h-6 w-6 text-primary" />

@@ -43,7 +43,7 @@ export const termsOfService: LegalDocument = {
           <li><strong>Customer Data</strong> — information about a Merchant's end customers processed through the Service.</li>
           <li><strong>Transaction Data</strong> — sales, refunds, tax, tender, and payment records generated in the Service.</li>
           <li><strong>Subscription</strong> — a paid plan giving access to the Service for a defined billing cycle.</li>
-          <li><strong>Merchant of Record</strong> — {C.merchantOfRecord}, which handles subscription checkout, invoicing, and tax collection on our behalf.</li>
+          <li><strong>Billing Processor</strong> — {C.billingProcessor}, which securely processes subscription checkout, invoices, and saved payment methods for SEZA.</li>
         </ul>
       ),
     },
@@ -51,7 +51,7 @@ export const termsOfService: LegalDocument = {
       id: "acceptance",
       title: "Acceptance of Terms",
       body: P(
-        `By registering, subscribing, or using the Service in any way, you acknowledge that you have read, understood, and agree to be bound by these Terms and any policies referenced herein, including our Privacy Policy, Acceptable Use Policy, and Data Processing Agreement. If you do not agree, you must not use the Service.`
+        `By registering, subscribing, or using the Service in any way, you acknowledge that you have read, understood, and agree to be bound by these Terms and any policies referenced herein, including our Privacy Policy, Acceptable Use Policy, and Data Processing Information. If you do not agree, you must not use the Service.`
       ),
     },
     {
@@ -137,7 +137,7 @@ export const termsOfService: LegalDocument = {
       id: "billing",
       title: "Billing",
       body: P(
-        `Subscriptions are billed in advance on a monthly or annual basis through our Merchant of Record, ${C.merchantOfRecord}. You authorize us and our Merchant of Record to charge the payment method on file for all Subscription fees, applicable taxes, add-ons, and usage overages. If your payment method fails, we may retry the charge, suspend access after a grace period, and, if the failure persists, terminate the Subscription.`
+        `Subscriptions are sold by ${C.companyName} and billed in advance on a monthly or annual basis. ${C.billingProcessor} securely processes checkout, invoices, and the payment method you authorize. You authorize us, acting through ${C.billingProcessor}, to charge that payment method for Subscription fees, applicable taxes, add-ons, and disclosed usage charges. If a payment fails, we may retry it, provide a grace period, limit paid features, or suspend the Subscription until the balance is resolved.`
       ),
     },
     {
@@ -153,14 +153,14 @@ export const termsOfService: LegalDocument = {
       body: (
         <>
           <p>
-            Subscription payments are collected by our Merchant of Record and are subject to their
-            terms and privacy notice. Payment card details are handled by PCI-DSS certified payment
-            providers; we do not store full card numbers on our servers.
+            Subscription payments are securely processed by {C.billingProcessor} and are also subject
+            to its applicable terms and privacy notice. Payment card details are tokenized and handled
+            by the payment provider; SEZA does not store full card numbers on its own servers.
           </p>
           <p>
-            For customer-facing payments processed by Merchants (e.g. card-present sales), Merchants
-            must maintain a separate agreement with a payment processor of their choosing and are
-            solely responsible for compliance with applicable card network rules.
+            For customer-facing card payments made through a connected Stripe Terminal account or another
+            supported provider, the Merchant must maintain the required processor account and remains
+            responsible for its products, customers, disputes, refunds, taxes, and compliance with card-network rules.
           </p>
         </>
       ),
@@ -169,14 +169,14 @@ export const termsOfService: LegalDocument = {
       id: "taxes",
       title: "Taxes",
       body: P(
-        `Subscription fees are exclusive of taxes unless stated otherwise. Where required, our Merchant of Record will collect and remit applicable sales, use, VAT, GST, or similar taxes based on your billing address. Merchants are separately responsible for calculating, collecting, and remitting all taxes on sales they make to their own customers through the Service.`
+        `Subscription fees are exclusive of taxes unless stated otherwise. Applicable taxes may be calculated and shown during Stripe checkout based on the information you provide. ${C.companyName} is responsible for tax obligations on its Subscription sales where required. Merchants are separately responsible for calculating, collecting, reporting, and remitting taxes on the goods or services they sell to their own customers through the Service.`
       ),
     },
     {
       id: "free-trials",
       title: "Free Trials",
       body: P(
-        `We may offer free trials with a valid payment method on file. You will not be charged during the trial period. At the end of the trial the paid Subscription begins automatically and your payment method is charged, unless you cancel before the trial ends. Only one free trial is available per Merchant unless we agree otherwise in writing.`
+        `We currently offer a 14-day free trial without requiring a credit card. The trial begins after the Account is created and any required email verification is completed. The trial does not automatically become a paid Subscription and we will not charge you unless an authorized Owner actively selects a plan and completes Stripe checkout. When the trial ends, paid features may be limited until a plan is selected. Only one free trial is available per Merchant unless we agree otherwise in writing.`
       ),
     },
     {
@@ -291,7 +291,7 @@ export const termsOfService: LegalDocument = {
       id: "customer-data",
       title: "Customer Data",
       body: P(
-        `Customer Data collected through the Service (for example, names, phone numbers, email addresses, purchase history, loyalty balances) belongs to the Merchant, who is the data controller. We process Customer Data as a service provider / processor on the Merchant's instructions and in accordance with the Privacy Policy and Data Processing Agreement.`
+        `Customer Data collected through the Service (for example, names, phone numbers, email addresses, purchase history, loyalty balances) belongs to the Merchant, who is the data controller. We process Customer Data as a service provider / processor on the Merchant's instructions and in accordance with the Privacy Policy, our Data Processing Information, and any separately signed data-processing addendum.`
       ),
     },
     {
@@ -409,10 +409,10 @@ export const termsOfService: LegalDocument = {
       ),
     },
     {
-      id: "arbitration",
-      title: "Arbitration",
+      id: "dispute-resolution",
+      title: "Dispute Resolution and Venue",
       body: P(
-        `Any dispute arising out of or related to these Terms or the Service will be resolved by binding arbitration administered by ${C.arbitrationVenue}, in accordance with its commercial rules. Judgment on the arbitral award may be entered in any court of competent jurisdiction. Either party may seek injunctive or other equitable relief in a court of competent jurisdiction to protect its intellectual property or confidential information. Class actions and class arbitration are waived to the maximum extent permitted by law.`
+        `Before filing a formal claim, each party agrees to give the other written notice and at least 30 days to attempt a good-faith resolution. Unless applicable law requires a different venue, any court proceeding arising from these Terms or the Service must be brought in ${C.disputeVenue}, and each party consents to that venue. Either party may seek immediate injunctive relief when necessary to protect data, confidential information, or intellectual property.`
       ),
     },
     {
@@ -435,7 +435,7 @@ export const termsOfService: LegalDocument = {
       body: (
         <>
           <p>{C.companyName}</p>
-          <p>{C.businessAddress}</p>
+          <p>Legal notices are accepted electronically at the address below.</p>
           <p>Email: <a href={`mailto:${C.legalEmail}`}>{C.legalEmail}</a></p>
           <p>Website: <a href={C.website}>{C.website}</a></p>
         </>

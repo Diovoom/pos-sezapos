@@ -13,6 +13,7 @@ import {
   apiTerms,
   compliance,
   securityCenter,
+  accessibilityStatement,
 } from "./docs/policies";
 import type { LegalDocument } from "./types";
 
@@ -31,6 +32,7 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
   apiTerms,
   compliance,
   securityCenter,
+  accessibilityStatement,
 ];
 
 export function getLegalDoc(slug: string): LegalDocument | undefined {

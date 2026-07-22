@@ -54,7 +54,7 @@ const PLANS: Plan[] = [
       "Email receipts",
       "Daily & weekly sales reports",
       "Receipt printer support",
-      "Cloud backup",
+      "Cloud-synced store data",
       "Standard support",
     ],
   },

@@ -19,9 +19,9 @@ const GROUPS: { title: string; items: { q: string; a: string }[] }[] = [
   {
     title: "Getting started",
     items: [
-      { q: "How long does setup take?", a: "Most owners are running their first sale within 30–60 minutes. You'll create an account, add your business details, import or add a few products, and print a test receipt." },
-      { q: "Do I need to install anything?", a: "No. SEZA is a cloud application. Open it in any modern browser on your register, tablet, or phone. No downloads, no updates to manage." },
-      { q: "Can I import my existing products?", a: "Yes — upload a CSV of your products and stock levels from Settings > Inventory. If you have data from another POS, our team can help map it." },
+      { q: "How long does setup take?", a: "Setup time depends on the catalog, hardware, receipt configuration, employees, and payment setup. A basic test store can be created quickly, while a production rollout should include hardware and workflow testing." },
+      { q: "Do I need to install anything?", a: "The merchant website runs in a modern browser. The dedicated Android register is installed as an app so it can use supported native scanning, device, printing, and offline capabilities." },
+      { q: "Can I import my existing products?", a: "SEZA includes product-entry and bulk-import workflows. The exact source format may need cleanup or mapping before it can be imported safely." },
       { q: "How many employees can I add?", a: "Every plan includes multiple employee logins with role-based permissions. See the pricing page for the exact seat allotment per plan." },
     ],
   },
@@ -31,31 +31,31 @@ const GROUPS: { title: string; items: { q: string; a: string }[] }[] = [
       { q: "Is there a free trial?", a: "Yes. Every plan includes a 14-day free trial. No credit card is required to start, and you can cancel any time." },
       { q: "Can I change plans later?", a: "Yes. Upgrade or downgrade from Settings > Billing. Changes are prorated." },
       { q: "How do I cancel?", a: "Cancel any time from Settings > Billing. You keep access through the end of your billing period. There is no cancellation fee." },
-      { q: "Do you charge per terminal?", a: "No. SEZA is priced per plan, not per terminal. Run as many devices under one plan as your business needs." },
+      { q: "Do you charge per terminal?", a: "SEZA is priced by plan. Device, employee, store, and feature limits are determined by the current plan details shown during signup or billing." },
     ],
   },
   {
     title: "Hardware",
     items: [
       { q: "What hardware do I need?", a: "At minimum: a tablet, laptop, or PC with a modern browser. Most stores also add a barcode scanner, receipt printer, and cash drawer. See the Hardware page for compatible models." },
-      { q: "Can I use my current scanner and printer?", a: "Most likely yes. SEZA supports standard USB and Bluetooth HID scanners and ESC/POS compatible receipt printers." },
-      { q: "Do you support card terminals?", a: "Yes, through supported integrations. See the Integrations page for the current list." },
+      { q: "Can I use my current scanner and printer?", a: "Many standard USB or Bluetooth HID scanners can work, and SEZA includes ESC/POS-oriented receipt workflows. Printer compatibility still depends on model, connection, device, and driver setup." },
+      { q: "Do you support card terminals?", a: "SEZA contains Stripe Terminal-ready architecture, but in-person card use requires an approved merchant account, supported reader, live configuration, and an Android build with the required native plugin. See the Integrations page for current status." },
     ],
   },
   {
     title: "Security & data",
     items: [
-      { q: "Where is my data stored?", a: "In a managed cloud database with encryption at rest, TLS in transit, daily backups, and row-level authorization scoped to your store. See the Security page for more detail." },
-      { q: "Do you store card numbers?", a: "No. Card payments are processed by our merchant-of-record partner. SEZA never stores raw card data." },
-      { q: "Can I export my data?", a: "Yes. Sales, inventory, employees, and customers are exportable as CSV any time. Your data is yours." },
-      { q: "What happens if I cancel?", a: "You have export access through the end of your billing period. After the retention window ends, data is deleted per our data retention policy." },
+      { q: "Where is my data stored?", a: "In the configured managed cloud environment, with protected connections and merchant/store authorization controls. Backup and recovery capabilities depend on the deployed providers and configuration. See the Security page for current public details." },
+      { q: "Do you store card numbers?", a: "SEZA does not store full subscription card numbers on its own servers. Subscription billing is handled through Stripe-hosted payment experiences, while customer card acceptance depends on the connected payment provider and supported hardware." },
+      { q: "Can I export my data?", a: "Export tools are available for supported reports and directories. Availability varies by record type, and additional export coverage may be added as the platform develops." },
+      { q: "What happens if I cancel?", a: "Paid access generally continues through the end of the current billing period unless the account is suspended for another reason. Data is then handled under the Terms and Privacy Policy, including applicable legal and backup retention." },
     ],
   },
   {
     title: "Support",
     items: [
-      { q: "How do I get help?", a: "Visit the Support page, email our support team, or open a case from inside the app. Response times depend on your plan; see the SLA in the Legal Center." },
-      { q: "Do you offer onboarding?", a: "Yes — every new merchant gets access to our onboarding checklist and self-serve documentation. Higher-tier plans include guided setup." },
+      { q: "How do I get help?", a: "Visit the Support page, email support@sezapos.com, or open a case from inside the merchant experience when available. Response timing depends on issue severity, available support coverage, and the applicable plan or written agreement." },
+      { q: "Do you offer onboarding?", a: "SEZA provides onboarding steps inside the product. Any guided setup or implementation assistance is offered only when it is included in the selected plan or confirmed in writing." },
     ],
   },
 ];
