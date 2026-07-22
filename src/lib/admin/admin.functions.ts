@@ -2023,11 +2023,11 @@ export const adminListAdmins = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await ensureSuperAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const platformRoles = ["super_admin", "operations_admin", "support_admin", "billing_admin", "analyst", "technical_support", "merchant_support", "compliance_support"];
+    const platformRoles = ["super_admin", "operations_admin", "support_admin", "billing_admin", "analyst", "technical_support", "merchant_support", "compliance_support"] as const;
     const { data: roleRows, error } = await supabaseAdmin
       .from("user_roles")
       .select("user_id, role, created_at")
-      .in("role", platformRoles);
+      .in("role", platformRoles as unknown as any);
     if (error) throw new Error(error.message);
     const ids = Array.from(new Set((roleRows ?? []).map((r: any) => r.user_id)));
     if (!ids.length) return { rows: [] };
