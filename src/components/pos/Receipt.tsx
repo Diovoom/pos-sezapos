@@ -8,6 +8,8 @@ export type ReceiptLine = {
   line_total: number;
 };
 
+export type ReceiptPaymentAllocation = { method: string; amount: number; cardBrand?: string; last4?: string };
+
 export type ReceiptData = {
   store: {
     name?: string | null;
@@ -36,6 +38,7 @@ export type ReceiptData = {
   cardBrand?: string | null;
   last4?: string | null;
   reference?: string | null;
+  paymentAllocations?: ReceiptPaymentAllocation[];
   refund?: boolean;
   pendingSync?: boolean;
 };
@@ -104,8 +107,11 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
 
       <Divider />
 
-      <Row l="Method" r={data.paymentMethod.replace("_", " ").toUpperCase()} />
-      {data.cardBrand && data.last4 && <Row l="Card" r={`${data.cardBrand} ••${data.last4}`} />}
+      <Row l="Method" r={data.paymentMethod.replaceAll("_", " ").toUpperCase()} />
+      {data.paymentAllocations?.map((allocation, index) => (
+        <Row key={`${allocation.method}-${index}`} l={allocation.method.replaceAll("_", " ").toUpperCase()} r={`${fmtCurrency(allocation.amount, cur)}${allocation.cardBrand && allocation.last4 ? ` · ${allocation.cardBrand} ••${allocation.last4}` : ""}`} />
+      ))}
+      {data.cardBrand && data.last4 && !data.paymentAllocations?.length && <Row l="Card" r={`${data.cardBrand} ••${data.last4}`} />}
       {data.reference && <Row l="Ref" r={data.reference} />}
       {data.amountTendered != null && <Row l="Tendered" r={fmtCurrency(data.amountTendered, cur)} />}
       {data.changeDue != null && data.changeDue > 0 && (

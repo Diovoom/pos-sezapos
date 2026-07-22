@@ -9,6 +9,7 @@ import { useSubscription, type PlanTier } from "@/hooks/useSubscription";
 import { StripeCheckoutDialog } from "@/components/billing/StripeCheckoutDialog";
 import { createBillingPortalSession } from "@/lib/billing/checkout.functions";
 import { getStripeEnvironment, isPaymentsConfigured } from "@/lib/stripe";
+import { SEZA_PLANS } from "@/lib/plans";
 
 const TIER_LABEL: Record<PlanTier, string> = {
   expired: "Expired",
@@ -18,11 +19,6 @@ const TIER_LABEL: Record<PlanTier, string> = {
   business: "Business",
 };
 
-const PLANS = [
-  { id: "starter", name: "Starter", price: 29, tier: "starter" as PlanTier, priceId: "starter_monthly" },
-  { id: "pro", name: "Pro", price: 59, tier: "pro" as PlanTier, priceId: "pro_monthly" },
-  { id: "business", name: "Business", price: 89, tier: "business" as PlanTier, priceId: "business_monthly" },
-];
 
 export function BillingPanel() {
   const { data: plan, isLoading } = useSubscription();
@@ -122,8 +118,8 @@ export function BillingPanel() {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
-          {PLANS.map((p) => {
-            const isCurrent = plan?.tier === p.tier;
+          {SEZA_PLANS.map((p) => {
+            const isCurrent = plan?.tier === p.id;
             return (
               <div key={p.id} className={`rounded-lg border p-4 ${isCurrent ? "border-primary" : ""}`}>
                 <div className="flex items-center justify-between">
@@ -131,14 +127,14 @@ export function BillingPanel() {
                   {isCurrent && <Badge variant="outline">Current</Badge>}
                 </div>
                 <div className="mt-2 text-2xl font-bold">
-                  ${p.price}<span className="text-sm font-normal text-muted-foreground">/mo</span>
+                  ${p.monthlyPrice}<span className="text-sm font-normal text-muted-foreground">/mo</span>
                 </div>
                 <Button
                   className="mt-4 w-full"
                   size="sm"
                   variant={isCurrent ? "outline" : "default"}
                   disabled={isCurrent}
-                  onClick={() => openCheckout(p.priceId, p.name)}
+                  onClick={() => openCheckout(p.lookupKey, p.name)}
                 >
                   {isCurrent ? "Current plan" : hasPaidPlan ? "Switch" : "Subscribe"}
                 </Button>

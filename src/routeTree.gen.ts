@@ -69,6 +69,7 @@ import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]
 import { Route as AdminAppAdminIndexRouteImport } from './routes/_adminApp/admin.index'
 import { Route as LovableSmsSendRouteImport } from './routes/lovable/sms/send'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
+import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as DashboardHelpTicketIdRouteImport } from './routes/_dashboard/help.$ticketId'
 import { Route as DashboardEmployeesIdRouteImport } from './routes/_dashboard/employees.$id'
 import { Route as AdminAppAdminTeamRouteImport } from './routes/_adminApp/admin.team'
@@ -408,6 +409,11 @@ const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   path: '/lovable/email/suppression',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
+  id: '/api/public/health',
+  path: '/api/public/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardHelpTicketIdRoute = DashboardHelpTicketIdRouteImport.update({
   id: '/$ticketId',
   path: '/$ticketId',
@@ -697,6 +703,7 @@ export interface FileRoutesByFullPath {
   '/admin/team': typeof AdminAppAdminTeamRoute
   '/employees/$id': typeof DashboardEmployeesIdRoute
   '/help/$ticketId': typeof DashboardHelpTicketIdRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/admin/': typeof AdminAppAdminIndexRoute
@@ -795,6 +802,7 @@ export interface FileRoutesByTo {
   '/admin/team': typeof AdminAppAdminTeamRoute
   '/employees/$id': typeof DashboardEmployeesIdRoute
   '/help/$ticketId': typeof DashboardHelpTicketIdRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/admin': typeof AdminAppAdminIndexRoute
@@ -897,6 +905,7 @@ export interface FileRoutesById {
   '/_adminApp/admin/team': typeof AdminAppAdminTeamRoute
   '/_dashboard/employees/$id': typeof DashboardEmployeesIdRoute
   '/_dashboard/help/$ticketId': typeof DashboardHelpTicketIdRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/_adminApp/admin/': typeof AdminAppAdminIndexRoute
@@ -997,6 +1006,7 @@ export interface FileRouteTypes {
     | '/admin/team'
     | '/employees/$id'
     | '/help/$ticketId'
+    | '/api/public/health'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/admin/'
@@ -1095,6 +1105,7 @@ export interface FileRouteTypes {
     | '/admin/team'
     | '/employees/$id'
     | '/help/$ticketId'
+    | '/api/public/health'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/admin'
@@ -1196,6 +1207,7 @@ export interface FileRouteTypes {
     | '/_adminApp/admin/team'
     | '/_dashboard/employees/$id'
     | '/_dashboard/help/$ticketId'
+    | '/api/public/health'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/_adminApp/admin/'
@@ -1263,6 +1275,7 @@ export interface RootRouteChildren {
   LegalIndexRoute: typeof LegalIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   LovableSmsSendRoute: typeof LovableSmsSendRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
@@ -1704,6 +1717,13 @@ declare module '@tanstack/react-router' {
       path: '/lovable/email/suppression'
       fullPath: '/lovable/email/suppression'
       preLoaderRoute: typeof LovableEmailSuppressionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/health': {
+      id: '/api/public/health'
+      path: '/api/public/health'
+      fullPath: '/api/public/health'
+      preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_dashboard/help/$ticketId': {
@@ -2161,6 +2181,7 @@ const rootRouteChildren: RootRouteChildren = {
   LegalIndexRoute: LegalIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  ApiPublicHealthRoute: ApiPublicHealthRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   LovableSmsSendRoute: LovableSmsSendRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,

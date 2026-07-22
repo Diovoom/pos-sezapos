@@ -18,7 +18,7 @@ export const Route = createFileRoute("/trust")({
 const TILES = [
   { icon: Shield, title: "Security", body: "Encryption, access control, and defense in depth.", to: "/security", external: false },
   { icon: FileCheck, title: "Compliance", body: "Merchant obligations, Stripe billing and certification limits.", slug: "compliance" },
-  { icon: Activity, title: "System status", body: "A public real-time status page is coming soon.", to: "/status", external: false },
+  { icon: Activity, title: "System status", body: "Live application health, service checks, and incident contact information.", to: "/status", external: false },
   { icon: Lock, title: "Privacy", body: "How we collect, use, and protect your data.", slug: "privacy" },
   { icon: BookOpen, title: "Legal Center", body: "Terms, privacy, availability, and all published policies.", to: "/legal", external: false },
   { icon: AlertCircle, title: "Incident response", body: "How we detect, contain, and communicate incidents.", to: "/security", external: false },

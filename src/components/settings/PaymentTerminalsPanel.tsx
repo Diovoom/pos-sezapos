@@ -24,14 +24,14 @@ type Terminal = {
   location: string | null;
   status: string;
   last_seen_at: string | null;
+  config?: Record<string, unknown> | null;
 };
 
 const PROVIDERS = [
-  { id: "manual", label: "Manual / cash-only" },
-  { id: "stripe", label: "Stripe Terminal" },
-  { id: "square", label: "Square Reader" },
-  { id: "clover", label: "Clover" },
-  { id: "adyen", label: "Adyen" },
+  { id: "stripe-tap-to-pay", label: "Stripe Tap to Pay on Android" },
+  { id: "stripe-wisepos", label: "Stripe WisePOS E / S700 (Internet)" },
+  { id: "stripe-wisepad3", label: "Stripe WisePad 3 (Bluetooth)" },
+  { id: "manual", label: "Cash-only register" },
   { id: "custom", label: "Custom / Other" },
 ];
 
@@ -49,7 +49,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     },
   });
 
-  const [form, setForm] = useState({ label: "", provider: "manual", serial: "", location: "" });
+  const [form, setForm] = useState({ label: "", provider: "stripe-tap-to-pay", serial: "", location: "", stripeLocationId: "", testMode: true });
 
   const add = useMutation({
     mutationFn: async () => {
@@ -62,13 +62,18 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
         serial: form.serial || null,
         location: form.location || null,
         status: "inactive",
+        config: {
+          reader_type: form.provider,
+          location_id: form.stripeLocationId.trim(),
+          test_mode: form.testMode,
+        },
       }).select().single();
       if (error) throw error;
       void logAudit({ action: "terminal.create", entity: "payment_terminal", entity_id: data.id, details: { label: form.label, provider: form.provider } });
     },
     onSuccess: () => {
       toast.success("Terminal added");
-      setForm({ label: "", provider: "manual", serial: "", location: "" });
+      setForm({ label: "", provider: "stripe-tap-to-pay", serial: "", location: "", stripeLocationId: "", testMode: true });
       qc.invalidateQueries({ queryKey: ["payment_terminals"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
@@ -103,7 +108,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><CreditCard className="size-5" /> Registered terminals</CardTitle>
         <CardDescription>
-          Card readers connected to this store. Cash tender works today. In-person card charging via Stripe Terminal is coming soon — the server plumbing is ready and will light up once a reader is paired to your Stripe account.
+          Pair Stripe Tap to Pay or a supported Stripe reader. Connection tokens and card-present PaymentIntents are created securely by SEZA; secret keys never enter the register app.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -173,8 +178,17 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                 <Input value={form.serial} onChange={(e) => setForm({ ...form, serial: e.target.value })} />
               </div>
               <div className="space-y-1">
-                <Label>Location</Label>
+                <Label>Physical location label</Label>
                 <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Main floor" />
+              </div>
+              <div className="space-y-1 col-span-2">
+                <Label>Stripe Terminal Location ID</Label>
+                <Input value={form.stripeLocationId} onChange={(e) => setForm({ ...form, stripeLocationId: e.target.value })} placeholder="tml_…" />
+                <p className="text-xs text-muted-foreground">Create or copy this from Stripe Dashboard → Terminal → Locations.</p>
+              </div>
+              <div className="col-span-2 flex items-center justify-between rounded-lg border p-3">
+                <div><div className="text-sm font-medium">Stripe test mode</div><div className="text-xs text-muted-foreground">Turn off only after live Stripe Terminal credentials and a real reader are approved.</div></div>
+                <input type="checkbox" className="size-4" checked={form.testMode} onChange={(e) => setForm({ ...form, testMode: e.target.checked })} />
               </div>
             </div>
             <Button onClick={() => add.mutate()} disabled={add.isPending}>

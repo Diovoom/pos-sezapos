@@ -106,6 +106,7 @@ type CartLine = { product: Product; qty: number };
 
 const TENDER: Array<{ id: PaymentMethod; label: string; icon: typeof Banknote }> = [
   { id: "cash", label: "Cash", icon: Banknote },
+  { id: "split", label: "Split", icon: SplitSquareHorizontal },
   { id: "card", label: "Card", icon: CreditCard },
   { id: "tap", label: "Tap", icon: Smartphone },
   { id: "apple_pay", label: "Apple", icon: Wallet },
@@ -505,6 +506,32 @@ export function PosPage() {
           itemsErr,
         );
       }
+
+      // 5. Store a payment ledger so split tender remains accurate in reports,
+      // shift cash expectations, refunds, and audit history.
+      const allocations = payment.allocations?.length
+        ? payment.allocations
+        : [{
+            method: payment.method === "tap" ? "tap_to_pay" : payment.method === "split" ? "other" : payment.method,
+            amount: total,
+            reference: payment.reference,
+            cardBrand: payment.cardBrand,
+            last4: payment.last4,
+          }];
+      const paymentRows = allocations.filter((allocation) => allocation.amount > 0).map((allocation) => ({
+        sale_id: sale.id,
+        store_id: store?.id,
+        method: allocation.method === "tap" ? "tap_to_pay" : ["apple_pay", "google_pay"].includes(allocation.method) ? "card" : allocation.method,
+        amount: allocation.amount,
+        provider: allocation.provider ?? null,
+        provider_reference: allocation.reference ?? null,
+        status: "completed",
+        metadata: { card_brand: allocation.cardBrand ?? null, last4: allocation.last4 ?? null },
+      }));
+      if (paymentRows.length) {
+        const { error: paymentLedgerError } = await (supabase.from as any)("sale_payments").insert(paymentRows);
+        if (paymentLedgerError) console.warn("[sale] payment ledger insert failed:", paymentLedgerError);
+      }
       return { sale, payment };
     },
     onSuccess: ({ sale, payment }) => {
@@ -533,6 +560,7 @@ export function PosPage() {
         cardBrand: payment.cardBrand,
         last4: payment.last4,
         reference: isOffline ? null : payment.reference,
+        paymentAllocations: payment.allocations,
         pendingSync: isOffline,
       };
       setReceipt(rd);

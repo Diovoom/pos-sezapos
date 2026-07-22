@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Wifi,
   WifiOff,
+  SplitSquareHorizontal,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import {
@@ -37,7 +38,17 @@ export type PaymentMethod =
   | "tap"
   | "apple_pay"
   | "google_pay"
-  | "gift_card";
+  | "gift_card"
+  | "split";
+
+export type PaymentAllocation = {
+  method: Exclude<PaymentMethod, "split">;
+  amount: number;
+  reference?: string;
+  provider?: string;
+  cardBrand?: string;
+  last4?: string;
+};
 
 export type CompletedPayment = {
   method: PaymentMethod;
@@ -46,6 +57,7 @@ export type CompletedPayment = {
   reference?: string;
   cardBrand?: string;
   last4?: string;
+  allocations?: PaymentAllocation[];
 };
 
 type Props = {
@@ -68,6 +80,7 @@ type Props = {
 // its own gate; TerminalPanel gates cancel unless the provider is missing.
 export function PaymentDialog({ open, onOpenChange, method, total, currency, onComplete, bypassCancelApproval = false }: Props) {
   const isCash = method === "cash";
+  const isSplit = method === "split";
   const [managerOpen, setManagerOpen] = useState(false);
   const requestCancel = () => {
     if (bypassCancelApproval) { onOpenChange(false); return; }
@@ -101,6 +114,8 @@ export function PaymentDialog({ open, onOpenChange, method, total, currency, onC
         >
           {isCash ? (
             <CashPanel total={total} currency={currency} onComplete={onComplete} onCancel={requestCancel} />
+          ) : isSplit ? (
+            <SplitPanel total={total} currency={currency} onComplete={onComplete} onCancel={requestCancel} />
           ) : (
             <TerminalPanel
               key={String(open)}
@@ -235,6 +250,119 @@ function CashPanel({
 }
 
 
+/* -------- Split cash + card -------- */
+
+function SplitPanel({
+  total,
+  currency,
+  onComplete,
+  onCancel,
+}: {
+  total: number;
+  currency: string;
+  onComplete: (p: CompletedPayment) => void;
+  onCancel: () => void;
+}) {
+  const provider = getActiveProvider();
+  const [cashText, setCashText] = useState("");
+  const [event, setEvent] = useState<PaymentEvent>({ status: "idle", message: "Choose the cash amount" });
+  const [result, setResult] = useState<PaymentResult | null>(null);
+  const [charging, setCharging] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const cash = Math.min(total, Math.max(0, Math.round((Number(cashText) || 0) * 100) / 100));
+  const remaining = Math.max(0, Math.round((total - cash) * 100) / 100);
+  const approved = remaining === 0 || result?.finalStatus === "approved";
+
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  const chargeRemaining = async () => {
+    if (remaining <= 0 || !provider || charging) return;
+    if (!navigator.onLine) {
+      setEvent({ status: "network_error", message: "Card portion requires an internet connection" });
+      return;
+    }
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setCharging(true);
+    setResult(null);
+    try {
+      const paymentResult = await provider.charge(
+        { amount: remaining, currency, method: "card" },
+        (next) => setEvent(next),
+        controller.signal,
+      );
+      setResult(paymentResult);
+    } finally {
+      setCharging(false);
+    }
+  };
+
+  const finish = () => {
+    if (!approved) return;
+    const allocations: PaymentAllocation[] = [];
+    if (cash > 0) allocations.push({ method: "cash", amount: cash });
+    if (remaining > 0 && result) allocations.push({
+      method: "card",
+      amount: remaining,
+      provider: provider?.id,
+      reference: result.reference,
+      cardBrand: result.cardBrand,
+      last4: result.last4,
+    });
+    onComplete({
+      method: "split",
+      amountTendered: total,
+      changeDue: 0,
+      reference: result?.reference,
+      cardBrand: result?.cardBrand,
+      last4: result?.last4,
+      allocations,
+    });
+  };
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <DialogHeader className="shrink-0 border-b p-6 pb-4">
+        <DialogTitle className="flex items-center gap-2"><SplitSquareHorizontal className="size-5 text-primary" /> Split payment</DialogTitle>
+        <DialogDescription>Take part in cash, then charge the exact remaining balance to card.</DialogDescription>
+      </DialogHeader>
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-6">
+        <div className="grid grid-cols-2 gap-3 rounded-2xl border bg-muted/30 p-4">
+          <div><div className="text-xs uppercase tracking-wide text-muted-foreground">Total due</div><div className="mt-1 text-2xl font-bold font-mono">{fmtCurrency(total, currency)}</div></div>
+          <div className="text-right"><div className="text-xs uppercase tracking-wide text-muted-foreground">Card balance</div><div className="mt-1 text-2xl font-bold font-mono text-primary">{fmtCurrency(remaining, currency)}</div></div>
+        </div>
+        <div className="space-y-2">
+          <Label>Cash amount</Label>
+          <Input type="number" inputMode="decimal" min="0" max={total} step="0.01" value={cashText} onChange={(e) => { setCashText(e.target.value); setResult(null); setEvent({ status: "idle", message: "Ready" }); }} placeholder="0.00" className="h-14 text-right text-2xl font-mono" />
+          <div className="grid grid-cols-4 gap-2">
+            {[0.25, 0.5, 0.75].map((portion) => <Button key={portion} type="button" variant="outline" onClick={() => setCashText((total * portion).toFixed(2))}>{portion * 100}%</Button>)}
+            <Button type="button" variant="outline" onClick={() => setCashText(total.toFixed(2))}>All cash</Button>
+          </div>
+        </div>
+        {remaining > 0 && (
+          <div className="rounded-2xl border p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div><div className="font-semibold">Card portion</div><div className="text-sm text-muted-foreground">{provider ? `Ready through ${provider.name}` : "Connect Stripe Terminal or another provider in Settings"}</div></div>
+              <CreditCard className="size-6 text-primary" />
+            </div>
+            <div className="mt-3 text-sm font-medium">{event.message}</div>
+            {result?.finalStatus === "declined" && <p className="mt-1 text-sm text-destructive">Card declined. Retry or change the cash amount.</p>}
+            <Button className="mt-4 w-full" onClick={chargeRemaining} disabled={!provider || charging || result?.finalStatus === "approved"}>
+              {charging && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {result?.finalStatus === "approved" ? "Card approved" : `Charge ${fmtCurrency(remaining, currency)}`}
+            </Button>
+          </div>
+        )}
+      </div>
+      <div className="flex shrink-0 gap-2 border-t bg-surface/40 p-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
+        <Button variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+        <Button className="flex-1" disabled={!approved || total <= 0} onClick={finish}>Complete split sale</Button>
+      </div>
+    </div>
+  );
+}
+
+
 /* -------- Terminal -------- */
 
 function TerminalPanel({
@@ -268,7 +396,7 @@ function TerminalPanel({
 
     void logPaymentAttempt({
       provider: provider.id,
-      method: method as Exclude<PaymentMethod, "cash">,
+      method: method as Exclude<PaymentMethod, "cash" | "split">,
       amount: total,
       currency,
       status: "initiated",
@@ -280,13 +408,13 @@ function TerminalPanel({
         {
           amount: total,
           currency,
-          method: method as Exclude<PaymentMethod, "cash">,
+          method: method as Exclude<PaymentMethod, "cash" | "split">,
         },
         (e) => {
           setEvent(e);
           void logPaymentAttempt({
             provider: provider.id,
-            method: method as Exclude<PaymentMethod, "cash">,
+            method: method as Exclude<PaymentMethod, "cash" | "split">,
             amount: total,
             currency,
             status: e.status,
@@ -300,7 +428,7 @@ function TerminalPanel({
         setResult(r);
         void logPaymentAttempt({
           provider: provider.id,
-          method: method as Exclude<PaymentMethod, "cash">,
+          method: method as Exclude<PaymentMethod, "cash" | "split">,
           amount: total,
           currency,
           status: r.finalStatus,

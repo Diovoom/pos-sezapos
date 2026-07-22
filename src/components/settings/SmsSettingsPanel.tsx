@@ -202,8 +202,8 @@ export function SmsSettingsPanel() {
               </SelectTrigger>
               <SelectContent>
                 {SMS_PROVIDERS.map((p) => (
-                  <SelectItem key={p.id} value={p.id} disabled={!p.supported}>
-                    {p.label} {p.supported ? "" : "(coming soon)"}
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -279,9 +279,8 @@ export function SmsSettingsPanel() {
               <Label className="text-xs">Sender number (E.164)</Label>
               <Input value={fromNumber} onChange={(e) => setFromNumber(e.target.value)} />
             </div>
-            <p className="text-xs text-warning">
-              {SMS_PROVIDERS.find((p) => p.id === provider)?.label} sending is not yet enabled — save
-              credentials and switch to Twilio for now.
+            <p className="text-xs text-muted-foreground">
+              Enter the production credentials from your {SMS_PROVIDERS.find((p) => p.id === provider)?.label} account. For Plivo, use Auth ID as the API Key and Auth Token as the API Secret.
             </p>
           </div>
         )}

@@ -1,0 +1,15 @@
+{
+  "version": "1.2.0",
+  "build": 3,
+  "minimumSupportedVersion": "1.0.0",
+  "mandatory": false,
+  "updateUrl": "https://sezapos.com/support",
+  "releaseNotes": [
+    "Split cash and card checkout",
+    "Stripe Terminal and Tap to Pay configuration",
+    "Customer CRM and loyalty controls",
+    "Restaurant order setup",
+    "Offline cash-sale sync improvements",
+    "Unified SEZA branding and pricing"
+  ]
+}

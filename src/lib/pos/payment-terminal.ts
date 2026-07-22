@@ -12,6 +12,7 @@
 // connected" state and blocks completion.
 
 import { supabase } from "@/integrations/supabase/client";
+import { charge as chargeStripeTerminal, disconnect as disconnectStripeTerminal } from "@/lib/hardware/terminal-stripe";
 
 export type PaymentStatus =
   | "idle"
@@ -73,6 +74,45 @@ export interface PaymentProvider {
   cancel?(): void;
 }
 
+
+const stripeTerminalProvider: PaymentProvider = {
+  id: "stripe-terminal",
+  name: "Stripe Terminal",
+  async charge(req, onEvent, signal) {
+    if (signal.aborted) return { approved: false, finalStatus: "cancelled", message: "Payment cancelled" };
+    onEvent({ status: "payment_requested", message: "Payment requested" });
+    const result = await chargeStripeTerminal(
+      "none",
+      {
+        amountCents: Math.round(req.amount * 100),
+        currency: req.currency.toLowerCase(),
+        description: `SEZA POS ${req.method.replaceAll("_", " ")} sale`,
+      },
+      (message) => {
+        const lower = message.toLowerCase();
+        const status: PaymentStatus = lower.includes("approved")
+          ? "approved"
+          : lower.includes("processing") || lower.includes("creating")
+            ? "processing"
+            : lower.includes("tap") || lower.includes("insert") || lower.includes("swipe")
+              ? "waiting_for_customer"
+              : "connecting";
+        onEvent({ status, message });
+      },
+    );
+    if (signal.aborted) return { approved: false, finalStatus: "cancelled", message: "Payment cancelled" };
+    if (!result.ok) {
+      onEvent({ status: navigator.onLine ? "error" : "network_error", message: result.error });
+      return { approved: false, finalStatus: navigator.onLine ? "error" : "network_error", message: result.error };
+    }
+    onEvent({ status: "approved", message: "Payment approved", reference: result.ref });
+    return { approved: true, finalStatus: "approved", message: "Payment approved", reference: result.ref };
+  },
+  cancel() {
+    void disconnectStripeTerminal();
+  },
+};
+
 // Registry — empty by default. Real integrations register themselves at
 // app boot (e.g. `registerProvider(stripeTerminalProvider)`).
 const providers = new Map<string, PaymentProvider>();
@@ -80,6 +120,8 @@ const providers = new Map<string, PaymentProvider>();
 export function registerProvider(p: PaymentProvider) {
   providers.set(p.id, p);
 }
+
+registerProvider(stripeTerminalProvider);
 
 export function listProviders(): PaymentProvider[] {
   return Array.from(providers.values());

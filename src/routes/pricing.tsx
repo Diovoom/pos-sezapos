@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
+import { SEZA_PLANS } from "@/lib/plans";
 
 const pricingSearch = z.object({
   plan: z.enum(["starter", "pro", "business"]).optional(),
@@ -27,76 +28,6 @@ export const Route = createFileRoute("/pricing")({
 
 type PlanId = "starter" | "pro" | "business";
 
-type Plan = {
-  id: PlanId;
-  name: string;
-  price: number;
-  tagline: string;
-  features: string[];
-  comingSoon?: string[];
-  highlight?: boolean;
-  cta: string;
-};
-
-const PLANS: Plan[] = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: 29,
-    tagline: "For owner-operated shops.",
-    cta: "Start Starter trial",
-    features: [
-      "1 register",
-      "Up to 2 employees",
-      "Cash + card checkout",
-      "Barcode scanning",
-      "Basic inventory tracking",
-      "Email receipts",
-      "Daily & weekly sales reports",
-      "Receipt printer support",
-      "Cloud-synced store data",
-      "Standard support",
-    ],
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: 59,
-    tagline: "For growing retail stores.",
-    highlight: true,
-    cta: "Start Pro trial",
-    features: [
-      "Everything in Starter",
-      "Up to 10 employees",
-      "Multiple registers",
-      "Advanced inventory (alerts, variants)",
-      "Roles & permissions",
-      "Shift tracking (clock in/out)",
-      "Refunds & exchanges",
-      "Customer profiles",
-      "Advanced reporting",
-      "Priority support",
-    ],
-    comingSoon: ["SMS receipts"],
-  },
-  {
-    id: "business",
-    name: "Business",
-    price: 89,
-    tagline: "For high-volume or multi-store businesses.",
-    cta: "Start Business trial",
-    features: [
-      "Everything in Pro",
-      "Unlimited employees",
-      "Unlimited registers",
-      "Full audit logs",
-      "Custom tax rules by region",
-      "Dedicated onboarding",
-    ],
-    comingSoon: ["Multi-store management", "Offline mode", "API access", "Plugin marketplace"],
-  },
-];
-
 function PricingPage() {
   const search = useSearch({ from: "/pricing" });
   const selectedPlan = search.plan;
@@ -112,7 +43,7 @@ function PricingPage() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
-          {PLANS.map((plan) => {
+          {SEZA_PLANS.map((plan) => {
             const isSelected = selectedPlan === plan.id;
             return (
               <div
@@ -133,7 +64,7 @@ function PricingPage() {
                 <h2 className="text-xl font-semibold">{plan.name}</h2>
                 <p className="text-sm text-muted-foreground mt-1">{plan.tagline}</p>
                 <div className="mt-4">
-                  <span className="text-4xl font-bold">${plan.price}</span>
+                  <span className="text-4xl font-bold">${plan.monthlyPrice}</span>
                   <span className="text-muted-foreground">/mo</span>
                 </div>
                 <ul className="mt-6 space-y-2 text-sm flex-1">
@@ -143,15 +74,9 @@ function PricingPage() {
                       <span>{f}</span>
                     </li>
                   ))}
-                  {plan.comingSoon?.map((f) => (
-                    <li key={f} className="flex gap-2 text-muted-foreground">
-                      <span className="h-4 w-4 shrink-0 mt-0.5 rounded-full border border-dashed" aria-hidden />
-                      <span>{f} <span className="text-[10px] uppercase tracking-wide font-semibold ml-1 text-muted-foreground/80">Coming soon</span></span>
-                    </li>
-                  ))}
                 </ul>
                 <Button asChild className="mt-6 w-full" variant={plan.highlight ? "default" : "outline"}>
-                  <Link to="/signup" search={{ plan: plan.id }}>{plan.cta}</Link>
+                  <Link to="/signup" search={{ plan: plan.id }}>{`Start ${plan.name} trial`}</Link>
                 </Button>
               </div>
             );

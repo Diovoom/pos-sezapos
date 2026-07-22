@@ -1474,7 +1474,7 @@ export const adminSubscriptionStats = createServerFn({ method: "GET" })
     const byEnv: Record<string, number> = { sandbox: 0, live: 0 };
     let mrrCents = 0;
     // Rough price mapping in USD cents; matches plan_tier_for_price mapping.
-    const priceMap: Record<string, number> = { starter_monthly: 2900, pro_monthly: 6900, business_monthly: 14900 };
+    const priceMap: Record<string, number> = { starter_monthly: 2900, pro_monthly: 5900, business_monthly: 8900 };
     for (const r of rows) {
       counts[r.status] = (counts[r.status] ?? 0) + 1;
       byEnv[r.environment] = (byEnv[r.environment] ?? 0) + 1;

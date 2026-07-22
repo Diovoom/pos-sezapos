@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import logoUrl from "@/assets/seza-mark.jpg";
+import logoUrl from "@/assets/seza-logo.png";
 
 /**
  * The primary SEZA mark is bundled with the application instead of relying on

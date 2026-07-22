@@ -4,16 +4,19 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
+import { AppUpdateNotice } from "@/components/AppUpdateNotice";
+import { initializeAppUpdateWorkflow } from "@/lib/app-update";
 
 import "@/i18n";
 import { applyLanguage } from "@/i18n";
@@ -119,24 +122,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       ],
       links: [
         { rel: "stylesheet", href: appCss },
-        { rel: "icon", type: "image/x-icon", href: "/seza-logo-v2.ico" },
-        { rel: "shortcut icon", href: "/seza-logo-v2.ico" },
+        { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
+        { rel: "shortcut icon", href: "/favicon.ico" },
         {
           rel: "icon",
           type: "image/png",
           sizes: "48x48",
-          href: "/seza-logo-v2-48.png",
+          href: "/seza-logo-48.png",
         },
         {
           rel: "icon",
           type: "image/png",
           sizes: "192x192",
-          href: "/seza-logo-v2-192.png",
+          href: "/seza-logo-192.png",
         },
         {
           rel: "apple-touch-icon",
           sizes: "180x180",
-          href: "/seza-logo-v2-180.png",
+          href: "/seza-logo-180.png",
         },
         { rel: "manifest", href: "/manifest.json" },
         { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -158,7 +161,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             "@type": "Organization",
             name: "SEZA POS",
             legalName: "SEZA Technologies Inc.",
-            logo: "https://sezapos.com/seza-logo-v2-512.png",
+            logo: "https://sezapos.com/seza-logo-512.png",
             image: "https://sezapos.com/seza-og.jpg",
             url: "https://sezapos.com",
             telephone: LEGAL_CONFIG.phone,
@@ -205,6 +208,38 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+
+function RouteScrollManager() {
+  const href = useRouterState({ select: (state) => state.location.href });
+
+  useLayoutEffect(() => {
+    const moveToDestination = () => {
+      const hash = window.location.hash.slice(1);
+      if (hash) {
+        const target = document.getElementById(decodeURIComponent(hash));
+        if (target) {
+          target.scrollIntoView({ behavior: "auto", block: "start" });
+          return;
+        }
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      document.getElementById("seza-page-top")?.focus({ preventScroll: true });
+    };
+
+    moveToDestination();
+    const frame = window.requestAnimationFrame(() => window.requestAnimationFrame(moveToDestination));
+    const timer = window.setTimeout(moveToDestination, 180);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [href]);
+
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
@@ -216,6 +251,7 @@ function RootComponent() {
         : null;
     if (saved) applyLanguage(saved);
     installSessionBridge();
+    void initializeAppUpdateWorkflow();
   }, []);
 
   useEffect(() => {
@@ -325,7 +361,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <RouteScrollManager />
       <PaymentTestModeBanner />
+      <AppUpdateNotice />
       <Outlet />
       <Toaster richColors position="top-right" />
       <NativeLoadingOverlay />
