@@ -2037,7 +2037,7 @@ export const adminListAdmins = createServerFn({ method: "GET" })
     for (const r of roleRows ?? []) {
       const p = profMap.get(r.user_id) as any;
       const cur = byUser.get(r.user_id) ?? { id: r.user_id, email: p?.email ?? "", name: p?.full_name ?? p?.email ?? "", status: p?.status ?? "active", roles: [] };
-      cur.roles.push(r.role);
+      (cur.roles as string[]).push(r.role as string);
       byUser.set(r.user_id, cur);
     }
     return { rows: [...byUser.values()] };
