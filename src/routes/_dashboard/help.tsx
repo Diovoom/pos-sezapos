@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,20 +53,26 @@ export function HelpPage() {
       if (!session.user) throw new Error("Not signed in");
       const { data: profile } = await supabase.from("profiles").select("store_id").eq("id", session.user.id).maybeSingle();
       if (!profile?.store_id) throw new Error("No store");
-      const { error, data: ticket } = await supabase.from("support_tickets").insert({
+      const { error, data: ticket } = await (supabase.from as any)("support_tickets").insert({
         store_id: profile.store_id,
         requester_id: session.user.id,
-        subject,
+        requester_email: session.user.email ?? null,
+        subject: subject.trim(),
+        category: "general",
         priority,
         status: "open",
+        chat_status: "waiting",
       }).select("id").single();
       if (error) throw error;
       if (message.trim()) {
-        await supabase.from("support_ticket_notes").insert({
+        const { error: noteError } = await supabase.from("support_ticket_notes").insert({
           ticket_id: ticket.id,
           author_id: session.user.id,
+          author_email: session.user.email ?? null,
           body: message,
+          internal: false,
         });
+        if (noteError) throw noteError;
       }
     },
     onSuccess: () => {
@@ -140,12 +146,15 @@ export function HelpPage() {
               {tickets.map((t) => (
                 <li key={t.id} className="py-3 flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="font-medium truncate">#{t.ticket_number ?? "—"} · {t.subject}</div>
+                    <Link to="/help/$ticketId" params={{ ticketId: t.id }} className="font-medium truncate text-primary hover:underline">
+                      #{t.ticket_number ?? "—"} · {t.subject}
+                    </Link>
                     <div className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {t.priority && <Badge variant="outline">{t.priority}</Badge>}
                     <Badge>{t.status}</Badge>
+                    <Button asChild size="sm" variant="outline"><Link to="/help/$ticketId" params={{ ticketId: t.id }}>Open chat</Link></Button>
                   </div>
                 </li>
               ))}

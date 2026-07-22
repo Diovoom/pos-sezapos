@@ -43,7 +43,9 @@ export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 
 export type AdminPermissionSet = {
   roles: string[];
+  email: string | null;
   isSuperAdmin: boolean;
+  isFounder: boolean;
   permissions: Set<string>;
   has: (p: AdminPermission | string) => boolean;
   hasAny: (perms: (AdminPermission | string)[]) => boolean;
@@ -62,7 +64,9 @@ export function useAdminPermissions() {
       if (!uid) {
         return {
           roles: [],
+          email: null,
           isSuperAdmin: false,
+          isFounder: false,
           permissions: new Set<string>(),
           has: () => false,
           hasAny: () => false,
@@ -76,14 +80,16 @@ export function useAdminPermissions() {
       const myRoles = (roles ?? [])
         .map((r) => r.role as string)
         .filter((r) => (PLATFORM_ROLES as readonly string[]).includes(r));
+      const email = userRes.user?.email?.toLowerCase() ?? null;
       const isSuper = myRoles.includes("super_admin");
+      const isFounder = isSuper && email === "admin@sezapos.com";
       const perms = new Set<string>();
       for (const r of rows ?? []) {
         if (myRoles.includes(r.role)) perms.add(r.permission);
       }
       const has = (p: string) => isSuper || perms.has(p) || perms.has("*");
       const hasAny = (ps: string[]) => ps.some(has);
-      return { roles: myRoles, isSuperAdmin: isSuper, permissions: perms, has, hasAny };
+      return { roles: myRoles, email, isSuperAdmin: isSuper, isFounder, permissions: perms, has, hasAny };
     },
     staleTime: 60_000,
   });

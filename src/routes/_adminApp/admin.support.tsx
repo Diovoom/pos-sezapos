@@ -8,8 +8,8 @@ import {
   adminCreateTicket,
   adminTicketCounts,
   adminListSupportAgents,
-  adminClaimTicket,
 } from "@/lib/admin/admin.functions";
+import { adminClaimSupportCase } from "@/lib/admin/company-admin.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ import { toast } from "sonner";
 import { AlertTriangle, Inbox, Search, UserCheck, ArrowUpDown } from "lucide-react";
 
 const searchSchema = z.object({
-  status: fallback(z.string(), "open").default("open"),
+  status: fallback(z.string(), "active").default("active"),
   priority: fallback(z.string(), "all").default("all"),
   assignee: fallback(z.string(), "any").default("any"),
   q: fallback(z.string(), "").default(""),
@@ -70,7 +70,7 @@ function SupportPage() {
   const counts = useServerFn(adminTicketCounts);
   const agents = useServerFn(adminListSupportAgents);
   const create = useServerFn(adminCreateTicket);
-  const claim = useServerFn(adminClaimTicket);
+  const claim = useServerFn(adminClaimSupportCase);
   const qc = useQueryClient();
 
   const [qLocal, setQLocal] = useState(search.q);
@@ -186,7 +186,7 @@ function SupportPage() {
           active={search.assignee === "me"}
           onClick={() =>
             navigate({
-              search: (prev: any) => ({ ...prev, assignee: "me", status: "all", page: 1 }),
+              search: (prev: any) => ({ ...prev, assignee: "me", status: "active", page: 1 }),
             })
           }
         />
@@ -200,7 +200,7 @@ function SupportPage() {
               search: (prev: any) => ({
                 ...prev,
                 assignee: "unassigned",
-                status: "all",
+                status: "active",
                 page: 1,
               }),
             })
@@ -216,7 +216,7 @@ function SupportPage() {
               search: (prev: any) => ({
                 ...prev,
                 priority: "urgent",
-                status: "all",
+                status: "active",
                 page: 1,
               }),
             })
@@ -248,7 +248,8 @@ function SupportPage() {
       {/* Status tabs */}
       <div className="flex flex-wrap gap-2 border-b">
         {[
-          ["open", "Open"],
+          ["active", "Active work"],
+          ["open", "New / open"],
           ["investigating", "Investigating"],
           ["waiting_for_merchant", "Waiting"],
           ["resolved", "Resolved"],
@@ -375,6 +376,9 @@ function SupportPage() {
                       >
                         {t.subject}
                       </Link>
+                      {t.problem_preview && (
+                        <div className="mt-1 max-w-md truncate text-xs text-muted-foreground">{t.problem_preview}</div>
+                      )}
                     </td>
                     <td className="p-3 text-xs">
                       {t.store_id ? (

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -25,6 +25,9 @@ import { getStripeEnvironment } from "@/lib/stripe";
 import { AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_adminApp/admin/subscriptions")({
+  validateSearch: (raw: Record<string, unknown>) => ({
+    status: typeof raw.status === "string" ? raw.status : "all",
+  }),
   head: () => ({ meta: [{ title: "Subscriptions — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }] }),
   component: SubscriptionsPage,
 });
@@ -33,7 +36,10 @@ type ActionKind = "cancel_end" | "cancel_now" | "restore";
 
 function SubscriptionsPage() {
   const env = getStripeEnvironment();
-  const [filter, setFilter] = useState("all");
+  const routeSearch = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const allowedStatuses = ["all", "active", "trialing", "past_due", "canceled", "unpaid"];
+  const filter = allowedStatuses.includes(routeSearch.status) ? routeSearch.status : "all";
   const [page, setPage] = useState(1);
   const list = useServerFn(adminListSubscriptions);
   const stats = useServerFn(adminSubscriptionStats);
@@ -121,7 +127,10 @@ function SubscriptionsPage() {
       )}
 
       <div className="flex flex-wrap gap-2 items-center">
-        <Select value={filter} onValueChange={(v) => { setFilter(v); setPage(1); }}>
+        <Select value={filter} onValueChange={(v) => {
+          setPage(1);
+          navigate({ search: { status: v }, replace: true });
+        }}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>

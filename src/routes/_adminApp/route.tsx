@@ -26,6 +26,11 @@ import {
   Search,
   X,
   Eye,
+  Users,
+  MessageSquare,
+  Activity,
+  BriefcaseBusiness,
+  AlertTriangle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -54,23 +59,30 @@ export const Route = createFileRoute("/_adminApp")({
   component: AdminLayout,
 });
 
-type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; permission?: string };
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact?: boolean;
+  permission?: string;
+  founderOnly?: boolean;
+};
 const NAV: NavItem[] = [
-  { to: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+  { to: "/admin", label: "Operations Center", icon: LayoutDashboard, exact: true },
   { to: "/admin/businesses", label: "Businesses", icon: Building2, permission: "businesses.view" },
-  { to: "/admin/stores", label: "Stores", icon: Building2, permission: "stores.view" },
-  { to: "/admin/employees", label: "Employees", icon: Building2, permission: "employees.view" },
-  { to: "/admin/devices", label: "Devices", icon: Monitor, permission: "devices.view" },
-  { to: "/admin/support", label: "Support", icon: LifeBuoy, permission: "support.view" },
-  { to: "/admin/sales", label: "Sales", icon: CreditCard, permission: "businesses.view" },
-  { to: "/admin/offline-sync", label: "Offline Sync", icon: Monitor, permission: "sync.manage" },
+  { to: "/admin/employees", label: "SEZA Employees", icon: Users, permission: "employees.view" },
+  { to: "/admin/registers", label: "POS Registers", icon: Monitor, permission: "devices.view" },
+  { to: "/admin/devices", label: "Card Readers", icon: CreditCard, permission: "devices.view" },
+  { to: "/admin/support", label: "Support Cases", icon: LifeBuoy, permission: "support.view" },
+  { to: "/admin/communications", label: "Live Communications", icon: MessageSquare, permission: "support.manage" },
+  { to: "/admin/sales", label: "New Merchant Sales", icon: BriefcaseBusiness, permission: "billing.view" },
+  { to: "/admin/payments", label: "Merchant Payments", icon: CreditCard, permission: "billing.view" },
   { to: "/admin/subscriptions", label: "Subscriptions", icon: CreditCard, permission: "billing.view" },
-  { to: "/admin/payments", label: "Payments", icon: CreditCard, permission: "billing.view" },
-  { to: "/admin/incidents", label: "Incidents", icon: LifeBuoy, permission: "incidents.view" },
-  { to: "/admin/communications", label: "Communications", icon: LifeBuoy, permission: "support.manage" },
+  { to: "/admin/offline-sync", label: "Offline Sync", icon: Monitor, permission: "sync.manage" },
+  { to: "/admin/incidents", label: "Incidents", icon: AlertTriangle, permission: "incidents.view" },
   { to: "/admin/audit-logs", label: "Audit Logs", icon: ScrollText, permission: "audit.view" },
-  { to: "/admin/team", label: "Admin Team", icon: ShieldCheck, permission: "admin_users.view" },
-  { to: "/admin/platform-health", label: "Platform Health", icon: LayoutDashboard, permission: "platform_settings.view" },
+  { to: "/admin/team", label: "Admin Team", icon: ShieldCheck, permission: "admin_users.view", founderOnly: true },
+  { to: "/admin/platform-health", label: "Platform Health", icon: Activity, permission: "platform_settings.view" },
   { to: "/admin/settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -191,7 +203,10 @@ function AdminLayout() {
           </div>
         </div>
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-          {NAV.filter((item) => !item.permission || !perms || perms.has(item.permission)).map((item) => {
+          {NAV.filter((item) => {
+            if (item.founderOnly && !perms?.isFounder) return false;
+            return !item.permission || !perms || perms.has(item.permission);
+          }).map((item) => {
             const active = item.exact ? pathname === item.to : pathname === item.to || pathname.startsWith(item.to + "/");
             const Icon = item.icon;
             return (
@@ -251,12 +266,15 @@ function AdminLayout() {
                     key={`${r.kind}-${r.id}`}
                     className="w-full text-left px-3 py-2 hover:bg-accent border-b last:border-b-0 block"
                     onClick={() => {
-                      const storeId = r.store_id ?? r.id;
-                      if (storeId) {
+                      if (r.kind === "support") {
+                        navigate({ to: "/admin/support/$ticketId", params: { ticketId: r.id } });
+                      } else {
+                        const storeId = r.store_id ?? (r.kind === "business" ? r.id : null);
+                        if (!storeId) return;
                         navigate({ to: "/admin/businesses/$storeId", params: { storeId } });
-                        setOpen(false);
-                        setQ("");
                       }
+                      setOpen(false);
+                      setQ("");
                     }}
                   >
                     <div className="flex items-center justify-between gap-2">

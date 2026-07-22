@@ -69,6 +69,7 @@ import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]
 import { Route as AdminAppAdminIndexRouteImport } from './routes/_adminApp/admin.index'
 import { Route as LovableSmsSendRouteImport } from './routes/lovable/sms/send'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
+import { Route as DashboardHelpTicketIdRouteImport } from './routes/_dashboard/help.$ticketId'
 import { Route as DashboardEmployeesIdRouteImport } from './routes/_dashboard/employees.$id'
 import { Route as AdminAppAdminTeamRouteImport } from './routes/_adminApp/admin.team'
 import { Route as AdminAppAdminSupportRouteImport } from './routes/_adminApp/admin.support'
@@ -406,6 +407,11 @@ const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   path: '/lovable/email/suppression',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardHelpTicketIdRoute = DashboardHelpTicketIdRouteImport.update({
+  id: '/$ticketId',
+  path: '/$ticketId',
+  getParentRoute: () => DashboardHelpRoute,
+} as any)
 const DashboardEmployeesIdRoute = DashboardEmployeesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -644,7 +650,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardDashboardRoute
   '/devices': typeof DashboardDevicesRoute
   '/employees': typeof DashboardEmployeesRouteWithChildren
-  '/help': typeof DashboardHelpRoute
+  '/help': typeof DashboardHelpRouteWithChildren
   '/inventory': typeof DashboardInventoryRoute
   '/onboarding': typeof DashboardOnboardingRoute
   '/payroll': typeof DashboardPayrollRoute
@@ -683,6 +689,7 @@ export interface FileRoutesByFullPath {
   '/admin/support': typeof AdminAppAdminSupportRouteWithChildren
   '/admin/team': typeof AdminAppAdminTeamRoute
   '/employees/$id': typeof DashboardEmployeesIdRoute
+  '/help/$ticketId': typeof DashboardHelpTicketIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/admin/': typeof AdminAppAdminIndexRoute
@@ -740,7 +747,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardDashboardRoute
   '/devices': typeof DashboardDevicesRoute
   '/employees': typeof DashboardEmployeesRouteWithChildren
-  '/help': typeof DashboardHelpRoute
+  '/help': typeof DashboardHelpRouteWithChildren
   '/inventory': typeof DashboardInventoryRoute
   '/onboarding': typeof DashboardOnboardingRoute
   '/payroll': typeof DashboardPayrollRoute
@@ -779,6 +786,7 @@ export interface FileRoutesByTo {
   '/admin/support': typeof AdminAppAdminSupportRouteWithChildren
   '/admin/team': typeof AdminAppAdminTeamRoute
   '/employees/$id': typeof DashboardEmployeesIdRoute
+  '/help/$ticketId': typeof DashboardHelpTicketIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/admin': typeof AdminAppAdminIndexRoute
@@ -840,7 +848,7 @@ export interface FileRoutesById {
   '/_dashboard/dashboard': typeof DashboardDashboardRoute
   '/_dashboard/devices': typeof DashboardDevicesRoute
   '/_dashboard/employees': typeof DashboardEmployeesRouteWithChildren
-  '/_dashboard/help': typeof DashboardHelpRoute
+  '/_dashboard/help': typeof DashboardHelpRouteWithChildren
   '/_dashboard/inventory': typeof DashboardInventoryRoute
   '/_dashboard/onboarding': typeof DashboardOnboardingRoute
   '/_dashboard/payroll': typeof DashboardPayrollRoute
@@ -879,6 +887,7 @@ export interface FileRoutesById {
   '/_adminApp/admin/support': typeof AdminAppAdminSupportRouteWithChildren
   '/_adminApp/admin/team': typeof AdminAppAdminTeamRoute
   '/_dashboard/employees/$id': typeof DashboardEmployeesIdRoute
+  '/_dashboard/help/$ticketId': typeof DashboardHelpTicketIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/_adminApp/admin/': typeof AdminAppAdminIndexRoute
@@ -977,6 +986,7 @@ export interface FileRouteTypes {
     | '/admin/support'
     | '/admin/team'
     | '/employees/$id'
+    | '/help/$ticketId'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/admin/'
@@ -1073,6 +1083,7 @@ export interface FileRouteTypes {
     | '/admin/support'
     | '/admin/team'
     | '/employees/$id'
+    | '/help/$ticketId'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/admin'
@@ -1172,6 +1183,7 @@ export interface FileRouteTypes {
     | '/_adminApp/admin/support'
     | '/_adminApp/admin/team'
     | '/_dashboard/employees/$id'
+    | '/_dashboard/help/$ticketId'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/_adminApp/admin/'
@@ -1682,6 +1694,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailSuppressionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_dashboard/help/$ticketId': {
+      id: '/_dashboard/help/$ticketId'
+      path: '/$ticketId'
+      fullPath: '/help/$ticketId'
+      preLoaderRoute: typeof DashboardHelpTicketIdRouteImport
+      parentRoute: typeof DashboardHelpRoute
+    }
     '/_dashboard/employees/$id': {
       id: '/_dashboard/employees/$id'
       path: '/$id'
@@ -2010,12 +2029,24 @@ const DashboardEmployeesRouteChildren: DashboardEmployeesRouteChildren = {
 const DashboardEmployeesRouteWithChildren =
   DashboardEmployeesRoute._addFileChildren(DashboardEmployeesRouteChildren)
 
+interface DashboardHelpRouteChildren {
+  DashboardHelpTicketIdRoute: typeof DashboardHelpTicketIdRoute
+}
+
+const DashboardHelpRouteChildren: DashboardHelpRouteChildren = {
+  DashboardHelpTicketIdRoute: DashboardHelpTicketIdRoute,
+}
+
+const DashboardHelpRouteWithChildren = DashboardHelpRoute._addFileChildren(
+  DashboardHelpRouteChildren,
+)
+
 interface DashboardRouteRouteChildren {
   DashboardCustomersRoute: typeof DashboardCustomersRoute
   DashboardDashboardRoute: typeof DashboardDashboardRoute
   DashboardDevicesRoute: typeof DashboardDevicesRoute
   DashboardEmployeesRoute: typeof DashboardEmployeesRouteWithChildren
-  DashboardHelpRoute: typeof DashboardHelpRoute
+  DashboardHelpRoute: typeof DashboardHelpRouteWithChildren
   DashboardInventoryRoute: typeof DashboardInventoryRoute
   DashboardOnboardingRoute: typeof DashboardOnboardingRoute
   DashboardPayrollRoute: typeof DashboardPayrollRoute
@@ -2032,7 +2063,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardDashboardRoute: DashboardDashboardRoute,
   DashboardDevicesRoute: DashboardDevicesRoute,
   DashboardEmployeesRoute: DashboardEmployeesRouteWithChildren,
-  DashboardHelpRoute: DashboardHelpRoute,
+  DashboardHelpRoute: DashboardHelpRouteWithChildren,
   DashboardInventoryRoute: DashboardInventoryRoute,
   DashboardOnboardingRoute: DashboardOnboardingRoute,
   DashboardPayrollRoute: DashboardPayrollRoute,

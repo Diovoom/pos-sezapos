@@ -6,6 +6,8 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,6 +15,8 @@ import { AppShell } from "@/components/pos/AppShell";
 import { useMe } from "@/hooks/useMe";
 import { useSubscription } from "@/hooks/useSubscription";
 import { hasAnyPlatformRole } from "@/lib/platform-roles";
+import { getMerchantPlatformNotice } from "@/lib/platform-settings.functions";
+import { AlertTriangle, Info } from "lucide-react";
 
 // Browser management surface for store owners only.
 // Employees use the paired Android POS app instead of the website.
@@ -80,6 +84,13 @@ function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const toastedRef = useRef(false);
+  const loadPlatformNotice = useServerFn(getMerchantPlatformNotice);
+  const platformNotice = useQuery({
+    queryKey: ["merchant_platform_notice"],
+    queryFn: () => loadPlatformNotice(),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
 
   useEffect(() => {
     if (!me.data) return;
@@ -130,8 +141,25 @@ function DashboardLayout() {
     }
   }, [plan?.isReadOnly, location.pathname, navigate]);
 
+  const notice = platformNotice.data;
+
   return (
     <AppShell>
+      {notice?.maintenance_mode && (
+        <div className="mx-4 mt-4 flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm md:mx-6">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div>
+            <div className="font-medium">SEZA maintenance notice</div>
+            <div className="text-muted-foreground">{notice.maintenance_message || "Some platform services may be temporarily limited."}</div>
+          </div>
+        </div>
+      )}
+      {notice?.merchant_banner && (
+        <div className="mx-4 mt-4 flex items-start gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm md:mx-6">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <div className="whitespace-pre-wrap">{notice.merchant_banner}</div>
+        </div>
+      )}
       <Outlet />
     </AppShell>
   );
