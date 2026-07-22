@@ -2004,7 +2004,7 @@ export const adminPaymentsOverview = createServerFn({ method: "POST" })
     const since = new Date(Date.now() - days * 86400_000).toISOString();
     const { data: attempts, error } = await supabaseAdmin
       .from("payment_attempts")
-      .select("id, store_id, status, amount, provider, created_at, error_message")
+      .select("id, store_id, status, amount, provider, created_at, message")
       .gte("created_at", since)
       .order("created_at", { ascending: false })
       .limit(500);
@@ -2063,7 +2063,7 @@ export const adminListIncidents = createServerFn({ method: "POST" })
         .limit(100),
       supabaseAdmin
         .from("payment_attempts")
-        .select("id, store_id, status, amount, provider, created_at, error_message")
+        .select("id, store_id, status, amount, provider, created_at, message")
         .in("status", ["failed", "error"])
         .gte("created_at", since)
         .order("created_at", { ascending: false })
