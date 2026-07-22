@@ -1,0 +1,2 @@
+alter table public.stores add column if not exists allow_cashier_quick_add boolean not null default false;
+comment on column public.stores.allow_cashier_quick_add is 'When true, cashiers with the products.quick_add permission can create a product from the POS Register when a scanned barcode is not found.';

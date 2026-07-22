@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.tg_stores_prevent_platform_field_writes() FROM PUBLIC, anon, authenticated;
