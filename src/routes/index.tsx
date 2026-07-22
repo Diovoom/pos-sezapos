@@ -27,6 +27,7 @@ import {
   ScanLine,
   ShieldCheck,
   ShoppingBag,
+  ShoppingCart,
   Smartphone,
   Sparkles,
   Store,
@@ -318,6 +319,32 @@ function LandingPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="px-4 py-7 sm:px-6 lg:px-8">
+        <Reveal className="mx-auto max-w-7xl">
+          <Link
+            to="/hardware"
+            className="group relative grid overflow-hidden rounded-[30px] border border-blue-200 bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 px-6 py-8 text-white shadow-[0_28px_80px_-38px_rgba(37,99,235,0.9)] transition-all hover:-translate-y-0.5 hover:shadow-[0_36px_90px_-38px_rgba(37,99,235,1)] sm:px-9 lg:grid-cols-[1fr_auto] lg:items-center lg:px-12"
+          >
+            <div className="seza-grid-bg absolute inset-0 opacity-15" />
+            <div className="relative">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.15em] backdrop-blur">
+                  <ShoppingCart className="size-4" /> SEZA Hardware Shop
+                </span>
+                <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black uppercase tracking-[0.12em] text-blue-700">Coming soon</span>
+              </div>
+              <h2 className="mt-5 text-balance text-3xl font-black tracking-[-0.035em] sm:text-4xl">Shop the complete setup built for your business.</h2>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-blue-50 sm:text-base">Choose a register, scanner, receipt printer, cash drawer, customer display and payment hardware from one professional SEZA shopping experience.</p>
+            </div>
+            <div className="relative mt-7 flex items-center gap-3 lg:mt-0 lg:pl-10">
+              <span className="inline-flex h-12 items-center rounded-full bg-white px-6 text-sm font-black text-blue-700 shadow-lg transition-transform group-hover:scale-[1.03]">
+                Shop now <ArrowRight className="ml-2 size-4" />
+              </span>
+            </div>
+          </Link>
+        </Reveal>
       </section>
 
       <section id="inside-seza" className="scroll-mt-28 bg-slate-50/75 py-24 dark:bg-slate-950/55">

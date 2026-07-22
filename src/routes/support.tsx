@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { LifeBuoy, BookOpen, MessageSquare, Mail, ChevronDown, Loader2 } from "lucide-react";
+import { LifeBuoy, BookOpen, MessageSquare, Mail, PhoneCall, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { MerchantLiveSupport, type SupportIdentity } from "@/components/support/MerchantLiveSupport";
 import { hasAnyPlatformRole } from "@/lib/platform-roles";
+import { LEGAL_CONFIG } from "@/lib/legal/config";
 
 export const Route = createFileRoute("/support")({
   head: () => ({
@@ -77,10 +78,11 @@ function MarketingSupportPage() {
         </p>
       </section>
 
-      <section className="max-w-6xl mx-auto px-6 pb-8 grid gap-4 md:grid-cols-3">
+      <section className="max-w-6xl mx-auto px-6 pb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { icon: BookOpen, title: "Getting started", body: "Set up your first store, add products, and take your first sale.", cta: "Create account", to: "/signup" as const },
           { icon: MessageSquare, title: "Contact us", body: "Talk to a real person about pricing, hardware, or migrations.", cta: "Send a message", to: "/contact" as const },
+          { icon: PhoneCall, title: "Call customer service", body: `${LEGAL_CONFIG.phoneDisplay} — tap to call for account, setup, sales, or hardware help.`, href: `tel:${LEGAL_CONFIG.phone}`, cta: "Call now" },
           { icon: Mail, title: "Email support", body: "support@sezapos.com — send account, billing, or register questions here.", href: "mailto:support@sezapos.com", cta: "Email us" },
         ].map((c) => (
           <div key={c.title} className="rounded-xl border p-6 flex flex-col">

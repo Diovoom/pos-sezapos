@@ -8,6 +8,8 @@ import {
   Printer,
   Smartphone,
   TabletSmartphone,
+  ShoppingCart,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
@@ -86,28 +88,28 @@ function HardwarePage() {
       <section className="relative overflow-hidden border-b bg-slate-950 py-20 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.32),transparent_42%)]" />
         <div className="relative mx-auto max-w-5xl px-6 text-center">
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-300">Hardware planning</p>
-          <h1 className="mt-4 text-balance text-4xl font-black tracking-[-0.04em] sm:text-6xl">
-            Build a counter setup that fits the business.
+          <p className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-400/10 px-4 py-2 text-sm font-bold uppercase tracking-[0.16em] text-blue-200"><ShoppingCart className="size-4" /> SEZA Hardware Shop · Coming soon</p>
+          <h1 className="mt-5 text-balance text-4xl font-black tracking-[-0.04em] sm:text-6xl">
+            Shop a complete counter setup that fits your business.
           </h1>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-slate-300">
-            Start with the devices you already have, verify compatibility, then add the scanner, printer, drawer, display, and payment reader your workflow needs.
+            The professional SEZA shop is being prepared so merchants can choose the right register, scanner, printer, drawer, display, and payment hardware in one place.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Button asChild size="lg" className="rounded-full bg-white px-7 text-slate-950 hover:bg-slate-100">
-              <Link to="/contact">Discuss a hardware setup</Link>
+            <Button asChild size="lg" className="rounded-full bg-white px-7 text-blue-700 hover:bg-blue-50">
+              <a href="#hardware-catalog"><ShoppingCart className="size-4" /> Shop now</a>
             </Button>
             <Button asChild size="lg" variant="outline" className="rounded-full border-white/25 bg-transparent px-7 text-white hover:bg-white/10 hover:text-white">
               <a href={dashboardUrl("/signup")} target="_blank" rel="noopener noreferrer">Start free trial</a>
             </Button>
           </div>
-          <div className="mx-auto mt-7 inline-flex items-center rounded-full border border-blue-300/20 bg-blue-400/10 px-4 py-2 text-sm text-blue-100">
-            SEZA hardware bundles and guided selection are coming soon.
+          <div className="mx-auto mt-7 inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-400/10 px-4 py-2 text-sm text-blue-100">
+            <Sparkles className="size-4" /> Hardware bundles, checkout, and guided selection are coming soon.
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-20 lg:px-8">
+      <section id="hardware-catalog" className="scroll-mt-28 mx-auto max-w-7xl px-6 py-20 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-black tracking-tight sm:text-4xl">The pieces of a complete SEZA setup</h2>
           <p className="mt-4 text-muted-foreground">

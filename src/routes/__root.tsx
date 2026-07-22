@@ -21,6 +21,7 @@ import { installSessionBridge } from "@/integrations/supabase/session-bridge";
 import { detectAndPersistNative, isPathAllowedInNative } from "@/lib/native";
 import { NativeLoadingOverlay } from "@/components/NativeLoadingOverlay";
 import { currentApp, dashboardUrl, marketingUrl } from "@/lib/host";
+import { LEGAL_CONFIG } from "@/lib/legal/config";
 
 function NotFoundComponent() {
   return (
@@ -158,6 +159,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             logo: "https://sezapos.com/icon-512.png",
             image: "https://sezapos.com/seza-og.jpg",
             url: "https://sezapos.com",
+            telephone: LEGAL_CONFIG.phone,
+            contactPoint: {
+              "@type": "ContactPoint",
+              telephone: LEGAL_CONFIG.phone,
+              contactType: "customer service",
+              availableLanguage: ["English", "French", "Haitian Creole"],
+            },
             description:
               "Modern cloud point-of-sale platform for convenience stores, mini marts, liquor, and retail.",
             sameAs: ["https://sezapos.com"],

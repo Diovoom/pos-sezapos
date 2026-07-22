@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Mail, Clock, MapPin, Loader2, CheckCircle2 } from "lucide-react";
+import { Mail, PhoneCall, Clock, MapPin, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
+import { LEGAL_CONFIG } from "@/lib/legal/config";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -61,6 +62,12 @@ function ContactPage() {
 
         <div className="grid gap-8 md:grid-cols-3">
           <div className="md:col-span-1 space-y-4">
+            <div className="rounded-xl border p-5">
+              <PhoneCall className="h-5 w-5 text-primary" />
+              <div className="mt-2 font-medium">Customer service</div>
+              <a href={`tel:${LEGAL_CONFIG.phone}`} className="text-sm font-semibold text-primary hover:underline">{LEGAL_CONFIG.phoneDisplay}</a>
+              <p className="mt-1 text-xs text-muted-foreground">Tap the number to call SEZA.</p>
+            </div>
             <div className="rounded-xl border p-5">
               <Mail className="h-5 w-5 text-primary" />
               <div className="mt-2 font-medium">Email</div>

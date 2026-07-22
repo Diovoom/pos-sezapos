@@ -1,10 +1,14 @@
-import { Link } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   ArrowUpRight,
   ChevronDown,
   Cookie,
+  Headphones,
   LockKeyhole,
+  Phone,
+  ShoppingCart,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +29,7 @@ import { dashboardUrl } from "@/lib/host";
 import { CookieConsent, OPEN_COOKIE_SETTINGS_EVENT } from "@/components/marketing/CookieConsent";
 import { cn } from "@/lib/utils";
 
-type NavItem = { to: string; label: string; description?: string };
+type NavItem = { to: string; label: string; description?: string; badge?: string };
 
 const PRODUCT_ITEMS: NavItem[] = [
   { to: "/features", label: "All features", description: "Checkout, inventory, teams and reports" },
@@ -40,6 +44,17 @@ const RESOURCE_ITEMS: NavItem[] = [
   { to: "/support", label: "Support", description: "Get help with your account or register" },
   { to: "/faq", label: "FAQ", description: "Answers before you get started" },
 ];
+
+const MOBILE_ITEMS: NavItem[] = [
+  { to: "/hardware", label: "Shop now", description: "SEZA hardware shop", badge: "Coming soon" },
+  { to: "/features", label: "All features", description: "Everything inside SEZA POS" },
+  { to: "/industries", label: "Industries", description: "See how SEZA fits your business" },
+  { to: "/pricing", label: "Pricing", description: "Simple monthly plans" },
+  { to: "/support", label: "Support", description: "Get help from SEZA" },
+  { to: "/faq", label: "FAQ", description: "Common questions and answers" },
+];
+
+const SUPPORT_DISMISSED_KEY = "seza-customer-support-hidden";
 
 function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
   return (
@@ -74,37 +89,157 @@ function MenuGlyph({ open }: { open: boolean }) {
   );
 }
 
+function MorphingBrand({ expanded }: { expanded: boolean }) {
+  return (
+    <Link
+      to="/"
+      aria-label="SEZA POS home"
+      className={cn(
+        "group relative flex h-12 items-center justify-center overflow-visible transition-[width] duration-500 ease-out",
+        expanded ? "w-[122px]" : "w-12",
+      )}
+    >
+      <span className="relative block h-12 w-full [perspective:500px]">
+        <span
+          className="absolute inset-0 grid place-items-center transition-all duration-500 ease-out [backface-visibility:hidden]"
+          style={{
+            opacity: expanded ? 0 : 1,
+            transform: expanded
+              ? "translateY(-18px) rotateX(88deg) scale(.82)"
+              : "translateY(0) rotateX(0deg) scale(1)",
+          }}
+        >
+          <span className="relative grid size-11 place-items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_28px_-14px_rgba(37,99,235,0.65)] dark:border-white/10 dark:bg-slate-900">
+            <Logo className="size-8 rounded-xl" alt="SEZA POS" />
+            <span className="absolute -inset-1 -z-10 rounded-[20px] bg-primary/15 opacity-0 blur-md transition-opacity group-hover:opacity-100" />
+          </span>
+        </span>
+
+        <span
+          className="absolute inset-0 flex items-center justify-center whitespace-nowrap text-[15px] font-black tracking-[-0.02em] text-slate-950 transition-all duration-500 ease-out dark:text-white"
+          style={{
+            opacity: expanded ? 1 : 0,
+            transform: expanded
+              ? "translateY(0) rotateX(0deg) scale(1)"
+              : "translateY(18px) rotateX(-88deg) scale(.9)",
+          }}
+        >
+          <span className="mr-2 grid size-8 place-items-center rounded-xl border border-blue-100 bg-blue-50 shadow-sm dark:border-blue-400/15 dark:bg-blue-500/10">
+            <Logo className="size-6 rounded-lg" alt="" />
+          </span>
+          SEZA POS
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+function HardwareCartButton({ mobile = false }: { mobile?: boolean }) {
+  return (
+    <Link
+      to="/hardware"
+      aria-label="Open SEZA hardware shop — coming soon"
+      title="Hardware shop coming soon"
+      className={cn(
+        "relative grid place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white",
+        mobile ? "size-10" : "size-9",
+      )}
+    >
+      <ShoppingCart className={mobile ? "size-[18px]" : "size-4"} />
+      <span className="absolute -right-0.5 -top-0.5 grid size-3.5 place-items-center rounded-full border-2 border-white bg-blue-600 text-[7px] font-bold text-white dark:border-slate-950">
+        0
+      </span>
+    </Link>
+  );
+}
+
 export function MarketingShell({ children }: { children: ReactNode }) {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [supportVisible, setSupportVisible] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 64);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+
+    const resetPosition = () => {
+      if (window.location.hash) {
+        document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "start" });
+        return;
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    };
+
+    resetPosition();
+    const frame = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(resetPosition);
+    });
+    const timer = window.setTimeout(resetPosition, 120);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [pathname]);
+
+  useEffect(() => {
+    try {
+      setSupportVisible(window.localStorage.getItem(SUPPORT_DISMISSED_KEY) !== "1");
+    } catch {
+      setSupportVisible(true);
+    }
+  }, []);
 
   const openCookieSettings = () => {
     window.dispatchEvent(new Event(OPEN_COOKIE_SETTINGS_EVENT));
   };
 
+  const hideSupport = () => {
+    setSupportOpen(false);
+    setSupportVisible(false);
+    try {
+      window.localStorage.setItem(SUPPORT_DISMISSED_KEY, "1");
+    } catch {
+      // The widget can still close when browser storage is unavailable.
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/88 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/88">
-        <div className="mx-auto grid h-[76px] max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-6 lg:px-8">
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary navigation">
-            <NavDropdown label="Product" items={PRODUCT_ITEMS} />
-            <Link to="/industries" className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white">
-              Industries
-            </Link>
-            <Link to="/pricing" className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white">
-              Pricing
-            </Link>
-            <NavDropdown label="Resources" items={RESOURCE_ITEMS} />
-          </nav>
+      <header className="sticky top-0 z-[70] border-b border-slate-200/80 bg-white/88 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/88">
+        <div className="mx-auto grid h-[76px] max-w-7xl grid-cols-[96px_minmax(0,1fr)_96px] items-center gap-1 px-3 sm:px-6 lg:grid-cols-[1fr_auto_1fr] lg:gap-3 lg:px-8">
+          <div className="flex min-w-0 items-center justify-start">
+            <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary navigation">
+              <Link to="/hardware" className="inline-flex h-10 items-center gap-2 rounded-full bg-blue-50 px-3 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/15">
+                Shop now
+                <span className="hidden rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white xl:inline-flex">Soon</span>
+              </Link>
+              <NavDropdown label="Product" items={PRODUCT_ITEMS} />
+              <Link to="/industries" className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white">
+                Industries
+              </Link>
+              <Link to="/pricing" className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white">
+                Pricing
+              </Link>
+              <NavDropdown label="Resources" items={RESOURCE_ITEMS} />
+            </nav>
+          </div>
 
-          <Link to="/" aria-label="SEZA POS home" className="group flex items-center justify-center">
-            <span className="relative grid size-12 place-items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_28px_-14px_rgba(37,99,235,0.65)] transition-transform duration-300 group-hover:-translate-y-0.5 dark:border-white/10 dark:bg-slate-900">
-              <Logo className="size-9 rounded-xl" alt="SEZA POS" />
-              <span className="absolute -inset-1 -z-10 rounded-[20px] bg-primary/15 opacity-0 blur-md transition-opacity group-hover:opacity-100" />
-            </span>
-          </Link>
+          <div className="flex min-w-0 items-center justify-center">
+            <MorphingBrand expanded={scrolled} />
+          </div>
 
           <div className="flex items-center justify-end gap-2">
-            <div className="hidden items-center gap-2 md:flex">
+            <div className="hidden items-center gap-2 lg:flex">
+              <HardwareCartButton />
               <Button asChild size="sm" variant="ghost" className="rounded-full px-4">
                 <a href={dashboardUrl("/auth")} target="_blank" rel="noopener noreferrer">Sign in</a>
               </Button>
@@ -113,48 +248,67 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               </Button>
             </div>
 
-            <button
-              type="button"
-              className="group grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 lg:hidden dark:border-white/10 dark:bg-slate-900 dark:text-white"
-              aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-              aria-expanded={mobileOpen}
-              onClick={() => setMobileOpen((value) => !value)}
-            >
-              <MenuGlyph open={mobileOpen} />
-            </button>
+            <div className="flex items-center gap-1.5 lg:hidden">
+              <HardwareCartButton mobile />
+              <button
+                type="button"
+                className="group grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white"
+                aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+                aria-expanded={mobileOpen}
+                onClick={() => setMobileOpen((value) => !value)}
+              >
+                <MenuGlyph open={mobileOpen} />
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="right" className="w-[min(92vw,390px)] overflow-y-auto border-l bg-background p-0">
-          <SheetHeader className="border-b p-6 text-left">
-            <SheetTitle className="flex items-center gap-3">
-              <Logo className="size-10 rounded-xl" />
-              <span>
-                <span className="block text-base font-bold">SEZA POS</span>
-                <span className="block text-xs font-normal text-muted-foreground">Smart POS. Better business.</span>
-              </span>
+        <SheetContent side="right" className="z-[75] h-full w-[min(92vw,390px)] border-0 bg-transparent p-0 shadow-none [&>button:first-of-type]:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close navigation menu"
+            className="absolute right-3 top-4 z-[80] grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white sm:right-6"
+          >
+            <MenuGlyph open />
+          </button>
+          <div className="absolute inset-x-0 bottom-0 top-[76px] overflow-y-auto border-l bg-background shadow-lg">
+          <SheetHeader className="border-b px-6 py-5 text-left">
+            <SheetTitle>
+              <span className="block text-lg font-black tracking-tight">Explore SEZA POS</span>
+              <span className="mt-1 block text-xs font-normal text-muted-foreground">Everything you need, without repeating the homepage.</span>
             </SheetTitle>
           </SheetHeader>
 
-          <div className="space-y-7 p-6">
-            <MobileGroup title="Product" items={PRODUCT_ITEMS} close={() => setMobileOpen(false)} />
-            <div className="grid grid-cols-2 gap-2">
-              <MobileSingleLink to="/industries" label="Industries" close={() => setMobileOpen(false)} />
-              <MobileSingleLink to="/pricing" label="Pricing" close={() => setMobileOpen(false)} />
-            </div>
-            <MobileGroup title="Resources" items={RESOURCE_ITEMS} close={() => setMobileOpen(false)} />
-
-            <div className="space-y-2 border-t pt-6">
-              <Button asChild variant="outline" className="h-11 w-full rounded-xl">
-                <a href={dashboardUrl("/auth")} target="_blank" rel="noopener noreferrer">Sign in</a>
-              </Button>
-              <Button asChild className="h-11 w-full rounded-xl">
-                <a href={dashboardUrl("/signup")} target="_blank" rel="noopener noreferrer">Start 14-day free trial</a>
-              </Button>
-              <p className="pt-1 text-center text-xs text-muted-foreground">No credit card required.</p>
-            </div>
+          <nav className="space-y-2 p-4" aria-label="Mobile navigation">
+            {MOBILE_ITEMS.map((item, index) => (
+              <Link
+                key={item.label}
+                to={item.to}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "group flex items-center justify-between rounded-2xl border px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.035] hover:shadow-sm",
+                  index === 0
+                    ? "border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 dark:border-blue-400/20 dark:from-blue-500/10 dark:to-cyan-400/5"
+                    : "border-slate-200 bg-card dark:border-white/10",
+                )}
+              >
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2">
+                    {index === 0 && <ShoppingCart className="size-4 text-primary" />}
+                    <span className="text-sm font-bold">{item.label}</span>
+                    {item.badge && (
+                      <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">{item.badge}</span>
+                    )}
+                  </span>
+                  {item.description && <span className="mt-1 block text-xs leading-5 text-muted-foreground">{item.description}</span>}
+                </span>
+                <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
+              </Link>
+            ))}
+          </nav>
           </div>
         </SheetContent>
       </Sheet>
@@ -187,10 +341,10 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             </div>
 
             <FooterColumn title="Product" links={[
+              { to: "/hardware", label: "Shop now — coming soon" },
               { to: "/features", label: "Features" },
               { to: "/industries", label: "Industries" },
               { to: "/pricing", label: "Pricing" },
-              { to: "/hardware", label: "Hardware" },
               { to: "/integrations", label: "Integrations" },
             ]} />
 
@@ -221,6 +375,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <span>© {new Date().getFullYear()} SEZA Technologies. All rights reserved.</span>
               <a href={`mailto:${LEGAL_CONFIG.supportEmail}`} className="transition-colors hover:text-white">{LEGAL_CONFIG.supportEmail}</a>
+              <a href={`tel:${LEGAL_CONFIG.phone}`} className="transition-colors hover:text-white">{LEGAL_CONFIG.phoneDisplay}</a>
             </div>
             <button type="button" onClick={openCookieSettings} className="inline-flex items-center gap-2 justify-self-start rounded-full border border-white/10 px-3 py-2 transition-colors hover:border-white/25 hover:text-white md:justify-self-end">
               <Cookie className="size-3.5" /> Cookie settings
@@ -229,35 +384,56 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         </div>
       </footer>
 
+      {supportVisible && (
+        <div className="fixed bottom-24 left-3 z-[65] sm:bottom-6 sm:left-5" aria-label="SEZA customer service">
+          {supportOpen && (
+            <div className="absolute bottom-0 left-14 w-[min(78vw,300px)] overflow-hidden rounded-3xl border border-blue-200 bg-white shadow-[0_24px_70px_-24px_rgba(30,64,175,0.65)] dark:border-blue-400/20 dark:bg-slate-900">
+              <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 px-5 py-5 text-white">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-blue-100">Customer service</div>
+                    <div className="mt-1 text-lg font-black">Need help with SEZA?</div>
+                  </div>
+                  <button type="button" onClick={hideSupport} aria-label="Hide customer service widget" className="grid size-8 shrink-0 place-items-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/25">
+                    <X className="size-4" />
+                  </button>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-blue-50">Call our customer service number for help with sales, setup, hardware or your account.</p>
+              </div>
+              <div className="space-y-3 p-4">
+                <a href={`tel:${LEGAL_CONFIG.phone}`} className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-3 text-blue-950 transition-colors hover:bg-blue-100 dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-100 dark:hover:bg-blue-500/15">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-600 text-white"><Phone className="size-5" /></span>
+                  <span>
+                    <span className="block text-xs font-semibold text-blue-600 dark:text-blue-300">Tap to call</span>
+                    <span className="block text-sm font-black">{LEGAL_CONFIG.phoneDisplay}</span>
+                  </span>
+                </a>
+                <Link to="/support" className="block text-center text-xs font-semibold text-muted-foreground transition-colors hover:text-primary">Open Support Center</Link>
+              </div>
+            </div>
+          )}
+
+          <div className="relative inline-flex">
+            <button
+              type="button"
+              onClick={() => setSupportOpen((value) => !value)}
+              aria-expanded={supportOpen}
+              aria-label={supportOpen ? "Close customer service details" : "Open customer service details"}
+              className="grid size-13 place-items-center rounded-full border-4 border-white bg-blue-600 text-white shadow-[0_15px_35px_-12px_rgba(37,99,235,0.85)] transition-all hover:-translate-y-0.5 hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 dark:border-slate-950"
+            >
+              <Headphones className="size-6" />
+            </button>
+            {!supportOpen && (
+              <button type="button" onClick={hideSupport} aria-label="Hide customer service widget" className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full border-2 border-white bg-slate-900 text-white shadow-sm transition-transform hover:scale-110 dark:border-slate-950">
+                <X className="size-2.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <CookieConsent />
     </div>
-  );
-}
-
-function MobileGroup({ title, items, close }: { title: string; items: NavItem[]; close: () => void }) {
-  return (
-    <div>
-      <div className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">{title}</div>
-      <div className="space-y-1">
-        {items.map((item) => (
-          <Link key={`${item.label}-${item.to}`} to={item.to} onClick={close} className="group flex items-center justify-between rounded-2xl px-3 py-3 transition-colors hover:bg-muted">
-            <span>
-              <span className="block text-sm font-semibold">{item.label}</span>
-              {item.description && <span className="mt-0.5 block text-xs text-muted-foreground">{item.description}</span>}
-            </span>
-            <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MobileSingleLink({ to, label, close }: { to: string; label: string; close: () => void }) {
-  return (
-    <Link to={to} onClick={close} className="rounded-2xl border bg-card px-4 py-3 text-center text-sm font-semibold shadow-sm transition-colors hover:border-primary/40 hover:text-primary">
-      {label}
-    </Link>
   );
 }
 
@@ -267,7 +443,7 @@ function FooterColumn({ title, links }: { title: string; links: Array<{ to: stri
       <div className="text-sm font-semibold text-white">{title}</div>
       <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
         {links.map((link) => (
-          <li key={`${title}-${link.to}`}>
+          <li key={`${title}-${link.to}-${link.label}`}>
             <Link to={link.to} className="transition-colors hover:text-white">{link.label}</Link>
           </li>
         ))}

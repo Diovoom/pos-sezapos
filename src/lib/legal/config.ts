@@ -1,9 +1,8 @@
 /**
  * Public legal-contact configuration.
  *
- * SEZA does not publish an unverified physical address or phone number. Legal,
- * privacy, security and support notices are accepted through the dedicated
- * email addresses below until a public mailing address is formally adopted.
+ * Public contact details used across SEZA marketing, support, and legal pages.
+ * A physical mailing address is not published until one is formally adopted.
  */
 export const LEGAL_CONFIG = {
   companyName: "SEZA Technologies",
@@ -16,7 +15,8 @@ export const LEGAL_CONFIG = {
   securityEmail: "security@sezapos.com",
   dmcaAgentEmail: "dmca@sezapos.com",
   abuseEmail: "abuse@sezapos.com",
-  phone: "",
+  phone: "+18286758348",
+  phoneDisplay: "+1 (828) 675-8348",
   governingLaw: "the State of Florida, United States",
   disputeVenue: "the state or federal courts located in Collier County, Florida",
   effectiveDate: "July 22, 2026",
