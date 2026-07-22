@@ -1329,10 +1329,9 @@ export const adminClaimTicket = createServerFn({ method: "POST" })
       .eq("id", data.ticketId)
       .maybeSingle();
     if (!existing) throw new Error("Ticket not found");
-    const patch: Record<string, unknown> = { assigned_admin_id: context.userId, updated_at: new Date().toISOString() };
     const { error } = await supabaseAdmin
       .from("support_tickets")
-      .update(patch)
+      .update({ assigned_admin_id: context.userId, updated_at: new Date().toISOString() })
       .eq("id", data.ticketId);
     if (error) throw new Error(error.message);
     await writeAudit(supabaseAdmin, {
@@ -1341,7 +1340,7 @@ export const adminClaimTicket = createServerFn({ method: "POST" })
       action: "admin.ticket.claim",
       entity: "ticket",
       entity_id: data.ticketId,
-      metadata: { previous_status: existing.status, previous_assignee: existing.assigned_admin_id },
+      details: { previous_status: existing.status, previous_assignee: existing.assigned_admin_id },
     });
     return { ok: true };
   });
