@@ -1320,9 +1320,19 @@ export const adminClaimTicket = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const admin = await ensureSupportStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Claiming assigns ownership but must NEVER remove the ticket from active
+    // work — do not change status here. Staff explicitly transition status
+    // via adminUpdateTicket when they begin investigating or resolve.
+    const { data: existing } = await supabaseAdmin
+      .from("support_tickets")
+      .select("status, assigned_admin_id")
+      .eq("id", data.ticketId)
+      .maybeSingle();
+    if (!existing) throw new Error("Ticket not found");
+    const patch: Record<string, unknown> = { assigned_admin_id: context.userId, updated_at: new Date().toISOString() };
     const { error } = await supabaseAdmin
       .from("support_tickets")
-      .update({ assigned_admin_id: context.userId, status: "investigating" })
+      .update(patch)
       .eq("id", data.ticketId);
     if (error) throw new Error(error.message);
     await writeAudit(supabaseAdmin, {
@@ -1331,6 +1341,7 @@ export const adminClaimTicket = createServerFn({ method: "POST" })
       action: "admin.ticket.claim",
       entity: "ticket",
       entity_id: data.ticketId,
+      metadata: { previous_status: existing.status, previous_assignee: existing.assigned_admin_id },
     });
     return { ok: true };
   });
