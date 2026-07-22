@@ -1,49 +1,69 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Construction } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useAdminPermissions } from "@/lib/admin/permissions";
+import { adminPaymentsOverview } from "@/lib/admin/admin.functions";
 
 export const Route = createFileRoute("/_adminApp/admin/payments")({
-  head: () => ({
-    meta: [
-      { title: "SEZA Admin" },
-      { name: "robots", content: "noindex, nofollow" },
-    ],
-  }),
-  component: PlaceholderPage,
+  head: () => ({ meta: [{ title: "Payments — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }] }),
+  component: PaymentsPage,
 });
 
-function PlaceholderPage() {
+function PaymentsPage() {
   const { data: perms } = useAdminPermissions();
-  const canView = perms?.hasAny(["businesses.view", "diagnostics.view", "billing.view", "incidents.view", "admin_users.view", "audit.view"]) ?? false;
-  if (perms && !canView) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight">Not authorized</h1>
-        <p className="text-sm text-muted-foreground">Your admin role does not include access to this section.</p>
-      </div>
-    );
-  }
+  const canView = perms?.hasAny(["billing.view"]) ?? false;
+  const [days, setDays] = useState(30);
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "payments", days],
+    queryFn: () => adminPaymentsOverview({ data: { days } }),
+    enabled: canView,
+  });
+
+  if (perms && !canView) return <p className="text-sm text-muted-foreground">Not authorized.</p>;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight capitalize">payments</h1>
-        <p className="text-sm text-muted-foreground">Coming in the next SEZA Platform Admin phase.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Payments</h1>
+          <p className="text-sm text-muted-foreground">In-person payment attempts across all stores.</p>
+        </div>
+        <div className="flex gap-2">{[7, 30, 90].map((d) => <Button key={d} size="sm" variant={days === d ? "default" : "outline"} onClick={() => setDays(d)}>{d}d</Button>)}</div>
       </div>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Construction className="h-5 w-5 text-amber-600" />
-            <CardTitle>Under construction</CardTitle>
+      {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard label="Attempts" value={String(data?.totals.total ?? 0)} />
+            <StatCard label="Succeeded" value={String(data?.totals.succeeded ?? 0)} />
+            <StatCard label="Failed" value={String(data?.totals.failed ?? 0)} />
+            <StatCard label="Gross captured" value={`$${(data?.totals.gross ?? 0).toFixed(2)}`} />
           </div>
-          <CardDescription>
-            This surface is reserved for the next implementation phase. Existing production data is not affected.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          The Businesses, Support, Devices, Subscriptions, Audit Logs, and Settings surfaces remain fully operational.
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader><CardTitle>Recent attempts</CardTitle></CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[720px]">
+                <thead className="text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2">Time</th><th>Provider</th><th>Amount</th><th>Status</th><th>Message</th></tr></thead>
+                <tbody>{(data?.recent ?? []).map((r: any) => (
+                  <tr key={r.id} className="border-t">
+                    <td className="py-2 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}</td>
+                    <td>{r.provider ?? "—"}</td>
+                    <td>${Number(r.amount ?? 0).toFixed(2)}</td>
+                    <td><Badge variant={r.status === "succeeded" || r.status === "completed" ? "default" : r.status === "failed" ? "destructive" : "outline"}>{r.status}</Badge></td>
+                    <td className="text-xs text-muted-foreground max-w-xs truncate">{r.message ?? "—"}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return <Card><CardContent className="pt-6"><div className="text-xs text-muted-foreground">{label}</div><div className="text-2xl font-bold">{value}</div></CardContent></Card>;
 }

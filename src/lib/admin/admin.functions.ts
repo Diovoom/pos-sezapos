@@ -1320,9 +1320,18 @@ export const adminClaimTicket = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const admin = await ensureSupportStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Claiming assigns ownership but must NEVER remove the ticket from active
+    // work — do not change status here. Staff explicitly transition status
+    // via adminUpdateTicket when they begin investigating or resolve.
+    const { data: existing } = await supabaseAdmin
+      .from("support_tickets")
+      .select("status, assigned_admin_id")
+      .eq("id", data.ticketId)
+      .maybeSingle();
+    if (!existing) throw new Error("Ticket not found");
     const { error } = await supabaseAdmin
       .from("support_tickets")
-      .update({ assigned_admin_id: context.userId, status: "investigating" })
+      .update({ assigned_admin_id: context.userId, updated_at: new Date().toISOString() })
       .eq("id", data.ticketId);
     if (error) throw new Error(error.message);
     await writeAudit(supabaseAdmin, {
@@ -1331,6 +1340,7 @@ export const adminClaimTicket = createServerFn({ method: "POST" })
       action: "admin.ticket.claim",
       entity: "ticket",
       entity_id: data.ticketId,
+      details: { previous_status: existing.status, previous_assignee: existing.assigned_admin_id },
     });
     return { ok: true };
   });
@@ -1808,4 +1818,256 @@ export const adminPlatformHealth = createServerFn({ method: "GET" })
       email: { configured: true },
       app_version: process.env.LOVABLE_BUILD_ID ?? "dev",
     };
+  });
+
+// ============================================================================
+// Additional read models for platform admin surfaces
+// ============================================================================
+
+export const adminListStores = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { q?: string; page?: number; pageSize?: number }) => data)
+  .handler(async ({ data, context }) => {
+    await ensurePlatformStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const page = Math.max(1, data.page ?? 1);
+    const pageSize = Math.min(100, data.pageSize ?? 25);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    let q = supabaseAdmin
+      .from("stores")
+      .select("id, name, store_code, email, phone, country, city, plan_tier, plan_status, plan_period_end, suspended_at, created_at", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+    if (data.q?.trim()) {
+      const term = data.q.trim().replace(/[%,()]/g, "");
+      q = q.or(`name.ilike.%${term}%,store_code.ilike.%${term}%,email.ilike.%${term}%`);
+    }
+    const { data: rows, count, error } = await q;
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [], count: count ?? 0, page, pageSize };
+  });
+
+export const adminListEmployees = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { q?: string; storeId?: string; page?: number; pageSize?: number }) => data)
+  .handler(async ({ data, context }) => {
+    await ensurePlatformStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const page = Math.max(1, data.page ?? 1);
+    const pageSize = Math.min(100, data.pageSize ?? 25);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    let q = supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, email, employee_id, store_id, status, created_at", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+    if (data.storeId) q = q.eq("store_id", data.storeId);
+    if (data.q?.trim()) {
+      const term = data.q.trim().replace(/[%,()]/g, "");
+      q = q.or(`full_name.ilike.%${term}%,email.ilike.%${term}%,employee_id.ilike.%${term}%`);
+    }
+    const { data: rows, count, error } = await q;
+    if (error) throw new Error(error.message);
+    const storeIds = Array.from(new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean)));
+    const storesMap = new Map<string, string>();
+    if (storeIds.length) {
+      const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
+      (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
+    }
+    return {
+      rows: (rows ?? []).map((r: any) => ({ ...r, store_name: storesMap.get(r.store_id) ?? null })),
+      count: count ?? 0,
+      page,
+      pageSize,
+    };
+  });
+
+export const adminListPairedDevices = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { q?: string; status?: string; page?: number; pageSize?: number }) => data)
+  .handler(async ({ data, context }) => {
+    await ensurePlatformStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const page = Math.max(1, data.page ?? 1);
+    const pageSize = Math.min(100, data.pageSize ?? 25);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    let q = supabaseAdmin
+      .from("device_registrations")
+      .select("id, store_id, label, status, platform, app_version, last_seen_at, last_sync_at, paired_at, revoked_at", { count: "exact" })
+      .order("last_seen_at", { ascending: false, nullsFirst: false })
+      .range(from, to);
+    if (data.status && data.status !== "all") q = q.eq("status", data.status);
+    if (data.q?.trim()) {
+      const term = data.q.trim().replace(/[%,()]/g, "");
+      q = q.ilike("label", `%${term}%`);
+    }
+    const { data: rows, count, error } = await q;
+    if (error) throw new Error(error.message);
+    const storeIds = Array.from(new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean)));
+    const storesMap = new Map<string, string>();
+    if (storeIds.length) {
+      const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
+      (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
+    }
+    const now = Date.now();
+    return {
+      rows: (rows ?? []).map((r: any) => {
+        const seen = r.last_seen_at ? new Date(r.last_seen_at).getTime() : 0;
+        const online = seen && now - seen < 5 * 60 * 1000;
+        return { ...r, store_name: storesMap.get(r.store_id) ?? null, online };
+      }),
+      count: count ?? 0,
+      page,
+      pageSize,
+    };
+  });
+
+export const adminSalesOverview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { days?: number }) => data)
+  .handler(async ({ data, context }) => {
+    await ensurePlatformStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const days = Math.max(1, Math.min(90, data.days ?? 30));
+    const since = new Date(Date.now() - days * 86400_000).toISOString();
+    const { data: rows, error } = await supabaseAdmin
+      .from("sales")
+      .select("id, store_id, total, created_at, status, synced_from_offline")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) throw new Error(error.message);
+    const totals = { count: 0, gross: 0, offline: 0, refunded: 0 };
+    const byStore = new Map<string, { count: number; gross: number }>();
+    for (const r of rows ?? []) {
+      totals.count += 1;
+      totals.gross += Number(r.total ?? 0);
+      if (r.synced_from_offline) totals.offline += 1;
+      if (r.status === "refunded" || r.status === "voided") totals.refunded += 1;
+      const cur = byStore.get(r.store_id ?? "") ?? { count: 0, gross: 0 };
+      cur.count += 1;
+      cur.gross += Number(r.total ?? 0);
+      byStore.set(r.store_id ?? "", cur);
+    }
+    const storeIds = [...byStore.keys()];
+    const storesMap = new Map<string, string>();
+    if (storeIds.length) {
+      const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
+      (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
+    }
+    const topStores = [...byStore.entries()]
+      .map(([id, v]) => ({ id, name: storesMap.get(id) ?? "—", ...v }))
+      .sort((a, b) => b.gross - a.gross)
+      .slice(0, 10);
+    return { totals, recent: (rows ?? []).slice(0, 50), topStores, days };
+  });
+
+export const adminOfflineSyncOverview = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensurePlatformStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const since = new Date(Date.now() - 7 * 86400_000).toISOString();
+    const { data: rows, error } = await supabaseAdmin
+      .from("sales")
+      .select("id, store_id, total, created_at, synced_from_offline, idempotency_key")
+      .gte("created_at", since)
+      .eq("synced_from_offline", true)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+    const byStore = new Map<string, number>();
+    for (const r of rows ?? []) { const sid = r.store_id ?? ""; byStore.set(sid, (byStore.get(sid) ?? 0) + 1); }
+    const storeIds = [...byStore.keys()];
+    const storesMap = new Map<string, string>();
+    if (storeIds.length) {
+      const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
+      (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
+    }
+    return {
+      total: rows?.length ?? 0,
+      recent: (rows ?? []).slice(0, 50).map((r: any) => ({ ...r, store_name: storesMap.get(r.store_id) ?? "—" })),
+      byStore: [...byStore.entries()].map(([id, count]) => ({ id, name: storesMap.get(id) ?? "—", count })).sort((a, b) => b.count - a.count),
+    };
+  });
+
+export const adminPaymentsOverview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { days?: number }) => data)
+  .handler(async ({ data, context }) => {
+    await ensurePlatformStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const days = Math.max(1, Math.min(90, data.days ?? 30));
+    const since = new Date(Date.now() - days * 86400_000).toISOString();
+    const { data: attempts, error } = await supabaseAdmin
+      .from("payment_attempts")
+      .select("id, store_id, status, amount, provider, created_at, message")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) throw new Error(error.message);
+    const totals = { total: 0, succeeded: 0, failed: 0, gross: 0 };
+    for (const a of attempts ?? []) {
+      totals.total += 1;
+      if (a.status === "succeeded" || a.status === "completed") { totals.succeeded += 1; totals.gross += Number(a.amount ?? 0); }
+      else if (a.status === "failed" || a.status === "error") totals.failed += 1;
+    }
+    return { totals, recent: (attempts ?? []).slice(0, 50), days };
+  });
+
+export const adminListAdmins = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await ensureSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const platformRoles = ["super_admin", "operations_admin", "support_admin", "billing_admin", "analyst", "technical_support", "merchant_support", "compliance_support"] as const;
+    const { data: roleRows, error } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id, role, created_at")
+      .in("role", platformRoles as unknown as any);
+    if (error) throw new Error(error.message);
+    const ids = Array.from(new Set((roleRows ?? []).map((r: any) => r.user_id)));
+    if (!ids.length) return { rows: [] };
+    const { data: profs } = await supabaseAdmin.from("profiles").select("id, email, full_name, status").in("id", ids);
+    const profMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
+    const byUser = new Map<string, { id: string; email: string; name: string; status: string; roles: string[] }>();
+    for (const r of roleRows ?? []) {
+      const p = profMap.get(r.user_id) as any;
+      const cur = byUser.get(r.user_id) ?? { id: r.user_id, email: p?.email ?? "", name: p?.full_name ?? p?.email ?? "", status: p?.status ?? "active", roles: [] };
+      (cur.roles as string[]).push(r.role as string);
+      byUser.set(r.user_id, cur);
+    }
+    return { rows: [...byUser.values()] };
+  });
+
+export const adminListIncidents = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { days?: number }) => data)
+  .handler(async ({ data, context }) => {
+    await ensurePlatformStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const days = Math.max(1, Math.min(30, data.days ?? 7));
+    const since = new Date(Date.now() - days * 86400_000).toISOString();
+    // Surface urgent/high tickets and failed payment surges as incident-like signals
+    const [{ data: tickets }, { data: failedPayments }] = await Promise.all([
+      supabaseAdmin
+        .from("support_tickets")
+        .select("id, ticket_number, subject, priority, status, store_id, created_at, updated_at")
+        .in("priority", ["high", "urgent"])
+        .not("status", "in", "(resolved,closed)")
+        .gte("updated_at", since)
+        .order("updated_at", { ascending: false })
+        .limit(100),
+      supabaseAdmin
+        .from("payment_attempts")
+        .select("id, store_id, status, amount, provider, created_at, message")
+        .in("status", ["failed", "error"])
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(50),
+    ]);
+    return { tickets: tickets ?? [], failedPayments: failedPayments ?? [], days };
   });
