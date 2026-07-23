@@ -109,8 +109,7 @@ function MerchantPaymentsPage() {
             <div className="p-10 text-center">
               <div className="font-medium">No merchant billing payments recorded yet</div>
               <p className="mt-1 text-sm text-muted-foreground">
-                This ledger begins filling when Stripe sends new invoice events after the included migration is deployed.
-                Current subscription status remains available on the Subscriptions page.
+                New Stripe invoice events appear here automatically. Current subscription status remains available on the Subscriptions page.
               </p>
             </div>
           ) : (

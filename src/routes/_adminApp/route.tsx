@@ -11,6 +11,8 @@ import { adminGlobalSearch, adminMyActiveSupportSession, adminEndSupportSession,
 import { useAdminPermissions } from "@/lib/admin/permissions";
 import { AdminScreenViewer } from "@/components/support/AdminScreenViewer";
 import { AdminDiagnosticsPanel } from "@/components/support/AdminDiagnosticsPanel";
+import { AdminPersistentChat } from "@/components/admin/AdminPersistentChat";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 import {
   LayoutDashboard,
@@ -227,7 +229,8 @@ function AdminLayout() {
             );
           })}
         </nav>
-        <div className="p-2 border-t">
+        <div className="border-t p-2">
+          <div className="mb-2 px-1"><LanguageSwitcher compact /></div>
           <Button variant="ghost" className="w-full justify-start gap-3" onClick={handleSignOut}>
             <LogOut className="h-4 w-4" /> Sign Out
           </Button>
@@ -292,6 +295,7 @@ function AdminLayout() {
               </div>
             )}
           </div>
+          <div className="hidden sm:block"><LanguageSwitcher compact /></div>
           {open && (
             <Button variant="ghost" size="icon" onClick={() => { setOpen(false); setQ(""); }}>
               <X className="h-4 w-4" />
@@ -386,9 +390,10 @@ function AdminLayout() {
           )
         )}
 
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
           <Outlet />
         </main>
+        <AdminPersistentChat />
       </div>
 
     </div>

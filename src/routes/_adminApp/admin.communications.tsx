@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { MessageSquare, Search, Send, UserCheck, MessageSquareOff, ExternalLink, RefreshCw } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { ADMIN_ACTIVE_CHAT_KEY, rememberAdminChat } from "@/components/admin/AdminPersistentChat";
 
 export const Route = createFileRoute("/_adminApp/admin/communications")({
   head: () => ({
@@ -43,7 +44,10 @@ function CommunicationsPage() {
 
   const [view, setView] = useState<"active" | "ended" | "all">("active");
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(ADMIN_ACTIVE_CHAT_KEY);
+  });
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
@@ -57,11 +61,21 @@ function CommunicationsPage() {
 
   const rows = listQuery.data?.rows ?? [];
   useEffect(() => {
-    if (!selectedId && rows.length) setSelectedId(rows[0].id);
+    if (!selectedId && rows.length) {
+      setSelectedId(rows[0].id);
+      rememberAdminChat(rows[0].id);
+      return;
+    }
     if (selectedId && rows.length && !rows.some((row: any) => row.id === selectedId) && view !== "all") {
-      setSelectedId(rows[0]?.id ?? null);
+      const next = rows[0]?.id ?? null;
+      setSelectedId(next);
+      rememberAdminChat(next);
     }
   }, [rows, selectedId, view]);
+
+  useEffect(() => {
+    if (selectedId) rememberAdminChat(selectedId);
+  }, [selectedId]);
 
   const caseQuery = useQuery({
     queryKey: ["admin_support_case", selectedId],
@@ -100,7 +114,7 @@ function CommunicationsPage() {
   }, [selectedId, caseQuery.data?.ticket?.last_message_at]);
 
   const selected = caseQuery.data;
-  const firstProblem = useMemo(() => selected?.messages?.[0]?.body ?? null, [selected?.messages]);
+  const firstProblem = useMemo(() => selected?.problem_message?.body ?? selected?.messages?.[0]?.body ?? null, [selected?.problem_message, selected?.messages]);
 
   async function sendReply() {
     if (!selectedId || !message.trim()) return;
@@ -189,17 +203,17 @@ function CommunicationsPage() {
               <button
                 key={row.id}
                 type="button"
-                onClick={() => setSelectedId(row.id)}
+                onClick={() => { setSelectedId(row.id); rememberAdminChat(row.id); }}
                 className={`w-full border-b p-3 text-left transition-colors ${selectedId === row.id ? "bg-primary/5" : "hover:bg-muted/40"}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="truncate font-medium">{row.store?.name ?? row.requester_email ?? "Merchant"}</div>
-                    <div className="truncate text-sm">{row.subject}</div>
+                    <div className="truncate font-medium" data-no-translate>{row.store?.name ?? row.requester_email ?? "Merchant"}</div>
+                    <div className="truncate text-sm" data-no-translate>{row.subject}</div>
                   </div>
                   {row.unread && <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />}
                 </div>
-                <div className="mt-1 truncate text-xs text-muted-foreground">{row.last_message?.body ?? "Ticket opened—waiting for the first message"}</div>
+                <div className="mt-1 truncate text-xs text-muted-foreground" data-no-translate>{row.last_message?.body ?? "Ticket opened—waiting for the first message"}</div>
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <div className="flex gap-1">
                     <Badge variant={row.chat_status === "ended" ? "secondary" : "default"}>{row.chat_status}</Badge>
@@ -227,8 +241,8 @@ function CommunicationsPage() {
             <>
               <div className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
                 <div>
-                  <div className="font-semibold">{selected.store?.name ?? selected.ticket.requester_email ?? "Merchant"}</div>
-                  <div className="text-sm">{selected.ticket.subject}</div>
+                  <div className="font-semibold" data-no-translate>{selected.store?.name ?? selected.ticket.requester_email ?? "Merchant"}</div>
+                  <div className="text-sm" data-no-translate>{selected.ticket.subject}</div>
                   <div className="mt-1 flex flex-wrap gap-1">
                     <Badge variant="outline">#{selected.ticket.ticket_number}</Badge>
                     <Badge variant={selected.ticket.chat_status === "ended" ? "secondary" : "default"}>{selected.ticket.chat_status}</Badge>
@@ -249,7 +263,7 @@ function CommunicationsPage() {
               </div>
 
               <div className="border-b bg-muted/20 p-3 text-sm">
-                <span className="font-medium">Original problem: </span>{firstProblem || "No opening description."}
+                <span className="font-medium">Original problem: </span><span data-no-translate>{firstProblem || "No opening description."}</span>
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
@@ -261,7 +275,7 @@ function CommunicationsPage() {
                         <div className={`mb-1 text-[11px] ${merchant ? "text-muted-foreground" : "text-primary-foreground/70"}`}>
                           {merchant ? (item.author_name || selected.requester?.full_name || "Merchant") : (item.author_name || item.author_email || "SEZA Support")} · {format(new Date(item.created_at), "MMM d, h:mm a")}
                         </div>
-                        <div className="whitespace-pre-wrap text-sm">{item.body}</div>
+                        <div className="whitespace-pre-wrap text-sm" data-no-translate>{item.body}</div>
                       </div>
                     </div>
                   );

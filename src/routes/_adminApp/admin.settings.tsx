@@ -195,13 +195,7 @@ function SettingsPage() {
           Company identity, your Admin account, security, alerts, support rules, and live platform configuration.
         </p>
       </div>
-      {!data.schema_ready && (
-        <Card className="border-amber-400 bg-amber-50/50 dark:bg-amber-950/10">
-          <CardContent className="p-4 text-sm">
-            Your name and phone now save safely in the main profile. Run <code className="rounded bg-muted px-1 py-0.5">npx supabase db push</code> once to enable the full company-staff metadata table and notification storage.
-          </CardContent>
-        </Card>
-      )}
+
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>

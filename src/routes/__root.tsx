@@ -20,6 +20,7 @@ import { initializeAppUpdateWorkflow } from "@/lib/app-update";
 
 import "@/i18n";
 import { applyLanguage } from "@/i18n";
+import { GlobalLanguageRuntime } from "@/components/i18n/GlobalLanguageRuntime";
 import { installSessionBridge } from "@/integrations/supabase/session-bridge";
 import { detectAndPersistNative, isPathAllowedInNative } from "@/lib/native";
 import { NativeLoadingOverlay } from "@/components/NativeLoadingOverlay";
@@ -362,6 +363,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <RouteScrollManager />
+      <GlobalLanguageRuntime />
       <PaymentTestModeBanner />
       <AppUpdateNotice />
       <Outlet />

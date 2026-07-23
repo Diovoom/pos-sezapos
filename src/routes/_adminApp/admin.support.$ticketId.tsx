@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { rememberAdminChat } from "@/components/admin/AdminPersistentChat";
 
 export const Route = createFileRoute("/_adminApp/admin/support/$ticketId")({
   head: () => ({
@@ -52,6 +53,13 @@ const STATUS_LABELS: Record<string, string> = {
   waiting_for_merchant: "Waiting for merchant",
   resolved: "Resolved",
   closed: "Closed",
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  urgent: "Urgent",
+  high: "High",
+  normal: "Normal",
+  low: "Low",
 };
 
 function SupportCasePage() {
@@ -113,7 +121,13 @@ function SupportCasePage() {
   }, [ticketId]);
 
   const data = query.data;
-  const problem = useMemo(() => data?.messages?.[0] ?? null, [data?.messages]);
+  const problem = useMemo(() => data?.problem_message ?? data?.messages?.[0] ?? null, [data?.problem_message, data?.messages]);
+
+
+  useEffect(() => {
+    if (!data?.ticket?.id || data.ticket.chat_status === "ended") return;
+    rememberAdminChat(data.ticket.id);
+  }, [data?.ticket?.id, data?.ticket?.chat_status]);
 
   async function claim() {
     setBusy(true);
@@ -193,10 +207,12 @@ function SupportCasePage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="font-mono text-xs text-muted-foreground">CASE #{ticket.ticket_number}</div>
-          <h1 className="text-2xl font-bold">{ticket.subject}</h1>
+          <h1 className="text-2xl font-bold" data-no-translate>{ticket.subject}</h1>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Badge variant={ticket.priority === "urgent" ? "destructive" : "outline"}>{ticket.priority}</Badge>
-            <Badge variant="outline">{STATUS_LABELS[ticket.status] ?? ticket.status}</Badge>
+            {!isFinal && (
+              <Badge variant={ticket.priority === "urgent" ? "destructive" : "outline"}>{PRIORITY_LABELS[ticket.priority] ?? ticket.priority}</Badge>
+            )}
+            <Badge variant={ticket.status === "resolved" ? "default" : "outline"}>{STATUS_LABELS[ticket.status] ?? ticket.status}</Badge>
             <Badge variant={chatEnded ? "secondary" : "default"}>{chatEnded ? "Chat ended" : "Live chat active"}</Badge>
             {assignee ? <Badge variant="secondary">Assigned to {assignee.full_name || assignee.email}</Badge> : <Badge variant="outline">Unassigned</Badge>}
           </div>
@@ -225,7 +241,7 @@ function SupportCasePage() {
           <CardDescription>The original issue stays visible throughout the entire investigation.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="whitespace-pre-wrap text-sm">{problem?.body || "The merchant did not include an opening message."}</div>
+          <div className="whitespace-pre-wrap text-sm" data-no-translate>{problem?.body || "The merchant did not include an opening message."}</div>
           <div className="mt-3 text-xs text-muted-foreground">
             Reported {format(new Date(ticket.created_at), "MMM d, yyyy 'at' h:mm a")} by {requester?.full_name || ticket.requester_email || "merchant user"}
           </div>
@@ -238,7 +254,7 @@ function SupportCasePage() {
             <CardHeader className="flex flex-row items-start justify-between gap-3">
               <div>
                 <CardTitle>Live merchant conversation</CardTitle>
-                <CardDescription>Updates in real time and falls back to polling every 10 seconds.</CardDescription>
+                <CardDescription>Updates in real time and stays connected while you work anywhere in Admin.</CardDescription>
               </div>
               {!chatEnded && (
                 <Button variant="outline" size="sm" onClick={() => setEndChatOpen(true)}>
@@ -257,7 +273,7 @@ function SupportCasePage() {
                       <div className={`mb-1 text-[11px] ${merchant ? "text-muted-foreground" : "text-primary-foreground/75"}`}>
                         {merchant ? (item.author_name || requester?.full_name || item.author_email || "Merchant") : (item.author_name || item.author_email || "SEZA Support")} · {format(new Date(item.created_at), "MMM d, h:mm a")}
                       </div>
-                      <div className="whitespace-pre-wrap text-sm">{item.body}</div>
+                      <div className="whitespace-pre-wrap text-sm" data-no-translate>{item.body}</div>
                     </div>
                   </div>
                 );
@@ -288,7 +304,7 @@ function SupportCasePage() {
               {internal_notes.map((item: any) => (
                 <div key={item.id} className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
                   <div className="text-xs text-muted-foreground">{item.author_email || "SEZA staff"} · {format(new Date(item.created_at), "MMM d, h:mm a")}</div>
-                  <div className="mt-1 whitespace-pre-wrap text-sm">{item.body}</div>
+                  <div className="mt-1 whitespace-pre-wrap text-sm" data-no-translate>{item.body}</div>
                 </div>
               ))}
               <Textarea value={internalNote} onChange={(e) => setInternalNote(e.target.value)} rows={3} placeholder="Diagnostics, suspected cause, next steps…" />

@@ -42,12 +42,18 @@ void i18n
     detection: { order: ["localStorage", "navigator"], caches: ["localStorage"] },
   });
 
-export function applyLanguage(lang: string) {
-  void i18n.changeLanguage(lang);
+export async function applyLanguage(lang: string) {
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem("i18nextLng", lang);
+  }
+  await i18n.changeLanguage(lang);
   const base = lang.split("-")[0];
   if (typeof document !== "undefined") {
     document.documentElement.lang = lang;
     document.documentElement.dir = RTL_LANGUAGES.has(base) ? "rtl" : "ltr";
+  }
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("seza-language-changed", { detail: lang }));
   }
 }
 

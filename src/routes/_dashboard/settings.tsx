@@ -377,7 +377,7 @@ function SupportPanel({ kind }: { kind: "contact" | "website" | "status" | "rele
     contact: { title: "Contact Support", desc: "We're here to help.", body: <p>Email <a className="text-primary hover:underline" href="mailto:support@sezapos.com">support@sezapos.com</a> — most requests are answered within one business day.</p> },
     website: { title: "Support Website", desc: "Docs, guides, and how-tos.", body: <Button asChild><a href="https://sezapos.com/support" target="_blank" rel="noreferrer">Open support site <ExternalLink className="size-4 ml-2" /></a></Button> },
     status: { title: "System Status", desc: "Live service health.", body: <Button asChild><a href="https://status.sezapos.com" target="_blank" rel="noreferrer">Open status page <ExternalLink className="size-4 ml-2" /></a></Button> },
-    releases: { title: "Release Notes", desc: "Latest updates and improvements.", body: <p className="text-sm text-muted-foreground">Version 1.2.0 — unified pricing, customer CRM, split tender, Stripe Terminal setup, offline sync hardening, restaurant readiness, and SEZA branding.</p> },
+    releases: { title: "Release Notes", desc: "Latest updates and improvements.", body: <p className="text-sm text-muted-foreground">Version 1.2.1 — persistent Admin live chat, complete-page language switching, mobile support case access, and support workflow reliability.</p> },
   }[kind];
   return (
     <Card className="max-w-2xl">
@@ -799,7 +799,7 @@ function AboutPanel() {
     <Card className="max-w-2xl">
       <CardHeader><CardTitle>About</CardTitle><CardDescription>Software and support.</CardDescription></CardHeader>
       <CardContent className="space-y-2 text-sm">
-        <Row k="Software version" v="1.2.0" />
+        <Row k="Software version" v="1.2.1" />
         <Row k="Build" v={new Date().toISOString().slice(0, 10)} />
         <Row k="License" v="Commercial" />
         <Row k="Support" v="support@sezapos.com" />

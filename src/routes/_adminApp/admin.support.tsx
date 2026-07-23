@@ -33,7 +33,7 @@ import {
 import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { AlertTriangle, Inbox, Search, UserCheck, ArrowUpDown } from "lucide-react";
+import { AlertTriangle, Inbox, Search, UserCheck, ArrowUpDown, ExternalLink } from "lucide-react";
 
 const searchSchema = z.object({
   status: fallback(z.string(), "active").default("active"),
@@ -61,6 +61,21 @@ const PRIORITY_COLOR: Record<string, string> = {
   high: "bg-orange-500/15 text-orange-600 border-orange-500/30",
   normal: "bg-muted text-muted-foreground",
   low: "bg-muted text-muted-foreground",
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  urgent: "Urgent",
+  high: "High",
+  normal: "Normal",
+  low: "Low",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  open: "New / open",
+  investigating: "Investigating",
+  waiting_for_merchant: "Waiting for merchant",
+  resolved: "Resolved",
+  closed: "Closed",
 };
 
 function SupportPage() {
@@ -207,7 +222,7 @@ function SupportPage() {
           }
         />
         <QueueChip
-          label="Urgent open"
+          label="Urgent active"
           value={c.urgent ?? 0}
           icon={<AlertTriangle className="h-4 w-4 text-red-600" />}
           active={search.priority === "urgent"}
@@ -259,7 +274,15 @@ function SupportPage() {
           <button
             key={val}
             onClick={() =>
-              navigate({ search: (prev: any) => ({ ...prev, status: val, page: 1 }) })
+              navigate({
+                search: (prev: any) => ({
+                  ...prev,
+                  status: val,
+                  priority: ["resolved", "closed", "all"].includes(val) ? "all" : prev.priority,
+                  assignee: ["resolved", "closed"].includes(val) ? "any" : prev.assignee,
+                  page: 1,
+                }),
+              })
             }
             className={`px-3 py-2 text-sm border-b-2 -mb-px transition-colors ${
               search.status === val
@@ -327,8 +350,58 @@ function SupportPage() {
         </Select>
       </div>
 
-      {/* Table */}
-      <Card>
+      {/* Mobile support cards */}
+      <div className="space-y-3 md:hidden">
+        {listQ.isLoading ? (
+          <Card><CardContent className="p-5 text-sm text-muted-foreground">Loading…</CardContent></Card>
+        ) : rows.length === 0 ? (
+          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">No tickets match these filters.</CardContent></Card>
+        ) : rows.map((ticket: any) => {
+          const finalStatus = ticket.status === "resolved" || ticket.status === "closed";
+          return (
+            <Card key={ticket.id} className="overflow-hidden">
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-mono text-[11px] text-muted-foreground">CASE #{ticket.ticket_number}</div>
+                    <div className="mt-1 font-semibold" data-no-translate>{ticket.subject}</div>
+                  </div>
+                  <Badge variant={ticket.status === "resolved" ? "default" : "outline"}>
+                    {STATUS_LABELS[ticket.status] ?? ticket.status}
+                  </Badge>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground" data-no-translate>
+                  {ticket.problem_preview || "The merchant did not include an opening message."}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {!finalStatus && (
+                    <Badge variant="outline" className={PRIORITY_COLOR[ticket.priority] ?? ""}>
+                      {PRIORITY_LABELS[ticket.priority] ?? ticket.priority}
+                    </Badge>
+                  )}
+                  <span className="text-muted-foreground">{ticket.store_name ? <span data-no-translate>{ticket.store_name}</span> : "No business attached"}</span>
+                  <span className="ml-auto text-muted-foreground">
+                    {formatDistanceToNow(new Date(ticket.updated_at), { addSuffix: true })}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button asChild className="flex-1">
+                    <Link to="/admin/support/$ticketId" params={{ ticketId: ticket.id }}>
+                      Open case <ExternalLink className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                  {!ticket.assigned_admin_id && !finalStatus && (
+                    <Button variant="outline" onClick={() => claimOne(ticket.id)}>Claim</Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Desktop support table */}
+      <Card className="hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           {listQ.isLoading ? (
             <div className="p-8 text-sm text-muted-foreground">Loading…</div>
@@ -337,7 +410,7 @@ function SupportPage() {
               No tickets match these filters.
             </div>
           ) : (
-            <table className="w-full text-sm min-w-[720px]">
+            <table className="w-full text-sm min-w-[840px]">
               <thead className="bg-muted/40">
                 <tr className="text-left">
                   <th className="p-3">#</th>
@@ -345,19 +418,13 @@ function SupportPage() {
                   <th className="p-3">Business</th>
                   <th className="p-3">Assignee</th>
                   <th className="p-3">
-                    <button
-                      onClick={() => toggleSort("priority")}
-                      className="inline-flex items-center gap-1 hover:text-foreground"
-                    >
+                    <button onClick={() => toggleSort("priority")} className="inline-flex items-center gap-1 hover:text-foreground">
                       Priority <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </th>
                   <th className="p-3">Status</th>
                   <th className="p-3">
-                    <button
-                      onClick={() => toggleSort("updated_at")}
-                      className="inline-flex items-center gap-1 hover:text-foreground"
-                    >
+                    <button onClick={() => toggleSort("updated_at")} className="inline-flex items-center gap-1 hover:text-foreground">
                       Age <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </th>
@@ -365,68 +432,51 @@ function SupportPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((t: any) => (
-                  <tr key={t.id} className="border-t hover:bg-muted/20">
-                    <td className="p-3 font-mono text-xs">{t.ticket_number}</td>
-                    <td className="p-3">
-                      <Link
-                        to="/admin/support/$ticketId"
-                        params={{ ticketId: t.id }}
-                        className="text-primary hover:underline font-medium"
-                      >
-                        {t.subject}
-                      </Link>
-                      {t.problem_preview && (
-                        <div className="mt-1 max-w-md truncate text-xs text-muted-foreground">{t.problem_preview}</div>
-                      )}
-                    </td>
-                    <td className="p-3 text-xs">
-                      {t.store_id ? (
-                        <Link
-                          to="/admin/businesses/$storeId"
-                          params={{ storeId: t.store_id }}
-                          className="hover:underline"
-                        >
-                          {t.store_name ?? t.store_id.slice(0, 8)}
+                {rows.map((ticket: any) => {
+                  const finalStatus = ticket.status === "resolved" || ticket.status === "closed";
+                  return (
+                    <tr key={ticket.id} className="border-t hover:bg-muted/20">
+                      <td className="p-3 font-mono text-xs">{ticket.ticket_number}</td>
+                      <td className="p-3">
+                        <Link to="/admin/support/$ticketId" params={{ ticketId: ticket.id }} className="font-medium text-primary hover:underline" data-no-translate>
+                          {ticket.subject}
                         </Link>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="p-3 text-xs">
-                      {t.assignee_name ?? (
-                        <span className="text-muted-foreground italic">Unassigned</span>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <Badge
-                        variant="outline"
-                        className={PRIORITY_COLOR[t.priority] ?? ""}
-                      >
-                        {t.priority}
-                      </Badge>
-                    </td>
-                    <td className="p-3">
-                      <Badge variant="outline">{t.status}</Badge>
-                    </td>
-                    <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">
-                      {formatDistanceToNow(new Date(t.updated_at), {
-                        addSuffix: true,
-                      })}
-                    </td>
-                    <td className="p-3 text-right">
-                      {!t.assigned_admin_id && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => claimOne(t.id)}
-                        >
-                          Claim
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                        {ticket.problem_preview && (
+                          <div className="mt-1 max-w-md truncate text-xs text-muted-foreground" data-no-translate>{ticket.problem_preview}</div>
+                        )}
+                      </td>
+                      <td className="p-3 text-xs">
+                        {ticket.store_id ? (
+                          <Link to="/admin/businesses/$storeId" params={{ storeId: ticket.store_id }} className="hover:underline" data-no-translate>
+                            {ticket.store_name ?? ticket.store_id.slice(0, 8)}
+                          </Link>
+                        ) : "—"}
+                      </td>
+                      <td className="p-3 text-xs">
+                        {ticket.assignee_name ? <span data-no-translate>{ticket.assignee_name}</span> : <span className="italic text-muted-foreground">Unassigned</span>}
+                      </td>
+                      <td className="p-3">
+                        {finalStatus ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <Badge variant="outline" className={PRIORITY_COLOR[ticket.priority] ?? ""}>{PRIORITY_LABELS[ticket.priority] ?? ticket.priority}</Badge>
+                        )}
+                      </td>
+                      <td className="p-3"><Badge variant={ticket.status === "resolved" ? "default" : "outline"}>{STATUS_LABELS[ticket.status] ?? ticket.status}</Badge></td>
+                      <td className="whitespace-nowrap p-3 text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(ticket.updated_at), { addSuffix: true })}
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          {!ticket.assigned_admin_id && !finalStatus && <Button size="sm" variant="outline" onClick={() => claimOne(ticket.id)}>Claim</Button>}
+                          <Button asChild size="sm">
+                            <Link to="/admin/support/$ticketId" params={{ ticketId: ticket.id }}>Open case</Link>
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

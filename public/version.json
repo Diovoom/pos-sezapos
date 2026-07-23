@@ -1,15 +1,14 @@
 {
-  "version": "1.2.0",
-  "build": 3,
+  "version": "1.2.1",
+  "build": 4,
   "minimumSupportedVersion": "1.0.0",
   "mandatory": false,
   "updateUrl": "https://sezapos.com/support",
   "releaseNotes": [
-    "Split cash and card checkout",
-    "Stripe Terminal and Tap to Pay configuration",
-    "Customer CRM and loyalty controls",
-    "Restaurant order setup",
-    "Offline cash-sale sync improvements",
-    "Unified SEZA branding and pricing"
+    "Persistent Admin live merchant chat across pages",
+    "Whole-interface language selection and RTL support",
+    "Mobile-friendly support case cards and working case actions",
+    "Resolved cases no longer display active urgency labels",
+    "Cleaner Admin settings and support workflow"
   ]
 }

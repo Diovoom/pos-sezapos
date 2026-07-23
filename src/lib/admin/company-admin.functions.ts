@@ -775,9 +775,16 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
       .update({ last_admin_read_at: new Date().toISOString() })
       .eq("id", data.ticketId);
 
+    const publicMessages = enrichedNotes.filter((note: any) => !note.internal);
+    const problemMessage =
+      publicMessages.find((note: any) => !note.author_is_platform) ??
+      publicMessages[0] ??
+      null;
+
     return {
       ticket,
-      messages: enrichedNotes.filter((note: any) => !note.internal),
+      messages: publicMessages,
+      problem_message: problemMessage,
       internal_notes: enrichedNotes.filter((note: any) => note.internal),
       events: events ?? [],
       store: store ?? null,

@@ -19,7 +19,7 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
   const storeId = (me.data?.profile?.store_id ?? me.data?.store?.id) as string | undefined;
 
   const onChange = async (value: string) => {
-    applyLanguage(value);
+    await applyLanguage(value);
     try {
       const { data: u } = await supabase.auth.getUser();
       if (u.user) {
