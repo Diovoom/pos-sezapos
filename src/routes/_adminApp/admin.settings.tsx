@@ -279,7 +279,7 @@ function SettingsPage() {
             <Separator />
 
             <div className="grid gap-4 lg:grid-cols-2">
-              <ToggleRow label="Live merchant chat enabled" note="Allows owners and cashiers to chat from their support cases" checked={platform.liveChatEnabled} onCheckedChange={(value) => setPlatform((p) => ({ ...p, liveChatEnabled: value }))} />
+              <ToggleRow label="Live merchant chat enabled" note="Allows Android register users to chat with SEZA Admin" checked={platform.liveChatEnabled} onCheckedChange={(value) => setPlatform((p) => ({ ...p, liveChatEnabled: value }))} />
               <ToggleRow label="Maintenance mode" note="Use only during a controlled platform outage" checked={platform.maintenanceMode} onCheckedChange={(value) => setPlatform((p) => ({ ...p, maintenanceMode: value }))} />
             </div>
             <div className="grid gap-3 lg:grid-cols-2">

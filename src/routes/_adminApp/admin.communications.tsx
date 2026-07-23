@@ -6,7 +6,6 @@ import {
   adminListCommunications,
   adminGetSupportCase,
   adminSendSupportMessage,
-  adminEndSupportChat,
   adminClaimSupportCase,
   adminMarkCommunicationRead,
 } from "@/lib/admin/company-admin.functions";
@@ -16,9 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { MessageSquare, Search, Send, UserCheck, MessageSquareOff, ExternalLink, RefreshCw } from "lucide-react";
+import { MessageSquare, Search, Send, UserCheck, ExternalLink, RefreshCw } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { ADMIN_ACTIVE_CHAT_KEY, rememberAdminChat } from "@/components/admin/AdminPersistentChat";
@@ -37,7 +34,6 @@ function CommunicationsPage() {
   const list = useServerFn(adminListCommunications);
   const getCase = useServerFn(adminGetSupportCase);
   const send = useServerFn(adminSendSupportMessage);
-  const endChat = useServerFn(adminEndSupportChat);
   const claim = useServerFn(adminClaimSupportCase);
   const markRead = useServerFn(adminMarkCommunicationRead);
   const qc = useQueryClient();
@@ -50,8 +46,6 @@ function CommunicationsPage() {
   });
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [endOpen, setEndOpen] = useState(false);
-  const [endReason, setEndReason] = useState("");
 
   const listQuery = useQuery({
     queryKey: ["admin_communications", view, search],
@@ -144,32 +138,13 @@ function CommunicationsPage() {
     }
   }
 
-  async function finishChat() {
-    if (!selectedId || endReason.trim().length < 4) {
-      toast.error("Enter a reason");
-      return;
-    }
-    setBusy(true);
-    try {
-      await endChat({ data: { ticketId: selectedId, reason: endReason } });
-      toast.success("Live conversation ended");
-      setEndOpen(false);
-      setEndReason("");
-      refresh();
-    } catch (error: any) {
-      toast.error(error?.message ?? "Could not end conversation");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Live Communications</h1>
           <p className="text-sm text-muted-foreground">
-            Real-time chat with merchant owners and cashiers. A conversation stays on this screen until a SEZA employee explicitly ends it.
+            Real-time chat with Android register users. A conversation stays active until the support case is resolved or closed.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => { listQuery.refetch(); caseQuery.refetch(); }}>
@@ -256,9 +231,6 @@ function CommunicationsPage() {
                   <Button asChild size="sm" variant="outline">
                     <Link to="/admin/support/$ticketId" params={{ ticketId: selected.ticket.id }}>Full case <ExternalLink className="ml-1 h-3 w-3" /></Link>
                   </Button>
-                  {selected.ticket.chat_status !== "ended" && (
-                    <Button size="sm" variant="destructive" onClick={() => setEndOpen(true)}><MessageSquareOff className="mr-1 h-4 w-4" /> End chat</Button>
-                  )}
                 </div>
               </div>
 
@@ -283,17 +255,12 @@ function CommunicationsPage() {
               </div>
 
               <div className="border-t p-4">
-                {selected.ticket.chat_status === "ended" && (
-                  <div className="mb-3 rounded-lg bg-muted p-3 text-sm">
-                    This live conversation ended. Sending a new message reactivates it and returns it to Active.
-                  </div>
-                )}
-                {selected.ticket.status === "closed" ? (
-                  <div className="rounded-lg bg-muted p-4 text-sm">This support case is closed and the transcript is read-only.</div>
+                {["resolved", "closed"].includes(selected.ticket.status) ? (
+                  <div className="rounded-lg bg-muted p-4 text-sm">This support case is complete and the transcript is read-only. Reopen the full case to continue.</div>
                 ) : (
                   <div className="flex items-end gap-2">
                     <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} placeholder="Reply live to the merchant…" />
-                    <Button onClick={sendReply} disabled={busy || !message.trim()}><Send className="mr-2 h-4 w-4" /> {selected.ticket.chat_status === "ended" ? "Reactivate & send" : "Send"}</Button>
+                    <Button onClick={sendReply} disabled={busy || !message.trim()}><Send className="mr-2 h-4 w-4" /> Send</Button>
                   </div>
                 )}
               </div>
@@ -302,22 +269,7 @@ function CommunicationsPage() {
         </div>
       </div>
 
-      <Dialog open={endOpen} onOpenChange={setEndOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>End this live conversation?</DialogTitle>
-            <DialogDescription>It will leave the Active inbox, but the transcript and support case remain permanently available.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-1.5">
-            <Label>Reason</Label>
-            <Textarea value={endReason} onChange={(e) => setEndReason(e.target.value)} placeholder="Resolved, moved to scheduled follow-up, merchant confirmed fix…" />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEndOpen(false)}>Cancel</Button>
-            <Button variant="destructive" disabled={busy} onClick={finishChat}>End conversation</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
     </div>
   );
 }

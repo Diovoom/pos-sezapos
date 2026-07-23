@@ -135,6 +135,18 @@ async function updateSupportTicketCompat(
   throw new Error("Support case update could not be applied to the current database schema");
 }
 
+async function readPlatformSettingsAuditFallback(supabaseAdmin: any) {
+  const { data, error } = await supabaseAdmin
+    .from("audit_log")
+    .select("details,created_at")
+    .eq("action", "admin.platform_settings.update")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return data?.details && typeof data.details === "object" ? data.details : null;
+}
+
 async function withTimeout<T>(promise: PromiseLike<T>, fallback: T, timeoutMs = 7000): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -367,10 +379,10 @@ export const adminOperationsOverview = createServerFn({ method: "GET" })
       safe(supabaseAdmin.from("device_registrations").select("id", { count: "exact", head: true }).eq("status", "active").or(`last_seen_at.is.null,last_seen_at.lt.${offlineCutoff}`), emptyCount),
       safe(supabaseAdmin.from("support_tickets").select("id", { count: "exact", head: true }).not("status", "in", "(resolved,closed)"), emptyCount),
       safe(supabaseAdmin.from("support_tickets").select("id", { count: "exact", head: true }).eq("priority", "urgent").not("status", "in", "(resolved,closed)"), emptyCount),
-      safe((supabaseAdmin.from as any)("support_tickets").select("id", { count: "exact", head: true }).neq("chat_status", "ended"), emptyCount),
+      safe(supabaseAdmin.from("support_tickets").select("id", { count: "exact", head: true }).not("status", "in", "(resolved,closed)"), emptyCount),
       safe((supabaseAdmin.from as any)("merchant_billing_payments").select("amount_paid_cents,status", { count: "exact" }).in("status", ["paid", "succeeded"]).gte("occurred_at", monthStart.toISOString()).limit(1000), emptyRows),
       safe((supabaseAdmin.from as any)("merchant_billing_payments").select("store_id").in("status", ["paid", "succeeded"]).eq("billing_reason", "subscription_create").gte("occurred_at", thirtyDaysAgo).limit(1000), emptyRows),
-      safe(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,status,priority,store_id,assigned_admin_id,updated_at,chat_status,last_message_at").order("updated_at", { ascending: false }).limit(8), emptyRows),
+      safe(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,status,priority,store_id,assigned_admin_id,updated_at").order("updated_at", { ascending: false }).limit(8), emptyRows),
       safe((supabaseAdmin.from as any)("merchant_billing_payments").select("id,store_id,status,amount_paid_cents,currency,occurred_at,environment").order("occurred_at", { ascending: false }).limit(8), emptyRows),
     ]);
 
@@ -394,7 +406,11 @@ export const adminOperationsOverview = createServerFn({ method: "GET" })
         urgent_cases: urgentCases.count ?? 0, active_chats: activeChats.count ?? 0, payments_this_month: paidThisMonth.count ?? paidRows.length,
         payment_volume_cents: paymentVolumeCents, conversions_30d: conversionStoreIds.size,
       },
-      recent_cases: (recentCases.data ?? []).map((row: any) => ({ ...row, store_name: storeMap.get(row.store_id) ?? null })),
+      recent_cases: (recentCases.data ?? []).map((row: any) => ({
+        ...row,
+        store_name: storeMap.get(row.store_id) ?? null,
+        chat_status: ["resolved", "closed"].includes(String(row.status)) ? "ended" : "active",
+      })),
       recent_payments: (recentPayments.data ?? []).map((row: any) => ({ ...row, store_name: storeMap.get(row.store_id) ?? null })),
       partial: [businesses, active, trials, pastDue, registers, openCases].some((result: any) => result.error),
       generated_at: new Date().toISOString(),
@@ -578,18 +594,20 @@ export const adminGetPlatformSettings = createServerFn({ method: "GET" })
     const staff = await readOptionalStaffProfile(supabaseAdmin, context.userId);
     const settingsResult = await (supabaseAdmin.from as any)("platform_settings").select("*").eq("id", "global").maybeSingle();
     if (settingsResult.error && !isMissingRelationError(settingsResult.error, "platform_settings")) throw new Error(settingsResult.error.message);
+    const auditFallback = settingsResult.data ? null : await readPlatformSettingsAuditFallback(supabaseAdmin);
+    const defaultSettings = {
+      id: "global", company_name: "SEZA POS", support_email: "support@sezapos.com", billing_email: "billing@sezapos.com",
+      incident_email: FOUNDER_EMAIL, timezone: "America/New_York", default_trial_days: 14, support_sla_minutes: 60,
+      live_chat_enabled: true, maintenance_mode: false, maintenance_message: null, merchant_banner: null,
+    };
     const isFounder = identity.email === FOUNDER_EMAIL && identity.roles.includes("super_admin");
     return {
-      settings: settingsResult.data ?? {
-        id: "global", company_name: "SEZA POS", support_email: "support@sezapos.com", billing_email: "billing@sezapos.com",
-        incident_email: FOUNDER_EMAIL, timezone: "America/New_York", default_trial_days: 14, support_sla_minutes: 60,
-        live_chat_enabled: true, maintenance_mode: false, maintenance_message: null, merchant_banner: null,
-      },
+      settings: { ...defaultSettings, ...(auditFallback ?? {}), ...(settingsResult.data ?? {}) },
       profile,
       staff: { ...(staff ?? {}), phone: staff?.phone ?? profile?.phone ?? null, title: isFounder ? "Founder & CEO" : staff?.title ?? null },
       roles: identity.roles,
       is_founder: isFounder,
-      schema_ready: Boolean(staff) && !settingsResult.error,
+      schema_ready: Boolean(staff) && (!settingsResult.error || Boolean(auditFallback)),
     };
   });
 
@@ -632,7 +650,7 @@ export const adminUpdatePlatformSettings = createServerFn({ method: "POST" })
       id: "global",
       ...patch,
     }, { onConflict: "id" });
-    if (error) throw new Error(error.message);
+    if (error && !isMissingRelationError(error, "platform_settings")) throw new Error(error.message);
     await audit(supabaseAdmin, context, identity, {
       action: "admin.platform_settings.update",
       entity: "platform_settings",
@@ -855,8 +873,14 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
       publicMessages[0] ??
       null;
 
+    const compatibleTicket = {
+      ...ticket,
+      chat_status: ticket.chat_status ?? (["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active"),
+      last_message_at: ticket.last_message_at ?? publicMessages.at(-1)?.created_at ?? ticket.updated_at,
+    };
+
     return {
-      ticket,
+      ticket: compatibleTicket,
       messages: publicMessages,
       problem_message: problemMessage,
       internal_notes: enrichedNotes.filter((note: any) => note.internal),
@@ -959,9 +983,6 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
       if (currentStatus !== "resolved") {
         throw new Error("Resolve the case before closing it");
       }
-      if (ticket.chat_status && ticket.chat_status !== "ended") {
-        throw new Error("End the live chat before closing the case");
-      }
       const summary = cleanText(data.resolutionSummary || ticket.resolution_summary || ticket.resolution, 4000);
       if (summary.length < 5) throw new Error("Resolve the case with a summary before closing it");
       patch.resolution_summary = summary;
@@ -972,9 +993,6 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
     } else if (data.status === "open" && ["resolved", "closed"].includes(currentStatus)) {
       patch.resolved_at = null;
       patch.closed_at = null;
-      patch.chat_status = "active";
-      patch.chat_ended_at = null;
-      patch.chat_ended_by = null;
       eventType = "reopened";
     }
 
@@ -1005,7 +1023,7 @@ export const adminSendSupportMessage = createServerFn({ method: "POST" })
     const body = requireReason(data.body, data.internal ? "Internal note" : "Message", 1);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: ticket } = await (supabaseAdmin.from as any)("support_tickets")
-      .select("id,status,store_id,chat_status,first_response_at")
+      .select("*")
       .eq("id", data.ticketId)
       .maybeSingle();
     if (!ticket) throw new Error("Support case not found");
@@ -1021,9 +1039,6 @@ export const adminSendSupportMessage = createServerFn({ method: "POST" })
 
     if (!data.internal) {
       const patch: Record<string, unknown> = {
-        chat_status: "active",
-        chat_ended_at: null,
-        chat_ended_by: null,
         last_admin_read_at: new Date().toISOString(),
       };
       if (!ticket.first_response_at) patch.first_response_at = new Date().toISOString();
@@ -1042,7 +1057,7 @@ export const adminEndSupportChat = createServerFn({ method: "POST" })
     const reason = requireReason(data.reason);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: ticket } = await (supabaseAdmin.from as any)("support_tickets")
-      .select("id,status,store_id,chat_status")
+      .select("*")
       .eq("id", data.ticketId)
       .maybeSingle();
     if (!ticket) throw new Error("Support case not found");
@@ -1074,10 +1089,10 @@ export const adminListCommunications = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let query = (supabaseAdmin.from as any)("support_tickets")
       .select("*")
-      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false, nullsFirst: false })
       .limit(200);
-    if (data.view === "ended") query = query.eq("chat_status", "ended");
-    else if (data.view !== "all") query = query.neq("chat_status", "ended");
+    if (data.view === "ended") query = query.in("status", ["resolved", "closed"]);
+    else if (data.view !== "all") query = query.not("status", "in", "(resolved,closed)");
     if (cleanText(data.search, 100)) {
       const term = cleanText(data.search, 100).replace(/[%,()]/g, "");
       query = query.or(`subject.ilike.%${term}%,requester_email.ilike.%${term}%`);
@@ -1112,7 +1127,9 @@ export const adminListCommunications = createServerFn({ method: "POST" })
         store: storeMap.get(ticket.store_id) ?? null,
         assignee: assigneeMap.get(ticket.assigned_admin_id) ?? null,
         last_message: lastMessage.get(ticket.id) ?? null,
-        unread: Boolean(ticket.last_message_at) && (!ticket.last_admin_read_at || new Date(ticket.last_message_at) > new Date(ticket.last_admin_read_at)),
+        unread: Boolean(lastMessage.get(ticket.id)?.created_at) && (!ticket.last_admin_read_at || new Date(lastMessage.get(ticket.id).created_at) > new Date(ticket.last_admin_read_at)),
+        chat_status: ["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active",
+        last_message_at: lastMessage.get(ticket.id)?.created_at ?? ticket.last_message_at ?? ticket.updated_at,
       })),
     };
   });
@@ -1186,7 +1203,7 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "POST" 
       withTimeout(supabaseAdmin.from("user_roles").select("user_id,role").eq("store_id", storeId).in("role", ["owner", "admin"]), emptyRows, 7000),
       withTimeout(supabaseAdmin.from("device_registrations").select("id,label,status,platform,app_version,paired_at,last_seen_at,last_sync_at,revoked_at,revoke_reason").eq("store_id", storeId).order("paired_at", { ascending: false }), emptyRows, 7000),
       withTimeout(supabaseAdmin.from("subscriptions").select("id,status,environment,stripe_customer_id,stripe_subscription_id,price_id,product_id,current_period_start,current_period_end,cancel_at_period_end,canceled_at,created_at,updated_at").eq("store_id", storeId).order("created_at", { ascending: false }), emptyRows, 7000),
-      withTimeout(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,status,priority,created_at,updated_at,assigned_admin_id,chat_status").eq("store_id", storeId).order("updated_at", { ascending: false }).limit(30), emptyRows, 7000),
+      withTimeout(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,status,priority,created_at,updated_at,assigned_admin_id").eq("store_id", storeId).order("updated_at", { ascending: false }).limit(30), emptyRows, 7000),
       withTimeout(supabaseAdmin.from("audit_log").select("id,action,actor_email,entity,entity_id,created_at,details").eq("store_id", storeId).order("created_at", { ascending: false }).limit(100), emptyRows, 7000),
       withTimeout(supabaseAdmin.from("admin_support_sessions").select("id,admin_id,admin_email,reason,status,requested_at,decided_at,started_at,ended_at,expires_at,client_capability").eq("store_id", storeId).order("requested_at", { ascending: false }).limit(10), emptyRows, 7000),
     ]);
@@ -1198,7 +1215,10 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "POST" 
       : emptyRows;
 
     const devices = devicesResult.data ?? [];
-    const tickets = ticketsResult.data ?? [];
+    const tickets = (ticketsResult.data ?? []).map((ticket: any) => ({
+      ...ticket,
+      chat_status: ["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active",
+    }));
     const now = Date.now();
     const activeSupportSession = (supportSessionsResult.data ?? []).find((session: any) =>
       ["pending", "accepted"].includes(session.status) && (!session.expires_at || new Date(session.expires_at).getTime() > now),
@@ -1239,7 +1259,7 @@ export const adminListPlatformIncidents = createServerFn({ method: "POST" })
     const since = new Date(Date.now() - days * 86400_000).toISOString();
     const emptyRows = { data: [], error: null } as any;
     const [ticketsResult, billingResult] = await Promise.all([
-      withTimeout(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,description,priority,status,store_id,assigned_admin_id,created_at,updated_at,chat_status").in("priority", ["high", "urgent"]).not("status", "in", "(resolved,closed)").gte("updated_at", since).order("updated_at", { ascending: false }).limit(100), emptyRows, 7000),
+      withTimeout(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,priority,status,store_id,assigned_admin_id,created_at,updated_at").in("priority", ["high", "urgent"]).not("status", "in", "(resolved,closed)").gte("updated_at", since).order("updated_at", { ascending: false }).limit(100), emptyRows, 7000),
       withTimeout((supabaseAdmin.from as any)("merchant_billing_payments").select("id,store_id,status,amount_due_cents,currency,failure_message,occurred_at,environment,stripe_invoice_id").in("status", ["failed", "uncollectible", "void"]).gte("occurred_at", since).order("occurred_at", { ascending: false }).limit(100), emptyRows, 7000),
     ]);
     const storeIds = Array.from(new Set([...(ticketsResult.data ?? []), ...(billingResult.data ?? [])].map((row: any) => row.store_id).filter(Boolean)));

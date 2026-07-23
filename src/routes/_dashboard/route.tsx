@@ -88,8 +88,9 @@ function DashboardLayout() {
   const platformNotice = useQuery({
     queryKey: ["merchant_platform_notice"],
     queryFn: () => loadPlatformNotice(),
-    staleTime: 60_000,
-    refetchInterval: 60_000,
+    staleTime: 5_000,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {

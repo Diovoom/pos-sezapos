@@ -401,10 +401,15 @@ function SupportPage() {
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <Button asChild className="flex-1">
-                    <Link to="/admin/support/$ticketId" params={{ ticketId: ticket.id }}>
-                      Open case <ExternalLink className="ml-2 h-4 w-4" />
-                    </Link>
+                  <Button
+                    type="button"
+                    className="flex-1"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } });
+                    }}
+                  >
+                    Open case <ExternalLink className="ml-2 h-4 w-4" />
                   </Button>
                   {!ticket.assigned_admin_id && !finalStatus && (
                     <Button variant="outline" onClick={(event) => { event.stopPropagation(); void claimOne(ticket.id); }}>Claim</Button>
@@ -465,9 +470,17 @@ function SupportPage() {
                     >
                       <td className="p-3 font-mono text-xs">{ticket.ticket_number}</td>
                       <td className="p-3">
-                        <Link onClick={(event) => event.stopPropagation()} to="/admin/support/$ticketId" params={{ ticketId: ticket.id }} className="font-medium text-primary hover:underline" data-no-translate>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } });
+                          }}
+                          className="font-medium text-primary hover:underline"
+                          data-no-translate
+                        >
                           {ticket.subject}
-                        </Link>
+                        </button>
                         {ticket.problem_preview && (
                           <div className="mt-1 max-w-md truncate text-xs text-muted-foreground" data-no-translate>{ticket.problem_preview}</div>
                         )}
@@ -496,8 +509,15 @@ function SupportPage() {
                       <td className="p-3 text-right">
                         <div className="flex justify-end gap-2">
                           {!ticket.assigned_admin_id && !finalStatus && <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); void claimOne(ticket.id); }}>Claim</Button>}
-                          <Button asChild size="sm">
-                            <Link onClick={(event) => event.stopPropagation()} to="/admin/support/$ticketId" params={{ ticketId: ticket.id }}>Open case</Link>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } });
+                            }}
+                          >
+                            Open case
                           </Button>
                         </div>
                       </td>

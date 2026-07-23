@@ -1,7 +1,7 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   adminGetSupportCase,
   adminListCommunications,
@@ -13,22 +13,33 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  ExternalLink,
-  MessageCircle,
-  Minus,
-  Send,
-  X,
-} from "lucide-react";
+import { ExternalLink, MessageCircle, Minus, Send, X } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
 export const ADMIN_ACTIVE_CHAT_KEY = "seza-admin-active-chat-ticket";
 export const ADMIN_CHAT_SELECTION_EVENT = "seza-admin-chat-selected";
+const ADMIN_CHAT_READ_KEY = "seza-admin-chat-read-at";
 
 function readStoredTicket() {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(ADMIN_ACTIVE_CHAT_KEY);
+}
+
+function readLocalReadMap(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(ADMIN_CHAT_READ_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function rememberLocalRead(ticketId: string, at = new Date().toISOString()) {
+  if (typeof window === "undefined") return;
+  const map = readLocalReadMap();
+  map[ticketId] = at;
+  window.localStorage.setItem(ADMIN_CHAT_READ_KEY, JSON.stringify(map));
 }
 
 export function rememberAdminChat(ticketId: string | null) {
@@ -42,6 +53,7 @@ export function rememberAdminChat(ticketId: string | null) {
 
 export function AdminPersistentChat() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const navigate = useNavigate();
   const list = useServerFn(adminListCommunications);
   const getCase = useServerFn(adminGetSupportCase);
   const sendMessage = useServerFn(adminSendSupportMessage);
@@ -52,6 +64,15 @@ export function AdminPersistentChat() {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
+  const [readVersion, setReadVersion] = useState(0);
+  const lastPopupRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    void supabaseAdminAuth.auth.getUser().then(({ data }) => {
+      setAdminUserId(data.user?.id ?? null);
+    });
+  }, []);
 
   const listQuery = useQuery({
     queryKey: ["admin_persistent_communications"],
@@ -60,7 +81,15 @@ export function AdminPersistentChat() {
   });
 
   const activeRows = listQuery.data?.rows ?? [];
-  const unreadCount = activeRows.filter((row: any) => row.unread).length;
+  const localReadMap = useMemo(() => readLocalReadMap(), [readVersion, activeRows.length]);
+  const unreadRows = activeRows.filter((row: any) => {
+    const messageAt = row.last_message?.created_at ?? row.last_message_at ?? row.updated_at;
+    if (!messageAt) return false;
+    const localReadAt = localReadMap[row.id];
+    if (localReadAt && new Date(localReadAt) >= new Date(messageAt)) return false;
+    return Boolean(row.unread);
+  });
+  const unreadCount = unreadRows.length;
 
   useEffect(() => {
     const onSelection = (event: Event) => {
@@ -78,24 +107,16 @@ export function AdminPersistentChat() {
 
   useEffect(() => {
     if (!activeRows.length) {
-      if (selectedId) {
-        const selectedStillActive = activeRows.some((row: any) => row.id === selectedId);
-        if (!selectedStillActive) {
-          setSelectedId(null);
-          rememberAdminChat(null);
-        }
-      }
+      setSelectedId(null);
+      rememberAdminChat(null);
       return;
     }
-
     const selectedStillActive = selectedId && activeRows.some((row: any) => row.id === selectedId);
     if (selectedStillActive) return;
-    const next = activeRows.find((row: any) => row.unread) ?? activeRows[0];
-    if (next?.id) {
-      setSelectedId(next.id);
-      rememberAdminChat(next.id);
-    }
-  }, [activeRows, selectedId]);
+    const next = unreadRows[0] ?? activeRows[0];
+    setSelectedId(next.id);
+    rememberAdminChat(next.id);
+  }, [activeRows, selectedId, unreadRows]);
 
   const caseQuery = useQuery({
     queryKey: ["admin_support_case", selectedId],
@@ -118,8 +139,42 @@ export function AdminPersistentChat() {
       .channel(`admin-persistent-chat-notes-${suffix}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "support_ticket_notes" },
-        refresh,
+        { event: "INSERT", schema: "public", table: "support_ticket_notes" },
+        (payload) => {
+          const note = payload.new as {
+            ticket_id?: string;
+            author_id?: string | null;
+            author_email?: string | null;
+            body?: string;
+            created_at?: string;
+            internal?: boolean;
+          };
+          refresh();
+          if (
+            !note.ticket_id ||
+            note.internal ||
+            (adminUserId && note.author_id === adminUserId)
+          ) {
+            return;
+          }
+          const popupKey = `${note.ticket_id}:${note.created_at ?? note.body ?? ""}`;
+          if (lastPopupRef.current === popupKey) return;
+          lastPopupRef.current = popupKey;
+          setSelectedId(note.ticket_id);
+          rememberAdminChat(note.ticket_id);
+          setOpen(true);
+          toast.message("New merchant support message", {
+            description: note.body?.slice(0, 120) || "A merchant sent a new message.",
+            action: {
+              label: "Open case",
+              onClick: () =>
+                navigate({
+                  to: "/admin/support/$ticketId",
+                  params: { ticketId: note.ticket_id! },
+                }),
+            },
+          });
+        },
       )
       .subscribe();
     const tickets = supabaseAdminAuth
@@ -135,15 +190,46 @@ export function AdminPersistentChat() {
       void supabaseAdminAuth.removeChannel(tickets);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
+  }, [adminUserId, selectedId]);
 
   useEffect(() => {
     if (!open || !selectedId) return;
+    const latestAt =
+      caseQuery.data?.ticket?.last_message_at ??
+      caseQuery.data?.ticket?.updated_at ??
+      new Date().toISOString();
+    rememberLocalRead(selectedId, latestAt);
+    setReadVersion((value) => value + 1);
     void markRead({ data: { ticketId: selectedId } })
       .then(refresh)
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, selectedId, caseQuery.data?.ticket?.last_message_at]);
+  }, [open, selectedId, caseQuery.data?.messages?.length]);
+
+  useEffect(() => {
+    const next = unreadRows[0];
+    const onFullChatPage =
+      pathname === "/admin/communications" ||
+      pathname.startsWith("/admin/support/");
+    if (!next || onFullChatPage) return;
+    const popupKey = `${next.id}:${next.last_message?.created_at ?? next.last_message_at ?? next.updated_at}`;
+    if (lastPopupRef.current === popupKey) return;
+    lastPopupRef.current = popupKey;
+    setSelectedId(next.id);
+    rememberAdminChat(next.id);
+    setOpen(true);
+    toast.message("New merchant support message", {
+      description: next.last_message?.body?.slice(0, 120) || next.subject || "A merchant sent a new message.",
+      action: {
+        label: "Open case",
+        onClick: () =>
+          navigate({
+            to: "/admin/support/$ticketId",
+            params: { ticketId: next.id },
+          }),
+      },
+    });
+  }, [navigate, pathname, unreadRows]);
 
   const selectedRow = useMemo(
     () => activeRows.find((row: any) => row.id === selectedId) ?? null,
@@ -161,6 +247,8 @@ export function AdminPersistentChat() {
     try {
       await sendMessage({ data: { ticketId: selectedId, body: message, internal: false } });
       setMessage("");
+      rememberLocalRead(selectedId);
+      setReadVersion((value) => value + 1);
       refresh();
     } catch (error: any) {
       toast.error(error?.message ?? "Could not send message");
@@ -178,7 +266,7 @@ export function AdminPersistentChat() {
           <header className="flex items-start justify-between gap-3 border-b bg-primary px-4 py-3 text-primary-foreground">
             <div className="min-w-0">
               <div className="flex items-center gap-2 font-semibold">
-                <MessageCircle className="h-4 w-4" /> Active merchant chat
+                <MessageCircle className="h-4 w-4" /> Merchant support
               </div>
               <div className="truncate text-xs text-primary-foreground/80" data-no-translate>
                 {selected?.store?.name ?? selectedRow?.store?.name ?? selected?.ticket?.requester_email ?? "Merchant"}
@@ -200,10 +288,7 @@ export function AdminPersistentChat() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
-                onClick={() => {
-                  setOpen(false);
-                  rememberAdminChat(null);
-                }}
+                onClick={() => setOpen(false)}
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />
@@ -238,10 +323,19 @@ export function AdminPersistentChat() {
                 <Badge variant="outline">{selected?.ticket?.status ?? selectedRow?.status ?? "active"}</Badge>
               </div>
               {selectedId && (
-                <Button asChild variant="outline" size="sm" className="shrink-0">
-                  <Link to="/admin/support/$ticketId" params={{ ticketId: selectedId }}>
-                    Open case <ExternalLink className="ml-1 h-3 w-3" />
-                  </Link>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() =>
+                    navigate({
+                      to: "/admin/support/$ticketId",
+                      params: { ticketId: selectedId },
+                    })
+                  }
+                >
+                  Open case <ExternalLink className="ml-1 h-3 w-3" />
                 </Button>
               )}
             </div>
@@ -312,7 +406,7 @@ export function AdminPersistentChat() {
           size="lg"
           className="h-14 rounded-full px-5 shadow-xl"
           onClick={() => setOpen(true)}
-          aria-label="Open support"
+          aria-label="Open merchant support"
         >
           <MessageCircle className="mr-2 h-5 w-5" />
           <span className="max-w-[180px] truncate" data-no-translate>

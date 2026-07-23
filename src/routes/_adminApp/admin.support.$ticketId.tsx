@@ -7,7 +7,6 @@ import {
   adminClaimSupportCase,
   adminTransitionSupportCase,
   adminSendSupportMessage,
-  adminEndSupportChat,
 } from "@/lib/admin/company-admin.functions";
 import { supabaseAdminAuth } from "@/integrations/supabase/admin-client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -26,7 +25,6 @@ import {
   Archive,
   RotateCcw,
   Send,
-  MessageSquareOff,
   LockKeyhole,
   Smartphone,
   Building2,
@@ -71,7 +69,6 @@ function SupportCasePage() {
   const claimCase = useServerFn(adminClaimSupportCase);
   const transition = useServerFn(adminTransitionSupportCase);
   const sendMessage = useServerFn(adminSendSupportMessage);
-  const endChat = useServerFn(adminEndSupportChat);
   const qc = useQueryClient();
 
   const query = useQuery({
@@ -86,8 +83,6 @@ function SupportCasePage() {
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolutionSummary, setResolutionSummary] = useState("");
   const [resolutionCode, setResolutionCode] = useState("fixed");
-  const [endChatOpen, setEndChatOpen] = useState(false);
-  const [endReason, setEndReason] = useState("");
   const [statusReason, setStatusReason] = useState("");
 
   const refresh = () => {
@@ -128,9 +123,13 @@ function SupportCasePage() {
 
 
   useEffect(() => {
-    if (!data?.ticket?.id || data.ticket.chat_status === "ended") return;
+    if (!data?.ticket?.id) return;
+    if (["resolved", "closed"].includes(String(data.ticket.status))) {
+      rememberAdminChat(null);
+      return;
+    }
     rememberAdminChat(data.ticket.id);
-  }, [data?.ticket?.id, data?.ticket?.chat_status]);
+  }, [data?.ticket?.id, data?.ticket?.status]);
 
   async function claim() {
     setBusy(true);
@@ -175,31 +174,12 @@ function SupportCasePage() {
     }
   }
 
-  async function finishChat() {
-    if (endReason.trim().length < 4) {
-      toast.error("Explain why the live chat is ending");
-      return;
-    }
-    setBusy(true);
-    try {
-      await endChat({ data: { ticketId, reason: endReason } });
-      toast.success("Live chat ended. The transcript remains saved.");
-      setEndChatOpen(false);
-      setEndReason("");
-      refresh();
-    } catch (error: any) {
-      toast.error(error?.message ?? "Could not end chat");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (query.isLoading) return <div className="text-sm text-muted-foreground">Loading support case…</div>;
   if (query.isError || !data) return <div className="text-sm text-destructive">Could not load this support case.</div>;
 
   const { ticket, messages, internal_notes, events, store, requester, assignee, device } = data;
-  const chatEnded = !ticket.chat_status || ticket.chat_status === "ended";
   const isFinal = ticket.status === "resolved" || ticket.status === "closed";
+  const chatEnded = isFinal;
 
   return (
     <div className="space-y-6">
@@ -259,11 +239,6 @@ function SupportCasePage() {
                 <CardTitle>Live merchant conversation</CardTitle>
                 <CardDescription>Updates in real time and stays connected while you work anywhere in Admin.</CardDescription>
               </div>
-              {!chatEnded && (
-                <Button variant="outline" size="sm" onClick={() => setEndChatOpen(true)}>
-                  <MessageSquareOff className="mr-2 h-4 w-4" /> End live chat
-                </Button>
-              )}
             </CardHeader>
             <CardContent className="space-y-3">
               {messages.length === 0 ? (
@@ -284,15 +259,15 @@ function SupportCasePage() {
 
               {chatEnded && (
                 <div className="rounded-lg border bg-muted/40 p-4 text-sm">
-                  <div className="font-medium">This live chat was ended</div>
-                  <div className="text-muted-foreground">The transcript remains saved. Sending another message reactivates the live conversation.</div>
+                  <div className="font-medium">This case is complete</div>
+                  <div className="text-muted-foreground">The transcript remains saved. Reopen the case to continue the conversation.</div>
                 </div>
               )}
-              {ticket.status !== "closed" && (
+              {!isFinal && (
                 <div className="space-y-2 border-t pt-3">
-                  <Label>{chatEnded ? "Reactivate chat and message merchant" : "Reply to merchant"}</Label>
+                  <Label>Reply to merchant</Label>
                   <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Write a clear update, ask a question, or explain the fix…" />
-                  <Button onClick={() => send(message, false)} disabled={busy || !message.trim()}><Send className="mr-2 h-4 w-4" /> {chatEnded ? "Reactivate & send" : "Send live message"}</Button>
+                  <Button onClick={() => send(message, false)} disabled={busy || !message.trim()}><Send className="mr-2 h-4 w-4" /> Send live message</Button>
                 </div>
               )}
             </CardContent>
@@ -398,22 +373,7 @@ function SupportCasePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={endChatOpen} onOpenChange={setEndChatOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>End live chat?</DialogTitle>
-            <DialogDescription>The conversation disappears from the active communication screen only after this action. Its transcript is never deleted.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-1.5">
-            <Label>Reason</Label>
-            <Textarea value={endReason} onChange={(e) => setEndReason(e.target.value)} placeholder="Issue resolved, merchant stopped responding, moved to scheduled follow-up…" />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEndChatOpen(false)}>Keep chat active</Button>
-            <Button variant="destructive" disabled={busy} onClick={finishChat}>End live chat</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
     </div>
   );
 }

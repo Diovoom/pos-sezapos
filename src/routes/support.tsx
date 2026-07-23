@@ -1,13 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { LifeBuoy, BookOpen, MessageSquare, Mail, PhoneCall, ChevronDown, Loader2 } from "lucide-react";
+import { LifeBuoy, BookOpen, MessageSquare, Mail, PhoneCall, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { MerchantLiveSupport, type SupportIdentity } from "@/components/support/MerchantLiveSupport";
-import { hasAnyPlatformRole } from "@/lib/platform-roles";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 
 export const Route = createFileRoute("/support")({
@@ -37,33 +33,6 @@ const FAQS = [
 ];
 
 function SupportPage() {
-  const identity = useQuery<SupportIdentity | null>({
-    queryKey: ["support-current-merchant"],
-    queryFn: async () => {
-      const { data: userResult } = await supabase.auth.getUser();
-      const user = userResult.user;
-      if (!user) return null;
-      const [{ data: profile }, { data: roleRows }] = await Promise.all([
-        supabase.from("profiles").select("id,full_name,email,store_id").eq("id", user.id).maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", user.id),
-      ]);
-      const roles = (roleRows ?? []).map((row: any) => String(row.role));
-      if (hasAnyPlatformRole(roles) || !profile?.store_id) return null;
-      return {
-        userId: user.id,
-        email: user.email ?? profile.email ?? null,
-        fullName: profile.full_name ?? null,
-        storeId: profile.store_id,
-        roles,
-      };
-    },
-    staleTime: 60_000,
-  });
-
-  if (identity.isLoading) {
-    return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Opening support…</div>;
-  }
-  if (identity.data) return <MerchantLiveSupport identity={identity.data} />;
   return <MarketingSupportPage />;
 }
 
