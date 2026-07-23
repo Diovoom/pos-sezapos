@@ -82,11 +82,14 @@ export function PosShell({ children }: { children: ReactNode }) {
   useStoreLanguageSync();
   const canDashboard = (me?.roles ?? []).some((r) => MANAGER_ROLES.has(r));
   const storeId = me?.store?.id as string | undefined;
+  // Every signed-in register employee needs the core cashier navigation.
+  // Actual sensitive actions remain protected inside their workflows with a
+  // manager approval PIN; hiding the route made cashiers unable to request a
+  // legitimate refund or reach the time clock.
   const visibleNav = POS_NAV.filter((item) => {
-    if (permissions.isSuper) return true;
-    if (item.to === "/pos") return permissions.has("sales.create");
-    if (item.to === "/refunds") return permissions.has("refunds.create") || permissions.has("refunds.approve");
-    if (item.to === "/register") return permissions.has("register.open") || permissions.has("register.close");
+    if (item.to === "/register") {
+      return permissions.isSuper || permissions.has("register.open") || permissions.has("register.close");
+    }
     return true;
   });
 

@@ -7,11 +7,20 @@
 
 import type { SupabaseClient, RealtimeChannel } from "@supabase/supabase-js";
 
+const turnUrl = import.meta.env.VITE_SEZA_TURN_URL as string | undefined;
+const turnUsername = import.meta.env.VITE_SEZA_TURN_USERNAME as string | undefined;
+const turnCredential = import.meta.env.VITE_SEZA_TURN_CREDENTIAL as string | undefined;
+
 export const RTC_ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
-  // Add TURN servers here when available:
-  // { urls: "turn:turn.example.com:3478", username: "...", credential: "..." },
+  ...(turnUrl
+    ? [{
+        urls: turnUrl.split(",").map((value) => value.trim()).filter(Boolean),
+        username: turnUsername,
+        credential: turnCredential,
+      } satisfies RTCIceServer]
+    : []),
 ];
 
 export const RTC_CONFIG: RTCConfiguration = {

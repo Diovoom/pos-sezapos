@@ -1,0 +1,1 @@
+function e(){if(typeof window>`u`)return!1;try{let e=window.Capacitor;return e&&typeof e.isNativePlatform==`function`&&e.isNativePlatform()?!0:window.localStorage.getItem(`pos.native.mode`)===`1`}catch{return!1}}export{e as t};

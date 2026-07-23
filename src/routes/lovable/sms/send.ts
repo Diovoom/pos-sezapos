@@ -3,6 +3,23 @@ import { createClient } from "@supabase/supabase-js";
 import { sendViaProvider } from "@/lib/sms/providers.server";
 import type { SmsProviderId } from "@/lib/sms/types";
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function jsonResponse(body: unknown, init: ResponseInit = {}) {
+  return Response.json(body, {
+    ...init,
+    headers: { ...CORS_HEADERS, ...(init.headers ?? {}) },
+  });
+}
+
+function optionsResponse() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
 function redactPhone(p: string): string {
   if (!p) return "***";
   return p.length <= 4 ? "***" : `***${p.slice(-4)}`;
@@ -11,22 +28,23 @@ function redactPhone(p: string): string {
 export const Route = createFileRoute("/lovable/sms/send")({
   server: {
     handlers: {
+      OPTIONS: async () => optionsResponse(),
       POST: async ({ request }) => {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         if (!supabaseUrl || !serviceKey) {
-          return Response.json({ error: "Server configuration error" }, { status: 500 });
+          return jsonResponse({ error: "Server configuration error" }, { status: 500 });
         }
 
         const authHeader = request.headers.get("Authorization");
         if (!authHeader?.startsWith("Bearer ")) {
-          return Response.json({ error: "Unauthorized" }, { status: 401 });
+          return jsonResponse({ error: "Unauthorized" }, { status: 401 });
         }
         const token = authHeader.slice("Bearer ".length).trim();
         const admin = createClient(supabaseUrl, serviceKey);
         const { data: userRes, error: authErr } = await admin.auth.getUser(token);
         if (authErr || !userRes?.user) {
-          return Response.json({ error: "Unauthorized" }, { status: 401 });
+          return jsonResponse({ error: "Unauthorized" }, { status: 401 });
         }
         const user = userRes.user;
 
@@ -41,16 +59,16 @@ export const Route = createFileRoute("/lovable/sms/send")({
         try {
           payload = (await request.json()) as Body;
         } catch {
-          return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+          return jsonResponse({ error: "Invalid JSON body" }, { status: 400 });
         }
 
         const to = (payload.to ?? "").trim();
         const body = (payload.body ?? "").trim();
         if (!/^\+[1-9]\d{6,14}$/.test(to)) {
-          return Response.json({ error: "Recipient phone must be in E.164 format" }, { status: 400 });
+          return jsonResponse({ error: "Recipient phone must be in E.164 format" }, { status: 400 });
         }
         if (body.length < 1 || body.length > 1600) {
-          return Response.json({ error: "Message body must be 1–1600 characters" }, { status: 400 });
+          return jsonResponse({ error: "Message body must be 1–1600 characters" }, { status: 400 });
         }
 
         // Resolve caller's store
@@ -60,7 +78,7 @@ export const Route = createFileRoute("/lovable/sms/send")({
           .eq("id", user.id)
           .maybeSingle();
         if (profErr || !profile?.store_id) {
-          return Response.json({ error: "No store linked to this account" }, { status: 400 });
+          return jsonResponse({ error: "No store linked to this account" }, { status: 400 });
         }
         const storeId = profile.store_id as string;
 
@@ -73,7 +91,7 @@ export const Route = createFileRoute("/lovable/sms/send")({
             .eq("idempotency_key", payload.idempotencyKey)
             .maybeSingle();
           if (existing && existing.status === "sent") {
-            return Response.json({
+            return jsonResponse({
               success: true,
               alreadySent: true,
               providerMessageId: existing.provider_message_id,
@@ -89,13 +107,13 @@ export const Route = createFileRoute("/lovable/sms/send")({
           .maybeSingle();
 
         if (!settings) {
-          return Response.json(
+          return jsonResponse(
             { error: "SMS is not configured. Open Settings → SMS Setup." },
             { status: 400 },
           );
         }
         if (!settings.enabled && !payload.test) {
-          return Response.json(
+          return jsonResponse(
             { error: "SMS delivery is disabled. Enable it in Settings → SMS Setup." },
             { status: 400 },
           );
@@ -139,10 +157,10 @@ export const Route = createFileRoute("/lovable/sms/send")({
             to: redactPhone(to),
             error: result.error,
           });
-          return Response.json({ error: result.error }, { status: 502 });
+          return jsonResponse({ error: result.error }, { status: 502 });
         }
 
-        return Response.json({
+        return jsonResponse({
           success: true,
           providerMessageId: result.providerMessageId,
         });

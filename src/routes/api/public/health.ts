@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/public/health")({
           },
           responseTimeMs: Date.now() - started,
           checkedAt: new Date().toISOString(),
-          version: "1.2.1",
+          version: "1.2.2",
         }, { headers: { "cache-control": "no-store" } });
       },
     },

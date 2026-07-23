@@ -18,6 +18,15 @@ import { logAudit } from "@/lib/audit-log";
 import { openCashDrawer } from "@/lib/pos/hardware";
 import { CloseShiftDialog } from "@/components/pos/CloseShiftDialog";
 import { OpenDrawerDialog } from "@/components/pos/OpenDrawerDialog";
+import {
+  cacheMeta,
+  readMeta,
+  saveOfflineAction,
+  saveOfflineCashMovement,
+  getAllOfflineCashMovements,
+  getAllOfflineSales,
+} from "@/lib/offline/db";
+import { isOnlineNow } from "@/lib/offline/useOnline";
 
 export const Route = createFileRoute("/_pos/register")({
   head: () => ({ meta: [{ title: "Register — SEZA POS" }, { name: "description", content: "Open and close the cash register for the current shift with cash reconciliation." }] }),
@@ -78,7 +87,8 @@ export function RegisterPage() {
     queryKey: ["register", "open", storeId],
     enabled: !!storeId,
     queryFn: async (): Promise<Session | null> => {
-      const { data } = await sb
+      if (!isOnlineNow()) return (await readMeta<Session | null>("open_register_session")) ?? null;
+      const { data, error } = await sb
         .from("register_sessions")
         .select("*")
         .eq("store_id", storeId)
@@ -86,13 +96,9 @@ export function RegisterPage() {
         .order("opened_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      // Cache so offline cash sales can attach to the current shift
-      // without a live register_sessions lookup.
-      try {
-        const { cacheMeta } = await import("@/lib/offline/db");
-        await cacheMeta("open_register_session", data ?? null);
-      } catch { /* offline db unavailable */ }
-      return data;
+      if (error) return (await readMeta<Session | null>("open_register_session")) ?? null;
+      await cacheMeta("open_register_session", data ?? null).catch(() => {});
+      return data ?? null;
     },
   });
 
@@ -101,13 +107,17 @@ export function RegisterPage() {
     queryKey: ["register", "history", storeId],
     enabled: !!storeId,
     queryFn: async (): Promise<Session[]> => {
-      const { data } = await sb
+      if (!isOnlineNow()) return (await readMeta<Session[]>("register_history")) ?? [];
+      const { data, error } = await sb
         .from("register_sessions")
         .select("*")
         .eq("store_id", storeId)
         .order("opened_at", { ascending: false })
         .limit(20);
-      return (data ?? []) as Session[];
+      if (error) return (await readMeta<Session[]>("register_history")) ?? [];
+      const rows = (data ?? []) as Session[];
+      await cacheMeta("register_history", rows).catch(() => {});
+      return rows;
     },
   });
 
@@ -139,6 +149,38 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
       if (!storeId || !me?.user?.id) throw new Error("No store");
       const amt = Number(opening);
       if (!Number.isFinite(amt) || amt < 0) throw new Error("Invalid opening amount");
+      const openedAt = new Date().toISOString();
+      if (!isOnlineNow()) {
+        const local: Session = {
+          id: crypto.randomUUID(),
+          store_id: storeId,
+          opened_by: me.user.id,
+          closed_by: null,
+          opened_at: openedAt,
+          closed_at: null,
+          opening_cash: amt,
+          closing_cash: null,
+          expected_cash: null,
+          cash_sales: 0,
+          cash_refunds: 0,
+          variance: null,
+          status: "open",
+          notes: notes || null,
+        };
+        await cacheMeta("open_register_session", local);
+        await saveOfflineAction({
+          id: crypto.randomUUID(),
+          idempotency_key: `register-open:${local.id}`,
+          kind: "register_open",
+          store_id: storeId,
+          user_id: me.user.id,
+          payload: { id: local.id, opened_at: openedAt, opening_cash: amt, notes: notes || null },
+          local_created_at: openedAt,
+          status: "pending",
+          attempts: 0,
+        });
+        return local;
+      }
       const { data, error } = await sb.from("register_sessions").insert({
         store_id: storeId,
         opened_by: me.user.id,
@@ -147,9 +189,11 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
         status: "open",
       }).select().single();
       if (error) throw error;
+      await cacheMeta("open_register_session", data).catch(() => {});
       void logAudit({ action: "register.open", entity: "register_session", entity_id: data.id, details: { opening_cash: amt } });
+      return data;
     },
-    onSuccess: () => { toast.success("Register opened"); onOpened(); },
+    onSuccess: () => { toast.success(isOnlineNow() ? "Register opened" : "Register opened offline — changes will sync automatically"); onOpened(); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to open register"),
   });
 
@@ -188,20 +232,29 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
   const totals = useQuery({
     queryKey: ["register", "totals", session.id],
     queryFn: async () => {
+      if (!isOnlineNow()) {
+        const local = (await getAllOfflineSales()).filter((sale) => sale.register_session_id === session.id && sale.status !== "conflict");
+        return {
+          cashSales: local.reduce((sum, sale) => sum + Number(sale.total || 0), 0),
+          cashRefunds: 0,
+          cardSales: 0,
+          salesCount: local.length,
+        };
+      }
       const [salesRes, refundRes] = await Promise.all([
         sb.from("sales").select("total, payment_method, status").eq("register_session_id", session.id),
         sb.from("refunds").select("total, payment_method, refund_type, sale_id, sales!inner(register_session_id)").eq("sales.register_session_id", session.id),
       ]);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sales = (salesRes.data ?? []).filter((s: any) => s.status === "completed");
+      const sales = (salesRes.data ?? []).filter((row: any) => row.status === "completed");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const refunds = (refundRes.data ?? []).filter((r: any) => r.refund_type !== "void");
+      const refunds = (refundRes.data ?? []).filter((row: any) => row.refund_type !== "void");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cashSales = sales.filter((s: any) => s.payment_method === "cash").reduce((a: number, s: any) => a + Number(s.total || 0), 0);
+      const cashSales = sales.filter((row: any) => row.payment_method === "cash").reduce((sum: number, row: any) => sum + Number(row.total || 0), 0);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cardSales = sales.filter((s: any) => s.payment_method !== "cash").reduce((a: number, s: any) => a + Number(s.total || 0), 0);
+      const cardSales = sales.filter((row: any) => row.payment_method !== "cash").reduce((sum: number, row: any) => sum + Number(row.total || 0), 0);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cashRefunds = refunds.filter((r: any) => r.payment_method === "cash").reduce((a: number, r: any) => a + Number(r.total || 0), 0);
+      const cashRefunds = refunds.filter((row: any) => row.payment_method === "cash").reduce((sum: number, row: any) => sum + Number(row.total || 0), 0);
       return { cashSales, cashRefunds, cardSales, salesCount: sales.length };
     },
   });
@@ -209,11 +262,27 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
   const movements = useQuery({
     queryKey: ["register", "movements", session.id],
     queryFn: async (): Promise<CashMovement[]> => {
-      const { data } = await sb
+      if (!isOnlineNow()) {
+        const local = await getAllOfflineCashMovements();
+        return local
+          .filter((movement) => movement.register_session_id === session.id)
+          .map((movement) => ({
+            id: movement.id,
+            register_session_id: movement.register_session_id ?? session.id,
+            type: movement.type as CashMovement["type"],
+            amount: movement.amount,
+            reason: movement.reason ?? "Offline movement",
+            notes: movement.notes ?? null,
+            created_at: movement.local_created_at,
+          }))
+          .sort((a, b) => b.created_at.localeCompare(a.created_at));
+      }
+      const { data, error } = await sb
         .from("cash_movements")
         .select("*")
         .eq("register_session_id", session.id)
         .order("created_at", { ascending: false });
+      if (error) throw error;
       return (data ?? []) as CashMovement[];
     },
   });
@@ -221,6 +290,10 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
   const noSaleCount = useQuery({
     queryKey: ["register", "no-sale-count", session.id],
     queryFn: async () => {
+      if (!isOnlineNow()) {
+        const local = await getAllOfflineCashMovements();
+        return local.filter((movement) => movement.register_session_id === session.id && movement.type === "no_sale").length;
+      }
       const { count } = await sb.from("audit_log").select("id", { count: "exact", head: true })
         .eq("action", "drawer.no_sale_open")
         .eq("entity_id", session.id);
@@ -419,12 +492,32 @@ function CashMovementDialog({
       if (!effectiveReason) throw new Error("Reason is required");
       if (isPayout && amt > currentBalance) throw new Error("Payout exceeds available cash");
       if (!me?.user?.id) throw new Error("Not signed in");
+      const rounded = Math.round(amt * 100) / 100;
+      const localId = crypto.randomUUID();
+      if (!isOnlineNow()) {
+        await saveOfflineCashMovement({
+          id: localId,
+          idempotency_key: `cash:${type}:${localId}`,
+          register_session_id: session.id,
+          store_id: session.store_id,
+          user_id: me.user.id,
+          type,
+          amount: rounded,
+          reason: effectiveReason,
+          notes: notes || null,
+          local_created_at: new Date().toISOString(),
+          status: "pending",
+          attempts: 0,
+        });
+        openCashDrawer(`cash.${type}`);
+        return { id: localId };
+      }
       const { data, error } = await sb.from("cash_movements").insert({
         register_session_id: session.id,
         store_id: session.store_id,
         user_id: me.user.id,
         type,
-        amount: Math.round(amt * 100) / 100,
+        amount: rounded,
         reason: effectiveReason,
         notes: notes || null,
       }).select().single();
@@ -447,7 +540,7 @@ function CashMovementDialog({
       return data;
     },
     onSuccess: () => {
-      toast.success(`${label} recorded`);
+      toast.success(isOnlineNow() ? `${label} recorded` : `${label} recorded offline — will sync automatically`);
       reset();
       onOpenChange(false);
       onDone();

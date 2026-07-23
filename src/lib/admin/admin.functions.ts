@@ -1122,6 +1122,8 @@ export const adminListTickets = createServerFn({ method: "POST" })
       .order(sortCol, { ascending })
       .range(from, to);
     if (data.status === "active") q = q.not("status", "in", "(resolved,closed)");
+    else if (data.status === "investigating") q = q.in("status", ["investigating", "waiting_support", "in_progress"]);
+    else if (data.status === "waiting_for_merchant") q = q.in("status", ["waiting_for_merchant", "waiting_customer"]);
     else if (data.status && data.status !== "all") q = q.eq("status", data.status);
     if (data.priority && data.priority !== "all") q = q.eq("priority", data.priority);
     if (data.storeId) q = q.eq("store_id", data.storeId);
@@ -1177,9 +1179,11 @@ export const adminTicketCounts = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await ensureSupportStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const statuses = ["open", "investigating", "waiting_for_merchant", "resolved", "closed"];
-    const counts: Record<string, number> = { all: 0, mine: 0, unassigned: 0, urgent: 0 };
-    for (const s of statuses) counts[s] = 0;
+    const statuses = ["open", "resolved", "closed"];
+    const counts: Record<string, number> = {
+      all: 0, mine: 0, unassigned: 0, urgent: 0,
+      open: 0, investigating: 0, waiting_for_merchant: 0, resolved: 0, closed: 0,
+    };
     const [{ count: total }, { count: mine }, { count: unassigned }, { count: urgent }] = await Promise.all([
       supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).eq("assigned_admin_id", context.userId).not("status", "in", "(resolved,closed)"),
@@ -1194,7 +1198,13 @@ export const adminTicketCounts = createServerFn({ method: "GET" })
       const { count } = await supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).eq("status", s);
       counts[s] = count ?? 0;
     }
-    counts.active = (counts.open ?? 0) + (counts.investigating ?? 0) + (counts.waiting_for_merchant ?? 0);
+    const [{ count: investigating }, { count: waiting }] = await Promise.all([
+      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).in("status", ["investigating", "waiting_support", "in_progress"]),
+      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).in("status", ["waiting_for_merchant", "waiting_customer"]),
+    ]);
+    counts.investigating = investigating ?? 0;
+    counts.waiting_for_merchant = waiting ?? 0;
+    counts.active = counts.open + counts.investigating + counts.waiting_for_merchant;
     return counts;
   });
 

@@ -144,7 +144,7 @@ export function ReceiptDialog({
         return;
       }
       setSent(true);
-      toast.success("Receipt sent successfully");
+      toast.success(res.queued ? "Receipt queued — it will send when the register reconnects" : "Receipt sent successfully");
     } finally {
       setSending(false);
     }

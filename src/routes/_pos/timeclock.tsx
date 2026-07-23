@@ -11,7 +11,10 @@ import { LogIn, LogOut, Coffee, PlayCircle, Loader2 } from "lucide-react";
 import { format, formatDistanceStrict } from "date-fns";
 import { useState } from "react";
 import { CloseShiftDialog } from "@/components/pos/CloseShiftDialog";
-import { hasUnsyncedOfflineSales } from "@/lib/offline/db";
+import { cacheMeta, readMeta, saveOfflineAction } from "@/lib/offline/db";
+import { isOnlineNow } from "@/lib/offline/useOnline";
+import type { EmployeeTimeClockAction } from "@/lib/employees.functions";
+import { postTimeClockAction } from "@/lib/timeclock/client";
 import { logAudit } from "@/lib/audit-log";
 
 // Native APK shell detection — Clock Out on the APK routes through the
@@ -42,7 +45,7 @@ export function TimeclockPage() {
   const qc = useQueryClient();
   const me = useMe();
   const canManage = me.data?.roles.some((r) => r === "owner" || r === "manager");
-  const storeId = me.data?.profile?.store_id ?? null;
+  const storeId = me.data?.profile?.store_id ?? me.data?.store?.id ?? null;
   const userId = me.data?.user?.id ?? null;
 
   // Resolve THIS employee's own open register shift. Scoping by store alone
@@ -56,6 +59,14 @@ export function TimeclockPage() {
     queryKey: ["timeclock", "open-shift", storeId, userId],
     staleTime: 15_000,
     queryFn: async () => {
+      type OpenShift = {
+        id: string; store_id: string; opened_by: string; opened_at: string;
+        opening_cash: number; status: string; terminal_id: string | null;
+      };
+      if (!isOnlineNow()) {
+        const cached = await readMeta<OpenShift | null>("open_register_session");
+        return { rows: cached && cached.opened_by === userId && cached.status === "open" ? [cached] : [] };
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from("register_sessions")
@@ -65,11 +76,12 @@ export function TimeclockPage() {
         .eq("status", "open")
         .order("opened_at", { ascending: false })
         .limit(5);
-      if (error) throw error;
-      const rows = (data ?? []) as Array<{
-        id: string; store_id: string; opened_by: string; opened_at: string;
-        opening_cash: number; status: string; terminal_id: string | null;
-      }>;
+      if (error) {
+        const cached = await readMeta<OpenShift | null>("open_register_session");
+        return { rows: cached && cached.opened_by === userId && cached.status === "open" ? [cached] : [] };
+      }
+      const rows = (data ?? []) as OpenShift[];
+      if (rows[0]) await cacheMeta("open_register_session", rows[0]).catch(() => {});
       return { rows };
     },
   });
@@ -82,8 +94,9 @@ export function TimeclockPage() {
     queryKey: ["myOpenEntry", me.data?.user.id],
     enabled: !!me.data?.user.id,
     queryFn: async () => {
+      if (!isOnlineNow()) return (await readMeta<TimeEntry | null>("timeclock_open")) ?? null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("time_entries")
         .select("*")
         .eq("user_id", me.data!.user.id)
@@ -91,6 +104,12 @@ export function TimeclockPage() {
         .order("clock_in", { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (error) {
+        const cached = await readMeta<TimeEntry | null>("timeclock_open");
+        if (cached !== undefined) return cached ?? null;
+        throw error;
+      }
+      await cacheMeta("timeclock_open", data ?? null);
       return (data as TimeEntry | null) ?? null;
     },
   });
@@ -99,14 +118,18 @@ export function TimeclockPage() {
     queryKey: ["myTimeHistory", me.data?.user.id],
     enabled: !!me.data?.user.id,
     queryFn: async () => {
+      if (!isOnlineNow()) return (await readMeta<TimeEntry[]>("timeclock_history")) ?? [];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("time_entries")
         .select("*")
         .eq("user_id", me.data!.user.id)
         .order("clock_in", { ascending: false })
         .limit(20);
-      return (data as TimeEntry[]) ?? [];
+      if (error) return (await readMeta<TimeEntry[]>("timeclock_history")) ?? [];
+      const rows = (data as TimeEntry[]) ?? [];
+      await cacheMeta("timeclock_history", rows);
+      return rows;
     },
   });
 
@@ -137,71 +160,93 @@ export function TimeclockPage() {
     qc.invalidateQueries({ queryKey: ["whosIn"] });
   };
 
-  const clockIn = useMutation({
-    mutationFn: async () => {
-      if (!me.data?.user.id) throw new Error("Not signed in");
-      if (me.data?.profile?.status === "disabled") throw new Error("Account is disabled");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from("time_entries").insert({
-        user_id: me.data.user.id,
-        store_id: me.data.profile?.store_id ?? null,
+  const applyClockAction = async (action: EmployeeTimeClockAction) => {
+    if (!userId) throw new Error("Not signed in");
+    if (me.data?.profile?.status === "disabled") throw new Error("Account is disabled");
+    const occurredAt = new Date().toISOString();
+
+    if (!isOnlineNow()) {
+      const current = (await readMeta<TimeEntry | null>("timeclock_open")) ?? open ?? null;
+      if (action === "clock_in" && current) return current;
+      if (action !== "clock_in" && !current) {
+        if (action === "clock_out") return null;
+        throw new Error("You are not currently clocked in");
+      }
+
+      let next: TimeEntry | null = current;
+      if (action === "clock_in") {
+        next = {
+          id: `offline-time-${crypto.randomUUID()}`,
+          user_id: userId,
+          store_id: storeId,
+          clock_in: occurredAt,
+          clock_out: null,
+          break_start: null,
+          break_minutes: 0,
+          notes: "Pending offline sync",
+        };
+      } else if (action === "clock_out" && current) {
+        const extraBreak = current.break_start
+          ? Math.max(0, Math.round((Date.now() - new Date(current.break_start).getTime()) / 60000))
+          : 0;
+        const closed = { ...current, clock_out: occurredAt, break_start: null, break_minutes: (current.break_minutes ?? 0) + extraBreak };
+        const cachedHistory = (await readMeta<TimeEntry[]>("timeclock_history")) ?? [];
+        await cacheMeta("timeclock_history", [closed, ...cachedHistory.filter((entry) => entry.id !== closed.id)].slice(0, 20));
+        next = null;
+      } else if (action === "start_break" && current) {
+        next = current.break_start ? current : { ...current, break_start: occurredAt };
+      } else if (action === "end_break" && current) {
+        if (current.break_start) {
+          const mins = Math.max(0, Math.round((Date.now() - new Date(current.break_start).getTime()) / 60000));
+          next = { ...current, break_start: null, break_minutes: (current.break_minutes ?? 0) + mins };
+        }
+      }
+
+      const queuedId = crypto.randomUUID();
+      await saveOfflineAction({
+        id: queuedId,
+        idempotency_key: `timeclock:${userId}:${action}:${occurredAt}`,
+        kind: "timeclock",
+        store_id: storeId,
+        user_id: userId,
+        payload: { action, occurredAt },
+        local_created_at: occurredAt,
+        status: "pending",
+        attempts: 0,
       });
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Clocked in"); invalidate(); },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+      await cacheMeta("timeclock_open", next);
+      qc.setQueryData(["myOpenEntry", userId], next);
+      return next;
+    }
+
+    const result = await postTimeClockAction({ action, occurredAt, idempotencyKey: crypto.randomUUID() });
+    const next = (result.entry as TimeEntry | null) ?? null;
+    await cacheMeta("timeclock_open", action === "clock_out" ? null : next);
+    return next;
+  };
+
+  const clockIn = useMutation({
+    mutationFn: () => applyClockAction("clock_in"),
+    onSuccess: () => { toast.success(isOnlineNow() ? "Clocked in" : "Clocked in offline — will sync automatically"); invalidate(); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Clock in failed"),
   });
 
   const clockOut = useMutation({
-    mutationFn: async () => {
-      if (!open) throw new Error("Not clocked in");
-      // If a break was still open, close it now.
-      let extraBreak = 0;
-      if (open.break_start) {
-        extraBreak = Math.max(0, Math.round((Date.now() - new Date(open.break_start).getTime()) / 60000));
-      }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
-        .from("time_entries")
-        .update({
-          clock_out: new Date().toISOString(),
-          break_start: null,
-          break_minutes: (open.break_minutes ?? 0) + extraBreak,
-        })
-        .eq("id", open.id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Clocked out"); invalidate(); },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    mutationFn: () => applyClockAction("clock_out"),
+    onSuccess: () => { toast.success(isOnlineNow() ? "Clocked out" : "Clocked out offline — will sync automatically"); invalidate(); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Clock out failed"),
   });
 
   const startBreak = useMutation({
-    mutationFn: async () => {
-      if (!open) throw new Error("Not clocked in");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
-        .from("time_entries")
-        .update({ break_start: new Date().toISOString() })
-        .eq("id", open.id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Break started"); invalidate(); },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    mutationFn: () => applyClockAction("start_break"),
+    onSuccess: () => { toast.success(isOnlineNow() ? "Break started" : "Break started offline"); invalidate(); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Break failed"),
   });
 
   const endBreak = useMutation({
-    mutationFn: async () => {
-      if (!open || !open.break_start) throw new Error("Not on break");
-      const mins = Math.max(0, Math.round((Date.now() - new Date(open.break_start).getTime()) / 60000));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
-        .from("time_entries")
-        .update({ break_start: null, break_minutes: (open.break_minutes ?? 0) + mins })
-        .eq("id", open.id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Break ended"); invalidate(); },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    mutationFn: () => applyClockAction("end_break"),
+    onSuccess: () => { toast.success(isOnlineNow() ? "Break ended" : "Break ended offline"); invalidate(); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Break failed"),
   });
 
   const anyBusy = clockIn.isPending || clockOut.isPending || startBreak.isPending || endBreak.isPending;
@@ -257,12 +302,9 @@ export function TimeclockPage() {
       // first. CloseShiftDialog re-checks pending offline sales and manager
       // approval; the clock-out mutation is chained into beforeSignOut.
       if (openShift?.id) {
-        try {
-          if (await hasUnsyncedOfflineSales(openShift.id)) {
-            toast.error("Pending offline sales must sync before closing this shift.");
-            return;
-          }
-        } catch { /* IndexedDB missing — CloseShiftDialog will re-check. */ }
+        // Offline cash sales are included in the local shift totals and the
+        // close action is queued after them, so the cashier can finish the
+        // complete shift without an internet connection.
         void logAudit({
           action: "clock_out",
           entity: "time_entry",

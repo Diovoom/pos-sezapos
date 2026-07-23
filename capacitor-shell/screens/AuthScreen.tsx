@@ -12,6 +12,68 @@ import { clearPairing, getPairing } from "../lib/pairing";
 
 type Stage = "pin" | "id_then_pin";
 
+type OfflinePinVerifier = {
+  version: 1;
+  userId: string;
+  storeId: string;
+  salt: string;
+  digest: string;
+  verifiedAt: string;
+};
+
+const OFFLINE_PIN_KEY = "seza.offline_pin_verifier";
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+async function derivePinDigest(pin: string, deviceSecret: string, saltB64: string) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(`${pin}:${deviceSecret}`),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const salt = Uint8Array.from(atob(saltB64), (value) => value.charCodeAt(0));
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations: 120_000 },
+    key,
+    256,
+  );
+  return bytesToBase64(new Uint8Array(bits));
+}
+
+async function rememberOfflinePin(pin: string, deviceSecret: string, storeId: string, userId: string) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const saltB64 = bytesToBase64(salt);
+  const verifier: OfflinePinVerifier = {
+    version: 1,
+    userId,
+    storeId,
+    salt: saltB64,
+    digest: await derivePinDigest(pin, deviceSecret, saltB64),
+    verifiedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(OFFLINE_PIN_KEY, JSON.stringify(verifier));
+}
+
+async function unlockOffline(pin: string, deviceSecret: string, storeId: string) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(OFFLINE_PIN_KEY) ?? "null") as OfflinePinVerifier | null;
+    if (!stored || stored.version !== 1 || stored.storeId !== storeId) return false;
+    const { data } = await supabase.auth.getSession();
+    if (!data.session || data.session.user.id !== stored.userId) return false;
+    const digest = await derivePinDigest(pin, deviceSecret, stored.salt);
+    return digest === stored.digest;
+  } catch {
+    return false;
+  }
+}
+
 export function AuthScreen() {
   const navigate = useNavigate();
   // Read pairing on every mount (not memoized at module load) so that a
@@ -106,11 +168,19 @@ export function AuthScreen() {
         return;
       }
       if (!data.token_hash) { setError("Sign-in failed. Please try again."); setPin(""); return; }
-      const { error: otpErr } = await supabase.auth.verifyOtp({
+      const { data: verified, error: otpErr } = await supabase.auth.verifyOtp({
         token_hash: data.token_hash, type: "magiclink",
       });
       if (otpErr) { setError(otpErr.message); setPin(""); return; }
+      if (pairing && verified.session?.user?.id) {
+        await rememberOfflinePin(pin, pairing.deviceSecret, pairing.storeId, verified.session.user.id).catch(() => {});
+      }
     } catch (err) {
+      if (pairing && await unlockOffline(pin, pairing.deviceSecret, pairing.storeId)) {
+        setError(null);
+        navigate({ to: "/pos", replace: true });
+        return;
+      }
       setError(err instanceof Error ? err.message : "Network error. Check your connection.");
       setPin("");
     } finally {
@@ -193,7 +263,7 @@ export function AuthScreen() {
       )}
 
       <div style={styles.footer}>
-        Connected securely to sezapos.com · v1.0
+        Connected securely to sezapos.com · v1.2.2
       </div>
     </div>
   );

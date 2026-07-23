@@ -30,6 +30,7 @@ import {
   type PaymentResult,
   type PaymentStatus,
 } from "@/lib/pos/payment-terminal";
+import { isOnlineNow } from "@/lib/offline/useOnline";
 import { ManagerOverrideDialog } from "@/components/pos/ManagerOverrideDialog";
 
 export type PaymentMethod =
@@ -277,7 +278,7 @@ function SplitPanel({
 
   const chargeRemaining = async () => {
     if (remaining <= 0 || !provider || charging) return;
-    if (!navigator.onLine) {
+    if (!isOnlineNow()) {
       setEvent({ status: "network_error", message: "Card portion requires an internet connection" });
       return;
     }

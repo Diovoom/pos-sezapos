@@ -90,6 +90,51 @@ function isMissingRelationError(error: any, relation?: string) {
     || Boolean(relation && message.includes(relation.toLowerCase()) && message.includes("not find"));
 }
 
+function missingColumnName(error: any): string | null {
+  const message = String(error?.message ?? error ?? "");
+  const patterns = [
+    /Could not find the ['"]([^'"]+)['"] column/i,
+    /column ['"]?([a-zA-Z0-9_]+)['"]? does not exist/i,
+    /schema cache.*?['"]([^'"]+)['"]/i,
+  ];
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    if (match?.[1]) return match[1];
+  }
+  return null;
+}
+
+/**
+ * Update support_tickets while remaining compatible with production schemas
+ * that have not received every optional support-workflow column yet. Core
+ * fields (status / assignee / resolution / updated_at) are always attempted;
+ * only the exact missing optional column reported by PostgREST is removed.
+ */
+async function updateSupportTicketCompat(
+  supabaseAdmin: any,
+  ticketId: string,
+  input: Record<string, unknown>,
+) {
+  const patch: Record<string, unknown> = { ...input };
+  const removed: string[] = [];
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const keys = Object.keys(patch);
+    if (!keys.length) throw new Error("No compatible support-ticket fields are available");
+    const { error } = await (supabaseAdmin.from as any)("support_tickets")
+      .update(patch)
+      .eq("id", ticketId);
+    if (!error) return { removed };
+    const column = missingColumnName(error);
+    if (column && Object.prototype.hasOwnProperty.call(patch, column)) {
+      delete patch[column];
+      removed.push(column);
+      continue;
+    }
+    throw new Error(error.message ?? "Support case update failed");
+  }
+  throw new Error("Support case update could not be applied to the current database schema");
+}
+
 async function withTimeout<T>(promise: PromiseLike<T>, fallback: T, timeoutMs = 7000): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -705,15 +750,39 @@ async function insertCaseEvent(
   toStatus: string | null,
   details: Record<string, unknown> = {},
 ) {
-  await (supabaseAdmin.from as any)("support_ticket_events").insert({
-    ticket_id: ticketId,
-    actor_id: context.userId,
-    actor_email: identity.email || null,
-    event_type: eventType,
-    from_status: fromStatus,
-    to_status: toStatus,
-    details,
-  });
+  try {
+    const { error } = await (supabaseAdmin.from as any)("support_ticket_events").insert({
+      ticket_id: ticketId,
+      actor_id: context.userId,
+      actor_email: identity.email || null,
+      event_type: eventType,
+      from_status: fromStatus,
+      to_status: toStatus,
+      details,
+    });
+    if (error && !isMissingRelationError(error, "support_ticket_events")) {
+      console.warn("Support event log failed", { ticketId, eventType, error: error.message });
+    }
+  } catch (error) {
+    // Event history is useful, but it must never prevent an admin from
+    // claiming, replying to, or resolving a merchant's live support case.
+    console.warn("Support event log unavailable", { ticketId, eventType, error });
+  }
+}
+
+
+async function auditSupportBestEffort(
+  supabaseAdmin: any,
+  context: ServerContext,
+  identity: { email: string },
+  input: Parameters<typeof audit>[3],
+) {
+  try {
+    await audit(supabaseAdmin, context, identity, input);
+  } catch (error) {
+    // A temporary audit-log/schema issue must not strand a merchant's case.
+    console.warn("Support audit log unavailable", { action: input.action, error });
+  }
 }
 
 export const adminGetSupportCase = createServerFn({ method: "POST" })
@@ -771,9 +840,14 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
       };
     });
 
-    await (supabaseAdmin.from as any)("support_tickets")
-      .update({ last_admin_read_at: new Date().toISOString() })
-      .eq("id", data.ticketId);
+    try {
+      await updateSupportTicketCompat(supabaseAdmin, data.ticketId, {
+        last_admin_read_at: new Date().toISOString(),
+      });
+    } catch {
+      // Reading a case must never fail because an optional read-marker column
+      // has not reached production yet.
+    }
 
     const publicMessages = enrichedNotes.filter((note: any) => !note.internal);
     const problemMessage =
@@ -806,19 +880,17 @@ export const adminClaimSupportCase = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!ticket) throw new Error("Support case not found");
 
-    const { error } = await (supabaseAdmin.from as any)("support_tickets")
-      .update({
-        assigned_admin_id: context.userId,
-        claimed_at: new Date().toISOString(),
-        last_admin_read_at: new Date().toISOString(),
-      })
-      .eq("id", data.ticketId);
-    if (error) throw new Error(error.message);
+    await updateSupportTicketCompat(supabaseAdmin, data.ticketId, {
+      assigned_admin_id: context.userId,
+      claimed_at: new Date().toISOString(),
+      last_admin_read_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
 
     await insertCaseEvent(supabaseAdmin, data.ticketId, identity, context, "claimed", ticket.status, ticket.status, {
       previous_assignee: ticket.assigned_admin_id,
     });
-    await audit(supabaseAdmin, context, identity, {
+    await auditSupportBestEffort(supabaseAdmin, context, identity, {
       action: "admin.ticket.claim",
       entity: "ticket",
       entityId: data.ticketId,
@@ -847,6 +919,12 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!ticket) throw new Error("Support case not found");
 
+    const currentStatus = ({
+      waiting_support: "investigating",
+      in_progress: "investigating",
+      waiting_customer: "waiting_for_merchant",
+    } as Record<string, string>)[String(ticket.status)] ?? String(ticket.status);
+
     const allowedTransitions: Record<string, string[]> = {
       open: ["investigating", "waiting_for_merchant", "resolved"],
       investigating: ["open", "waiting_for_merchant", "resolved"],
@@ -854,8 +932,8 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
       resolved: ["open", "closed"],
       closed: ["open"],
     };
-    if (!(allowedTransitions[String(ticket.status)] ?? []).includes(data.status)) {
-      throw new Error(`Cannot move a ${ticket.status} case directly to ${data.status}`);
+    if (!(allowedTransitions[currentStatus] ?? []).includes(data.status)) {
+      throw new Error(`Cannot move a ${currentStatus} case directly to ${data.status}`);
     }
 
     const now = new Date().toISOString();
@@ -878,10 +956,10 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
       patch.closed_at = null;
       eventType = "resolved";
     } else if (data.status === "closed") {
-      if (ticket.status !== "resolved") {
+      if (currentStatus !== "resolved") {
         throw new Error("Resolve the case before closing it");
       }
-      if (ticket.chat_status !== "ended") {
+      if (ticket.chat_status && ticket.chat_status !== "ended") {
         throw new Error("End the live chat before closing the case");
       }
       const summary = cleanText(data.resolutionSummary || ticket.resolution_summary || ticket.resolution, 4000);
@@ -891,7 +969,7 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
       patch.closed_at = now;
       patch.resolved_at = ticket.resolved_at ?? now;
       eventType = "closed";
-    } else if (data.status === "open" && ["resolved", "closed"].includes(ticket.status)) {
+    } else if (data.status === "open" && ["resolved", "closed"].includes(currentStatus)) {
       patch.resolved_at = null;
       patch.closed_at = null;
       patch.chat_status = "active";
@@ -901,15 +979,15 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
     }
 
     const reason = cleanText(data.reason, 2000);
-    const { error } = await (supabaseAdmin.from as any)("support_tickets").update(patch).eq("id", data.ticketId);
-    if (error) throw new Error(error.message);
+    patch.updated_at = now;
+    await updateSupportTicketCompat(supabaseAdmin, data.ticketId, patch);
 
     await insertCaseEvent(supabaseAdmin, data.ticketId, identity, context, eventType, ticket.status, data.status, {
       reason: reason || null,
       resolution_summary: patch.resolution_summary ?? null,
       resolution_code: patch.resolution_code ?? null,
     });
-    await audit(supabaseAdmin, context, identity, {
+    await auditSupportBestEffort(supabaseAdmin, context, identity, {
       action: `admin.ticket.${eventType}`,
       entity: "ticket",
       entityId: data.ticketId,
@@ -949,7 +1027,8 @@ export const adminSendSupportMessage = createServerFn({ method: "POST" })
         last_admin_read_at: new Date().toISOString(),
       };
       if (!ticket.first_response_at) patch.first_response_at = new Date().toISOString();
-      await (supabaseAdmin.from as any)("support_tickets").update(patch).eq("id", data.ticketId);
+      patch.updated_at = new Date().toISOString();
+      await updateSupportTicketCompat(supabaseAdmin, data.ticketId, patch);
       await insertCaseEvent(supabaseAdmin, data.ticketId, identity, context, "message_sent", ticket.status, ticket.status);
     }
     return { ok: true };
@@ -969,13 +1048,15 @@ export const adminEndSupportChat = createServerFn({ method: "POST" })
     if (!ticket) throw new Error("Support case not found");
 
     const now = new Date().toISOString();
-    const { error } = await (supabaseAdmin.from as any)("support_tickets")
-      .update({ chat_status: "ended", chat_ended_at: now, chat_ended_by: context.userId })
-      .eq("id", data.ticketId);
-    if (error) throw new Error(error.message);
+    await updateSupportTicketCompat(supabaseAdmin, data.ticketId, {
+      chat_status: "ended",
+      chat_ended_at: now,
+      chat_ended_by: context.userId,
+      updated_at: now,
+    });
 
     await insertCaseEvent(supabaseAdmin, data.ticketId, identity, context, "chat_ended", ticket.status, ticket.status, { reason });
-    await audit(supabaseAdmin, context, identity, {
+    await auditSupportBestEffort(supabaseAdmin, context, identity, {
       action: "admin.ticket.chat_end",
       entity: "ticket",
       entityId: data.ticketId,
@@ -1042,9 +1123,13 @@ export const adminMarkCommunicationRead = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureSupportStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await (supabaseAdmin.from as any)("support_tickets")
-      .update({ last_admin_read_at: new Date().toISOString() })
-      .eq("id", data.ticketId);
+    try {
+      await updateSupportTicketCompat(supabaseAdmin, data.ticketId, {
+        last_admin_read_at: new Date().toISOString(),
+      });
+    } catch {
+      /* optional read marker */
+    }
     return { ok: true };
   });
 

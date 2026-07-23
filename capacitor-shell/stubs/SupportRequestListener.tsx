@@ -1,3 +1,6 @@
-// Shell entry point aliased over @/components/SupportRequestListener.
-// Delegates to the real APK implementation in capacitor-shell/support/.
-export { SupportRequestListener } from "../support/SupportRequestListener";
+// PosShell is recreated by the memory router when the cashier changes pages.
+// The real native support listener is mounted once in capacitor-shell/main.tsx
+// so screen sharing and live support remain active across navigation.
+export function SupportRequestListener() {
+  return null;
+}

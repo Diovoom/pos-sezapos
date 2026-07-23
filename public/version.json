@@ -1,14 +1,15 @@
 {
-  "version": "1.2.1",
-  "build": 4,
+  "version": "1.2.2",
+  "build": 5,
   "minimumSupportedVersion": "1.0.0",
   "mandatory": false,
   "updateUrl": "https://sezapos.com/support",
   "releaseNotes": [
-    "Persistent Admin live merchant chat across pages",
-    "Whole-interface language selection and RTL support",
-    "Mobile-friendly support case cards and working case actions",
-    "Resolved cases no longer display active urgency labels",
-    "Cleaner Admin settings and support workflow"
+    "Reliable Android clock-in, clock-out, breaks, and shift closing",
+    "Offline cash sales, register sessions, drawer movements, receipts, and automatic reconnection sync",
+    "Persistent read-only screen sharing across Android navigation",
+    "Working Admin support case opening, claiming, replying, resolving, and closing",
+    "Complete-page language coverage for POS, Owner, and Admin interfaces",
+    "Android email and SMS receipt delivery with offline queuing"
   ]
 }

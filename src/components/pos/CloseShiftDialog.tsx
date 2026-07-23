@@ -12,7 +12,16 @@ import { toast } from "sonner";
 import { logAudit } from "@/lib/audit-log";
 import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
 import { usePermissions } from "@/hooks/usePermissions";
-import { hasUnsyncedOfflineSales } from "@/lib/offline/db";
+import {
+  hasUnsyncedOfflineSales,
+  getAllOfflineSales,
+  getAllOfflineCashMovements,
+  saveOfflineCashMovement,
+  saveOfflineAction,
+  cacheMeta,
+  readMeta,
+} from "@/lib/offline/db";
+import { isOnlineNow } from "@/lib/offline/useOnline";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
@@ -142,12 +151,43 @@ export function CloseShiftDialog({
     enabled: open,
     queryKey: ["close-shift", "totals", session.id],
     queryFn: async () => {
+      if (!isOnlineNow()) {
+        const [sales, movements] = await Promise.all([
+          getAllOfflineSales(),
+          getAllOfflineCashMovements(),
+        ]);
+        const localSales = sales.filter((sale) => sale.register_session_id === session.id && sale.status !== "conflict");
+        const localMovements = movements.filter((movement) => movement.register_session_id === session.id);
+        const cashSales = localSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+        const grossSales = localSales.reduce((sum, sale) => sum + Number(sale.subtotal || 0), 0);
+        const totalDiscount = localSales.reduce((sum, sale) => sum + Number(sale.discount || 0), 0);
+        const deposits = localMovements.filter((movement) => movement.type === "deposit").reduce((sum, movement) => sum + Number(movement.amount || 0), 0);
+        const payouts = localMovements.filter((movement) => movement.type === "payout").reduce((sum, movement) => sum + Number(movement.amount || 0), 0);
+        const safeDrops = localMovements.filter((movement) => movement.type === "safe_drop").reduce((sum, movement) => sum + Number(movement.amount || 0), 0);
+        const expected = Number(session.opening_cash) + cashSales + deposits - payouts - safeDrops;
+        return {
+          salesCount: localSales.length,
+          grossSales,
+          totalDiscount,
+          cashSales,
+          cardSales: 0,
+          cashRefunds: 0,
+          totalRefunds: 0,
+          voids: 0,
+          deposits,
+          payouts,
+          safeDrops,
+          expected,
+          noSaleCount: localMovements.filter((movement) => movement.type === "no_sale").length,
+          noSaleEvents: [],
+        };
+      }
+
       const [salesRes, refundRes, movRes, noSaleRes] = await Promise.all([
         sb.from("sales").select("total, tax, subtotal, discount, payment_method, status").eq("register_session_id", session.id),
         sb.from("refunds").select("total, payment_method, refund_type, sale_id, sales!inner(register_session_id)").eq("sales.register_session_id", session.id),
         sb.from("cash_movements").select("type, amount, reason, notes, created_at").eq("register_session_id", session.id),
-        sb.from("audit_log").select("id, details, created_at")
-          .eq("action", "drawer.no_sale_open").eq("entity_id", session.id),
+        sb.from("audit_log").select("id, details, created_at").eq("action", "drawer.no_sale_open").eq("entity_id", session.id),
       ]);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sales = (salesRes.data ?? []) as any[];
@@ -157,30 +197,24 @@ export function CloseShiftDialog({
       const movs = (movRes.data ?? []) as any[];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const noSales = (noSaleRes.data ?? []) as any[];
-
-      const completed = sales.filter((s) => s.status === "completed");
-      const voided = sales.filter((s) => s.status === "voided");
-
-      const cashSales = completed.filter((s) => s.payment_method === "cash").reduce((a, s) => a + Number(s.total || 0), 0);
-      const cardSales = completed.filter((s) => s.payment_method !== "cash").reduce((a, s) => a + Number(s.total || 0), 0);
-      const cashRefunds = refunds.filter((r) => r.payment_method === "cash" && r.refund_type !== "void").reduce((a, r) => a + Number(r.total || 0), 0);
-      const totalRefunds = refunds.filter((r) => r.refund_type !== "void").reduce((a, r) => a + Number(r.total || 0), 0);
-      const grossSales = completed.reduce((a, s) => a + Number(s.subtotal || 0), 0);
-      const totalDiscount = completed.reduce((a, s) => a + Number(s.discount || 0), 0);
-
-      const deposits = movs.filter((m) => m.type === "deposit").reduce((a, m) => a + Number(m.amount || 0), 0);
-      const payouts = movs.filter((m) => m.type === "payout").reduce((a, m) => a + Number(m.amount || 0), 0);
-      const safeDrops = movs.filter((m) => m.type === "safe_drop").reduce((a, m) => a + Number(m.amount || 0), 0);
-
+      const completed = sales.filter((sale) => sale.status === "completed");
+      const voided = sales.filter((sale) => sale.status === "voided");
+      const cashSales = completed.filter((sale) => sale.payment_method === "cash").reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+      const cardSales = completed.filter((sale) => sale.payment_method !== "cash").reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+      const cashRefunds = refunds.filter((refund) => refund.payment_method === "cash" && refund.refund_type !== "void").reduce((sum, refund) => sum + Number(refund.total || 0), 0);
+      const totalRefunds = refunds.filter((refund) => refund.refund_type !== "void").reduce((sum, refund) => sum + Number(refund.total || 0), 0);
+      const grossSales = completed.reduce((sum, sale) => sum + Number(sale.subtotal || 0), 0);
+      const totalDiscount = completed.reduce((sum, sale) => sum + Number(sale.discount || 0), 0);
+      const deposits = movs.filter((movement) => movement.type === "deposit").reduce((sum, movement) => sum + Number(movement.amount || 0), 0);
+      const payouts = movs.filter((movement) => movement.type === "payout").reduce((sum, movement) => sum + Number(movement.amount || 0), 0);
+      const safeDrops = movs.filter((movement) => movement.type === "safe_drop").reduce((sum, movement) => sum + Number(movement.amount || 0), 0);
       const expected = Number(session.opening_cash) + cashSales + deposits - cashRefunds - payouts - safeDrops;
-
       return {
         salesCount: completed.length,
         grossSales, totalDiscount, cashSales, cardSales, cashRefunds, totalRefunds,
         voids: voided.length, deposits, payouts, safeDrops, expected,
         noSaleCount: noSales.length,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        noSaleEvents: noSales as any[],
+        noSaleEvents: noSales,
       };
     },
   });
@@ -206,16 +240,73 @@ export function CloseShiftDialog({
       if (!dropValid) throw new Error("Safe drop amount is invalid");
       if (needsApproval && !approver) throw new Error("Manager approval required");
       if (!cashierUserId) throw new Error("Not signed in");
-      // Protect merchant accounting: offline cash sales must reach the server
-      // before the shift is closed, otherwise their totals cannot roll into
-      // this shift's variance / receipts.
+      const closedAt = new Date().toISOString();
+      if (!isOnlineNow()) {
+        if (dropAmt > 0) {
+          const movementId = crypto.randomUUID();
+          await saveOfflineCashMovement({
+            id: movementId,
+            idempotency_key: `safe-drop:${movementId}`,
+            register_session_id: session.id,
+            store_id: session.store_id,
+            user_id: cashierUserId,
+            type: "safe_drop",
+            amount: Math.round(dropAmt * 100) / 100,
+            reason: "Shift close",
+            notes: safeDropNote.trim() || null,
+            local_created_at: closedAt,
+            status: "pending",
+            attempts: 0,
+          });
+        }
+        await saveOfflineAction({
+          id: crypto.randomUUID(),
+          idempotency_key: `register-close:${session.id}`,
+          kind: "register_close",
+          store_id: session.store_id,
+          user_id: cashierUserId,
+          payload: {
+            id: session.id,
+            closed_at: closedAt,
+            closing_cash: counted,
+            expected_cash: expected,
+            variance,
+            cash_sales: totals.data?.cashSales ?? 0,
+            cash_refunds: totals.data?.cashRefunds ?? 0,
+            safe_drop_amount: Math.round(dropAmt * 100) / 100,
+            close_notes: closeNotes.trim() || null,
+          },
+          local_created_at: closedAt,
+          status: "pending",
+          attempts: 0,
+        });
+        const closedLocal = {
+          ...session,
+          status: "closed",
+          closed_at: closedAt,
+          closed_by: cashierUserId,
+          closing_cash: counted,
+          expected_cash: expected,
+          variance,
+        };
+        const history = (await readMeta<any[]>("register_history")) ?? [];
+        await cacheMeta("register_history", [closedLocal, ...history.filter((row) => row.id !== session.id)].slice(0, 20));
+        await cacheMeta("open_register_session", null);
+        return { ...closedLocal, offline: true };
+      }
+
+      // When a connection is available, give queued sales one immediate sync
+      // attempt before closing. This preserves server-side register totals.
       try {
         if (await hasUnsyncedOfflineSales(session.id)) {
-          throw new Error("Pending offline sales must synchronize before closing this shift.");
+          const { syncNow } = await import("@/lib/offline/sync");
+          await syncNow();
         }
-      } catch (e) {
-        if (e instanceof Error && e.message.startsWith("Pending offline")) throw e;
-        // IndexedDB unavailable (web / SSR) — nothing to guard against.
+        if (await hasUnsyncedOfflineSales(session.id)) {
+          throw new Error("Some offline sales still need attention. Open Pending Sync before closing this shift.");
+        }
+      } catch (error) {
+        if (error instanceof Error && (error.message.includes("offline sales") || error.message.includes("Pending Sync"))) throw error;
       }
 
       // 1. Record safe drop as a cash_movements row when > 0.
@@ -235,7 +326,7 @@ export function CloseShiftDialog({
       // 2. Atomic close: WHERE status='open' → double-click cannot close twice.
       const { data: closed, error } = await sb.from("register_sessions").update({
         status: "closed",
-        closed_at: new Date().toISOString(),
+        closed_at: closedAt,
         closed_by: cashierUserId,
         closing_cash: counted,
         expected_cash: expected,
@@ -267,17 +358,16 @@ export function CloseShiftDialog({
 
       return closed;
     },
-    onSuccess: async () => {
-      toast.success("Shift closed");
-      // Run the post-close hook (e.g. clock-out) BEFORE tearing down the
-      // session — the caller may still need an authenticated Supabase
-      // context. On failure the register shift stays closed (never
-      // reopened), the employee stays signed in, and the dialog switches
-      // to a persistent Retry state.
+    onSuccess: async (closed) => {
+      const offlineClosed = Boolean((closed as any)?.offline);
+      toast.success(offlineClosed ? "Shift closed offline — it will sync automatically" : "Shift closed");
       const ok = await runPostCloseHook();
-      if (!ok) return; // stay in dialog; user retries or contacts support
+      if (!ok) return;
       qc.clear();
-      if (!skipSignOut) {
+      // Preserve the cached authenticated session while offline. The PIN lock
+      // screen still protects the register, and queued records need the same
+      // authenticated employee session when connectivity returns.
+      if (!skipSignOut && !offlineClosed) {
         await supabase.auth.signOut();
       }
       onClosed();

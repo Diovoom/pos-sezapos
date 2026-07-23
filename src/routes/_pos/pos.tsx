@@ -11,7 +11,7 @@ import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
-import { PaymentDialog, type CompletedPayment, type PaymentMethod } from "@/components/pos/PaymentDialog";
+import { PaymentDialog, type CompletedPayment, type PaymentMethod, type PaymentAllocation } from "@/components/pos/PaymentDialog";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import { AgeVerificationDialog, type RestrictedItem, type SuccessfulVerification } from "@/components/pos/AgeVerificationDialog";
@@ -173,10 +173,15 @@ export function PosPage() {
   const { data: store } = useQuery<any>({
     queryKey: ["store"],
     queryFn: async () => {
-      if (!navigator.onLine) return (await readMeta("store")) ?? null;
-      const { data } = await supabase.from("stores").select("*").limit(1).maybeSingle();
-      if (data) await cacheMeta("store", data);
-      return data;
+      if (!isOnlineNow()) return (await readMeta("store")) ?? null;
+      try {
+        const { data, error } = await supabase.from("stores").select("*").limit(1).maybeSingle();
+        if (error) throw error;
+        if (data) await cacheMeta("store", data);
+        return data;
+      } catch {
+        return (await readMeta("store")) ?? null;
+      }
     },
   });
 
@@ -184,12 +189,17 @@ export function PosPage() {
   const { data: profile } = useQuery<any>({
     queryKey: ["me-profile"],
     queryFn: async () => {
-      if (!navigator.onLine) return (await readMeta("profile")) ?? null;
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return null;
-      const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
-      if (data) await cacheMeta("profile", data);
-      return data;
+      if (!isOnlineNow()) return (await readMeta("profile")) ?? null;
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        if (!u.user) return (await readMeta("profile")) ?? null;
+        const { data, error } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
+        if (error) throw error;
+        if (data) await cacheMeta("profile", data);
+        return data;
+      } catch {
+        return (await readMeta("profile")) ?? null;
+      }
     },
   });
 
@@ -202,30 +212,40 @@ export function PosPage() {
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["categories"],
     queryFn: async () => {
-      if (!navigator.onLine) return (await readMeta<Category[]>("categories")) ?? [];
-      const { data } = await supabase.from("categories").select("id,name").order("sort_order");
-      const rows = data ?? [];
-      await cacheMeta("categories", rows);
-      return rows;
+      if (!isOnlineNow()) return (await readMeta<Category[]>("categories")) ?? [];
+      try {
+        const { data, error } = await supabase.from("categories").select("id,name").order("sort_order");
+        if (error) throw error;
+        const rows = data ?? [];
+        await cacheMeta("categories", rows);
+        return rows;
+      } catch {
+        return (await readMeta<Category[]>("categories")) ?? [];
+      }
     },
   });
 
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["products"],
     queryFn: async () => {
-      if (!navigator.onLine) {
+      if (!isOnlineNow()) {
         const cached = await loadCachedProducts();
         return cached as unknown as Product[];
       }
-      const { data } = await supabase
-        .from("products")
-        .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category")
-        .eq("status", "active")
-        .order("name");
-      const rows = (data as Product[]) ?? [];
-      // Cache for offline reuse on this register.
-      void cacheProducts(rows as unknown as CachedProduct[]);
-      return rows;
+      try {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category")
+          .eq("status", "active")
+          .order("name");
+        if (error) throw error;
+        const rows = (data as Product[]) ?? [];
+        await cacheProducts(rows as unknown as CachedProduct[]);
+        return rows;
+      } catch {
+        const cached = await loadCachedProducts();
+        return cached as unknown as Product[];
+      }
     },
   });
 
@@ -509,7 +529,7 @@ export function PosPage() {
 
       // 5. Store a payment ledger so split tender remains accurate in reports,
       // shift cash expectations, refunds, and audit history.
-      const allocations = payment.allocations?.length
+      const allocations: PaymentAllocation[] = payment.allocations?.length
         ? payment.allocations
         : [{
             method: payment.method === "tap" ? "tap_to_pay" : payment.method === "split" ? "other" : payment.method,
@@ -594,7 +614,7 @@ export function PosPage() {
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       // If we came back online in the meantime, drain the queue.
-      if (navigator.onLine) void syncNow();
+      if (isOnlineNow()) void syncNow();
     },
     onError: (e) => {
       // Always log the real error for developers
@@ -893,9 +913,8 @@ export function PosPage() {
               <Button
                 variant="outline"
                 className="h-10"
-                disabled={!canRefund}
-                title={canRefund ? undefined : "Refund permission required"}
-                onClick={() => canRefund && navigate({ to: "/refunds" })}
+                title={canRefund ? "Open refund workflow" : "Manager approval will be required"}
+                onClick={() => navigate({ to: "/refunds" })}
               >
                 <RotateCcw className="size-4 mr-2" />Refund
               </Button>

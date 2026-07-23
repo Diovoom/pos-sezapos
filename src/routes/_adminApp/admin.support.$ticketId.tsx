@@ -50,7 +50,10 @@ export const Route = createFileRoute("/_adminApp/admin/support/$ticketId")({
 const STATUS_LABELS: Record<string, string> = {
   open: "New / open",
   investigating: "Investigating",
+  waiting_support: "Investigating",
+  in_progress: "Investigating",
   waiting_for_merchant: "Waiting for merchant",
+  waiting_customer: "Waiting for merchant",
   resolved: "Resolved",
   closed: "Closed",
 };
@@ -195,7 +198,7 @@ function SupportCasePage() {
   if (query.isError || !data) return <div className="text-sm text-destructive">Could not load this support case.</div>;
 
   const { ticket, messages, internal_notes, events, store, requester, assignee, device } = data;
-  const chatEnded = ticket.chat_status === "ended";
+  const chatEnded = !ticket.chat_status || ticket.chat_status === "ended";
   const isFinal = ticket.status === "resolved" || ticket.status === "closed";
 
   return (

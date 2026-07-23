@@ -98,6 +98,7 @@ import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/em
 import { Route as ApiPublicPosVerifyPinRouteImport } from './routes/api/public/pos/verify-pin'
 import { Route as ApiPublicPosVerifyManagerPinRouteImport } from './routes/api/public/pos/verify-manager-pin'
 import { Route as ApiPublicPosVerifyEmployeePinRouteImport } from './routes/api/public/pos/verify-employee-pin'
+import { Route as ApiPublicPosTimeclockRouteImport } from './routes/api/public/pos/timeclock'
 import { Route as ApiPublicPosSupportRespondRouteImport } from './routes/api/public/pos/support-respond'
 import { Route as ApiPublicPosSupportEndRouteImport } from './routes/api/public/pos/support-end'
 import { Route as ApiPublicPosSetMyPinRouteImport } from './routes/api/public/pos/set-my-pin'
@@ -565,6 +566,11 @@ const ApiPublicPosVerifyEmployeePinRoute =
     path: '/api/public/pos/verify-employee-pin',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicPosTimeclockRoute = ApiPublicPosTimeclockRouteImport.update({
+  id: '/api/public/pos/timeclock',
+  path: '/api/public/pos/timeclock',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPosSupportRespondRoute =
   ApiPublicPosSupportRespondRouteImport.update({
     id: '/api/public/pos/support-respond',
@@ -716,6 +722,7 @@ export interface FileRoutesByFullPath {
   '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
   '/api/public/pos/support-end': typeof ApiPublicPosSupportEndRoute
   '/api/public/pos/support-respond': typeof ApiPublicPosSupportRespondRoute
+  '/api/public/pos/timeclock': typeof ApiPublicPosTimeclockRoute
   '/api/public/pos/verify-employee-pin': typeof ApiPublicPosVerifyEmployeePinRoute
   '/api/public/pos/verify-manager-pin': typeof ApiPublicPosVerifyManagerPinRoute
   '/api/public/pos/verify-pin': typeof ApiPublicPosVerifyPinRoute
@@ -815,6 +822,7 @@ export interface FileRoutesByTo {
   '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
   '/api/public/pos/support-end': typeof ApiPublicPosSupportEndRoute
   '/api/public/pos/support-respond': typeof ApiPublicPosSupportRespondRoute
+  '/api/public/pos/timeclock': typeof ApiPublicPosTimeclockRoute
   '/api/public/pos/verify-employee-pin': typeof ApiPublicPosVerifyEmployeePinRoute
   '/api/public/pos/verify-manager-pin': typeof ApiPublicPosVerifyManagerPinRoute
   '/api/public/pos/verify-pin': typeof ApiPublicPosVerifyPinRoute
@@ -918,6 +926,7 @@ export interface FileRoutesById {
   '/api/public/pos/set-my-pin': typeof ApiPublicPosSetMyPinRoute
   '/api/public/pos/support-end': typeof ApiPublicPosSupportEndRoute
   '/api/public/pos/support-respond': typeof ApiPublicPosSupportRespondRoute
+  '/api/public/pos/timeclock': typeof ApiPublicPosTimeclockRoute
   '/api/public/pos/verify-employee-pin': typeof ApiPublicPosVerifyEmployeePinRoute
   '/api/public/pos/verify-manager-pin': typeof ApiPublicPosVerifyManagerPinRoute
   '/api/public/pos/verify-pin': typeof ApiPublicPosVerifyPinRoute
@@ -1019,6 +1028,7 @@ export interface FileRouteTypes {
     | '/api/public/pos/set-my-pin'
     | '/api/public/pos/support-end'
     | '/api/public/pos/support-respond'
+    | '/api/public/pos/timeclock'
     | '/api/public/pos/verify-employee-pin'
     | '/api/public/pos/verify-manager-pin'
     | '/api/public/pos/verify-pin'
@@ -1118,6 +1128,7 @@ export interface FileRouteTypes {
     | '/api/public/pos/set-my-pin'
     | '/api/public/pos/support-end'
     | '/api/public/pos/support-respond'
+    | '/api/public/pos/timeclock'
     | '/api/public/pos/verify-employee-pin'
     | '/api/public/pos/verify-manager-pin'
     | '/api/public/pos/verify-pin'
@@ -1220,6 +1231,7 @@ export interface FileRouteTypes {
     | '/api/public/pos/set-my-pin'
     | '/api/public/pos/support-end'
     | '/api/public/pos/support-respond'
+    | '/api/public/pos/timeclock'
     | '/api/public/pos/verify-employee-pin'
     | '/api/public/pos/verify-manager-pin'
     | '/api/public/pos/verify-pin'
@@ -1285,6 +1297,7 @@ export interface RootRouteChildren {
   ApiPublicPosSetMyPinRoute: typeof ApiPublicPosSetMyPinRoute
   ApiPublicPosSupportEndRoute: typeof ApiPublicPosSupportEndRoute
   ApiPublicPosSupportRespondRoute: typeof ApiPublicPosSupportRespondRoute
+  ApiPublicPosTimeclockRoute: typeof ApiPublicPosTimeclockRoute
   ApiPublicPosVerifyEmployeePinRoute: typeof ApiPublicPosVerifyEmployeePinRoute
   ApiPublicPosVerifyManagerPinRoute: typeof ApiPublicPosVerifyManagerPinRoute
   ApiPublicPosVerifyPinRoute: typeof ApiPublicPosVerifyPinRoute
@@ -1922,6 +1935,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPosVerifyEmployeePinRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/pos/timeclock': {
+      id: '/api/public/pos/timeclock'
+      path: '/api/public/pos/timeclock'
+      fullPath: '/api/public/pos/timeclock'
+      preLoaderRoute: typeof ApiPublicPosTimeclockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/pos/support-respond': {
       id: '/api/public/pos/support-respond'
       path: '/api/public/pos/support-respond'
@@ -2191,6 +2211,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPosSetMyPinRoute: ApiPublicPosSetMyPinRoute,
   ApiPublicPosSupportEndRoute: ApiPublicPosSupportEndRoute,
   ApiPublicPosSupportRespondRoute: ApiPublicPosSupportRespondRoute,
+  ApiPublicPosTimeclockRoute: ApiPublicPosTimeclockRoute,
   ApiPublicPosVerifyEmployeePinRoute: ApiPublicPosVerifyEmployeePinRoute,
   ApiPublicPosVerifyManagerPinRoute: ApiPublicPosVerifyManagerPinRoute,
   ApiPublicPosVerifyPinRoute: ApiPublicPosVerifyPinRoute,

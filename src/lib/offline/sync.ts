@@ -18,9 +18,16 @@ import {
   updateOfflineCashMovement,
   getAllOfflineSales,
   recoverStaleSyncing,
+  getPendingOfflineActions,
+  updateOfflineAction,
+  getAllOfflineActions,
   type OfflineSale,
   type OfflineCashMovement,
+  type OfflineAction,
 } from "./db";
+import { postTimeClockAction } from "@/lib/timeclock/client";
+import { sendTransactionalEmail } from "@/lib/email/send";
+import { sendSms } from "@/lib/sms/send";
 import { emitSync } from "./useOnline";
 
 let syncing = false;
@@ -176,6 +183,62 @@ async function syncCashMovement(m: OfflineCashMovement): Promise<void> {
   await updateOfflineCashMovement(m.id, { status: "synced", last_error: null });
 }
 
+async function syncAction(action: OfflineAction): Promise<void> {
+  const attempts = action.attempts + 1;
+  await updateOfflineAction(action.id, { status: "syncing", attempts, last_error: null });
+  try {
+    if (action.kind === "timeclock") {
+      await postTimeClockAction({
+        action: String(action.payload.action) as "clock_in" | "clock_out" | "start_break" | "end_break",
+        occurredAt: String(action.payload.occurredAt ?? action.local_created_at),
+        idempotencyKey: action.idempotency_key,
+      });
+    } else if (action.kind === "register_open") {
+      const row = action.payload;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from as any)("register_sessions").upsert({
+        id: row.id,
+        store_id: action.store_id,
+        opened_by: action.user_id,
+        opened_at: row.opened_at ?? action.local_created_at,
+        opening_cash: row.opening_cash ?? 0,
+        notes: row.notes ?? null,
+        status: "open",
+      }, { onConflict: "id" });
+      if (error && error.code !== "23505") throw error;
+    } else if (action.kind === "register_close") {
+      const row = action.payload;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from as any)("register_sessions").update({
+        status: "closed",
+        closed_at: row.closed_at ?? action.local_created_at,
+        closed_by: action.user_id,
+        closing_cash: row.closing_cash,
+        expected_cash: row.expected_cash,
+        variance: row.variance,
+        safe_drop_amount: row.safe_drop_amount ?? 0,
+        close_notes: row.close_notes ?? null,
+      }).eq("id", row.id);
+      if (error) throw error;
+    } else if (action.kind === "receipt_email") {
+      const result = await sendTransactionalEmail(action.payload as any, { queueOnNetworkFailure: false });
+      if (!result.ok) throw new Error(result.error);
+    } else if (action.kind === "receipt_sms") {
+      const result = await sendSms(action.payload as any, { queueOnNetworkFailure: false });
+      if (!result.ok) throw new Error(result.error);
+    }
+    await updateOfflineAction(action.id, { status: "synced", last_error: null, next_retry_at: null });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await updateOfflineAction(action.id, {
+      status: attempts >= 8 ? "needs_attention" : "failed",
+      last_error: message,
+      next_retry_at: attempts >= 8 ? null : scheduleBackoff(attempts),
+    });
+    throw error;
+  }
+}
+
 export async function syncNow(): Promise<{ synced: number; failed: number; skipped?: string }> {
   if (syncing) return { synced: 0, failed: 0, skipped: "already-running" };
   const { isOnlineNow } = await import("./useOnline");
@@ -199,9 +262,25 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
 
     const pendingSales = await getPendingSales();
     const pendingCash = await getPendingCashMovements();
-    emitSync({ type: "start", pending: pendingSales.length + pendingCash.length });
+    const pendingActions = await getPendingOfflineActions();
+    emitSync({ type: "start", pending: pendingSales.length + pendingCash.length + pendingActions.length });
 
-    // Sales first, oldest first (getPendingSales already sorts by local_seq).
+    // Dependency-safe drain order:
+    // 1) create local register sessions before sales reference them;
+    // 2) apply time-clock state;
+    // 3) sync sales and drawer movements;
+    // 4) deliver receipts only after their sale exists publicly;
+    // 5) close the register last.
+    const registerOpenActions = pendingActions.filter((action) => action.kind === "register_open");
+    const timeClockActions = pendingActions.filter((action) => action.kind === "timeclock");
+    const receiptActions = pendingActions.filter((action) => action.kind === "receipt_email" || action.kind === "receipt_sms");
+    const registerCloseActions = pendingActions.filter((action) => action.kind === "register_close");
+
+    for (const action of [...registerOpenActions, ...timeClockActions]) {
+      try { await syncAction(action); synced++; }
+      catch (e) { failed++; console.warn("[sync] prerequisite action failed", e); }
+      emitSync({ type: "progress" });
+    }
     for (const s of pendingSales) {
       try { await syncSale(s); synced++; }
       catch (e) { failed++; console.warn("[sync] sale failed", e); }
@@ -210,6 +289,11 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
     for (const m of pendingCash) {
       try { await syncCashMovement(m); synced++; }
       catch (e) { failed++; console.warn("[sync] cash movement failed", e); }
+      emitSync({ type: "progress" });
+    }
+    for (const action of [...receiptActions, ...registerCloseActions]) {
+      try { await syncAction(action); synced++; }
+      catch (e) { failed++; console.warn("[sync] post-sale action failed", e); }
       emitSync({ type: "progress" });
     }
     lastSync = new Date().toISOString();
@@ -241,6 +325,7 @@ export function installAutoSync() {
 export async function pendingCounts() {
   const all = await getAllOfflineSales();
   const cash = await getPendingCashMovements();
+  const actions = await getAllOfflineActions();
   return {
     pendingSales: all.filter((s) => s.status === "pending" || s.status === "failed").length,
     syncingSales: all.filter((s) => s.status === "syncing").length,
@@ -249,6 +334,8 @@ export async function pendingCounts() {
     needsAttentionSales: all.filter((s) => s.status === "needs_attention" || s.status === "conflict").length,
     unsyncedSales: all.filter((s) => s.status !== "synced").length,
     pendingCash: cash.length,
+    pendingActions: actions.filter((a) => a.status === "pending" || a.status === "failed").length,
+    needsAttentionActions: actions.filter((a) => a.status === "needs_attention" || a.status === "conflict").length,
     lastSync,
   };
 }

@@ -73,7 +73,10 @@ const PRIORITY_LABELS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   open: "New / open",
   investigating: "Investigating",
+  waiting_support: "Investigating",
+  in_progress: "Investigating",
   waiting_for_merchant: "Waiting for merchant",
+  waiting_customer: "Waiting for merchant",
   resolved: "Resolved",
   closed: "Closed",
 };
@@ -159,6 +162,7 @@ function SupportPage() {
       toast.success("Assigned to you");
       qc.invalidateQueries({ queryKey: ["admin_tickets"] });
       qc.invalidateQueries({ queryKey: ["admin_ticket_counts"] });
+      navigate({ to: "/admin/support/$ticketId", params: { ticketId: id } });
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
     }
@@ -359,7 +363,19 @@ function SupportPage() {
         ) : rows.map((ticket: any) => {
           const finalStatus = ticket.status === "resolved" || ticket.status === "closed";
           return (
-            <Card key={ticket.id} className="overflow-hidden">
+            <Card
+              key={ticket.id}
+              className="overflow-hidden cursor-pointer transition-colors hover:border-primary/40 hover:bg-muted/10"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } })}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } });
+                }
+              }}
+            >
               <CardContent className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -391,7 +407,7 @@ function SupportPage() {
                     </Link>
                   </Button>
                   {!ticket.assigned_admin_id && !finalStatus && (
-                    <Button variant="outline" onClick={() => claimOne(ticket.id)}>Claim</Button>
+                    <Button variant="outline" onClick={(event) => { event.stopPropagation(); void claimOne(ticket.id); }}>Claim</Button>
                   )}
                 </div>
               </CardContent>
@@ -435,10 +451,21 @@ function SupportPage() {
                 {rows.map((ticket: any) => {
                   const finalStatus = ticket.status === "resolved" || ticket.status === "closed";
                   return (
-                    <tr key={ticket.id} className="border-t hover:bg-muted/20">
+                    <tr
+                      key={ticket.id}
+                      className="border-t hover:bg-muted/20 cursor-pointer"
+                      tabIndex={0}
+                      onClick={() => navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } })}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } });
+                        }
+                      }}
+                    >
                       <td className="p-3 font-mono text-xs">{ticket.ticket_number}</td>
                       <td className="p-3">
-                        <Link to="/admin/support/$ticketId" params={{ ticketId: ticket.id }} className="font-medium text-primary hover:underline" data-no-translate>
+                        <Link onClick={(event) => event.stopPropagation()} to="/admin/support/$ticketId" params={{ ticketId: ticket.id }} className="font-medium text-primary hover:underline" data-no-translate>
                           {ticket.subject}
                         </Link>
                         {ticket.problem_preview && (
@@ -468,9 +495,9 @@ function SupportPage() {
                       </td>
                       <td className="p-3 text-right">
                         <div className="flex justify-end gap-2">
-                          {!ticket.assigned_admin_id && !finalStatus && <Button size="sm" variant="outline" onClick={() => claimOne(ticket.id)}>Claim</Button>}
+                          {!ticket.assigned_admin_id && !finalStatus && <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); void claimOne(ticket.id); }}>Claim</Button>}
                           <Button asChild size="sm">
-                            <Link to="/admin/support/$ticketId" params={{ ticketId: ticket.id }}>Open case</Link>
+                            <Link onClick={(event) => event.stopPropagation()} to="/admin/support/$ticketId" params={{ ticketId: ticket.id }}>Open case</Link>
                           </Button>
                         </div>
                       </td>

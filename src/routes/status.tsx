@@ -39,7 +39,7 @@ function StatusPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">{health.isLoading ? "Checking SEZA services…" : operational ? "All systems operational" : "Some services may be degraded"}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Automatically refreshed every minute. Version {health.data?.version ?? "1.2.1"}.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Automatically refreshed every minute. Version {health.data?.version ?? "1.2.2"}.</p>
           </div>
         </div>
 

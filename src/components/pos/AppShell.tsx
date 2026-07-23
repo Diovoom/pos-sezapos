@@ -25,6 +25,7 @@ import {
   Mail,
   MessageSquare,
   RefreshCw,
+  LifeBuoy,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ import { StoreLogo } from "@/components/brand/StoreLogo";
 import { UserAvatar } from "@/components/brand/UserAvatar";
 import { roleDotClass, roleTextClass } from "@/lib/role-visual";
 import { initializeUiPreferences } from "@/lib/ui-preferences";
+import { SupportRequestListener } from "@/components/SupportRequestListener";
 const NAV: {
   to: string;
   label: string;
@@ -55,6 +57,7 @@ const NAV: {
   { to: "/payroll", label: "Payroll", icon: BarChart3 },
   { to: "/shifts", label: "Shifts", icon: Clock },
   { to: "/devices", label: "POS Devices", icon: Monitor },
+  { to: "/support", label: "Live Support", icon: LifeBuoy },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -321,6 +324,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </nav>
+        <SupportRequestListener />
+        <Button
+          asChild
+          size="icon"
+          className="fixed bottom-20 right-4 z-40 h-12 w-12 rounded-full shadow-lg md:bottom-6 md:right-6"
+          aria-label="Open live SEZA Support"
+        >
+          <Link to="/support"><LifeBuoy className="size-5" /></Link>
+        </Button>
       </main>
     </div>
   );

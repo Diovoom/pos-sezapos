@@ -11,6 +11,7 @@ import { ExitConfirmToast, initAndroidLifecycle } from "./lifecycle";
 import "@/i18n";
 import "@/styles.css";
 import { startDeviceHeartbeat } from "./lib/deviceHeartbeat";
+import { SupportRequestListener } from "./support/SupportRequestListener";
 
 function ShellApp() {
   const [sessionReady, setSessionReady] = useState(false);
@@ -87,6 +88,7 @@ function ShellApp() {
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
+      <SupportRequestListener />
       <Toaster />
       <ExitConfirmToast />
     </QueryClientProvider>

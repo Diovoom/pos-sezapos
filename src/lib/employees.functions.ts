@@ -129,6 +129,90 @@ type SupabaseCtx = {
   rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 };
 
+
+/* ---------------- reliable employee time clock ---------------- */
+
+export type EmployeeTimeClockAction = "clock_in" | "clock_out" | "start_break" | "end_break";
+
+export const updateMyTimeClock = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { action: EmployeeTimeClockAction; occurredAt?: string; idempotencyKey?: string }) => data)
+  .handler(async ({ data, context }) => {
+    const ctx = context as { userId: string };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin: any = supabaseAdmin;
+    const requested = data.occurredAt ? new Date(data.occurredAt) : new Date();
+    if (Number.isNaN(requested.getTime())) throw new Error("Invalid time-clock timestamp");
+    const now = Date.now();
+    if (requested.getTime() > now + 5 * 60_000) throw new Error("Time-clock timestamp is in the future");
+    if (requested.getTime() < now - 14 * 24 * 60 * 60_000) throw new Error("Time-clock action is too old to synchronize automatically");
+    const at = requested.toISOString();
+
+    const { data: profile, error: profileError } = await admin
+      .from("profiles")
+      .select("id,store_id,status")
+      .eq("id", ctx.userId)
+      .maybeSingle();
+    if (profileError) throw new Error(profileError.message);
+    if (!profile) throw new Error("Employee profile not found");
+    if (profile.status === "disabled") throw new Error("Account is disabled");
+
+    const { data: existing, error: readError } = await admin
+      .from("time_entries")
+      .select("*")
+      .eq("user_id", ctx.userId)
+      .is("clock_out", null)
+      .order("clock_in", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+
+    if (data.action === "clock_in") {
+      if (existing) return { ok: true, entry: existing, alreadyApplied: true };
+      const { data: created, error } = await admin
+        .from("time_entries")
+        .insert({ user_id: ctx.userId, store_id: profile.store_id ?? null, clock_in: at })
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      return { ok: true, entry: created, alreadyApplied: false };
+    }
+
+    if (!existing) {
+      if (data.action === "clock_out") return { ok: true, entry: null, alreadyApplied: true };
+      throw new Error("You are not currently clocked in");
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (data.action === "clock_out") {
+      const breakStart = existing.break_start ? new Date(existing.break_start).getTime() : null;
+      const extraBreak = breakStart == null ? 0 : Math.max(0, Math.round((requested.getTime() - breakStart) / 60000));
+      patch.clock_out = at;
+      patch.break_start = null;
+      patch.break_minutes = Number(existing.break_minutes ?? 0) + extraBreak;
+    } else if (data.action === "start_break") {
+      if (existing.break_start) return { ok: true, entry: existing, alreadyApplied: true };
+      patch.break_start = at;
+    } else if (data.action === "end_break") {
+      if (!existing.break_start) return { ok: true, entry: existing, alreadyApplied: true };
+      const mins = Math.max(0, Math.round((requested.getTime() - new Date(existing.break_start).getTime()) / 60000));
+      patch.break_start = null;
+      patch.break_minutes = Number(existing.break_minutes ?? 0) + mins;
+    }
+
+    const { data: updated, error } = await admin
+      .from("time_entries")
+      .update(patch)
+      .eq("id", existing.id)
+      .eq("user_id", ctx.userId)
+      .select("*")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!updated && data.action !== "clock_out") throw new Error("Time-clock entry could not be updated");
+    return { ok: true, entry: updated ?? null, alreadyApplied: false };
+  });
+
 /* ---------------------------- create employee -------------------------- */
 
 export const createEmployee = createServerFn({ method: "POST" })
@@ -376,6 +460,15 @@ export const setMyPin = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
+
+    // Cashiers cannot change or clear their own quick-login PIN from the
+    // register. A manager/owner must reset it from employee management so an
+    // unattended register cannot silently replace an employee credential.
+    const { data: roleRows } = await admin.from("user_roles").select("role").eq("user_id", ctx.userId);
+    const managerRole = (roleRows ?? []).some((row: { role?: string }) =>
+      ["owner", "admin", "manager", "super_admin"].includes(String(row.role ?? "")),
+    );
+    if (!managerRole) throw new Error("Ask a manager or owner to reset your employee PIN");
 
     if (data.pin === null || data.pin === "") {
       await admin.from("profiles").update({ pin_hash: null, pin_fingerprint: null }).eq("id", ctx.userId);

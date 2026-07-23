@@ -70,6 +70,28 @@ export type OfflineCashMovement = {
   last_error?: string | null;
 };
 
+
+export type OfflineActionKind =
+  | "timeclock"
+  | "register_open"
+  | "register_close"
+  | "receipt_email"
+  | "receipt_sms";
+
+export type OfflineAction = {
+  id: string;
+  idempotency_key: string;
+  kind: OfflineActionKind;
+  store_id: string | null;
+  user_id: string;
+  payload: Record<string, unknown>;
+  local_created_at: string;
+  status: OfflineSaleStatus;
+  attempts: number;
+  last_error?: string | null;
+  next_retry_at?: string | null;
+};
+
 export type CachedProduct = {
   id: string;
   name: string;
@@ -92,6 +114,7 @@ interface SezaOfflineDB extends DBSchema {
   sales: { key: string; value: OfflineSale; indexes: { by_status: string; by_seq: number } };
   cash_movements: { key: string; value: OfflineCashMovement; indexes: { by_status: string } };
   products: { key: string; value: CachedProduct };
+  actions: { key: string; value: OfflineAction; indexes: { by_status: string; by_kind: string } };
   meta: { key: string; value: unknown };
 }
 
@@ -102,15 +125,24 @@ export function getDB() {
     return Promise.reject(new Error("IndexedDB unavailable"));
   }
   if (!dbPromise) {
-    dbPromise = openDB<SezaOfflineDB>("seza-pos-offline", 1, {
+    dbPromise = openDB<SezaOfflineDB>("seza-pos-offline", 2, {
       upgrade(db) {
-        const s = db.createObjectStore("sales", { keyPath: "id" });
-        s.createIndex("by_status", "status");
-        s.createIndex("by_seq", "local_seq");
-        const c = db.createObjectStore("cash_movements", { keyPath: "id" });
-        c.createIndex("by_status", "status");
-        db.createObjectStore("products", { keyPath: "id" });
-        db.createObjectStore("meta");
+        if (!db.objectStoreNames.contains("sales")) {
+          const sales = db.createObjectStore("sales", { keyPath: "id" });
+          sales.createIndex("by_status", "status");
+          sales.createIndex("by_seq", "local_seq");
+        }
+        if (!db.objectStoreNames.contains("cash_movements")) {
+          const cash = db.createObjectStore("cash_movements", { keyPath: "id" });
+          cash.createIndex("by_status", "status");
+        }
+        if (!db.objectStoreNames.contains("products")) db.createObjectStore("products", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
+        if (!db.objectStoreNames.contains("actions")) {
+          const actions = db.createObjectStore("actions", { keyPath: "id" });
+          actions.createIndex("by_status", "status");
+          actions.createIndex("by_kind", "kind");
+        }
       },
     });
   }
@@ -229,6 +261,13 @@ export async function recoverStaleSyncing(): Promise<number> {
       n++;
     }
   }
+  const actions = (await db.getAll("actions")) as OfflineAction[];
+  for (const action of actions) {
+    if (action.status === "syncing") {
+      await db.put("actions", { ...action, status: "pending", last_error: "recovered_stale_syncing" });
+      n++;
+    }
+  }
   return n;
 }
 
@@ -243,10 +282,39 @@ export async function updateOfflineCashMovement(id: string, patch: Partial<Offli
   if (!existing) return;
   await db.put("cash_movements", { ...existing, ...patch });
 }
-export async function getPendingCashMovements(): Promise<OfflineCashMovement[]> {
+export async function getAllOfflineCashMovements(): Promise<OfflineCashMovement[]> {
   const db = await getDB();
-  const all = (await db.getAll("cash_movements")) as OfflineCashMovement[];
+  return (await db.getAll("cash_movements")) as OfflineCashMovement[];
+}
+
+export async function getPendingCashMovements(): Promise<OfflineCashMovement[]> {
+  const all = await getAllOfflineCashMovements();
   return all.filter((m) => m.status === "pending" || m.status === "failed");
+}
+
+/* ---------- generic offline action queue ---------- */
+export async function saveOfflineAction(action: OfflineAction) {
+  const db = await getDB();
+  await db.put("actions", action);
+}
+export async function updateOfflineAction(id: string, patch: Partial<OfflineAction>) {
+  const db = await getDB();
+  const existing = await db.get("actions", id);
+  if (!existing) return;
+  await db.put("actions", { ...existing, ...patch });
+}
+export async function getAllOfflineActions(): Promise<OfflineAction[]> {
+  const db = await getDB();
+  const actions = (await db.getAll("actions")) as OfflineAction[];
+  return actions.sort((a, b) => a.local_created_at.localeCompare(b.local_created_at));
+}
+export async function getPendingOfflineActions(): Promise<OfflineAction[]> {
+  const now = Date.now();
+  const actions = await getAllOfflineActions();
+  return actions.filter((action) => {
+    if (action.status !== "pending" && action.status !== "failed") return false;
+    return !action.next_retry_at || new Date(action.next_retry_at).getTime() <= now;
+  });
 }
 
 /* ---------- purge on store switch (safety) ---------- */
@@ -259,6 +327,7 @@ export async function purgeIfStoreChanged(storeId: string | null | undefined) {
       db.clear("products"),
       db.clear("sales"),
       db.clear("cash_movements"),
+      db.clear("actions"),
     ]);
   }
   await cacheMeta("store_id", storeId);

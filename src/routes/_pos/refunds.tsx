@@ -217,7 +217,8 @@ function RefundDialog({
         return p.manager_approval !== "false";
       } catch { return true; }
     })();
-  const needsOverride = requireApproval && !canApprove && !override;
+  const needsOverride = (!canCreate || (requireApproval && !canApprove)) && !override;
+  const authorizedToCreate = canCreate || Boolean(override);
 
 
   const itemsToRefund = sale
@@ -236,7 +237,7 @@ function RefundDialog({
 
   const submit = useMutation({
     mutationFn: async () => {
-      if (!canCreate) throw new Error("You do not have permission to create refunds");
+      if (!authorizedToCreate) throw new Error("Manager approval is required to issue this refund");
       if (!sale) return null;
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
@@ -419,11 +420,11 @@ function RefundDialog({
                 ) : (
                   <Button
                     variant="destructive"
-                    disabled={submit.isPending || refundTotal <= 0 || !canCreate}
+                    disabled={submit.isPending || refundTotal <= 0 || !authorizedToCreate}
                     onClick={() => submit.mutate()}
                   >
                     {submit.isPending && <Loader2 className="size-4 animate-spin" />}
-                    {canCreate ? "Issue refund" : "Refund permission required"}
+                    {authorizedToCreate ? "Issue refund" : "Manager approval required"}
                   </Button>
                 )}
               </div>

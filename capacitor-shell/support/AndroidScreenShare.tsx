@@ -34,7 +34,6 @@ import {
   openSignalingChannel,
   type SignalPayload,
 } from "@/lib/support/webrtc";
-import { getActivityState } from "../lifecycle/activityState";
 import { toast } from "sonner";
 // (Eye icon dropped — banner uses a compact red dot indicator only.)
 
@@ -197,8 +196,6 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
 
     // Native encoder wiring.
     const listenerHandles: Array<{ remove: () => Promise<void> }> = [];
-    let stateWatchInterval: ReturnType<typeof setInterval> | null = null;
-    let backgrounded = false;
 
     (async () => {
       try {
@@ -232,23 +229,8 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
       }
     })();
 
-    // Poll app state so we auto-stop when the merchant backgrounds the app.
-    // The foreground service keeps encoding, but privacy-wise we prefer to
-    // pause when the POS is not on-screen.
-    stateWatchInterval = setInterval(() => {
-      const bg = !!getActivityState().backgroundedAt;
-      if (bg && !backgrounded) {
-        backgrounded = true;
-        // Best-effort: end the whole session on background so support cannot
-        // watch a user's home screen or another app. Cheaper than a pause
-        // channel and matches the plan's "never allow background viewing".
-        end("app_backgrounded");
-      }
-    }, 1500);
-
     return () => {
       disposed = true;
-      if (stateWatchInterval) clearInterval(stateWatchInterval);
       for (const h of listenerHandles) { void h.remove().catch(() => {}); }
       try {
         signaling.send({ kind: "bye", from: "merchant", reason: "merchant_unmounted" }).catch(() => {});

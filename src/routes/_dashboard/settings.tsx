@@ -38,6 +38,8 @@ import {
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
 import { loadUiPreferences, saveUiPreferences, type UiPreferences } from "@/lib/ui-preferences";
+import { useMe } from "@/hooks/useMe";
+import { isNativeMode } from "@/lib/native";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   head: () => ({ meta: [{ title: "Settings — SEZA POS" }, { name: "description", content: "Store administration, hardware setup, inventory preferences, and billing." }] }),
@@ -111,8 +113,23 @@ export function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.section, search.checkout]);
   const { has, isSuper } = usePermissions();
-  const canEditSettings = isSuper || has("settings.edit");
+  const me = useMe();
+  const roles = me.data?.roles ?? [];
+  const isManagerLike = isSuper || roles.some((role) => ["owner", "admin", "manager"].includes(role));
+  const nativeRegister = isNativeMode();
+  const canEditSettings = isManagerLike && (isSuper || has("settings.edit"));
   const canEditRoles = isSuper;
+  const cashierAllowed = new Set(["appearance", "hardware_setup", "terminal", "support_contact"]);
+  const groups = isManagerLike
+    ? GROUPS
+    : GROUPS.map((group) => ({ ...group, items: group.items.filter((item) => cashierAllowed.has(item.id)) }))
+        .filter((group) => group.items.length > 0);
+  const allowedTabs = new Set(groups.flatMap((group) => group.items.map((item) => item.id)));
+
+  useEffect(() => {
+    if (me.isLoading) return;
+    if (!allowedTabs.has(tab)) setTab(nativeRegister ? "support_contact" : "appearance");
+  }, [me.isLoading, tab, nativeRegister, isManagerLike]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -127,7 +144,7 @@ export function SettingsPage() {
               onChange={(e) => setTab(e.target.value)}
               className="mt-1 w-full h-11 rounded-md border bg-background px-3 text-sm"
             >
-              {GROUPS.flatMap((g) => g.items.filter((s) => !s.href).map((s) => (
+              {groups.flatMap((g) => g.items.filter((s) => !s.href).map((s) => (
                 <option key={s.id} value={s.id}>{t(g.labelKey)} — {t(s.labelKey)}</option>
               )))}
             </select>
@@ -135,7 +152,7 @@ export function SettingsPage() {
           {/* Desktop: vertical tabs sidebar */}
           <aside className="hidden md:block w-64 border-r bg-surface/40 overflow-y-auto shrink-0">
             <TabsList className="flex flex-col h-auto items-stretch bg-transparent p-2 gap-0.5">
-              {GROUPS.map((g) => (
+              {groups.map((g) => (
                 <div key={g.id} className="mb-2">
                   <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {t(g.labelKey)}
@@ -169,9 +186,9 @@ export function SettingsPage() {
 
             <TabsContent value="general" className="mt-0"><GeneralPanel canEdit={canEditSettings} /></TabsContent>
             <TabsContent value="branding" className="mt-0"><BusinessBrandingPanel /></TabsContent>
-            <TabsContent value="billing" className="mt-0"><BillingPanel /></TabsContent>
+            {isManagerLike && <TabsContent value="billing" className="mt-0"><BillingPanel /></TabsContent>}
             <TabsContent value="employees" className="mt-0"><EmployeesPanel /></TabsContent>
-            <TabsContent value="roles" className="mt-0"><RolePermissionsPanel canEdit={canEditRoles} /></TabsContent>
+            {isManagerLike && <TabsContent value="roles" className="mt-0"><RolePermissionsPanel canEdit={canEditRoles} /></TabsContent>}
             <TabsContent value="terminal" className="mt-0"><TerminalPanel /></TabsContent>
             <TabsContent value="receipt" className="mt-0"><UnifiedReceiptPanel /></TabsContent>
             <TabsContent value="hardware_setup" className="mt-0"><UnifiedHardwarePanel /></TabsContent>
@@ -227,9 +244,9 @@ export function SettingsPage() {
             <TabsContent value="appearance" className="mt-0"><AppearancePanel /></TabsContent>
             <TabsContent value="about" className="mt-0"><AboutPanel /></TabsContent>
             {/* setup_email, setup_sms, setup_tax handled above via unified panels */}
-            <TabsContent value="account_pin" className="mt-0"><ChangePinPanel /></TabsContent>
-            <TabsContent value="account_password" className="mt-0"><ChangePasswordPanel /></TabsContent>
-            <TabsContent value="account_profile" className="mt-0"><ProfilePanel /></TabsContent>
+            {isManagerLike && <TabsContent value="account_pin" className="mt-0"><ChangePinPanel /></TabsContent>}
+            {isManagerLike && <TabsContent value="account_password" className="mt-0"><ChangePasswordPanel /></TabsContent>}
+            {isManagerLike && <TabsContent value="account_profile" className="mt-0"><ProfilePanel /></TabsContent>}
             <TabsContent value="support_contact" className="mt-0"><SupportPanel kind="contact" /></TabsContent>
             <TabsContent value="support_website" className="mt-0"><SupportPanel kind="website" /></TabsContent>
             <TabsContent value="support_status" className="mt-0"><SupportPanel kind="status" /></TabsContent>
@@ -374,10 +391,10 @@ function TaxSetupPanel() {
 
 function SupportPanel({ kind }: { kind: "contact" | "website" | "status" | "releases" }) {
   const map = {
-    contact: { title: "Contact Support", desc: "We're here to help.", body: <p>Email <a className="text-primary hover:underline" href="mailto:support@sezapos.com">support@sezapos.com</a> — most requests are answered within one business day.</p> },
+    contact: { title: "Live SEZA Support", desc: "Open a real support case and chat with a SEZA administrator.", body: <div className="space-y-3"><p className="text-muted-foreground">Messages stay attached to the case, update live, and remain available while you move through the POS.</p><Button asChild><Link to="/support"><MessageSquare className="size-4 mr-2" />Open live support</Link></Button><p>Email <a className="text-primary hover:underline" href="mailto:support@sezapos.com">support@sezapos.com</a> or call <a className="text-primary hover:underline" href="tel:+18286758348">+1 (828) 675-8348</a>.</p></div> },
     website: { title: "Support Website", desc: "Docs, guides, and how-tos.", body: <Button asChild><a href="https://sezapos.com/support" target="_blank" rel="noreferrer">Open support site <ExternalLink className="size-4 ml-2" /></a></Button> },
     status: { title: "System Status", desc: "Live service health.", body: <Button asChild><a href="https://status.sezapos.com" target="_blank" rel="noreferrer">Open status page <ExternalLink className="size-4 ml-2" /></a></Button> },
-    releases: { title: "Release Notes", desc: "Latest updates and improvements.", body: <p className="text-sm text-muted-foreground">Version 1.2.1 — persistent Admin live chat, complete-page language switching, mobile support case access, and support workflow reliability.</p> },
+    releases: { title: "Release Notes", desc: "Latest updates and improvements.", body: <p className="text-sm text-muted-foreground">Version 1.2.2 — reliable offline cash operations, Android clock-out and receipt delivery, persistent screen sharing, complete-page language coverage, and production support workflows.</p> },
   }[kind];
   return (
     <Card className="max-w-2xl">
@@ -799,7 +816,7 @@ function AboutPanel() {
     <Card className="max-w-2xl">
       <CardHeader><CardTitle>About</CardTitle><CardDescription>Software and support.</CardDescription></CardHeader>
       <CardContent className="space-y-2 text-sm">
-        <Row k="Software version" v="1.2.1" />
+        <Row k="Software version" v="1.2.2" />
         <Row k="Build" v={new Date().toISOString().slice(0, 10)} />
         <Row k="License" v="Commercial" />
         <Row k="Support" v="support@sezapos.com" />

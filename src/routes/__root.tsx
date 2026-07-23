@@ -297,6 +297,7 @@ function RootComponent() {
       "/reports",
       "/devices",
       "/settings",
+      "/support",
       "/setup",
       "/onboarding",
     ];

@@ -4,6 +4,23 @@ import { createClient } from '@supabase/supabase-js'
 import { createFileRoute } from '@tanstack/react-router'
 import { TEMPLATES } from '@/lib/email-templates/registry'
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function jsonResponse(body: unknown, init: ResponseInit = {}) {
+  return Response.json(body, {
+    ...init,
+    headers: { ...CORS_HEADERS, ...(init.headers ?? {}) },
+  });
+}
+
+function optionsResponse() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
 // Configuration baked in at scaffold time
 const SITE_NAME = "SEZA POS"
 // SENDER_DOMAIN is the verified sender subdomain FQDN (e.g., "notify.example.com").
@@ -32,13 +49,14 @@ function generateToken(): string {
 export const Route = createFileRoute("/lovable/email/transactional/send")({
   server: {
     handlers: {
+      OPTIONS: async () => optionsResponse(),
       POST: async ({ request }) => {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
         if (!supabaseUrl || !supabaseServiceKey) {
           console.error('Missing required environment variables')
-          return Response.json(
+          return jsonResponse(
             { error: 'Server configuration error' },
             { status: 500 }
           )
@@ -48,7 +66,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
         // In TanStack, there is no Supabase gateway — we validate the JWT ourselves.
         const authHeader = request.headers.get('Authorization')
         if (!authHeader?.startsWith('Bearer ')) {
-          return Response.json({ error: 'Unauthorized' }, { status: 401 })
+          return jsonResponse({ error: 'Unauthorized' }, { status: 401 })
         }
 
         const token = authHeader.slice('Bearer '.length).trim()
@@ -56,7 +74,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
         const { data: { user }, error: authError } = await supabase.auth.getUser(token)
 
         if (authError || !user) {
-          return Response.json({ error: 'Unauthorized' }, { status: 401 })
+          return jsonResponse({ error: 'Unauthorized' }, { status: 401 })
         }
 
         // Parse request body
@@ -75,14 +93,14 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
             templateData = body.templateData
           }
         } catch {
-          return Response.json(
+          return jsonResponse(
             { error: 'Invalid JSON in request body' },
             { status: 400 }
           )
         }
 
         if (!templateName) {
-          return Response.json(
+          return jsonResponse(
             { error: 'templateName is required' },
             { status: 400 }
           )
@@ -93,7 +111,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
 
         if (!template) {
           console.error('Template not found in registry', { templateName })
-          return Response.json(
+          return jsonResponse(
             {
               error: `Template '${templateName}' not found. Available: ${Object.keys(TEMPLATES).join(', ')}`,
             },
@@ -107,7 +125,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
         const effectiveRecipient = template.to || recipientEmail
 
         if (!effectiveRecipient) {
-          return Response.json(
+          return jsonResponse(
             {
               error: 'recipientEmail is required (unless the template defines a fixed recipient)',
             },
@@ -127,7 +145,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
             error: suppressionError,
             recipient_redacted: redactEmail(effectiveRecipient),
           })
-          return Response.json(
+          return jsonResponse(
             { error: 'Failed to verify suppression status' },
             { status: 500 }
           )
@@ -146,7 +164,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
             templateName,
             recipient_redacted: redactEmail(effectiveRecipient),
           })
-          return Response.json({ success: false, reason: 'email_suppressed' })
+          return jsonResponse({ success: false, reason: 'email_suppressed' })
         }
 
         // 3. Get or create unsubscribe token (one token per email address)
@@ -172,7 +190,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
             status: 'failed',
             error_message: 'Failed to look up unsubscribe token',
           })
-          return Response.json(
+          return jsonResponse(
             { error: 'Failed to prepare email' },
             { status: 500 }
           )
@@ -202,7 +220,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
               status: 'failed',
               error_message: 'Failed to create unsubscribe token',
             })
-            return Response.json(
+            return jsonResponse(
               { error: 'Failed to prepare email' },
               { status: 500 }
             )
@@ -228,7 +246,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
               status: 'failed',
               error_message: 'Failed to confirm unsubscribe token storage',
             })
-            return Response.json(
+            return jsonResponse(
               { error: 'Failed to prepare email' },
               { status: 500 }
             )
@@ -248,7 +266,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
             error_message:
               'Unsubscribe token used but email missing from suppressed list',
           })
-          return Response.json({ success: false, reason: 'email_suppressed' })
+          return jsonResponse({ success: false, reason: 'email_suppressed' })
         }
 
         // 4. Render React Email template to HTML and plain text
@@ -306,7 +324,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
             error_message: 'Failed to enqueue email',
           })
 
-          return Response.json(
+          return jsonResponse(
             { error: 'Failed to enqueue email' },
             { status: 500 }
           )
@@ -317,7 +335,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
           recipient_redacted: redactEmail(effectiveRecipient),
         })
 
-        return Response.json({ success: true, queued: true })
+        return jsonResponse({ success: true, queued: true })
       },
     },
   },

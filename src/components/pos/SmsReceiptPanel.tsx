@@ -20,6 +20,7 @@ import {
 } from "libphonenumber-js";
 import { sendSms, buildReceiptSms } from "@/lib/sms/send";
 import { fmtCurrency } from "@/lib/format";
+import { isNativeMode } from "@/lib/native";
 import type { ReceiptData } from "./Receipt";
 
 // Curated common countries first, then all others sorted alphabetically.
@@ -62,9 +63,11 @@ export function SmsReceiptPanel({
   const parsed = useMemo(() => parsePhoneNumberFromString(raw, country), [raw, country]);
   const isValid = !!parsed?.isValid();
 
-  const receiptUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/r/${data.transactionId}`
-    : `/r/${data.transactionId}`;
+  const receiptUrl = isNativeMode()
+    ? `https://sezapos.com/r/${data.transactionId}`
+    : typeof window !== "undefined"
+      ? `${window.location.origin}/r/${data.transactionId}`
+      : `https://sezapos.com/r/${data.transactionId}`;
 
   const cur = data.store.currency ?? "USD";
   const sms = buildReceiptSms({
@@ -95,7 +98,13 @@ export function SmsReceiptPanel({
         return;
       }
       setSent(true);
-      toast.success(res.alreadySent ? "Already sent to this number" : "SMS receipt sent");
+      toast.success(
+        res.queued
+          ? "SMS receipt queued — it will send when the register reconnects"
+          : res.alreadySent
+            ? "Already sent to this number"
+            : "SMS receipt sent",
+      );
       onSent?.();
     } finally {
       setSending(false);
@@ -105,7 +114,7 @@ export function SmsReceiptPanel({
   if (sent) {
     return (
       <div className="flex items-center gap-2 text-emerald-600 text-sm px-1">
-        <CheckCircle2 className="size-4" /> Sent to {formatted}
+        <CheckCircle2 className="size-4" /> Receipt saved for {formatted}
       </div>
     );
   }
