@@ -21,18 +21,15 @@ export function useMe() {
     retry: (count) => isOnlineNow() && count < 2,
     queryFn: async () => {
       const cached = await readMeta<MeData>(CACHE_KEY).catch(() => undefined);
-      // getSession reads the persisted Supabase session locally. getUser makes a
-      // network request and was signing the Android register out whenever the
-      // connection disappeared.
+      // Offline means cache-only. Do not call Supabase Auth here because
+      // getSession() can refresh an expired token and block until connectivity
+      // returns. The register is prepared for offline use during an online
+      // session, so the cached identity is the source of truth while offline.
+      if (!isOnlineNow()) return cached ?? null;
+
       const { data: sessionData } = await supabase.auth.getSession();
       const sessionUser = sessionData.session?.user;
       if (!sessionUser) return cached ?? null;
-      if (!isOnlineNow()) return cached ?? {
-        user: { id: sessionUser.id, email: sessionUser.email },
-        profile: null,
-        roles: [],
-        store: null,
-      };
 
       try {
         const [{ data: profile, error: profileError }, { data: roles, error: rolesError }] = await Promise.all([

@@ -1,1 +1,0 @@
-REVOKE EXECUTE ON FUNCTION public.merchant_update_support_ticket(uuid, text, text, text) FROM anon, PUBLIC;

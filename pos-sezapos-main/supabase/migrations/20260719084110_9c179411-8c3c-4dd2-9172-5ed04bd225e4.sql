@@ -1,8 +1,0 @@
-CREATE POLICY support_tickets_merchant_insert ON public.support_tickets FOR INSERT TO authenticated WITH CHECK (store_id = public.current_store_id() AND requester_id = auth.uid());
-CREATE POLICY support_tickets_merchant_update ON public.support_tickets FOR UPDATE TO authenticated USING (store_id = public.current_store_id() AND requester_id = auth.uid()) WITH CHECK (store_id = public.current_store_id() AND requester_id = auth.uid());
-CREATE POLICY ticket_notes_merchant_view ON public.support_ticket_notes FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.support_tickets t WHERE t.id = ticket_id AND t.store_id = public.current_store_id()));
-CREATE POLICY ticket_notes_merchant_insert ON public.support_ticket_notes FOR INSERT TO authenticated WITH CHECK (author_id = auth.uid() AND EXISTS (SELECT 1 FROM public.support_tickets t WHERE t.id = ticket_id AND t.store_id = public.current_store_id() AND t.requester_id = auth.uid()));
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_sequences WHERE schemaname='public' AND sequencename='support_ticket_number_seq') THEN CREATE SEQUENCE public.support_ticket_number_seq START 1000; GRANT USAGE ON SEQUENCE public.support_ticket_number_seq TO authenticated; END IF; END $$;
-CREATE OR REPLACE FUNCTION public.tg_assign_ticket_number() RETURNS trigger LANGUAGE plpgsql SET search_path TO 'public' AS $fn$ BEGIN IF NEW.ticket_number IS NULL THEN NEW.ticket_number := nextval('public.support_ticket_number_seq'); END IF; RETURN NEW; END $fn$;
-DROP TRIGGER IF EXISTS tg_support_tickets_assign_number ON public.support_tickets;
-CREATE TRIGGER tg_support_tickets_assign_number BEFORE INSERT ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION public.tg_assign_ticket_number();

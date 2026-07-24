@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">SEZA POS</string>
-    <string name="title_activity_main">SEZA POS</string>
-    <string name="package_name">com.sezapos.app</string>
-    <string name="custom_url_scheme">com.sezapos.app</string>
-</resources>
