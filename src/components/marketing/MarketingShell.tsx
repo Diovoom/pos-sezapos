@@ -8,6 +8,7 @@ import {
   LockKeyhole,
   Phone,
   MonitorSmartphone,
+  ShoppingCart,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
