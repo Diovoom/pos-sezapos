@@ -2009,6 +2009,10 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      finalize_pos_sale: {
+        Args: { p_items: Json; p_payments?: Json; p_sale: Json }
+        Returns: Json
+      }
       generate_employee_id: { Args: never; Returns: string }
       generate_store_code: { Args: never; Returns: string }
       has_active_plan: {
