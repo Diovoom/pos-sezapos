@@ -1121,8 +1121,8 @@ export const adminListCommunications = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     const ticketIds = (tickets ?? []).map((row: any) => row.id);
-    const storeIds = Array.from(new Set((tickets ?? []).map((row: any) => row.store_id).filter(Boolean)));
-    const assigneeIds = Array.from(new Set((tickets ?? []).map((row: any) => row.assigned_admin_id).filter(Boolean)));
+    const storeIds = Array.from(new Set((tickets ?? []).map((row: any) => row.store_id).filter(Boolean))) as string[];
+    const assigneeIds = Array.from(new Set((tickets ?? []).map((row: any) => row.assigned_admin_id).filter(Boolean))) as string[];
 
     const [{ data: notes }, { data: stores }, { data: assignees }] = await Promise.all([
       ticketIds.length
