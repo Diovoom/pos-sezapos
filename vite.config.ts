@@ -52,6 +52,7 @@ const enableMcpPlugin = process.platform !== "win32";
 export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
+    router: { autoCodeSplitting: true },
   },
   vite: {
     plugins: enableMcpPlugin ? [mcpPlugin()] : [],

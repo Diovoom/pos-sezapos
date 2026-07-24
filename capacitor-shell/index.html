@@ -11,12 +11,63 @@
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
         color: #0f172a;
         -webkit-tap-highlight-color: transparent;
-        -webkit-user-select: none; user-select: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #seza-static-loader {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #1e40af;
+        color: white;
+        text-align: center;
+        padding: 24px;
+      }
+      #seza-static-loader strong { display: block; font-size: 24px; }
+      #seza-static-loader span { display: block; margin-top: 8px; opacity: .82; font-size: 13px; }
+      #seza-static-loader button {
+        display: none;
+        margin: 18px auto 0;
+        border: 0;
+        border-radius: 10px;
+        padding: 11px 16px;
+        font-weight: 700;
+        color: #1e40af;
+        background: white;
       }
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="seza-static-loader" role="status" aria-live="polite">
+        <div>
+          <strong>SEZA POS</strong>
+          <span id="seza-load-message">Starting register…</span>
+          <button id="seza-reload" type="button" onclick="window.location.reload()">Reload POS</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      window.setTimeout(function () {
+        var loader = document.getElementById("seza-static-loader");
+        if (!loader) return;
+        var message = document.getElementById("seza-load-message");
+        var reload = document.getElementById("seza-reload");
+        if (message) message.textContent = "The app is taking longer than expected. Check your connection and reload.";
+        if (reload) reload.style.display = "block";
+      }, 10000);
+      window.addEventListener("error", function (event) {
+        var message = document.getElementById("seza-load-message");
+        var reload = document.getElementById("seza-reload");
+        if (message) message.textContent = "A startup file failed to load. Reload the POS.";
+        if (reload) reload.style.display = "block";
+        console.error("[SEZA Android bootstrap]", event.error || event.message);
+      });
+      window.addEventListener("unhandledrejection", function (event) {
+        console.error("[SEZA Android promise]", event.reason);
+      });
+    </script>
     <script type="module" src="/main.tsx"></script>
   </body>
 </html>

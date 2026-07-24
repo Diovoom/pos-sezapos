@@ -5,6 +5,7 @@ import { RouterProvider } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
 import { SplashScreen as SplashScreenUi } from "./screens/SplashScreen";
 import { BrandedBootScreen } from "./screens/BrandedBootScreen";
+import { AppLoadBoundary } from "./screens/AppLoadBoundary";
 import { createShellRouter } from "./router";
 import { supabase } from "./supabase";
 import { ExitConfirmToast, initAndroidLifecycle } from "./lifecycle";
@@ -14,28 +15,54 @@ import { startDeviceHeartbeat } from "./lib/deviceHeartbeat";
 import { SupportRequestListener } from "./support/SupportRequestListener";
 import { initializePairing } from "./lib/pairing";
 
+const SESSION_BOOT_TIMEOUT_MS = 4_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => window.setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
 function ShellApp() {
   const [sessionReady, setSessionReady] = useState(false);
   const [booted, setBooted] = useState(false);
   const [hasSession, setHasSession] = useState(false);
-  const queryClient = useMemo(() => new QueryClient({
-    defaultOptions: {
-      mutations: { networkMode: "always" },
-      queries: { networkMode: "offlineFirst" },
-    },
-  }), []);
+  const queryClient = useMemo(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          mutations: { networkMode: "always" },
+          queries: {
+            networkMode: "offlineFirst",
+            retry: 1,
+            refetchOnWindowFocus: false,
+          },
+        },
+      }),
+    [],
+  );
   const router = useMemo(() => createShellRouter(queryClient), [queryClient]);
 
   useEffect(() => {
     let alive = true;
     void initAndroidLifecycle(router, queryClient);
     const stopHeartbeat = startDeviceHeartbeat();
-    // Warm the session cache so beforeLoad guards are decisive on first render.
-    supabase.auth.getSession().then(({ data }) => {
-      if (!alive) return;
-      setHasSession(!!data.session);
-      setSessionReady(true);
-    });
+
+    // Render immediately and give auth a short deadline. A slow/offline
+    // Supabase request must never leave the WebView blank forever.
+    void withTimeout(supabase.auth.getSession(), SESSION_BOOT_TIMEOUT_MS)
+      .then((result) => {
+        if (!alive) return;
+        setHasSession(Boolean(result?.data.session));
+      })
+      .catch((error) => {
+        console.warn("[SEZA Android] session restore failed", error);
+        if (alive) setHasSession(false);
+      })
+      .finally(() => {
+        if (alive) setSessionReady(true);
+      });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
@@ -44,7 +71,7 @@ function ShellApp() {
           queryClient.clear();
           setHasSession(false);
           setBooted(false);
-          router.navigate({ to: "/auth", replace: true });
+          void router.navigate({ to: "/auth", replace: true });
         } else if (event === "SIGNED_IN") {
           setHasSession(true);
           setBooted(false);
@@ -52,21 +79,21 @@ function ShellApp() {
       }
     });
 
-    // Hide the Android native splash + kick off OTA update check.
-    (async () => {
+    void (async () => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const cap = (window as any).Capacitor;
-        if (cap?.Plugins?.SplashScreen?.hide) {
-          await cap.Plugins.SplashScreen.hide({ fadeOutDuration: 300 });
-        }
-      } catch { /* noop */ }
-      // Capgo OTA — background check on cold boot. Free tier, no key required.
+        const cap = (window as typeof window & {
+          Capacitor?: { Plugins?: { SplashScreen?: { hide?: (options: unknown) => Promise<void> } } };
+        }).Capacitor;
+        await cap?.Plugins?.SplashScreen?.hide?.({ fadeOutDuration: 300 });
+      } catch {
+        // The React loading screen is already visible.
+      }
       try {
         const { CapacitorUpdater } = await import("@capgo/capacitor-updater");
         await CapacitorUpdater.notifyAppReady();
-        // Latest published bundle is applied on next restart automatically.
-      } catch { /* not running on native */ }
+      } catch {
+        // Browser preview or updater unavailable.
+      }
     })();
 
     return () => {
@@ -78,14 +105,12 @@ function ShellApp() {
 
   if (!sessionReady) return <SplashScreenUi />;
 
-  // Signed-in users see the branded boot screen (with live status) before POS
-  // mounts. Signed-out users go straight to the PIN screen.
   if (hasSession && !booted) {
     return (
       <BrandedBootScreen
         onReady={() => {
           setBooted(true);
-          router.navigate({ to: "/pos", replace: true });
+          void router.navigate({ to: "/pos", replace: true });
         }}
       />
     );
@@ -101,14 +126,21 @@ function ShellApp() {
   );
 }
 
-async function bootstrap() {
-  await initializePairing();
-  const root = document.getElementById("root")!;
+function renderApp() {
+  const root = document.getElementById("root");
+  if (!root) throw new Error("Android app root element is missing.");
+
   createRoot(root).render(
     <StrictMode>
-      <ShellApp />
+      <AppLoadBoundary>
+        <ShellApp />
+      </AppLoadBoundary>
     </StrictMode>,
   );
 }
 
-void bootstrap();
+// Pairing restoration is useful, but it is not allowed to block first paint.
+renderApp();
+void initializePairing().catch((error) => {
+  console.warn("[SEZA Android] pairing restore failed", error);
+});

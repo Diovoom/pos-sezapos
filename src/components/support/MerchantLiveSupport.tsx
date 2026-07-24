@@ -80,7 +80,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
       if (error) throw error;
       return (data ?? []) as Ticket[];
     },
-    refetchInterval: 15_000,
+    refetchInterval: 30_000,
   });
 
   const selectedTicket = useMemo(
@@ -107,7 +107,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
       await (supabase.rpc as any)("merchant_mark_support_read", { _ticket_id: selectedId }).catch(() => undefined);
       return (data ?? []) as Message[];
     },
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
   });
 
   const refreshAll = () => {

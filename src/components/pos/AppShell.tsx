@@ -55,6 +55,7 @@ const NAV: {
   { to: "/payroll", label: "Payroll", icon: BarChart3 },
   { to: "/shifts", label: "Shifts", icon: Clock },
   { to: "/devices", label: "POS Devices", icon: Monitor },
+  { to: "/pos", label: "Web POS (Temporary)", icon: ScanLine },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 

@@ -54,6 +54,8 @@ export function rememberAdminChat(ticketId: string | null) {
 
 export function AdminPersistentChat() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const onFullChatPage =
+    pathname === "/admin/communications" || pathname.startsWith("/admin/support/");
   const navigate = useNavigate();
   const list = useServerFn(adminListCommunications);
   const getCase = useServerFn(adminGetSupportCase);
@@ -79,7 +81,8 @@ export function AdminPersistentChat() {
   const listQuery = useQuery({
     queryKey: ["admin_persistent_communications"],
     queryFn: () => list({ data: { view: "active", search: "" } }),
-    refetchInterval: 8_000,
+    enabled: !onFullChatPage,
+    refetchInterval: onFullChatPage ? false : 20_000,
   });
 
   const activeRows = listQuery.data?.rows ?? [];
@@ -108,6 +111,7 @@ export function AdminPersistentChat() {
   }, []);
 
   useEffect(() => {
+    if (onFullChatPage) return;
     if (!activeRows.length) {
       setSelectedId(null);
       rememberAdminChat(null);
@@ -118,13 +122,13 @@ export function AdminPersistentChat() {
     const next = unreadRows[0] ?? activeRows[0];
     setSelectedId(next.id);
     rememberAdminChat(next.id);
-  }, [activeRows, selectedId, unreadRows]);
+  }, [activeRows, onFullChatPage, selectedId, unreadRows]);
 
   const caseQuery = useQuery({
     queryKey: ["admin_support_case", selectedId],
     queryFn: () => getCase({ data: { ticketId: selectedId! } }),
-    enabled: Boolean(selectedId),
-    refetchInterval: open ? 5_000 : 10_000,
+    enabled: Boolean(selectedId) && !onFullChatPage,
+    refetchInterval: open && !onFullChatPage ? 10_000 : false,
   });
 
   const refresh = () => {
@@ -136,6 +140,7 @@ export function AdminPersistentChat() {
   };
 
   useEffect(() => {
+    if (onFullChatPage) return;
     const suffix = crypto.randomUUID();
     const notes = supabaseAdminAuth
       .channel(`admin-persistent-chat-notes-${suffix}`)
@@ -192,10 +197,10 @@ export function AdminPersistentChat() {
       void supabaseAdminAuth.removeChannel(tickets);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adminUserId, selectedId]);
+  }, [adminUserId, onFullChatPage, selectedId]);
 
   useEffect(() => {
-    if (!open || !selectedId) return;
+    if (onFullChatPage || !open || !selectedId) return;
     const latestAt =
       caseQuery.data?.ticket?.last_message_at ??
       caseQuery.data?.ticket?.updated_at ??
@@ -210,9 +215,6 @@ export function AdminPersistentChat() {
 
   useEffect(() => {
     const next = unreadRows[0];
-    const onFullChatPage =
-      pathname === "/admin/communications" ||
-      pathname.startsWith("/admin/support/");
     if (!next || onFullChatPage) return;
     const popupKey = `${next.id}:${next.last_message?.created_at ?? next.last_message_at ?? next.updated_at}`;
     if (lastPopupRef.current === popupKey) return;
@@ -239,10 +241,6 @@ export function AdminPersistentChat() {
   );
   const selected = caseQuery.data;
   const messages = selected?.messages ?? [];
-  const onFullChatPage =
-    pathname === "/admin/communications" ||
-    pathname.startsWith("/admin/support/");
-
 
   async function endSelectedChat() {
     if (!selectedId) return;

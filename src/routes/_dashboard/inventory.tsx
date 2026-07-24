@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -17,11 +19,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Search, Package, AlertTriangle, XCircle, Tags, Plus, Upload, Download,
-  MoreVertical, ImageIcon, ArrowUpDown, Loader2,
+  MoreVertical, ImageIcon, ArrowUpDown, Loader2, Pencil, Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtCurrency } from "@/lib/format";
 import { useProductImageUrl } from "@/lib/pos/product-images";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_dashboard/inventory")({
   head: () => ({
@@ -54,6 +57,28 @@ type StockFilter = "all" | "in" | "low" | "out";
 type SortKey = "name" | "stock" | "price" | "updated";
 
 const PAGE_SIZE = 25;
+
+type InventoryEditForm = {
+  name: string;
+  sku: string;
+  barcode: string;
+  cost: string;
+  price: string;
+  stock: string;
+  min_stock: string;
+};
+
+function productToEditForm(product: ProductRow): InventoryEditForm {
+  return {
+    name: product.name,
+    sku: product.sku ?? "",
+    barcode: product.barcode ?? "",
+    cost: String(product.cost ?? 0),
+    price: String(product.price ?? 0),
+    stock: String(product.stock ?? 0),
+    min_stock: String(product.min_stock ?? 0),
+  };
+}
 
 function statusOf(p: ProductRow): "in" | "low" | "out" {
   const s = Number(p.stock);
@@ -124,6 +149,64 @@ function InventoryPage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
+  const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState<ProductRow | null>(null);
+  const [editForm, setEditForm] = useState<InventoryEditForm | null>(null);
+  const queryClient = useQueryClient();
+
+  const refreshProducts = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["inventory-products"] }),
+      queryClient.invalidateQueries({ queryKey: ["products"] }),
+    ]);
+  };
+
+  const updateProduct = useMutation({
+    mutationFn: async () => {
+      if (!editingProduct || !editForm) throw new Error("No product selected");
+      const price = Number(editForm.price);
+      const cost = Number(editForm.cost);
+      const stock = Number(editForm.stock);
+      const minStock = Number(editForm.min_stock);
+      if (!editForm.name.trim()) throw new Error("Product name is required");
+      if (![price, cost, stock, minStock].every(Number.isFinite)) throw new Error("Enter valid numbers");
+      const { error } = await supabase
+        .from("products")
+        .update({
+          name: editForm.name.trim(),
+          sku: editForm.sku.trim() || null,
+          barcode: editForm.barcode.trim() || null,
+          price,
+          cost,
+          stock,
+          min_stock: minStock,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingProduct.id);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      toast.success("Product updated");
+      setEditingProduct(null);
+      setEditForm(null);
+      await refreshProducts();
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not update product"),
+  });
+
+  const deleteProduct = useMutation({
+    mutationFn: async () => {
+      if (!deletingProduct) throw new Error("No product selected");
+      const { error } = await supabase.from("products").delete().eq("id", deletingProduct.id);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      toast.success("Product deleted");
+      setDeletingProduct(null);
+      await refreshProducts();
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not delete product"),
+  });
 
   const { data: store } = useQuery({
     queryKey: ["store"],
@@ -366,8 +449,20 @@ function InventoryPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem asChild><Link to="/products">Edit product</Link></DropdownMenuItem>
-                              <DropdownMenuItem asChild><Link to="/products">Adjust stock</Link></DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  setEditingProduct(p);
+                                  setEditForm(productToEditForm(p));
+                                }}
+                              >
+                                <Pencil className="mr-2 size-4" /> Edit price & stock
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onSelect={() => setDeletingProduct(p)}
+                              >
+                                <Trash2 className="mr-2 size-4" /> Delete product
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -394,6 +489,84 @@ function InventoryPage() {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={Boolean(editingProduct && editForm)}
+        onOpenChange={(open) => {
+          if (!open && !updateProduct.isPending) {
+            setEditingProduct(null);
+            setEditForm(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit inventory item</DialogTitle>
+            <DialogDescription>Change the product details, price, or current stock without leaving inventory.</DialogDescription>
+          </DialogHeader>
+          {editForm && (
+            <div className="grid gap-4 py-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="inventory-edit-name">Product name</Label>
+                <Input id="inventory-edit-name" value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="inventory-edit-sku">SKU</Label>
+                  <Input id="inventory-edit-sku" value={editForm.sku} onChange={(event) => setEditForm({ ...editForm, sku: event.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="inventory-edit-barcode">Barcode</Label>
+                  <Input id="inventory-edit-barcode" value={editForm.barcode} onChange={(event) => setEditForm({ ...editForm, barcode: event.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="inventory-edit-cost">Cost</Label>
+                  <Input id="inventory-edit-cost" type="number" min="0" step="0.01" value={editForm.cost} onChange={(event) => setEditForm({ ...editForm, cost: event.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="inventory-edit-price">Selling price</Label>
+                  <Input id="inventory-edit-price" type="number" min="0" step="0.01" value={editForm.price} onChange={(event) => setEditForm({ ...editForm, price: event.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="inventory-edit-stock">Current stock</Label>
+                  <Input id="inventory-edit-stock" type="number" step="1" value={editForm.stock} onChange={(event) => setEditForm({ ...editForm, stock: event.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="inventory-edit-min-stock">Low-stock alert</Label>
+                  <Input id="inventory-edit-min-stock" type="number" min="0" step="1" value={editForm.min_stock} onChange={(event) => setEditForm({ ...editForm, min_stock: event.target.value })} />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEditingProduct(null); setEditForm(null); }} disabled={updateProduct.isPending}>Cancel</Button>
+            <Button onClick={() => updateProduct.mutate()} disabled={updateProduct.isPending}>
+              {updateProduct.isPending && <Loader2 className="mr-2 size-4 animate-spin" />} Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(deletingProduct)} onOpenChange={(open) => !open && !deleteProduct.isPending && setDeletingProduct(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete product?</DialogTitle>
+            <DialogDescription>
+              {deletingProduct ? `This permanently removes “${deletingProduct.name}” from the product catalog.` : "This permanently removes the selected product."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingProduct(null)} disabled={deleteProduct.isPending}>Cancel</Button>
+            <Button variant="destructive" onClick={() => deleteProduct.mutate()} disabled={deleteProduct.isPending}>
+              {deleteProduct.isPending && <Loader2 className="mr-2 size-4 animate-spin" />} Delete product
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

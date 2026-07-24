@@ -1,31 +1,40 @@
 // Standalone Supabase client for the bundled Capacitor Android app.
-//
-// This client is intentionally separate from src/integrations/supabase/client.ts
-// because the Android shell is a static bundle with NO server, NO SSR, and
-// NO server functions. All backend access is:
-//
-//   1. Direct Supabase (auth + RLS-scoped data reads/writes), OR
-//   2. Explicit HTTPS calls to https://sezapos.com/api/public/* endpoints
-//      using a bearer token from the Supabase session.
-//
-// Auth persists in localStorage inside the Capacitor WebView, so employees
-// stay signed in across app launches.
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const FALLBACK_SUPABASE_URL = "https://xbirnlsbckbcjbxqkmjn.supabase.co";
+const FALLBACK_SUPABASE_PUBLISHABLE_KEY =
+  "sb_publishable_D06VufRmNrbKI6Fe0OF70Q_Wzr5pkBn";
+
+const SUPABASE_URL =
+  (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ||
+  FALLBACK_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY =
+  (
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined
+  )?.trim() || FALLBACK_SUPABASE_PUBLISHABLE_KEY;
+
+if (!/^https:\/\//i.test(SUPABASE_URL)) {
+  throw new Error("SEZA Android configuration error: invalid Supabase URL.");
+}
+if (!SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error(
+    "SEZA Android configuration error: missing Supabase publishable key.",
+  );
+}
 
 function isNewKey(v: string) {
   return v.startsWith("sb_publishable_") || v.startsWith("sb_secret_");
 }
 
-// sb_ keys are opaque, not JWTs — strip the redundant Authorization header
-// the Supabase JS client adds by default, mirroring src/integrations/supabase/client.ts.
 const patchedFetch: typeof fetch = (input, init) => {
   const headers = new Headers(
-    typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined,
+    typeof Request !== "undefined" && input instanceof Request
+      ? input.headers
+      : undefined,
   );
-  if (init?.headers) new Headers(init.headers).forEach((v, k) => headers.set(k, v));
+  if (init?.headers) {
+    new Headers(init.headers).forEach((v, k) => headers.set(k, v));
+  }
   if (
     isNewKey(SUPABASE_PUBLISHABLE_KEY) &&
     headers.get("Authorization") === `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
@@ -33,24 +42,39 @@ const patchedFetch: typeof fetch = (input, init) => {
     headers.delete("Authorization");
   }
   headers.set("apikey", SUPABASE_PUBLISHABLE_KEY);
-  return fetch(input, { ...init, headers });
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort("SEZA request timed out"), 15_000);
+  if (init?.signal) {
+    if (init.signal.aborted) controller.abort(init.signal.reason);
+    else init.signal.addEventListener("abort", () => controller.abort(init.signal?.reason), { once: true });
+  }
+
+  return fetch(input, { ...init, headers, signal: controller.signal })
+    .catch((error) => {
+      console.error("[SEZA Android] Supabase request failed", {
+        url: typeof input === "string" ? input : input instanceof URL ? input.href : input.url,
+        error,
+      });
+      throw error;
+    })
+    .finally(() => window.clearTimeout(timeoutId));
 };
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    // Distinct storage key so the bundled shell never collides with the web
-    // app's session if both are ever loaded in the same origin during dev.
-    storageKey: "seza-native-auth",
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
+export const supabase = createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY,
+  {
+    auth: {
+      storageKey: "seza-native-auth",
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+    },
+    global: { fetch: patchedFetch },
   },
-  global: { fetch: patchedFetch },
-});
+);
 
-// Base URL for future authenticated calls into the deployed backend
-// (e.g. server functions or public API routes). Kept as a constant so
-// offline mode can later swap it or queue requests against it.
 export const API_BASE_URL = "https://sezapos.com";
 
 export async function getBearer(): Promise<string | null> {

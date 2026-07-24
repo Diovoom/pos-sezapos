@@ -6,6 +6,7 @@ import {
   adminEndSupportChat,
   adminGetSupportCase,
   adminClaimSupportCase,
+  adminReleaseSupportCase,
   adminTransitionSupportCase,
   adminSendSupportMessage,
 } from "@/lib/admin/company-admin.functions";
@@ -32,6 +33,8 @@ import {
   User,
   Activity,
   PhoneOff,
+  UserMinus,
+  X,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -70,6 +73,7 @@ function SupportCasePage() {
   const getCase = useServerFn(adminGetSupportCase);
   const claimCase = useServerFn(adminClaimSupportCase);
   const transition = useServerFn(adminTransitionSupportCase);
+  const releaseCase = useServerFn(adminReleaseSupportCase);
   const sendMessage = useServerFn(adminSendSupportMessage);
   const endSupportChat = useServerFn(adminEndSupportChat);
   const qc = useQueryClient();
@@ -77,16 +81,25 @@ function SupportCasePage() {
   const query = useQuery({
     queryKey: ["admin_support_case", ticketId],
     queryFn: () => getCase({ data: { ticketId } }),
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
   });
 
   const [message, setMessage] = useState("");
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const [internalNote, setInternalNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolutionSummary, setResolutionSummary] = useState("");
   const [resolutionCode, setResolutionCode] = useState("fixed");
   const [statusReason, setStatusReason] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void supabaseAdminAuth.auth.getUser().then(({ data }) => {
+      if (active) setAdminUserId(data.user?.id ?? null);
+    });
+    return () => { active = false; };
+  }, []);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["admin_support_case", ticketId] });
@@ -147,6 +160,21 @@ function SupportCasePage() {
     }
   }
 
+  async function release() {
+    setBusy(true);
+    try {
+      await releaseCase({ data: { ticketId, reason: statusReason.trim() || "Released for another support admin." } });
+      toast.success("Case released to the support queue");
+      rememberAdminChat(null);
+      setStatusReason("");
+      refresh();
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not release case");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function changeStatus(status: string, extras: Record<string, unknown> = {}) {
     setBusy(true);
     try {
@@ -201,6 +229,8 @@ function SupportCasePage() {
   const { ticket, messages, internal_notes, events, store, requester, assignee, device } = data;
   const isFinal = ticket.status === "resolved" || ticket.status === "closed";
   const chatEnded = ticket.chat_status === "ended" || isFinal;
+  const assignedToMe = Boolean(adminUserId && ticket.assigned_admin_id === adminUserId);
+  const assignedToOther = Boolean(ticket.assigned_admin_id && !assignedToMe);
 
   return (
     <div className="space-y-6">
@@ -221,20 +251,28 @@ function SupportCasePage() {
             {assignee ? <Badge variant="secondary">Assigned to {assignee.full_name || assignee.email}</Badge> : <Badge variant="outline">Unassigned</Badge>}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="ghost" size="icon" aria-label="Close case workspace" title="Close case workspace">
+            <Link to="/admin/support"><X className="h-5 w-5" /></Link>
+          </Button>
           {!ticket.assigned_admin_id && <Button onClick={claim} disabled={busy}><UserCheck className="mr-2 h-4 w-4" /> Claim case</Button>}
-          {!isFinal && ticket.status !== "investigating" && (
+          {!isFinal && assignedToMe && (
+            <Button variant="outline" onClick={() => void release()} disabled={busy}>
+              <UserMinus className="mr-2 h-4 w-4" /> Release to queue
+            </Button>
+          )}
+          {!isFinal && assignedToMe && ticket.status !== "investigating" && (
             <Button variant="outline" onClick={() => changeStatus("investigating")} disabled={busy}>
               <SearchCheck className="mr-2 h-4 w-4" /> Start investigating
             </Button>
           )}
-          {!isFinal && ticket.status !== "waiting_for_merchant" && (
+          {!isFinal && assignedToMe && ticket.status !== "waiting_for_merchant" && (
             <Button variant="outline" onClick={() => changeStatus("waiting_for_merchant")} disabled={busy}>
               <Clock3 className="mr-2 h-4 w-4" /> Wait for merchant
             </Button>
           )}
-          {!chatEnded && <Button variant="destructive" onClick={() => void endChat()} disabled={busy}><PhoneOff className="mr-2 h-4 w-4" /> End chat</Button>}
-          {!isFinal && <Button onClick={() => { setResolutionSummary(ticket.resolution_summary || ticket.resolution || ""); setResolveOpen(true); }}><CircleCheck className="mr-2 h-4 w-4" /> Resolve</Button>}
+          {!chatEnded && assignedToMe && <Button variant="destructive" onClick={() => void endChat()} disabled={busy}><PhoneOff className="mr-2 h-4 w-4" /> End chat</Button>}
+          {!isFinal && assignedToMe && <Button onClick={() => { setResolutionSummary(ticket.resolution_summary || ticket.resolution || ""); setResolveOpen(true); }}><CircleCheck className="mr-2 h-4 w-4" /> Resolve</Button>}
           {ticket.status === "resolved" && chatEnded && <Button variant="outline" onClick={() => changeStatus("closed", { resolutionSummary: ticket.resolution_summary || ticket.resolution })}><Archive className="mr-2 h-4 w-4" /> Close case</Button>}
           {isFinal && <Button variant="outline" onClick={() => changeStatus("open")}><RotateCcw className="mr-2 h-4 w-4" /> Reopen</Button>}
         </div>
@@ -288,8 +326,20 @@ function SupportCasePage() {
               {!chatEnded && (
                 <div className="space-y-2 border-t pt-3">
                   <Label>Reply to merchant</Label>
-                  <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Write a clear update, ask a question, or explain the fix…" />
-                  <Button onClick={() => send(message, false)} disabled={busy || !message.trim()}><Send className="mr-2 h-4 w-4" /> Send live message</Button>
+                  {!ticket.assigned_admin_id && (
+                    <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">Claim this case to connect directly with the merchant.</div>
+                  )}
+                  {assignedToOther && (
+                    <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">This conversation is currently owned by {assignee?.full_name || assignee?.email || "another admin"}.</div>
+                  )}
+                  <Textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={4}
+                    disabled={!assignedToMe}
+                    placeholder={assignedToMe ? "Write a clear update, ask a question, or explain the fix…" : "Claim the case before replying"}
+                  />
+                  <Button onClick={() => send(message, false)} disabled={busy || !message.trim() || !assignedToMe}><Send className="mr-2 h-4 w-4" /> Send live message</Button>
                 </div>
               )}
             </CardContent>

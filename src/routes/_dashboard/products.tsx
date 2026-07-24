@@ -291,7 +291,17 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
           <div className="space-y-2">
             <Label>Barcode</Label>
             <div className="flex gap-1">
-              <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
+              <Input
+                value={form.barcode}
+                onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  void runLookup(form.barcode);
+                }}
+                placeholder="Scan or type a barcode"
+                autoComplete="off"
+              />
               <Button type="button" size="icon" variant="outline" onClick={() => setScanning(true)} title="Scan with camera" aria-label="Scan barcode with camera">
                 <Camera className="size-4" aria-hidden="true" />
               </Button>
@@ -299,6 +309,7 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
                 {looking ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" aria-hidden="true" />}
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">A USB/Bluetooth scanner that sends Enter will look up the item automatically.</p>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3">

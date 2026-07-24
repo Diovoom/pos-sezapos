@@ -903,6 +903,9 @@ export const adminClaimSupportCase = createServerFn({ method: "POST" })
       .eq("id", data.ticketId)
       .maybeSingle();
     if (!ticket) throw new Error("Support case not found");
+    if (ticket.assigned_admin_id && ticket.assigned_admin_id !== context.userId) {
+      throw new Error("This case is already claimed by another admin");
+    }
 
     await updateSupportTicketCompat(supabaseAdmin, data.ticketId, {
       assigned_admin_id: context.userId,
@@ -923,6 +926,49 @@ export const adminClaimSupportCase = createServerFn({ method: "POST" })
       entityId: data.ticketId,
       storeId: ticket.store_id,
       details: { previous_status: ticket.status, previous_assignee: ticket.assigned_admin_id },
+    });
+    return { ok: true };
+  });
+
+export const adminReleaseSupportCase = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { ticketId: string; reason?: string }) => data)
+  .handler(async ({ data, context }) => {
+    const identity = await ensureSupportStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: ticket } = await (supabaseAdmin.from as any)("support_tickets")
+      .select("id,status,assigned_admin_id,store_id")
+      .eq("id", data.ticketId)
+      .maybeSingle();
+    if (!ticket) throw new Error("Support case not found");
+    if (!ticket.assigned_admin_id) return { ok: true };
+    if (ticket.assigned_admin_id !== context.userId) {
+      throw new Error("Only the admin who claimed this case can release it");
+    }
+
+    const reason = cleanText(data.reason || "Released for another support admin.", 1000);
+    await updateSupportTicketCompat(supabaseAdmin, data.ticketId, {
+      assigned_admin_id: null,
+      claimed_at: null,
+      updated_at: new Date().toISOString(),
+    });
+
+    await insertCaseEvent(
+      supabaseAdmin,
+      data.ticketId,
+      identity,
+      context,
+      "released_to_queue",
+      ticket.status,
+      ticket.status,
+      { previous_assignee: ticket.assigned_admin_id, reason },
+    );
+    await auditSupportBestEffort(supabaseAdmin, context, identity, {
+      action: "admin.ticket.release",
+      entity: "ticket",
+      entityId: data.ticketId,
+      storeId: ticket.store_id,
+      details: { previous_assignee: ticket.assigned_admin_id, reason },
     });
     return { ok: true };
   });

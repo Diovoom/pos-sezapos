@@ -1,53 +1,74 @@
 // Standalone Vite build for the bundled Capacitor Android shell.
 //
-// This intentionally does not use the hosted web Vite configuration — the
-// Android app is a plain client-side SPA, not a TanStack Start SSR bundle.
-// Output goes to android-webdir/ which Capacitor packages into the APK via
-// `bunx cap sync android`.
-//
-// Aliases below let the shell reuse production POS components without
-// pulling in SSR / server-fn only code paths:
-//   - @/integrations/supabase/client    → the shell's native Supabase client
-//                                         (distinct `seza-native-auth` storage)
-//   - @/components/pos/ManagerOverrideDialog
-//   - @/components/SupportRequestListener → safe shell stubs (no server fns).
+// This intentionally does not use the hosted TanStack Start configuration.
+// The APK is a local client-side SPA, so every asset path must stay relative
+// and all public Supabase configuration must have the same safe fallbacks as
+// the hosted build. Missing VITE_* values used to produce an invalid client
+// before React mounted, which appeared as a permanent white screen.
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 
+const FALLBACK_SUPABASE_URL = "https://xbirnlsbckbcjbxqkmjn.supabase.co";
+const FALLBACK_SUPABASE_PUBLISHABLE_KEY =
+  "sb_publishable_D06VufRmNrbKI6Fe0OF70Q_Wzr5pkBn";
+const FALLBACK_SUPABASE_PROJECT_ID = "xbirnlsbckbcjbxqkmjn";
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
+  const supabaseUrl =
+    env.VITE_SUPABASE_URL || env.SUPABASE_URL || FALLBACK_SUPABASE_URL;
+  const supabasePublishableKey =
+    env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    env.SUPABASE_PUBLISHABLE_KEY ||
+    FALLBACK_SUPABASE_PUBLISHABLE_KEY;
+  const supabaseProjectId =
+    env.VITE_SUPABASE_PROJECT_ID ||
+    env.SUPABASE_PROJECT_ID ||
+    FALLBACK_SUPABASE_PROJECT_ID;
+
   return {
     root: path.resolve(__dirname, "capacitor-shell"),
     publicDir: false,
+    // Capacitor loads index.html from a bundled local origin. Relative URLs
+    // prevent /assets/* from resolving against the wrong Android WebView root.
+    base: "./",
     define: {
-      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(env.VITE_SUPABASE_URL),
+      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(supabaseUrl),
       "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(
-        env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        supabasePublishableKey,
       ),
-      "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(env.VITE_SUPABASE_PROJECT_ID),
+      "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(
+        supabaseProjectId,
+      ),
     },
     resolve: {
       alias: [
-        // Native-only Supabase client (must come BEFORE the generic '@' alias).
         {
           find: /^@\/integrations\/supabase\/client$/,
           replacement: path.resolve(__dirname, "capacitor-shell/supabase.ts"),
         },
-        // Server-fn dependent components → safe shell stubs.
         {
           find: /^@\/components\/pos\/ManagerOverrideDialog$/,
-          replacement: path.resolve(__dirname, "capacitor-shell/stubs/ManagerOverrideDialog.tsx"),
+          replacement: path.resolve(
+            __dirname,
+            "capacitor-shell/stubs/ManagerOverrideDialog.tsx",
+          ),
         },
         {
           find: /^@\/components\/SupportRequestListener$/,
-          replacement: path.resolve(__dirname, "capacitor-shell/stubs/SupportRequestListener.tsx"),
+          replacement: path.resolve(
+            __dirname,
+            "capacitor-shell/stubs/SupportRequestListener.tsx",
+          ),
         },
-        // Camera scanner removed from the APK — physical scanners only.
         {
           find: /^@\/components\/pos\/BarcodeScanner$/,
-          replacement: path.resolve(__dirname, "capacitor-shell/stubs/BarcodeScanner.tsx"),
+          replacement: path.resolve(
+            __dirname,
+            "capacitor-shell/stubs/BarcodeScanner.tsx",
+          ),
         },
         { find: "@", replacement: path.resolve(__dirname, "src") },
       ],
@@ -58,6 +79,7 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       target: "es2020",
       sourcemap: false,
+      chunkSizeWarningLimit: 900,
     },
   };
 });
