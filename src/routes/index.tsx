@@ -16,7 +16,6 @@ import {
   Gauge,
   HardDriveDownload,
   Headphones,
-  KeyRound,
   Laptop,
   LockKeyhole,
   MonitorSmartphone,
@@ -27,7 +26,6 @@ import {
   ScanLine,
   ShieldCheck,
   ShoppingBag,
-  ShoppingCart,
   Smartphone,
   Sparkles,
   Store,
@@ -242,8 +240,8 @@ function LandingPage() {
         <div className="mx-auto max-w-7xl px-6 pb-20 pt-16 sm:pt-20 lg:px-8 lg:pb-28 lg:pt-24">
           <div className="mx-auto max-w-4xl text-center">
             <Reveal>
-              <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-blue-200/80 bg-white/80 px-3.5 py-2 text-xs font-semibold text-blue-700 shadow-sm backdrop-blur dark:border-blue-300/15 dark:bg-white/5 dark:text-blue-200">
-                <BadgeCheck className="size-4" /> Built for the stores that keep communities moving
+              <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-blue-800 bg-blue-800 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-sm dark:border-blue-500 dark:bg-blue-700">
+                <BadgeCheck className="size-4 text-emerald-300" /> Complete store operations platform
               </div>
               <h1 className="mt-7 text-balance text-5xl font-black tracking-[-0.045em] text-slate-950 sm:text-6xl lg:text-[5.25rem] lg:leading-[0.98] dark:text-white">
                 Run the whole store from one simple POS.
@@ -270,7 +268,7 @@ function LandingPage() {
           </div>
 
           <Reveal className="relative mx-auto mt-14 max-w-6xl lg:mt-18" delay={120}>
-            <div className="absolute -inset-6 -z-10 rounded-[42px] bg-gradient-to-r from-blue-500/20 via-cyan-300/10 to-blue-700/15 blur-2xl" />
+            <div className="absolute -inset-6 -z-10 rounded-[42px] bg-blue-100/80 blur-2xl dark:bg-blue-900/25" />
             <div className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-slate-950 p-2 shadow-[0_45px_110px_-45px_rgba(15,23,42,0.7)] sm:p-3">
               <div className="flex items-center justify-between rounded-t-[22px] bg-slate-900 px-4 py-3 text-xs text-slate-400">
                 <div className="flex items-center gap-2">
@@ -286,17 +284,17 @@ function LandingPage() {
               <img src={homeSell.url} alt="SEZA POS register showing the checkout workspace" className="block w-full rounded-b-[22px] bg-white" />
             </div>
 
-            <div className="seza-float-card absolute -left-4 top-24 hidden w-52 rounded-2xl border border-white/70 bg-white/90 p-4 shadow-xl backdrop-blur md:block dark:border-white/10 dark:bg-slate-900/90">
+            <div className="seza-float-card absolute -left-4 top-24 hidden w-40 rounded-2xl border border-blue-200 bg-white p-4 shadow-xl md:block dark:border-blue-400/15 dark:bg-slate-900">
               <div className="flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-xl bg-amber-100 text-amber-700"><WifiOff className="size-5" /></span>
-                <div><div className="text-sm font-bold">Offline cash mode</div><div className="text-xs text-muted-foreground">Keep the register moving</div></div>
+                <span className="grid size-9 place-items-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10"><Check className="size-5" /></span>
+                <div className="text-sm font-black text-blue-950 dark:text-blue-100">Online</div>
               </div>
             </div>
 
-            <div className="seza-float-card seza-float-card-delay absolute -right-4 bottom-24 hidden w-56 rounded-2xl border border-white/70 bg-white/90 p-4 shadow-xl backdrop-blur md:block dark:border-white/10 dark:bg-slate-900/90">
+            <div className="seza-float-card seza-float-card-delay absolute -right-4 bottom-24 hidden w-40 rounded-2xl border border-blue-200 bg-blue-800 p-4 text-white shadow-xl md:block dark:border-blue-400/20 dark:bg-blue-700">
               <div className="flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-xl bg-blue-100 text-blue-700"><KeyRound className="size-5" /></span>
-                <div><div className="text-sm font-bold">Manager protected</div><div className="text-xs text-muted-foreground">Approvals stay accountable</div></div>
+                <span className="grid size-9 place-items-center rounded-full bg-white/15 text-emerald-300"><Check className="size-5" /></span>
+                <div className="text-sm font-black">Offline</div>
               </div>
             </div>
           </Reveal>
@@ -325,7 +323,7 @@ function LandingPage() {
         <Reveal className="mx-auto max-w-7xl">
           <Link
             to="/hardware"
-            className="group relative grid overflow-hidden rounded-[30px] border border-blue-200 bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 px-6 py-8 text-white shadow-[0_28px_80px_-38px_rgba(37,99,235,0.9)] transition-all hover:-translate-y-0.5 hover:shadow-[0_36px_90px_-38px_rgba(37,99,235,1)] sm:px-9 lg:grid-cols-[1fr_auto] lg:items-center lg:px-12"
+            className="group relative grid overflow-hidden rounded-[30px] border border-blue-900 bg-blue-800 px-6 py-8 text-white shadow-[0_28px_80px_-38px_rgba(30,64,175,0.9)] transition-all hover:-translate-y-0.5 hover:bg-blue-900 hover:shadow-[0_36px_90px_-38px_rgba(30,64,175,1)] sm:px-9 lg:grid-cols-[1fr_auto] lg:items-center lg:px-12"
           >
             <div className="seza-grid-bg absolute inset-0 opacity-15" />
             <div className="relative">
@@ -543,7 +541,7 @@ function LandingPage() {
       </section>
 
       <section className="px-6 pb-24 lg:px-8">
-        <Reveal className="relative mx-auto max-w-7xl overflow-hidden rounded-[36px] bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 px-6 py-16 text-center text-white shadow-[0_40px_100px_-40px_rgba(37,99,235,0.8)] sm:px-12 lg:py-20">
+        <Reveal className="relative mx-auto max-w-7xl overflow-hidden rounded-[36px] border border-blue-900 bg-blue-800 px-6 py-16 text-center text-white shadow-[0_40px_100px_-40px_rgba(30,64,175,0.8)] sm:px-12 lg:py-20">
           <div className="seza-grid-bg absolute inset-0 opacity-15" />
           <div className="relative mx-auto max-w-3xl">
             <div className="mx-auto grid size-14 place-items-center rounded-2xl border border-white/25 bg-white/10 backdrop-blur"><Store className="size-7" /></div>

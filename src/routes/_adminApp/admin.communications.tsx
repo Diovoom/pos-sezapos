@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import {
+  adminEndSupportChat,
   adminListCommunications,
   adminGetSupportCase,
   adminSendSupportMessage,
@@ -15,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Search, Send, UserCheck, ExternalLink, RefreshCw } from "lucide-react";
+import { MessageSquare, Search, Send, UserCheck, ExternalLink, RefreshCw, PhoneOff } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { ADMIN_ACTIVE_CHAT_KEY, rememberAdminChat } from "@/components/admin/AdminPersistentChat";
@@ -34,6 +35,7 @@ function CommunicationsPage() {
   const list = useServerFn(adminListCommunications);
   const getCase = useServerFn(adminGetSupportCase);
   const send = useServerFn(adminSendSupportMessage);
+  const endChat = useServerFn(adminEndSupportChat);
   const claim = useServerFn(adminClaimSupportCase);
   const markRead = useServerFn(adminMarkCommunicationRead);
   const qc = useQueryClient();
@@ -124,6 +126,23 @@ function CommunicationsPage() {
     }
   }
 
+
+  async function endSelectedChat() {
+    if (!selectedId || !selected) return;
+    if (!window.confirm("End this live chat? The case and transcript will remain saved.")) return;
+    setBusy(true);
+    try {
+      await endChat({ data: { ticketId: selectedId, reason: "Live chat ended by SEZA Support." } });
+      toast.success("Live chat ended");
+      rememberAdminChat(null);
+      refresh();
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not end live chat");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function claimSelected() {
     if (!selectedId) return;
     setBusy(true);
@@ -144,7 +163,7 @@ function CommunicationsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Live Communications</h1>
           <p className="text-sm text-muted-foreground">
-            Real-time chat with Android register users. A conversation stays active until the support case is resolved or closed.
+            Real-time chat with register users and website visitors. An admin can end the live chat without deleting the support case or transcript.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => { listQuery.refetch(); caseQuery.refetch(); }}>
@@ -183,7 +202,7 @@ function CommunicationsPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="truncate font-medium" data-no-translate>{row.store?.name ?? row.requester_email ?? "Merchant"}</div>
+                    <div className="truncate font-medium" data-no-translate>{row.visitor_name ?? row.store?.name ?? row.requester_email ?? "Merchant"}</div>
                     <div className="truncate text-sm" data-no-translate>{row.subject}</div>
                   </div>
                   {row.unread && <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />}
@@ -216,7 +235,7 @@ function CommunicationsPage() {
             <>
               <div className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
                 <div>
-                  <div className="font-semibold" data-no-translate>{selected.store?.name ?? selected.ticket.requester_email ?? "Merchant"}</div>
+                  <div className="font-semibold" data-no-translate>{selected.ticket.visitor_name ?? selected.store?.name ?? selected.ticket.requester_email ?? "Merchant"}</div>
                   <div className="text-sm" data-no-translate>{selected.ticket.subject}</div>
                   <div className="mt-1 flex flex-wrap gap-1">
                     <Badge variant="outline">#{selected.ticket.ticket_number}</Badge>
@@ -227,6 +246,9 @@ function CommunicationsPage() {
                 <div className="flex gap-2">
                   {!selected.ticket.assigned_admin_id && (
                     <Button size="sm" variant="outline" onClick={claimSelected} disabled={busy}><UserCheck className="mr-1 h-4 w-4" /> Claim</Button>
+                  )}
+                  {selected.ticket.chat_status !== "ended" && (
+                    <Button size="sm" variant="destructive" onClick={() => void endSelectedChat()} disabled={busy}><PhoneOff className="mr-1 h-4 w-4" /> End chat</Button>
                   )}
                   <Button asChild size="sm" variant="outline">
                     <Link to="/admin/support/$ticketId" params={{ ticketId: selected.ticket.id }}>Full case <ExternalLink className="ml-1 h-3 w-3" /></Link>
@@ -245,7 +267,7 @@ function CommunicationsPage() {
                     <div key={item.id} className={`flex ${merchant ? "justify-start" : "justify-end"}`}>
                       <div className={`max-w-[78%] rounded-xl px-3 py-2 ${merchant ? "bg-muted" : "bg-primary text-primary-foreground"}`}>
                         <div className={`mb-1 text-[11px] ${merchant ? "text-muted-foreground" : "text-primary-foreground/70"}`}>
-                          {merchant ? (item.author_name || selected.requester?.full_name || "Merchant") : (item.author_name || item.author_email || "SEZA Support")} · {format(new Date(item.created_at), "MMM d, h:mm a")}
+                          {merchant ? (item.author_name || selected.ticket.visitor_name || selected.requester?.full_name || "Merchant") : (item.author_name || item.author_email || "SEZA Support")} · {format(new Date(item.created_at), "MMM d, h:mm a")}
                         </div>
                         <div className="whitespace-pre-wrap text-sm" data-no-translate>{item.body}</div>
                       </div>
@@ -255,8 +277,8 @@ function CommunicationsPage() {
               </div>
 
               <div className="border-t p-4">
-                {["resolved", "closed"].includes(selected.ticket.status) ? (
-                  <div className="rounded-lg bg-muted p-4 text-sm">This support case is complete and the transcript is read-only. Reopen the full case to continue.</div>
+                {selected.ticket.chat_status === "ended" || ["resolved", "closed"].includes(selected.ticket.status) ? (
+                  <div className="rounded-lg bg-muted p-4 text-sm">This live chat has ended and the transcript is read-only. Reopen the full case to continue.</div>
                 ) : (
                   <div className="flex items-end gap-2">
                     <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} placeholder="Reply live to the merchant…" />

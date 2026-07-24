@@ -3,6 +3,7 @@ import { useState } from "react";
 import { LifeBuoy, BookOpen, MessageSquare, Mail, PhoneCall, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
+import { openWebsiteLiveChat } from "@/components/marketing/WebsiteLiveChat";
 import { cn } from "@/lib/utils";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 
@@ -48,9 +49,19 @@ function MarketingSupportPage() {
       </section>
 
       <section className="max-w-6xl mx-auto px-6 pb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border p-6 flex flex-col">
+          <BookOpen className="h-6 w-6 text-primary" />
+          <h3 className="mt-3 font-semibold">Getting started</h3>
+          <p className="mt-1 text-sm text-muted-foreground flex-1">Set up your first store, add products, train employees and take your first sale.</p>
+          <Button asChild variant="outline" className="mt-4"><Link to="/guide">Open user guide</Link></Button>
+        </div>
+        <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-6 flex flex-col dark:border-blue-400/15 dark:bg-blue-500/5">
+          <MessageSquare className="h-6 w-6 text-blue-700 dark:text-blue-300" />
+          <h3 className="mt-3 font-semibold">Live chat</h3>
+          <p className="mt-1 text-sm text-muted-foreground flex-1">Enter your name and phone number, then connect with SEZA Support from the website.</p>
+          <Button type="button" className="mt-4 bg-blue-700 hover:bg-blue-800" onClick={openWebsiteLiveChat}>Start live chat</Button>
+        </div>
         {[
-          { icon: BookOpen, title: "Getting started", body: "Set up your first store, add products, and take your first sale.", cta: "Create account", to: "/signup" as const },
-          { icon: MessageSquare, title: "Contact us", body: "Talk to a real person about pricing, hardware, or migrations.", cta: "Send a message", to: "/contact" as const },
           { icon: PhoneCall, title: "Call customer service", body: `${LEGAL_CONFIG.phoneDisplay} — tap to call for account, setup, sales, or hardware help.`, href: `tel:${LEGAL_CONFIG.phone}`, cta: "Call now" },
           { icon: Mail, title: "Email support", body: "support@sezapos.com — send account, billing, or register questions here.", href: "mailto:support@sezapos.com", cta: "Email us" },
         ].map((c) => (
@@ -58,11 +69,7 @@ function MarketingSupportPage() {
             <c.icon className="h-6 w-6 text-primary" />
             <h3 className="mt-3 font-semibold">{c.title}</h3>
             <p className="mt-1 text-sm text-muted-foreground flex-1">{c.body}</p>
-            {c.href ? (
-              <Button asChild variant="outline" className="mt-4"><a href={c.href}>{c.cta}</a></Button>
-            ) : (
-              <Button asChild variant="outline" className="mt-4"><Link to={c.to!}>{c.cta}</Link></Button>
-            )}
+            <Button asChild variant="outline" className="mt-4"><a href={c.href}>{c.cta}</a></Button>
           </div>
         ))}
       </section>

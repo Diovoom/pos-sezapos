@@ -27,6 +27,7 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as IndustriesRouteImport } from './routes/industries'
 import { Route as HardwareRouteImport } from './routes/hardware'
+import { Route as GuideRouteImport } from './routes/guide'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -69,6 +70,7 @@ import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]
 import { Route as AdminAppAdminIndexRouteImport } from './routes/_adminApp/admin.index'
 import { Route as LovableSmsSendRouteImport } from './routes/lovable/sms/send'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
+import { Route as ApiPublicLiveChatRouteImport } from './routes/api/public/live-chat'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as DashboardHelpTicketIdRouteImport } from './routes/_dashboard/help.$ticketId'
 import { Route as DashboardEmployeesIdRouteImport } from './routes/_dashboard/employees.$id'
@@ -199,6 +201,11 @@ const IndustriesRoute = IndustriesRouteImport.update({
 const HardwareRoute = HardwareRouteImport.update({
   id: '/hardware',
   path: '/hardware',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GuideRoute = GuideRouteImport.update({
+  id: '/guide',
+  path: '/guide',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeaturesRoute = FeaturesRouteImport.update({
@@ -408,6 +415,11 @@ const LovableSmsSendRoute = LovableSmsSendRouteImport.update({
 const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   id: '/lovable/email/suppression',
   path: '/lovable/email/suppression',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicLiveChatRoute = ApiPublicLiveChatRouteImport.update({
+  id: '/api/public/live-chat',
+  path: '/api/public/live-chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
@@ -644,6 +656,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/faq': typeof FaqRoute
   '/features': typeof FeaturesRoute
+  '/guide': typeof GuideRoute
   '/hardware': typeof HardwareRoute
   '/industries': typeof IndustriesRoute
   '/integrations': typeof IntegrationsRoute
@@ -710,6 +723,7 @@ export interface FileRoutesByFullPath {
   '/employees/$id': typeof DashboardEmployeesIdRoute
   '/help/$ticketId': typeof DashboardHelpTicketIdRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/api/public/live-chat': typeof ApiPublicLiveChatRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/admin/': typeof AdminAppAdminIndexRoute
@@ -744,6 +758,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/faq': typeof FaqRoute
   '/features': typeof FeaturesRoute
+  '/guide': typeof GuideRoute
   '/hardware': typeof HardwareRoute
   '/industries': typeof IndustriesRoute
   '/integrations': typeof IntegrationsRoute
@@ -810,6 +825,7 @@ export interface FileRoutesByTo {
   '/employees/$id': typeof DashboardEmployeesIdRoute
   '/help/$ticketId': typeof DashboardHelpTicketIdRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/api/public/live-chat': typeof ApiPublicLiveChatRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/admin': typeof AdminAppAdminIndexRoute
@@ -848,6 +864,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/faq': typeof FaqRoute
   '/features': typeof FeaturesRoute
+  '/guide': typeof GuideRoute
   '/hardware': typeof HardwareRoute
   '/industries': typeof IndustriesRoute
   '/integrations': typeof IntegrationsRoute
@@ -914,6 +931,7 @@ export interface FileRoutesById {
   '/_dashboard/employees/$id': typeof DashboardEmployeesIdRoute
   '/_dashboard/help/$ticketId': typeof DashboardHelpTicketIdRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/api/public/live-chat': typeof ApiPublicLiveChatRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/lovable/sms/send': typeof LovableSmsSendRoute
   '/_adminApp/admin/': typeof AdminAppAdminIndexRoute
@@ -950,6 +968,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/faq'
     | '/features'
+    | '/guide'
     | '/hardware'
     | '/industries'
     | '/integrations'
@@ -1016,6 +1035,7 @@ export interface FileRouteTypes {
     | '/employees/$id'
     | '/help/$ticketId'
     | '/api/public/health'
+    | '/api/public/live-chat'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/admin/'
@@ -1050,6 +1070,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/faq'
     | '/features'
+    | '/guide'
     | '/hardware'
     | '/industries'
     | '/integrations'
@@ -1116,6 +1137,7 @@ export interface FileRouteTypes {
     | '/employees/$id'
     | '/help/$ticketId'
     | '/api/public/health'
+    | '/api/public/live-chat'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/admin'
@@ -1153,6 +1175,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/faq'
     | '/features'
+    | '/guide'
     | '/hardware'
     | '/industries'
     | '/integrations'
@@ -1219,6 +1242,7 @@ export interface FileRouteTypes {
     | '/_dashboard/employees/$id'
     | '/_dashboard/help/$ticketId'
     | '/api/public/health'
+    | '/api/public/live-chat'
     | '/lovable/email/suppression'
     | '/lovable/sms/send'
     | '/_adminApp/admin/'
@@ -1257,6 +1281,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   FaqRoute: typeof FaqRoute
   FeaturesRoute: typeof FeaturesRoute
+  GuideRoute: typeof GuideRoute
   HardwareRoute: typeof HardwareRoute
   IndustriesRoute: typeof IndustriesRoute
   IntegrationsRoute: typeof IntegrationsRoute
@@ -1288,6 +1313,7 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
+  ApiPublicLiveChatRoute: typeof ApiPublicLiveChatRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   LovableSmsSendRoute: typeof LovableSmsSendRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
@@ -1436,6 +1462,13 @@ declare module '@tanstack/react-router' {
       path: '/hardware'
       fullPath: '/hardware'
       preLoaderRoute: typeof HardwareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/guide': {
+      id: '/guide'
+      path: '/guide'
+      fullPath: '/guide'
+      preLoaderRoute: typeof GuideRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/features': {
@@ -1730,6 +1763,13 @@ declare module '@tanstack/react-router' {
       path: '/lovable/email/suppression'
       fullPath: '/lovable/email/suppression'
       preLoaderRoute: typeof LovableEmailSuppressionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/live-chat': {
+      id: '/api/public/live-chat'
+      path: '/api/public/live-chat'
+      fullPath: '/api/public/live-chat'
+      preLoaderRoute: typeof ApiPublicLiveChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/health': {
@@ -2170,6 +2210,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   FaqRoute: FaqRoute,
   FeaturesRoute: FeaturesRoute,
+  GuideRoute: GuideRoute,
   HardwareRoute: HardwareRoute,
   IndustriesRoute: IndustriesRoute,
   IntegrationsRoute: IntegrationsRoute,
@@ -2202,6 +2243,7 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
+  ApiPublicLiveChatRoute: ApiPublicLiveChatRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   LovableSmsSendRoute: LovableSmsSendRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,

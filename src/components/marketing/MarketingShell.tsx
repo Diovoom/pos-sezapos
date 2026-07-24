@@ -2,13 +2,13 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import {
   ArrowUpRight,
+  BookOpen,
   ChevronDown,
   Cookie,
   Headphones,
   LockKeyhole,
   Phone,
-  MonitorSmartphone,
-  ShoppingCart,
+  MessageCircle,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { dashboardUrl } from "@/lib/host";
 import { CookieConsent, OPEN_COOKIE_SETTINGS_EVENT } from "@/components/marketing/CookieConsent";
 import { SocialLinks } from "@/components/marketing/SocialLinks";
+import { WebsiteLiveChat, openWebsiteLiveChat } from "@/components/marketing/WebsiteLiveChat";
 import { cn } from "@/lib/utils";
 
 type NavItem = { to: string; label: string; description?: string; badge?: string };
@@ -43,12 +44,14 @@ const PRODUCT_ITEMS: NavItem[] = [
 const RESOURCE_ITEMS: NavItem[] = [
   { to: "/hardware", label: "Hardware", description: "Build a setup that fits your counter" },
   { to: "/security", label: "Security", description: "How SEZA protects merchant data" },
+  { to: "/guide", label: "User guide", description: "Learn the register, inventory, shifts and reports" },
   { to: "/support", label: "Support", description: "Get help with your account or register" },
   { to: "/faq", label: "FAQ", description: "Answers before you get started" },
 ];
 
 const MOBILE_ITEMS: NavItem[] = [
-  { to: "/hardware", label: "Hardware guide", description: "Compatibility and setup planning" },
+  { to: "/guide", label: "User guide", description: "How to use SEZA POS and what is included" },
+  { to: "/hardware", label: "Hardware", description: "Compatibility and setup planning" },
   { to: "/features", label: "All features", description: "Everything inside SEZA POS" },
   { to: "/industries", label: "Industries", description: "See how SEZA fits your business" },
   { to: "/pricing", label: "Pricing", description: "Simple monthly plans" },
@@ -56,7 +59,6 @@ const MOBILE_ITEMS: NavItem[] = [
   { to: "/faq", label: "FAQ", description: "Common questions and answers" },
 ];
 
-const SUPPORT_DISMISSED_KEY = "seza-customer-support-hidden";
 const useBrowserLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
@@ -130,13 +132,13 @@ function MorphingBrand({ expanded }: { expanded: boolean }) {
 function HardwareCartButton() {
   return (
     <Link
-      to="/hardware"
+      to="/guide"
       resetScroll
-      aria-label="Open the SEZA hardware compatibility guide"
-      title="Hardware compatibility guide"
+      aria-label="Open the SEZA POS user guide"
+      title="SEZA POS user guide"
       className="group relative grid size-13 place-items-center rounded-full border-4 border-white bg-blue-600 text-white shadow-[0_15px_35px_-12px_rgba(37,99,235,0.85)] transition-all hover:-translate-y-0.5 hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 dark:border-slate-950"
     >
-      <MonitorSmartphone className="size-6" />
+      <BookOpen className="size-6" />
       <span className="absolute -right-1 -top-2 rounded-full border-2 border-white bg-slate-950 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-white shadow-sm dark:border-slate-950">
         Guide
       </span>
@@ -148,7 +150,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
   const locationHref = useRouterState({ select: (state) => state.location.href });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [supportVisible, setSupportVisible] = useState(false);
+  const [supportVisible, setSupportVisible] = useState(true);
   const [supportOpen, setSupportOpen] = useState(false);
 
   useEffect(() => {
@@ -160,6 +162,8 @@ export function MarketingShell({ children }: { children: ReactNode }) {
 
   useBrowserLayoutEffect(() => {
     setMobileOpen(false);
+    setSupportVisible(true);
+    setSupportOpen(false);
 
     const resetPosition = () => {
       const hash = window.location.hash.slice(1);
@@ -188,26 +192,15 @@ export function MarketingShell({ children }: { children: ReactNode }) {
     };
   }, [locationHref]);
 
-  useEffect(() => {
-    try {
-      setSupportVisible(window.localStorage.getItem(SUPPORT_DISMISSED_KEY) !== "1");
-    } catch {
-      setSupportVisible(true);
-    }
-  }, []);
-
   const openCookieSettings = () => {
     window.dispatchEvent(new Event(OPEN_COOKIE_SETTINGS_EVENT));
   };
 
   const hideSupport = () => {
+    // Close it only for the current page view. It returns on the next website
+    // entry or navigation instead of being permanently hidden in localStorage.
     setSupportOpen(false);
     setSupportVisible(false);
-    try {
-      window.localStorage.setItem(SUPPORT_DISMISSED_KEY, "1");
-    } catch {
-      // The widget can still close when browser storage is unavailable.
-    }
   };
 
   return (
@@ -273,13 +266,13 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 className={cn(
                   "group flex items-center justify-between rounded-2xl border px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.035] hover:shadow-sm",
                   index === 0
-                    ? "border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 dark:border-blue-400/20 dark:from-blue-500/10 dark:to-cyan-400/5"
+                    ? "border-blue-200 bg-blue-50 dark:border-blue-400/20 dark:bg-blue-500/10"
                     : "border-slate-200 bg-card dark:border-white/10",
                 )}
               >
                 <span className="min-w-0">
                   <span className="flex items-center gap-2">
-                    {index === 0 && <ShoppingCart className="size-4 text-primary" />}
+                    {index === 0 && <BookOpen className="size-4 text-primary" />}
                     <span className="text-sm font-bold">{item.label}</span>
                     {item.badge && (
                       <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">{item.badge}</span>
@@ -290,6 +283,20 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
               </Link>
             ))}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileOpen(false);
+                openWebsiteLiveChat();
+              }}
+              className="group flex w-full items-center justify-between rounded-2xl border border-blue-200 bg-blue-700 px-4 py-4 text-left text-white transition-all hover:bg-blue-800"
+            >
+              <span>
+                <span className="flex items-center gap-2 text-sm font-bold"><MessageCircle className="size-4" /> Contact us</span>
+                <span className="mt-1 block text-xs leading-5 text-blue-100">Start a live chat with SEZA Support</span>
+              </span>
+              <ArrowUpRight className="size-4" />
+            </button>
           </nav>
 
           <div className="border-t p-4">
@@ -332,6 +339,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             </div>
 
             <FooterColumn title="Product" links={[
+              { to: "/guide", label: "User guide" },
               { to: "/hardware", label: "Hardware compatibility" },
               { to: "/features", label: "Features" },
               { to: "/industries", label: "Industries" },
@@ -383,7 +391,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         <div className="fixed bottom-24 left-3 z-[65] sm:bottom-6 sm:left-5" aria-label="SEZA customer service">
           {supportOpen && (
             <div className="absolute bottom-0 left-14 w-[min(78vw,300px)] overflow-hidden rounded-3xl border border-blue-200 bg-white shadow-[0_24px_70px_-24px_rgba(30,64,175,0.65)] dark:border-blue-400/20 dark:bg-slate-900">
-              <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 px-5 py-5 text-white">
+              <div className="border-b border-blue-900 bg-blue-800 px-5 py-5 text-white">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-xs font-bold uppercase tracking-[0.16em] text-blue-100">Customer service</div>
@@ -393,7 +401,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                     <X className="size-4" />
                   </button>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-blue-50">Call our customer service number for help with sales, setup, hardware or your account.</p>
+                <p className="mt-3 text-sm leading-6 text-blue-50">Call customer service or start a live chat for help with sales, setup, hardware, pricing, or your account.</p>
               </div>
               <div className="space-y-3 p-4">
                 <a href={`tel:${LEGAL_CONFIG.phone}`} className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-3 text-blue-950 transition-colors hover:bg-blue-100 dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-100 dark:hover:bg-blue-500/15">
@@ -403,6 +411,9 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                     <span className="block text-sm font-black">{LEGAL_CONFIG.phoneDisplay}</span>
                   </span>
                 </a>
+                <button type="button" onClick={() => { setSupportOpen(false); openWebsiteLiveChat(); }} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-700 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800">
+                  <MessageCircle className="size-4" /> Start live chat
+                </button>
                 <Link to="/support" resetScroll className="block text-center text-xs font-semibold text-muted-foreground transition-colors hover:text-primary">Open Support Center</Link>
               </div>
             </div>
@@ -427,6 +438,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         </div>
       )}
 
+      <WebsiteLiveChat />
       <CookieConsent />
     </div>
   );

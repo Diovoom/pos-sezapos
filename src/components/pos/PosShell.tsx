@@ -1,4 +1,4 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Link, useRouter, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { SupportRequestListener } from "@/components/SupportRequestListener";
 
 import {
   ScanBarcode,
+  ArrowLeft,
   Wallet,
   RotateCcw,
   Clock,
@@ -75,6 +76,7 @@ const sb = supabase as any;
 export function PosShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const router = useRouter();
   const qc = useQueryClient();
   const { data: me } = useMe();
   const { t } = useTranslation();
@@ -279,7 +281,25 @@ export function PosShell({ children }: { children: ReactNode }) {
         className="md:hidden fixed top-0 inset-x-0 z-40 h-12 border-b bg-background/95 backdrop-blur flex items-center justify-between px-3"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {isNativeShell && pathname !== "/pos" && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-9 shrink-0"
+              aria-label="Go back"
+              onClick={() => {
+                try {
+                  router.history.back();
+                } catch {
+                  navigate({ to: "/pos" });
+                }
+              }}
+            >
+              <ArrowLeft className="size-5" />
+            </Button>
+          )}
           <StoreLogo className="size-7 rounded-md" />
           <span className="text-sm font-semibold truncate">{me?.store?.name ?? "Store"}</span>
         </div>

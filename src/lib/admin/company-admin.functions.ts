@@ -379,10 +379,10 @@ export const adminOperationsOverview = createServerFn({ method: "GET" })
       safe(supabaseAdmin.from("device_registrations").select("id", { count: "exact", head: true }).eq("status", "active").or(`last_seen_at.is.null,last_seen_at.lt.${offlineCutoff}`), emptyCount),
       safe(supabaseAdmin.from("support_tickets").select("id", { count: "exact", head: true }).not("status", "in", "(resolved,closed)"), emptyCount),
       safe(supabaseAdmin.from("support_tickets").select("id", { count: "exact", head: true }).eq("priority", "urgent").not("status", "in", "(resolved,closed)"), emptyCount),
-      safe(supabaseAdmin.from("support_tickets").select("id", { count: "exact", head: true }).not("status", "in", "(resolved,closed)"), emptyCount),
+      safe(supabaseAdmin.from("support_tickets").select("id", { count: "exact", head: true }).neq("chat_status", "ended"), emptyCount),
       safe((supabaseAdmin.from as any)("merchant_billing_payments").select("amount_paid_cents,status", { count: "exact" }).in("status", ["paid", "succeeded"]).gte("occurred_at", monthStart.toISOString()).limit(1000), emptyRows),
       safe((supabaseAdmin.from as any)("merchant_billing_payments").select("store_id").in("status", ["paid", "succeeded"]).eq("billing_reason", "subscription_create").gte("occurred_at", thirtyDaysAgo).limit(1000), emptyRows),
-      safe(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,status,priority,store_id,assigned_admin_id,updated_at").order("updated_at", { ascending: false }).limit(8), emptyRows),
+      safe(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,status,priority,store_id,assigned_admin_id,chat_status,visitor_name,updated_at").order("updated_at", { ascending: false }).limit(8), emptyRows),
       safe((supabaseAdmin.from as any)("merchant_billing_payments").select("id,store_id,status,amount_paid_cents,currency,occurred_at,environment").order("occurred_at", { ascending: false }).limit(8), emptyRows),
     ]);
 
@@ -409,7 +409,7 @@ export const adminOperationsOverview = createServerFn({ method: "GET" })
       recent_cases: (recentCases.data ?? []).map((row: any) => ({
         ...row,
         store_name: storeMap.get(row.store_id) ?? null,
-        chat_status: ["resolved", "closed"].includes(String(row.status)) ? "ended" : "active",
+        chat_status: row.chat_status ?? (["resolved", "closed"].includes(String(row.status)) ? "ended" : "active"),
       })),
       recent_payments: (recentPayments.data ?? []).map((row: any) => ({ ...row, store_name: storeMap.get(row.store_id) ?? null })),
       partial: [businesses, active, trials, pastDue, registers, openCases].some((result: any) => result.error),
@@ -1060,6 +1060,7 @@ export const adminSendSupportMessage = createServerFn({ method: "POST" })
     if (!data.internal) {
       const patch: Record<string, unknown> = {
         last_admin_read_at: new Date().toISOString(),
+        chat_status: ticket.chat_status === "ended" ? "ended" : "active",
       };
       if (!ticket.first_response_at) patch.first_response_at = new Date().toISOString();
       patch.updated_at = new Date().toISOString();
@@ -1111,11 +1112,11 @@ export const adminListCommunications = createServerFn({ method: "POST" })
       .select("*")
       .order("updated_at", { ascending: false, nullsFirst: false })
       .limit(200);
-    if (data.view === "ended") query = query.in("status", ["resolved", "closed"]);
-    else if (data.view !== "all") query = query.not("status", "in", "(resolved,closed)");
+    if (data.view === "ended") query = query.eq("chat_status", "ended");
+    else if (data.view !== "all") query = query.neq("chat_status", "ended");
     if (cleanText(data.search, 100)) {
       const term = cleanText(data.search, 100).replace(/[%,()]/g, "");
-      query = query.or(`subject.ilike.%${term}%,requester_email.ilike.%${term}%`);
+      query = query.or(`subject.ilike.%${term}%,requester_email.ilike.%${term}%,visitor_name.ilike.%${term}%,visitor_phone.ilike.%${term}%`);
     }
     const { data: tickets, error } = await query;
     if (error) throw new Error(error.message);
@@ -1148,7 +1149,7 @@ export const adminListCommunications = createServerFn({ method: "POST" })
         assignee: assigneeMap.get(ticket.assigned_admin_id) ?? null,
         last_message: lastMessage.get(ticket.id) ?? null,
         unread: Boolean(lastMessage.get(ticket.id)?.created_at) && (!ticket.last_admin_read_at || new Date(lastMessage.get(ticket.id).created_at) > new Date(ticket.last_admin_read_at)),
-        chat_status: ["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active",
+        chat_status: ticket.chat_status ?? (["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active"),
         last_message_at: lastMessage.get(ticket.id)?.created_at ?? ticket.last_message_at ?? ticket.updated_at,
       })),
     };

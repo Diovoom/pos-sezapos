@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import {
+  adminEndSupportChat,
   adminGetSupportCase,
   adminClaimSupportCase,
   adminTransitionSupportCase,
@@ -30,6 +31,7 @@ import {
   Building2,
   User,
   Activity,
+  PhoneOff,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -69,6 +71,7 @@ function SupportCasePage() {
   const claimCase = useServerFn(adminClaimSupportCase);
   const transition = useServerFn(adminTransitionSupportCase);
   const sendMessage = useServerFn(adminSendSupportMessage);
+  const endSupportChat = useServerFn(adminEndSupportChat);
   const qc = useQueryClient();
 
   const query = useQuery({
@@ -124,7 +127,7 @@ function SupportCasePage() {
 
   useEffect(() => {
     if (!data?.ticket?.id) return;
-    if (["resolved", "closed"].includes(String(data.ticket.status))) {
+    if (data.ticket.chat_status === "ended" || ["resolved", "closed"].includes(String(data.ticket.status))) {
       rememberAdminChat(null);
       return;
     }
@@ -159,6 +162,24 @@ function SupportCasePage() {
     }
   }
 
+
+  async function endChat() {
+    const confirmed = window.confirm("End this live chat? The case and transcript will remain available for follow-up.");
+    if (!confirmed) return;
+    setBusy(true);
+    try {
+      await endSupportChat({ data: { ticketId, reason: statusReason.trim() || "Live chat ended by SEZA Support." } });
+      toast.success("Live chat ended");
+      rememberAdminChat(null);
+      setStatusReason("");
+      refresh();
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not end live chat");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function send(body: string, internal: boolean) {
     if (!body.trim()) return;
     setBusy(true);
@@ -179,7 +200,7 @@ function SupportCasePage() {
 
   const { ticket, messages, internal_notes, events, store, requester, assignee, device } = data;
   const isFinal = ticket.status === "resolved" || ticket.status === "closed";
-  const chatEnded = isFinal;
+  const chatEnded = ticket.chat_status === "ended" || isFinal;
 
   return (
     <div className="space-y-6">
@@ -212,6 +233,7 @@ function SupportCasePage() {
               <Clock3 className="mr-2 h-4 w-4" /> Wait for merchant
             </Button>
           )}
+          {!chatEnded && <Button variant="destructive" onClick={() => void endChat()} disabled={busy}><PhoneOff className="mr-2 h-4 w-4" /> End chat</Button>}
           {!isFinal && <Button onClick={() => { setResolutionSummary(ticket.resolution_summary || ticket.resolution || ""); setResolveOpen(true); }}><CircleCheck className="mr-2 h-4 w-4" /> Resolve</Button>}
           {ticket.status === "resolved" && chatEnded && <Button variant="outline" onClick={() => changeStatus("closed", { resolutionSummary: ticket.resolution_summary || ticket.resolution })}><Archive className="mr-2 h-4 w-4" /> Close case</Button>}
           {isFinal && <Button variant="outline" onClick={() => changeStatus("open")}><RotateCcw className="mr-2 h-4 w-4" /> Reopen</Button>}
@@ -226,7 +248,7 @@ function SupportCasePage() {
         <CardContent>
           <div className="whitespace-pre-wrap text-sm" data-no-translate>{problem?.body || "The merchant did not include an opening message."}</div>
           <div className="mt-3 text-xs text-muted-foreground">
-            Reported {format(new Date(ticket.created_at), "MMM d, yyyy 'at' h:mm a")} by {requester?.full_name || ticket.requester_email || "merchant user"}
+            Reported {format(new Date(ticket.created_at), "MMM d, yyyy 'at' h:mm a")} by {ticket.visitor_name || requester?.full_name || ticket.requester_email || "merchant user"}
           </div>
         </CardContent>
       </Card>
@@ -249,7 +271,7 @@ function SupportCasePage() {
                   <div key={item.id} className={`flex ${merchant ? "justify-start" : "justify-end"}`}>
                     <div className={`max-w-[85%] rounded-xl px-3 py-2 ${merchant ? "bg-muted" : "bg-primary text-primary-foreground"}`}>
                       <div className={`mb-1 text-[11px] ${merchant ? "text-muted-foreground" : "text-primary-foreground/75"}`}>
-                        {merchant ? (item.author_name || requester?.full_name || item.author_email || "Merchant") : (item.author_name || item.author_email || "SEZA Support")} · {format(new Date(item.created_at), "MMM d, h:mm a")}
+                        {merchant ? (item.author_name || ticket.visitor_name || requester?.full_name || item.author_email || "Merchant") : (item.author_name || item.author_email || "SEZA Support")} · {format(new Date(item.created_at), "MMM d, h:mm a")}
                       </div>
                       <div className="whitespace-pre-wrap text-sm" data-no-translate>{item.body}</div>
                     </div>
@@ -259,11 +281,11 @@ function SupportCasePage() {
 
               {chatEnded && (
                 <div className="rounded-lg border bg-muted/40 p-4 text-sm">
-                  <div className="font-medium">This case is complete</div>
-                  <div className="text-muted-foreground">The transcript remains saved. Reopen the case to continue the conversation.</div>
+                  <div className="font-medium">This live chat has ended</div>
+                  <div className="text-muted-foreground">The transcript and support case remain saved. Reopen the case to continue the conversation.</div>
                 </div>
               )}
-              {!isFinal && (
+              {!chatEnded && (
                 <div className="space-y-2 border-t pt-3">
                   <Label>Reply to merchant</Label>
                   <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Write a clear update, ask a question, or explain the fix…" />
@@ -297,7 +319,7 @@ function SupportCasePage() {
             <CardContent className="space-y-3 text-sm">
               <ContextRow icon={Building2} label="Business" value={store?.name || "—"} />
               {store && <Button asChild variant="outline" size="sm" className="w-full"><Link to="/admin/businesses/$storeId" params={{ storeId: store.id }}>Open business workspace</Link></Button>}
-              <ContextRow icon={User} label="Requester" value={requester?.full_name || ticket.requester_email || "—"} note={requester?.employee_id ? `Employee ${requester.employee_id}` : undefined} />
+              <ContextRow icon={User} label="Requester" value={ticket.visitor_name || requester?.full_name || ticket.requester_email || "—"} note={ticket.visitor_phone || (requester?.employee_id ? `Employee ${requester.employee_id}` : undefined)} />
               <ContextRow icon={Smartphone} label="POS register" value={device?.label || "Not attached"} note={device?.last_seen_at ? `Last seen ${formatDistanceToNow(new Date(device.last_seen_at), { addSuffix: true })}` : undefined} />
               <ContextRow icon={Activity} label="Last message" value={ticket.last_message_at ? formatDistanceToNow(new Date(ticket.last_message_at), { addSuffix: true }) : "No messages"} />
               <div className="rounded-lg border p-3">

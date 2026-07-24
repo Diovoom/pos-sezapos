@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  adminEndSupportChat,
   adminGetSupportCase,
   adminListCommunications,
   adminMarkCommunicationRead,
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ExternalLink, MessageCircle, Minus, Send, X } from "lucide-react";
+import { ExternalLink, MessageCircle, Minus, PhoneOff, Send, X } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -57,6 +58,7 @@ export function AdminPersistentChat() {
   const list = useServerFn(adminListCommunications);
   const getCase = useServerFn(adminGetSupportCase);
   const sendMessage = useServerFn(adminSendSupportMessage);
+  const endChat = useServerFn(adminEndSupportChat);
   const markRead = useServerFn(adminMarkCommunicationRead);
   const qc = useQueryClient();
 
@@ -241,6 +243,26 @@ export function AdminPersistentChat() {
     pathname === "/admin/communications" ||
     pathname.startsWith("/admin/support/");
 
+
+  async function endSelectedChat() {
+    if (!selectedId) return;
+    const confirmed = window.confirm("End this live chat? The support case and transcript will stay available in Admin.");
+    if (!confirmed) return;
+    setBusy(true);
+    try {
+      await endChat({ data: { ticketId: selectedId, reason: "Live chat ended by SEZA Support." } });
+      toast.success("Live chat ended");
+      setOpen(false);
+      rememberAdminChat(null);
+      setSelectedId(null);
+      refresh();
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not end live chat");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function send() {
     if (!selectedId || !message.trim()) return;
     setBusy(true);
@@ -269,7 +291,7 @@ export function AdminPersistentChat() {
                 <MessageCircle className="h-4 w-4" /> Merchant support
               </div>
               <div className="truncate text-xs text-primary-foreground/80" data-no-translate>
-                {selected?.store?.name ?? selectedRow?.store?.name ?? selected?.ticket?.requester_email ?? "Merchant"}
+                {selected?.ticket?.visitor_name ?? selectedRow?.visitor_name ?? selected?.store?.name ?? selectedRow?.store?.name ?? selected?.ticket?.requester_email ?? "Merchant"}
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -310,7 +332,7 @@ export function AdminPersistentChat() {
               <SelectContent>
                 {activeRows.map((row: any) => (
                   <SelectItem key={row.id} value={row.id}>
-                    <span data-no-translate>{row.store?.name ?? row.requester_email ?? "Merchant"} — {row.subject}</span>
+                    <span data-no-translate>{row.visitor_name ?? row.store?.name ?? row.requester_email ?? "Merchant"} — {row.subject}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -323,20 +345,30 @@ export function AdminPersistentChat() {
                 <Badge variant="outline">{selected?.ticket?.status ?? selectedRow?.status ?? "active"}</Badge>
               </div>
               {selectedId && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() =>
-                    navigate({
-                      to: "/admin/support/$ticketId",
-                      params: { ticketId: selectedId },
-                    })
-                  }
-                >
-                  Open case <ExternalLink className="ml-1 h-3 w-3" />
-                </Button>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => void endSelectedChat()}
+                    disabled={busy}
+                  >
+                    <PhoneOff className="mr-1 h-3.5 w-3.5" /> End chat
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      navigate({
+                        to: "/admin/support/$ticketId",
+                        params: { ticketId: selectedId },
+                      })
+                    }
+                  >
+                    Open case <ExternalLink className="ml-1 h-3 w-3" />
+                  </Button>
+                </div>
               )}
             </div>
           </div>
@@ -410,7 +442,7 @@ export function AdminPersistentChat() {
         >
           <MessageCircle className="mr-2 h-5 w-5" />
           <span className="max-w-[180px] truncate" data-no-translate>
-            {selectedRow?.store?.name ?? "Merchant chat"}
+            {selectedRow?.visitor_name ?? selectedRow?.store?.name ?? "Merchant chat"}
           </span>
           {unreadCount > 0 && (
             <span className="ml-2 min-w-5 rounded-full bg-destructive px-1.5 py-0.5 text-xs text-destructive-foreground">

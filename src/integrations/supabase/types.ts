@@ -1867,6 +1867,7 @@ export type Database = {
           created_at: string
           id: string
           internal: boolean
+          sender_kind: string
           ticket_id: string
         }
         Insert: {
@@ -1876,6 +1877,7 @@ export type Database = {
           created_at?: string
           id?: string
           internal?: boolean
+          sender_kind?: string
           ticket_id: string
         }
         Update: {
@@ -1885,6 +1887,7 @@ export type Database = {
           created_at?: string
           id?: string
           internal?: boolean
+          sender_kind?: string
           ticket_id?: string
         }
         Relationships: [
@@ -1912,6 +1915,11 @@ export type Database = {
           last_admin_read_at: string | null
           last_merchant_read_at: string | null
           last_message_at: string | null
+          guest_token_hash: string | null
+          source: string | null
+          visitor_ip_hash: string | null
+          visitor_name: string | null
+          visitor_phone: string | null
           priority: string
           requester_email: string | null
           requester_id: string | null
@@ -1939,6 +1947,11 @@ export type Database = {
           last_admin_read_at?: string | null
           last_merchant_read_at?: string | null
           last_message_at?: string | null
+          guest_token_hash?: string | null
+          source?: string | null
+          visitor_ip_hash?: string | null
+          visitor_name?: string | null
+          visitor_phone?: string | null
           priority?: string
           requester_email?: string | null
           requester_id?: string | null
@@ -1966,6 +1979,11 @@ export type Database = {
           last_admin_read_at?: string | null
           last_merchant_read_at?: string | null
           last_message_at?: string | null
+          guest_token_hash?: string | null
+          source?: string | null
+          visitor_ip_hash?: string | null
+          visitor_name?: string | null
+          visitor_phone?: string | null
           priority?: string
           requester_email?: string | null
           requester_id?: string | null

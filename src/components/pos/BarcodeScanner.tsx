@@ -2,30 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Camera, X } from "lucide-react";
-import { isNativeMode } from "@/lib/native";
-
-// Lazy-load the ML Kit plugin so the web bundle doesn't pull native code.
-async function tryNativeScan(): Promise<string | null> {
-  if (!isNativeMode()) return null;
-  try {
-    const mod = await import("@capacitor-mlkit/barcode-scanning");
-    const { BarcodeScanner: MlKit } = mod;
-    const supported = await MlKit.isSupported();
-    if (!supported.supported) return null;
-    const perm = await MlKit.checkPermissions();
-    if (perm.camera !== "granted") {
-      const req = await MlKit.requestPermissions();
-      if (req.camera !== "granted") return null;
-    }
-    const { barcodes } = await MlKit.scan();
-    return barcodes?.[0]?.rawValue ?? null;
-  } catch {
-    return null;
-  }
-}
-
-
-
 export type BarcodeFormatName =
   | "AZTEC"
   | "CODABAR"
@@ -96,6 +72,8 @@ type Props = {
 
 /**
  * Live camera barcode scanner using @zxing/browser.
+ * The Android register build aliases this component to a physical-scanner
+ * stub, keeping the unused ML Kit native dependency out of the APK.
  * Auto-closes on the first successful decode. Falls back gracefully
  * when camera permission is denied.
  */
@@ -115,14 +93,6 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
     const tipTimer = window.setTimeout(() => setShowTip(true), 5000);
 
     (async () => {
-      // Try the native ML Kit full-screen scanner first on Android.
-      const nativeCode = await tryNativeScan();
-      if (nativeCode) {
-        if (cancelled) return;
-        onDetected(nativeCode);
-        onOpenChange(false);
-        return;
-      }
       try {
         setStatus("starting");
         setError(null);
