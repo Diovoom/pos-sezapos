@@ -77,7 +77,7 @@ async function activeConfiguration(preferred?: TerminalDriverId): Promise<Termin
   if (!data || !driver || driver === "none") throw new Error("Activate a Stripe Terminal in Owner Dashboard → Settings → Payment terminals");
   if (!locationId) throw new Error("Add the Stripe Terminal Location ID (tml_…) to the active terminal configuration");
   return {
-    driver: driver === "stripe" ? "stripe-tap-to-pay" : driver,
+    driver: (driver as string) === "stripe" ? "stripe-tap-to-pay" : driver,
     locationId,
     testMode: config.test_mode !== false,
     serial: data.serial,
