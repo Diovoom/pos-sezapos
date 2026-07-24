@@ -695,7 +695,7 @@ export const adminListMerchantBillingPayments = createServerFn({ method: "POST" 
     ]);
     if (error) throw new Error(error.message);
 
-    const storeIds = Array.from(new Set((rows ?? []).map((row: any) => row.store_id).filter(Boolean)));
+    const storeIds = Array.from(new Set((rows ?? []).map((row: any) => row.store_id).filter(Boolean))) as string[];
     const storeMap = new Map<string, any>();
     if (storeIds.length) {
       const { data: stores } = await supabaseAdmin.from("stores").select("id,name,email,plan_tier,plan_status").in("id", storeIds);
