@@ -18,7 +18,7 @@ async function currentIdentity(context: ServerContext) {
     context.supabase.auth.getUser(),
   ]);
   if (error) throw new Error("Authorization check failed");
-  const roles = (roleRows ?? []).map((row: any) => String(row.role));
+  const roles: string[] = (roleRows ?? []).map((row: any) => String(row.role));
   const email = String(userRes?.user?.email ?? "").toLowerCase();
   return { roles, email };
 }
@@ -518,7 +518,7 @@ export const adminUpdateCompanyStaff = createServerFn({ method: "POST" })
     if (data.fullName !== undefined) profilePatch.full_name = cleanText(data.fullName, 160) || target.full_name || target.email;
     if (data.phone !== undefined) profilePatch.phone = cleanText(data.phone, 80) || null;
     if (Object.keys(profilePatch).length) {
-      const profileUpdate = await supabaseAdmin.from("profiles").update(profilePatch).eq("id", data.userId);
+      const profileUpdate = await supabaseAdmin.from("profiles").update(profilePatch as any).eq("id", data.userId);
       if (profileUpdate.error) throw new Error(profileUpdate.error.message);
     }
 
@@ -695,7 +695,7 @@ export const adminListMerchantBillingPayments = createServerFn({ method: "POST" 
     ]);
     if (error) throw new Error(error.message);
 
-    const storeIds = Array.from(new Set((rows ?? []).map((row: any) => row.store_id).filter(Boolean)));
+    const storeIds = Array.from(new Set((rows ?? []).map((row: any) => row.store_id).filter(Boolean))) as string[];
     const storeMap = new Map<string, any>();
     if (storeIds.length) {
       const { data: stores } = await supabaseAdmin.from("stores").select("id,name,email,plan_tier,plan_status").in("id", storeIds);
@@ -1121,8 +1121,8 @@ export const adminListCommunications = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     const ticketIds = (tickets ?? []).map((row: any) => row.id);
-    const storeIds = Array.from(new Set((tickets ?? []).map((row: any) => row.store_id).filter(Boolean)));
-    const assigneeIds = Array.from(new Set((tickets ?? []).map((row: any) => row.assigned_admin_id).filter(Boolean)));
+    const storeIds = Array.from(new Set((tickets ?? []).map((row: any) => row.store_id).filter(Boolean))) as string[];
+    const assigneeIds = Array.from(new Set((tickets ?? []).map((row: any) => row.assigned_admin_id).filter(Boolean))) as string[];
 
     const [{ data: notes }, { data: stores }, { data: assignees }] = await Promise.all([
       ticketIds.length

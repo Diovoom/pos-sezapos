@@ -422,6 +422,47 @@ export type Database = {
         }
         Relationships: []
       }
+      customers: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       device_pairing_codes: {
         Row: {
           code_hash: string
@@ -628,6 +669,47 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_acceptances: {
+        Row: {
+          accepted_at: string
+          id: string
+          privacy_version: string
+          recorded_at: string
+          source: string
+          store_id: string
+          terms_version: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          id?: string
+          privacy_version: string
+          recorded_at?: string
+          source?: string
+          store_id: string
+          terms_version: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          id?: string
+          privacy_version?: string
+          recorded_at?: string
+          source?: string
+          store_id?: string
+          terms_version?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_acceptances_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_attempts: {
         Row: {
           amount: number
@@ -727,6 +809,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_settings: {
+        Row: {
+          billing_email: string
+          company_name: string
+          created_at: string
+          default_trial_days: number
+          id: string
+          incident_email: string
+          live_chat_enabled: boolean
+          maintenance_message: string | null
+          maintenance_mode: boolean
+          merchant_banner: string | null
+          support_email: string
+          support_sla_minutes: number
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          billing_email?: string
+          company_name?: string
+          created_at?: string
+          default_trial_days?: number
+          id?: string
+          incident_email?: string
+          live_chat_enabled?: boolean
+          maintenance_message?: string | null
+          maintenance_mode?: boolean
+          merchant_banner?: string | null
+          support_email?: string
+          support_sla_minutes?: number
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          billing_email?: string
+          company_name?: string
+          created_at?: string
+          default_trial_days?: number
+          id?: string
+          incident_email?: string
+          live_chat_enabled?: boolean
+          maintenance_message?: string | null
+          maintenance_mode?: boolean
+          merchant_banner?: string | null
+          support_email?: string
+          support_sla_minutes?: number
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       products: {
         Row: {
@@ -1206,6 +1342,63 @@ export type Database = {
           },
         ]
       }
+      sale_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          metadata: Json
+          method: string
+          provider: string | null
+          provider_reference: string | null
+          sale_id: string
+          status: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          metadata?: Json
+          method: string
+          provider?: string | null
+          provider_reference?: string | null
+          sale_id: string
+          status?: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          metadata?: Json
+          method?: string
+          provider?: string | null
+          provider_reference?: string | null
+          sale_id?: string
+          status?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_payments_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_payments_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales: {
         Row: {
           amount_tendered: number | null
@@ -1213,13 +1406,18 @@ export type Database = {
           change_due: number | null
           created_at: string
           customer_email: string | null
+          customer_id: string | null
           customer_name: string | null
           customer_phone: string | null
           discount: number
+          external_order_ref: string | null
+          guest_count: number | null
           id: string
           idempotency_key: string | null
+          kitchen_status: string
           notes: string | null
           offline_created_at: string | null
+          order_type: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           receipt_number: number | null
           refund_status: string
@@ -1229,6 +1427,7 @@ export type Database = {
           store_id: string | null
           subtotal: number
           synced_from_offline: boolean
+          table_label: string | null
           tax: number
           terminal_ref: string | null
           total: number
@@ -1239,13 +1438,18 @@ export type Database = {
           change_due?: number | null
           created_at?: string
           customer_email?: string | null
+          customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           discount?: number
+          external_order_ref?: string | null
+          guest_count?: number | null
           id?: string
           idempotency_key?: string | null
+          kitchen_status?: string
           notes?: string | null
           offline_created_at?: string | null
+          order_type?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           receipt_number?: number | null
           refund_status?: string
@@ -1255,6 +1459,7 @@ export type Database = {
           store_id?: string | null
           subtotal?: number
           synced_from_offline?: boolean
+          table_label?: string | null
           tax?: number
           terminal_ref?: string | null
           total?: number
@@ -1265,13 +1470,18 @@ export type Database = {
           change_due?: number | null
           created_at?: string
           customer_email?: string | null
+          customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           discount?: number
+          external_order_ref?: string | null
+          guest_count?: number | null
           id?: string
           idempotency_key?: string | null
+          kitchen_status?: string
           notes?: string | null
           offline_created_at?: string | null
+          order_type?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           receipt_number?: number | null
           refund_status?: string
@@ -1281,11 +1491,19 @@ export type Database = {
           store_id?: string | null
           subtotal?: number
           synced_from_offline?: boolean
+          table_label?: string | null
           tax?: number
           terminal_ref?: string | null
           total?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_register_session_id_fkey"
             columns: ["register_session_id"]
@@ -1683,12 +1901,24 @@ export type Database = {
         Row: {
           assigned_admin_id: string | null
           category: string
+          chat_ended_at: string | null
+          chat_ended_by: string | null
+          chat_status: string
+          claimed_at: string | null
+          closed_at: string | null
           created_at: string
+          first_response_at: string | null
           id: string
+          last_admin_read_at: string | null
+          last_merchant_read_at: string | null
+          last_message_at: string | null
           priority: string
           requester_email: string | null
           requester_id: string | null
           resolution: string | null
+          resolution_code: string | null
+          resolution_summary: string | null
+          resolved_at: string | null
           status: string
           store_id: string | null
           subject: string
@@ -1698,12 +1928,24 @@ export type Database = {
         Insert: {
           assigned_admin_id?: string | null
           category?: string
+          chat_ended_at?: string | null
+          chat_ended_by?: string | null
+          chat_status?: string
+          claimed_at?: string | null
+          closed_at?: string | null
           created_at?: string
+          first_response_at?: string | null
           id?: string
+          last_admin_read_at?: string | null
+          last_merchant_read_at?: string | null
+          last_message_at?: string | null
           priority?: string
           requester_email?: string | null
           requester_id?: string | null
           resolution?: string | null
+          resolution_code?: string | null
+          resolution_summary?: string | null
+          resolved_at?: string | null
           status?: string
           store_id?: string | null
           subject: string
@@ -1713,12 +1955,24 @@ export type Database = {
         Update: {
           assigned_admin_id?: string | null
           category?: string
+          chat_ended_at?: string | null
+          chat_ended_by?: string | null
+          chat_status?: string
+          claimed_at?: string | null
+          closed_at?: string | null
           created_at?: string
+          first_response_at?: string | null
           id?: string
+          last_admin_read_at?: string | null
+          last_merchant_read_at?: string | null
+          last_message_at?: string | null
           priority?: string
           requester_email?: string | null
           requester_id?: string | null
           resolution?: string | null
+          resolution_code?: string | null
+          resolution_summary?: string | null
+          resolved_at?: string | null
           status?: string
           store_id?: string | null
           subject?: string
@@ -1880,6 +2134,10 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      finalize_pos_sale: {
+        Args: { p_items: Json; p_payments?: Json; p_sale: Json }
+        Returns: Json
+      }
       generate_employee_id: { Args: never; Returns: string }
       generate_store_code: { Args: never; Returns: string }
       has_active_plan: {
@@ -1922,12 +2180,24 @@ export type Database = {
         Returns: {
           assigned_admin_id: string | null
           category: string
+          chat_ended_at: string | null
+          chat_ended_by: string | null
+          chat_status: string
+          claimed_at: string | null
+          closed_at: string | null
           created_at: string
+          first_response_at: string | null
           id: string
+          last_admin_read_at: string | null
+          last_merchant_read_at: string | null
+          last_message_at: string | null
           priority: string
           requester_email: string | null
           requester_id: string | null
           resolution: string | null
+          resolution_code: string | null
+          resolution_summary: string | null
+          resolved_at: string | null
           status: string
           store_id: string | null
           subject: string
@@ -1980,6 +2250,15 @@ export type Database = {
         }[]
       }
       recompute_store_plan: { Args: { _store_id: string }; Returns: undefined }
+      record_legal_acceptance: {
+        Args: {
+          p_accepted_at?: string
+          p_privacy_version: string
+          p_source?: string
+          p_terms_version: string
+        }
+        Returns: string
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       simulate_trial_expiry: { Args: { _store_id: string }; Returns: undefined }

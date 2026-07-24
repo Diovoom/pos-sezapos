@@ -37,7 +37,7 @@ export const getMerchantPlatformNotice = createServerFn({ method: "GET" })
         .limit(1)
         .maybeSingle();
       data = fallback.data?.details
-        ? { ...fallback.data.details, updated_at: fallback.data.created_at }
+        ? { ...(fallback.data.details as Record<string, unknown>), updated_at: fallback.data.created_at }
         : null;
     }
 
