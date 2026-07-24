@@ -7,6 +7,29 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
 
+// Lovable Cloud provides the Supabase connection as server/build environment
+// variables. Vite client code can only read VITE_* variables that are embedded
+// while the application is built. Bridge the automatic Lovable variables into
+// import.meta.env without committing a local .env file or exposing a service key.
+const hostedSupabaseUrl = process.env.SUPABASE_URL;
+const hostedSupabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+const hostedSupabaseProjectId =
+  process.env.SUPABASE_PROJECT_ID ??
+  hostedSupabaseUrl?.match(/^https:\/\/([^.]+)\.supabase\.co\/?$/i)?.[1];
+
+const hostedPublicEnv =
+  hostedSupabaseUrl && hostedSupabasePublishableKey
+    ? {
+        "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(hostedSupabaseUrl),
+        "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(
+          hostedSupabasePublishableKey,
+        ),
+        "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(
+          hostedSupabaseProjectId ?? "",
+        ),
+      }
+    : {};
+
 // The hosted MCP plugin currently fails to normalize TanStack route paths on
 // native Windows builds (for example F:\\pos-sezapos versus F:/pos-sezapos).
 // The MCP build plugin is only development/build tooling; it is not required
@@ -22,5 +45,6 @@ export default defineConfig({
   },
   vite: {
     plugins: enableMcpPlugin ? [mcpPlugin()] : [],
+    define: hostedPublicEnv,
   },
 });
