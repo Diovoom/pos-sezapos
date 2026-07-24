@@ -669,6 +669,47 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_acceptances: {
+        Row: {
+          accepted_at: string
+          id: string
+          privacy_version: string
+          recorded_at: string
+          source: string
+          store_id: string
+          terms_version: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          id?: string
+          privacy_version: string
+          recorded_at?: string
+          source?: string
+          store_id: string
+          terms_version: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          id?: string
+          privacy_version?: string
+          recorded_at?: string
+          source?: string
+          store_id?: string
+          terms_version?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_acceptances_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_attempts: {
         Row: {
           amount: number
@@ -2209,6 +2250,15 @@ export type Database = {
         }[]
       }
       recompute_store_plan: { Args: { _store_id: string }; Returns: undefined }
+      record_legal_acceptance: {
+        Args: {
+          p_accepted_at?: string
+          p_privacy_version: string
+          p_source?: string
+          p_terms_version: string
+        }
+        Returns: string
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       simulate_trial_expiry: { Args: { _store_id: string }; Returns: undefined }
