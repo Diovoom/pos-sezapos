@@ -18,7 +18,7 @@ async function currentIdentity(context: ServerContext) {
     context.supabase.auth.getUser(),
   ]);
   if (error) throw new Error("Authorization check failed");
-  const roles = (roleRows ?? []).map((row: any) => String(row.role));
+  const roles: string[] = (roleRows ?? []).map((row: any) => String(row.role));
   const email = String(userRes?.user?.email ?? "").toLowerCase();
   return { roles, email };
 }
