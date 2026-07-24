@@ -518,7 +518,7 @@ export const adminUpdateCompanyStaff = createServerFn({ method: "POST" })
     if (data.fullName !== undefined) profilePatch.full_name = cleanText(data.fullName, 160) || target.full_name || target.email;
     if (data.phone !== undefined) profilePatch.phone = cleanText(data.phone, 80) || null;
     if (Object.keys(profilePatch).length) {
-      const profileUpdate = await supabaseAdmin.from("profiles").update(profilePatch).eq("id", data.userId);
+      const profileUpdate = await supabaseAdmin.from("profiles").update(profilePatch as any).eq("id", data.userId);
       if (profileUpdate.error) throw new Error(profileUpdate.error.message);
     }
 
