@@ -49,3 +49,10 @@ android/build/
 *~
 pos-sezapos-main/
 SEZA-POS-PRODUCTION-FIX-PATCH/
+
+# Generated local caches and historical editor backups
+.eslintcache
+*.bak
+
+# Previous patch payloads must not be committed inside the source tree
+SEZA-POS-v1.3.0-PRODUCTION-PATCH/

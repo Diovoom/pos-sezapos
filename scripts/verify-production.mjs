@@ -62,6 +62,9 @@ for (const sensitive of [
   "node_modules",
   "dist",
   "android-webdir",
+  ".eslintcache",
+  "*.bak",
+  "SEZA-POS-v1.3.0-PRODUCTION-PATCH",
 ]) {
   const tracked = trackedFiles(sensitive);
   if (tracked.length) failures.push(`Git must not track ${sensitive}: ${tracked.slice(0, 3).join(", ")}`);
@@ -95,6 +98,15 @@ forbidText("src/routes/_dashboard/setup.tsx", 'href="#"', "placeholder legal lin
 requireText("src/routes/_dashboard/setup.tsx", '"record_legal_acceptance"', "versioned legal acceptance RPC");
 requireText("src/routes/signup.tsx", "terms_version: LEGAL_CONFIG.termsVersion", "signup policy version metadata");
 requireText("supabase/migrations/20260723220000_legal_acceptance_records.sql", "CREATE TABLE IF NOT EXISTS public.legal_acceptances", "legal acceptance migration");
+
+// The generated TanStack route tree imports all route modules during SSR.
+// Barcode libraries must remain behind a browser-only dynamic boundary or a
+// CommonJS/ESM interop failure can take down marketing, dashboard, and admin.
+forbidText("src/components/pos/BarcodeScanner.tsx", 'from "@zxing/browser"', "static ZXing browser import");
+forbidText("src/components/pos/BarcodeScanner.tsx", 'from "@zxing/library"', "static ZXing library import");
+forbidText("src/components/pos/AgeVerificationDialog.tsx", "@zxing/library", "ZXing runtime import outside scanner boundary");
+requireText("src/components/pos/BarcodeScanner.tsx", 'import("@zxing/browser")', "browser-only ZXing scanner import");
+requireText("src/components/pos/BarcodeScanner.tsx", 'import("@zxing/library")', "browser-only ZXing runtime import");
 
 const lock = JSON.parse(read("package-lock.json") || "{}");
 const zxing = lock.packages?.["node_modules/@zxing/library"];

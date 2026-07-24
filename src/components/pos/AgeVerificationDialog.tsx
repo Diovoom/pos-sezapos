@@ -6,10 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScanLine, CheckCircle2, XCircle, ShieldAlert, Calendar, Camera, KeyRound, Trash2, X, Loader2 } from "lucide-react";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
-import * as ZXing from "@zxing/library";
-import type { BarcodeFormat as BarcodeFormatType } from "@zxing/library";
-const { BarcodeFormat } = ZXing;
-type BarcodeFormat = BarcodeFormatType;
 import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
 import {
   parseIdBarcode,
@@ -441,7 +437,7 @@ export function AgeVerificationDialog({
         open={scannerOpen}
         onOpenChange={(v) => { setScannerOpen(v); if (!v) setScanNote(null); }}
         title="Scan ID barcode"
-        formats={[BarcodeFormat.PDF_417, BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX]}
+        formats={["PDF_417", "QR_CODE", "DATA_MATRIX"]}
         hint="Align the barcode on the back of the ID with the red line. Hold steady 4–6 inches away."
         note={scanNote}
         onDetected={(code) => {

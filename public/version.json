@@ -1,10 +1,11 @@
 {
-  "version": "1.3.0",
-  "build": 6,
+  "version": "1.3.1",
+  "build": 7,
   "minimumSupportedVersion": "1.0.0",
   "mandatory": false,
   "updateUrl": "https://sezapos.com/support",
   "releaseNotes": [
+    "Prevent ZXing barcode modules from loading during SSR so marketing, owner, and admin routes start reliably",
     "Atomic and idempotent POS sale finalization",
     "Immediate offline cash checkout with durable retry states",
     "Protection against losing unsynced records during store reassignment",

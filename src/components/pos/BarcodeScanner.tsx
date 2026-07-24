@@ -1,10 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { BrowserMultiFormatReader } from "@zxing/browser";
-import * as ZXing from "@zxing/library";
-import type { BarcodeFormat as BarcodeFormatType, DecodeHintType as DecodeHintTypeType } from "@zxing/library";
-const { BarcodeFormat, DecodeHintType, NotFoundException } = ZXing;
-type BarcodeFormat = BarcodeFormatType;
-type DecodeHintType = DecodeHintTypeType;
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Camera, X } from "lucide-react";
@@ -31,13 +25,69 @@ async function tryNativeScan(): Promise<string | null> {
 }
 
 
+
+export type BarcodeFormatName =
+  | "AZTEC"
+  | "CODABAR"
+  | "CODE_39"
+  | "CODE_93"
+  | "CODE_128"
+  | "DATA_MATRIX"
+  | "EAN_8"
+  | "EAN_13"
+  | "ITF"
+  | "MAXICODE"
+  | "PDF_417"
+  | "QR_CODE"
+  | "RSS_14"
+  | "RSS_EXPANDED"
+  | "UPC_A"
+  | "UPC_E"
+  | "UPC_EAN_EXTENSION";
+
+type BrowserReaderConstructor = new (
+  hints?: Map<unknown, unknown>,
+  options?: { delayBetweenScanAttempts?: number },
+) => {
+  decodeFromConstraints: (
+    constraints: MediaStreamConstraints,
+    video: HTMLVideoElement,
+    callback: (result: { getText: () => string } | undefined, error: unknown) => void,
+  ) => Promise<{ stop: () => void }>;
+};
+
+type BrowserReaderRuntime = {
+  BrowserMultiFormatReader: BrowserReaderConstructor & {
+    listVideoInputDevices: () => Promise<MediaDeviceInfo[]>;
+  };
+};
+
+type ZXingRuntime = {
+  BarcodeFormat: Record<BarcodeFormatName, unknown>;
+  DecodeHintType: {
+    TRY_HARDER: unknown;
+    POSSIBLE_FORMATS: unknown;
+  };
+  NotFoundException?: new (...args: never[]) => Error;
+};
+
+function unwrapModule<T extends object>(module: T | { default?: T }): T {
+  const candidate = (module as { default?: T }).default;
+  return candidate && typeof candidate === "object" ? candidate : (module as T);
+}
+
+function isNotFoundError(error: unknown, constructor?: new (...args: never[]) => Error) {
+  if (constructor && error instanceof constructor) return true;
+  return (error as { name?: string } | null)?.name === "NotFoundException";
+}
+
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onDetected: (code: string) => void;
   title?: string;
   /** Restrict decoding to a specific set of barcode formats (e.g. [PDF_417]). */
-  formats?: BarcodeFormat[];
+  formats?: BarcodeFormatName[];
   /** Extra guidance shown under the video frame. */
   hint?: string;
   /** Persistent inline note shown below the video (e.g. after a non-matching decode). */
@@ -64,13 +114,6 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
     setShowTip(false);
     const tipTimer = window.setTimeout(() => setShowTip(true), 5000);
 
-    const hints = new Map<DecodeHintType, unknown>();
-    hints.set(DecodeHintType.TRY_HARDER, true);
-    if (formats && formats.length > 0) {
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
-    }
-    const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 200 });
-
     (async () => {
       // Try the native ML Kit full-screen scanner first on Android.
       const nativeCode = await tryNativeScan();
@@ -83,6 +126,40 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
       try {
         setStatus("starting");
         setError(null);
+
+        // Keep ZXing out of the SSR module graph. TanStack's generated route
+        // tree imports every route eagerly, so a top-level ZXing import can
+        // crash the marketing site, owner dashboard and admin before a scanner
+        // is ever opened. Dynamic imports execute only in this client effect.
+        const [browserNamespace, zxingNamespace] = await Promise.all([
+          import("@zxing/browser"),
+          import("@zxing/library"),
+        ]);
+        if (cancelled) return;
+
+        const { BrowserMultiFormatReader } = unwrapModule(
+          browserNamespace as unknown as BrowserReaderRuntime | { default?: BrowserReaderRuntime },
+        );
+        const { BarcodeFormat, DecodeHintType, NotFoundException } = unwrapModule(
+          zxingNamespace as unknown as ZXingRuntime | { default?: ZXingRuntime },
+        );
+
+        if (!BrowserMultiFormatReader || !BarcodeFormat || !DecodeHintType) {
+          throw new Error("Barcode scanner failed to initialize");
+        }
+
+        const hints = new Map<unknown, unknown>();
+        hints.set(DecodeHintType.TRY_HARDER, true);
+        if (formats && formats.length > 0) {
+          const possibleFormats = formats
+            .map((format) => BarcodeFormat[format])
+            .filter((format) => format !== undefined);
+          if (possibleFormats.length > 0) {
+            hints.set(DecodeHintType.POSSIBLE_FORMATS, possibleFormats);
+          }
+        }
+
+        const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 200 });
         const list = await BrowserMultiFormatReader.listVideoInputDevices();
         if (cancelled) return;
         setDevices(list);
@@ -111,7 +188,7 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
             return;
           }
           // Silently ignore per-frame "no barcode found" — spams console otherwise.
-          if (err && !(err instanceof NotFoundException)) {
+          if (err && !isNotFoundError(err, NotFoundException)) {
             // eslint-disable-next-line no-console
             // console.debug("[scanner]", err);
           }
