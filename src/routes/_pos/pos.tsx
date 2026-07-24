@@ -503,7 +503,7 @@ export function PosPage() {
       const allocations: PaymentAllocation[] = payment.allocations?.length
         ? payment.allocations
         : [{
-            method: payment.method === "tap" ? "tap_to_pay" : payment.method === "split" ? "other" : payment.method,
+            method: payment.method === "split" ? "card" : payment.method,
             amount: total,
             reference: payment.reference,
             cardBrand: payment.cardBrand,
