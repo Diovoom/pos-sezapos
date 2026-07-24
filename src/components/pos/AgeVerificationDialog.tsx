@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScanLine, CheckCircle2, XCircle, ShieldAlert, Calendar, Camera, KeyRound, Trash2, X, Loader2 } from "lucide-react";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
-import ZXing from "@zxing/library";
+import * as ZXing from "@zxing/library";
 import type { BarcodeFormat as BarcodeFormatType } from "@zxing/library";
 const { BarcodeFormat } = ZXing;
 type BarcodeFormat = BarcodeFormatType;

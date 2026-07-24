@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
-import ZXing from "@zxing/library";
+import * as ZXing from "@zxing/library";
 import type { BarcodeFormat as BarcodeFormatType, DecodeHintType as DecodeHintTypeType } from "@zxing/library";
 const { BarcodeFormat, DecodeHintType, NotFoundException } = ZXing;
 type BarcodeFormat = BarcodeFormatType;
