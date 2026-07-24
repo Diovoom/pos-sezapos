@@ -25,11 +25,12 @@ export const verifyManagerOverride = createServerFn({ method: "POST" })
     const admin: any = supabaseAdmin;
     const ctx = context as { userId: string };
 
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("id, full_name, first_name, last_name, email, status, pin_hash")
-      .eq("employee_id", data.employee_id)
-      .maybeSingle();
+    // Resolve caller's store first so the employee_id lookup is tenant-scoped.
+    // Without this, any signed-in employee could probe employee IDs, statuses,
+    // and PINs for staff at unrelated stores via the distinct error messages.
+    const { data: caller } = await admin
+      .from("profiles").select("store_id").eq("id", ctx.userId).maybeSingle();
+    const callerStoreId = caller?.store_id ?? null;
 
     const deny = async (reason: string) => {
       await admin.from("audit_log").insert({
@@ -40,6 +41,15 @@ export const verifyManagerOverride = createServerFn({ method: "POST" })
       });
       throw new Error(reason);
     };
+
+    if (!callerStoreId) return deny("No employee found with that ID");
+
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("id, full_name, first_name, last_name, email, status, pin_hash, store_id")
+      .eq("employee_id", data.employee_id)
+      .eq("store_id", callerStoreId)
+      .maybeSingle();
 
     if (!profile) return deny("No employee found with that ID");
     if (profile.status !== "active") return deny("Manager account is disabled");
