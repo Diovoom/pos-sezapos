@@ -769,6 +769,60 @@ export type Database = {
           },
         ]
       }
+      platform_settings: {
+        Row: {
+          billing_email: string
+          company_name: string
+          created_at: string
+          default_trial_days: number
+          id: string
+          incident_email: string
+          live_chat_enabled: boolean
+          maintenance_message: string | null
+          maintenance_mode: boolean
+          merchant_banner: string | null
+          support_email: string
+          support_sla_minutes: number
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          billing_email?: string
+          company_name?: string
+          created_at?: string
+          default_trial_days?: number
+          id?: string
+          incident_email?: string
+          live_chat_enabled?: boolean
+          maintenance_message?: string | null
+          maintenance_mode?: boolean
+          merchant_banner?: string | null
+          support_email?: string
+          support_sla_minutes?: number
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          billing_email?: string
+          company_name?: string
+          created_at?: string
+          default_trial_days?: number
+          id?: string
+          incident_email?: string
+          live_chat_enabled?: boolean
+          maintenance_message?: string | null
+          maintenance_mode?: boolean
+          merchant_banner?: string | null
+          support_email?: string
+          support_sla_minutes?: number
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           age_category: string | null
@@ -1806,13 +1860,23 @@ export type Database = {
         Row: {
           assigned_admin_id: string | null
           category: string
+          chat_ended_at: string | null
+          chat_ended_by: string | null
+          chat_status: string
+          claimed_at: string | null
           closed_at: string | null
           created_at: string
+          first_response_at: string | null
           id: string
+          last_admin_read_at: string | null
+          last_merchant_read_at: string | null
+          last_message_at: string | null
           priority: string
           requester_email: string | null
           requester_id: string | null
           resolution: string | null
+          resolution_code: string | null
+          resolution_summary: string | null
           resolved_at: string | null
           status: string
           store_id: string | null
@@ -1823,13 +1887,23 @@ export type Database = {
         Insert: {
           assigned_admin_id?: string | null
           category?: string
+          chat_ended_at?: string | null
+          chat_ended_by?: string | null
+          chat_status?: string
+          claimed_at?: string | null
           closed_at?: string | null
           created_at?: string
+          first_response_at?: string | null
           id?: string
+          last_admin_read_at?: string | null
+          last_merchant_read_at?: string | null
+          last_message_at?: string | null
           priority?: string
           requester_email?: string | null
           requester_id?: string | null
           resolution?: string | null
+          resolution_code?: string | null
+          resolution_summary?: string | null
           resolved_at?: string | null
           status?: string
           store_id?: string | null
@@ -1840,13 +1914,23 @@ export type Database = {
         Update: {
           assigned_admin_id?: string | null
           category?: string
+          chat_ended_at?: string | null
+          chat_ended_by?: string | null
+          chat_status?: string
+          claimed_at?: string | null
           closed_at?: string | null
           created_at?: string
+          first_response_at?: string | null
           id?: string
+          last_admin_read_at?: string | null
+          last_merchant_read_at?: string | null
+          last_message_at?: string | null
           priority?: string
           requester_email?: string | null
           requester_id?: string | null
           resolution?: string | null
+          resolution_code?: string | null
+          resolution_summary?: string | null
           resolved_at?: string | null
           status?: string
           store_id?: string | null
@@ -2055,13 +2139,23 @@ export type Database = {
         Returns: {
           assigned_admin_id: string | null
           category: string
+          chat_ended_at: string | null
+          chat_ended_by: string | null
+          chat_status: string
+          claimed_at: string | null
           closed_at: string | null
           created_at: string
+          first_response_at: string | null
           id: string
+          last_admin_read_at: string | null
+          last_merchant_read_at: string | null
+          last_message_at: string | null
           priority: string
           requester_email: string | null
           requester_id: string | null
           resolution: string | null
+          resolution_code: string | null
+          resolution_summary: string | null
           resolved_at: string | null
           status: string
           store_id: string | null
