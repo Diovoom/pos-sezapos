@@ -79,27 +79,89 @@ export function ReceiptDialog({
 
   const handlePrint = () => {
     if (!ref.current) return;
+
+    // Measure only the real receipt content. Firefox/CUPS otherwise treats the
+    // RP80 driver's 80mm × 210mm media as a full fixed page and feeds the
+    // unused remainder before cutting.
+    const pxPerMm = 96 / 25.4;
+    const contentHeightMm = ref.current.scrollHeight / pxPerMm;
+    const paperHeightMm = Math.max(70, Math.ceil(contentHeightMm + 4));
     const html = ref.current.outerHTML;
     const w = window.open("", "_blank", "width=380,height=700");
+
     if (!w) {
       toast.error("Popup blocked. Allow popups to print.");
       return;
     }
-    const appStyles = Array.from(
-      document.querySelectorAll('style, link[rel="stylesheet"]'),
-    ).map((node) => node.outerHTML).join("\n");
+
     w.document.write(`
-      <!doctype html><html><head><title>Receipt</title>
-      ${appStyles}
-      <style>
-        @page { size: 80mm auto; margin: 0; }
-        html, body { width: 80mm; margin: 0; background: #fff; }
-        body { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-        .receipt-print { width: 80mm !important; max-width: 80mm !important; margin: 0 !important; padding: 8px !important; box-sizing: border-box; }
-        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-      </style></head><body>${html}
-      <script>window.onload=()=>{setTimeout(()=>{window.print();setTimeout(()=>window.close(),500);},150);};</script>
-      </body></html>`);
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Receipt</title>
+          <style>
+            @page {
+              size: 80mm ${paperHeightMm}mm;
+              margin: 0;
+            }
+
+            html, body {
+              width: 80mm !important;
+              height: ${paperHeightMm}mm !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              overflow: hidden !important;
+              background: #fff !important;
+            }
+
+            body {
+              font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                "Liberation Mono", "Courier New", monospace;
+            }
+
+            .receipt-print {
+              box-sizing: border-box !important;
+              width: 80mm !important;
+              max-width: 80mm !important;
+              height: auto !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              padding: 3mm 4mm 0 !important;
+              overflow: hidden !important;
+              break-after: avoid-page !important;
+              page-break-after: avoid !important;
+              color: #000 !important;
+              background: #fff !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+
+            .receipt-print, .receipt-print * {
+              box-sizing: border-box !important;
+            }
+
+            @media print {
+              html, body {
+                width: 80mm !important;
+                height: ${paperHeightMm}mm !important;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          ${html}
+          <script>
+            window.addEventListener("load", () => {
+              window.focus();
+              window.print();
+            });
+            window.addEventListener("afterprint", () => window.close());
+          <\/script>
+        </body>
+      </html>
+    `);
     w.document.close();
   };
 
