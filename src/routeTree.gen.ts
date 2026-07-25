@@ -30,6 +30,7 @@ import { Route as HardwareRouteImport } from './routes/hardware'
 import { Route as GuideRouteImport } from './routes/guide'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as FaqRouteImport } from './routes/faq'
+import { Route as CustomerDisplayRouteImport } from './routes/customer-display'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CareersRouteImport } from './routes/careers'
 import { Route as BlogRouteImport } from './routes/blog'
@@ -216,6 +217,11 @@ const FeaturesRoute = FeaturesRouteImport.update({
 const FaqRoute = FaqRouteImport.update({
   id: '/faq',
   path: '/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomerDisplayRoute = CustomerDisplayRouteImport.update({
+  id: '/customer-display',
+  path: '/customer-display',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -654,6 +660,7 @@ export interface FileRoutesByFullPath {
   '/blog': typeof BlogRoute
   '/careers': typeof CareersRoute
   '/contact': typeof ContactRoute
+  '/customer-display': typeof CustomerDisplayRoute
   '/faq': typeof FaqRoute
   '/features': typeof FeaturesRoute
   '/guide': typeof GuideRoute
@@ -756,6 +763,7 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogRoute
   '/careers': typeof CareersRoute
   '/contact': typeof ContactRoute
+  '/customer-display': typeof CustomerDisplayRoute
   '/faq': typeof FaqRoute
   '/features': typeof FeaturesRoute
   '/guide': typeof GuideRoute
@@ -862,6 +870,7 @@ export interface FileRoutesById {
   '/blog': typeof BlogRoute
   '/careers': typeof CareersRoute
   '/contact': typeof ContactRoute
+  '/customer-display': typeof CustomerDisplayRoute
   '/faq': typeof FaqRoute
   '/features': typeof FeaturesRoute
   '/guide': typeof GuideRoute
@@ -966,6 +975,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/careers'
     | '/contact'
+    | '/customer-display'
     | '/faq'
     | '/features'
     | '/guide'
@@ -1068,6 +1078,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/careers'
     | '/contact'
+    | '/customer-display'
     | '/faq'
     | '/features'
     | '/guide'
@@ -1173,6 +1184,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/careers'
     | '/contact'
+    | '/customer-display'
     | '/faq'
     | '/features'
     | '/guide'
@@ -1279,6 +1291,7 @@ export interface RootRouteChildren {
   BlogRoute: typeof BlogRoute
   CareersRoute: typeof CareersRoute
   ContactRoute: typeof ContactRoute
+  CustomerDisplayRoute: typeof CustomerDisplayRoute
   FaqRoute: typeof FaqRoute
   FeaturesRoute: typeof FeaturesRoute
   GuideRoute: typeof GuideRoute
@@ -1483,6 +1496,13 @@ declare module '@tanstack/react-router' {
       path: '/faq'
       fullPath: '/faq'
       preLoaderRoute: typeof FaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/customer-display': {
+      id: '/customer-display'
+      path: '/customer-display'
+      fullPath: '/customer-display'
+      preLoaderRoute: typeof CustomerDisplayRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -2208,6 +2228,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogRoute: BlogRoute,
   CareersRoute: CareersRoute,
   ContactRoute: ContactRoute,
+  CustomerDisplayRoute: CustomerDisplayRoute,
   FaqRoute: FaqRoute,
   FeaturesRoute: FeaturesRoute,
   GuideRoute: GuideRoute,
