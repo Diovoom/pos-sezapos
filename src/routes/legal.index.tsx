@@ -89,7 +89,8 @@ function LegalCenterPage() {
                 {docs.map((d) => (
                   <Link
                     key={d.slug}
-                    to={`/legal/${d.slug}`}
+                    to="/legal/$slug"
+                    params={{ slug: d.slug }}
                     resetScroll
                     className="group relative rounded-xl border bg-card p-5 transition-all hover:border-primary/50 hover:shadow-md"
                   >

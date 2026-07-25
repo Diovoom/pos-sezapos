@@ -199,6 +199,33 @@ export type Database = {
           },
         ]
       }
+      api_rate_limit_buckets: {
+        Row: {
+          blocked_until: string | null
+          key_hash: string
+          request_count: number
+          scope: string
+          updated_at: string
+          window_started_at: string
+        }
+        Insert: {
+          blocked_until?: string | null
+          key_hash: string
+          request_count?: number
+          scope: string
+          updated_at?: string
+          window_started_at?: string
+        }
+        Update: {
+          blocked_until?: string | null
+          key_hash?: string
+          request_count?: number
+          scope?: string
+          updated_at?: string
+          window_started_at?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -1867,7 +1894,6 @@ export type Database = {
           created_at: string
           id: string
           internal: boolean
-          sender_kind: string
           ticket_id: string
         }
         Insert: {
@@ -1877,7 +1903,6 @@ export type Database = {
           created_at?: string
           id?: string
           internal?: boolean
-          sender_kind?: string
           ticket_id: string
         }
         Update: {
@@ -1887,7 +1912,6 @@ export type Database = {
           created_at?: string
           id?: string
           internal?: boolean
-          sender_kind?: string
           ticket_id?: string
         }
         Relationships: [
@@ -1915,11 +1939,6 @@ export type Database = {
           last_admin_read_at: string | null
           last_merchant_read_at: string | null
           last_message_at: string | null
-          guest_token_hash: string | null
-          source: string | null
-          visitor_ip_hash: string | null
-          visitor_name: string | null
-          visitor_phone: string | null
           priority: string
           requester_email: string | null
           requester_id: string | null
@@ -1947,11 +1966,6 @@ export type Database = {
           last_admin_read_at?: string | null
           last_merchant_read_at?: string | null
           last_message_at?: string | null
-          guest_token_hash?: string | null
-          source?: string | null
-          visitor_ip_hash?: string | null
-          visitor_name?: string | null
-          visitor_phone?: string | null
           priority?: string
           requester_email?: string | null
           requester_id?: string | null
@@ -1979,11 +1993,6 @@ export type Database = {
           last_admin_read_at?: string | null
           last_merchant_read_at?: string | null
           last_message_at?: string | null
-          guest_token_hash?: string | null
-          source?: string | null
-          visitor_ip_hash?: string | null
-          visitor_name?: string | null
-          visitor_phone?: string | null
           priority?: string
           requester_email?: string | null
           requester_id?: string | null
@@ -2137,6 +2146,21 @@ export type Database = {
       can_manage_employee: {
         Args: { _actor: string; _target: string }
         Returns: boolean
+      }
+      cleanup_api_rate_limit_buckets: { Args: never; Returns: number }
+      consume_api_rate_limit: {
+        Args: {
+          p_block_seconds?: number
+          p_key_hash: string
+          p_limit: number
+          p_scope: string
+          p_window_seconds: number
+        }
+        Returns: {
+          allowed: boolean
+          remaining: number
+          retry_after_seconds: number
+        }[]
       }
       current_store_id: { Args: never; Returns: string }
       delete_email: {
