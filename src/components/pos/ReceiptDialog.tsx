@@ -85,15 +85,20 @@ export function ReceiptDialog({
       toast.error("Popup blocked. Allow popups to print.");
       return;
     }
+    const appStyles = Array.from(
+      document.querySelectorAll('style, link[rel="stylesheet"]'),
+    ).map((node) => node.outerHTML).join("\n");
     w.document.write(`
       <!doctype html><html><head><title>Receipt</title>
+      ${appStyles}
       <style>
         @page { size: 80mm auto; margin: 0; }
-        body { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-        .receipt-print { padding: 8px !important; }
-        @media print { body { -webkit-print-color-adjust: exact; } }
+        html, body { width: 80mm; margin: 0; background: #fff; }
+        body { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+        .receipt-print { width: 80mm !important; max-width: 80mm !important; margin: 0 !important; padding: 8px !important; box-sizing: border-box; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
       </style></head><body>${html}
-      <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500);};</script>
+      <script>window.onload=()=>{setTimeout(()=>{window.print();setTimeout(()=>window.close(),500);},150);};</script>
       </body></html>`);
     w.document.close();
   };

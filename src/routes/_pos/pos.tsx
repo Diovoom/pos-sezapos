@@ -139,6 +139,8 @@ export function PosPage() {
   const [voidReason, setVoidReason] = useState("");
   const ageSettings = useMemo(() => loadAgeSettings(), []);
   const searchRef = useRef<HTMLInputElement>(null);
+  const scannerBufferRef = useRef("");
+  const scannerLastKeyAtRef = useRef(0);
   const me = useMe();
   const perms = usePermissions();
   // Trusted permission system only — no role-name fallback. Owners and
@@ -293,6 +295,7 @@ export function PosPage() {
     if (hit) {
       addToCart(hit);
       setSearch("");
+      window.setTimeout(() => searchRef.current?.focus(), 0);
       return true;
     }
     if (quickAddAllowed) {
@@ -305,15 +308,44 @@ export function PosPage() {
 
 
   useEffect(() => {
+    window.setTimeout(() => searchRef.current?.focus(), 50);
+
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         searchRef.current?.focus();
+        return;
+      }
+
+      // USB barcode scanners behave like a very fast keyboard and normally
+      // finish with Enter. Capture that input even if the cashier tapped
+      // somewhere else, while leaving normal typing in form fields alone.
+      const target = e.target as HTMLElement | null;
+      const isEditable = !!target && (
+        target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable
+      );
+      if (isEditable) return;
+
+      const now = Date.now();
+      if (now - scannerLastKeyAtRef.current > 120) scannerBufferRef.current = "";
+      scannerLastKeyAtRef.current = now;
+
+      if (e.key === "Enter") {
+        const code = scannerBufferRef.current.trim();
+        scannerBufferRef.current = "";
+        if (code.length >= 3) {
+          e.preventDefault();
+          if (!tryAddByCode(code)) toast.error(`No product found for ${code}`);
+        }
+        return;
+      }
+      if (e.key.length === 1 && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        scannerBufferRef.current += e.key;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [products, quickAddAllowed]);
 
   const addToCart = (p: Product) => {
     setCart((cur) => {
@@ -671,9 +703,38 @@ export function PosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restrictedItems.length]);
 
+  // Keep a customer-facing second screen synchronized. No product images
+  // are sent: only names, quantities, prices, tax and totals.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const payload = {
+      type: "seza-pos-sale",
+      storeName: store?.name ?? "Store",
+      currency,
+      lines: cart.map((line) => ({
+        id: line.product.id,
+        name: line.product.name,
+        qty: line.qty,
+        unitPrice: Number(line.product.price),
+        lineTotal: Math.round(line.product.price * line.qty * 100) / 100,
+      })),
+      subtotal,
+      discount: discountAmount,
+      tax,
+      total,
+      updatedAt: new Date().toISOString(),
+    };
+    try {
+      localStorage.setItem("seza.customer-display.sale", JSON.stringify(payload));
+      const channel = new BroadcastChannel("seza-customer-display");
+      channel.postMessage(payload);
+      channel.close();
+    } catch { /* second display support is best-effort */ }
+  }, [cart, subtotal, discountAmount, tax, total, currency, store?.name]);
+
   const cartPanel = (
     <>
-      <div className="p-4 md:p-6 pb-3 flex items-center justify-between">
+      <div className="px-4 py-3 flex items-center justify-between">
         <h2 className="font-semibold">{t("pos.current_sale")}</h2>
         {cart.length > 0 && (
           <button onClick={clearCart} className="text-xs text-destructive font-medium hover:bg-destructive/10 px-2 py-1 rounded">
@@ -682,13 +743,13 @@ export function PosPage() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 space-y-2">
         {cart.length === 0 ? (
           <div className="h-full grid place-items-center text-sm text-muted-foreground py-10">{t("pos.cart_empty")}</div>
         ) : (
           cart.map((line) => (
-            <div key={line.product.id} className="flex items-start gap-3 group">
-              <div className="size-10 rounded-md bg-muted grid place-items-center text-xs font-mono font-bold shrink-0">
+            <div key={line.product.id} className="flex items-start gap-2 rounded-lg border bg-background px-3 py-2 group">
+              <div className="size-8 rounded-md bg-muted grid place-items-center text-xs font-mono font-bold shrink-0">
                 {line.qty}
               </div>
               <div className="flex-1 min-w-0">
@@ -724,7 +785,7 @@ export function PosPage() {
         )}
       </div>
 
-      <div className="p-4 md:p-6 border-t bg-surface/40" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+      <div className="p-4 border-t bg-surface/40" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
         <div className="space-y-1.5 mb-4">
           <Row label={t("pos.subtotal")} value={fmtCurrency(subtotal, currency)} />
           {discount && (
@@ -853,7 +914,7 @@ export function PosPage() {
       )}
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        <section className="flex-1 md:flex-[7] flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
+        <section className="flex-1 md:flex-1 flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
 
           <div className="p-4 flex flex-col gap-3">
             <div className="flex gap-2">
@@ -948,7 +1009,7 @@ export function PosPage() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                 {filtered.map((p) => (
                   <ProductTile key={p.id} product={p} currency={currency} onAdd={addToCart} />
                 ))}
@@ -958,7 +1019,7 @@ export function PosPage() {
           </div>
         </section>
 
-        <section className="hidden md:flex w-[420px] flex-none flex-col bg-card">
+        <section className="hidden md:flex w-[clamp(320px,33vw,370px)] flex-none flex-col bg-card">
           {cartPanel}
         </section>
       </div>
@@ -1139,7 +1200,7 @@ function ProductTile({ product, currency, onAdd }: { product: Product; currency:
   return (
     <button
       onClick={() => onAdd(product)}
-      className="aspect-square bg-card border rounded-xl p-3 flex flex-col justify-between text-left hover:border-primary/60 hover:shadow-md transition-all active:scale-[0.97] group relative overflow-hidden"
+      className="h-32 bg-card border rounded-lg p-2.5 flex flex-col justify-between text-left hover:border-primary/60 hover:shadow-md transition-all active:scale-[0.97] group relative overflow-hidden"
     >
       {url && (
         <img
