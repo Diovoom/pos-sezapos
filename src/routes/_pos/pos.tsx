@@ -348,11 +348,24 @@ export function PosPage() {
   }, [products, quickAddAllowed]);
 
   const addToCart = (p: Product) => {
+    const isCustomItem = p.id.startsWith("custom-");
+    const availableStock = Math.max(0, Number(p.stock ?? 0));
+
+    if (!isCustomItem && availableStock <= 0) {
+      toast.error(`${p.name} is sold out. Restock it in Inventory before adding it to a sale.`);
+      return;
+    }
+
     setCart((cur) => {
       const idx = cur.findIndex((l) => l.product.id === p.id);
       if (idx >= 0) {
+        const currentQty = cur[idx].qty;
+        if (!isCustomItem && currentQty >= availableStock) {
+          toast.error(`Only ${availableStock} ${p.name} available.`);
+          return cur;
+        }
         const next = [...cur];
-        next[idx] = { ...next[idx], qty: next[idx].qty + 1 };
+        next[idx] = { ...next[idx], qty: currentQty + 1 };
         return next;
       }
       return [...cur, { product: p, qty: 1 }];
@@ -360,8 +373,21 @@ export function PosPage() {
   };
 
   const setQty = (id: string, qty: number) => {
-    if (qty <= 0) return removeLine(id);
-    setCart((cur) => cur.map((l) => (l.product.id === id ? { ...l, qty } : l)));
+    if (qty <= 0) {
+      removeLine(id);
+      return;
+    }
+
+    setCart((cur) => cur.map((line) => {
+      if (line.product.id !== id) return line;
+      const isCustomItem = line.product.id.startsWith("custom-");
+      const availableStock = Math.max(0, Number(line.product.stock ?? 0));
+      if (!isCustomItem && qty > availableStock) {
+        toast.error(`Only ${availableStock} ${line.product.name} available.`);
+        return line;
+      }
+      return { ...line, qty };
+    }));
   };
   const removeLine = (id: string) => setCart((cur) => cur.filter((l) => l.product.id !== id));
   const clearCart = () => { setCart([]); setAgeVerification(null); setDiscount(null); setLoyalty(null); setLoyaltyRedemption(0); setCartOpen(false); };
@@ -768,12 +794,11 @@ export function PosPage() {
                     size="sm"
                     variant="ghost"
                     className="h-6 px-2 ml-1 text-destructive hover:bg-destructive/10 text-[11px] font-semibold"
-                    onClick={() => { if (canVoid) { setVoidReason(""); setVoidLine(line); } }}
-                    disabled={!canVoid}
-                    title={canVoid ? "Void item" : "Void permission required"}
-                    aria-label="Void item"
+                    onClick={() => removeLine(line.product.id)}
+                    title="Remove item from current cart"
+                    aria-label={`Remove ${line.product.name} from cart`}
                   >
-                    <Trash2 className="size-3 mr-1" /> Void
+                    <Trash2 className="size-3 mr-1" /> Remove
                   </Button>
                 </div>
               </div>

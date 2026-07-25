@@ -80,12 +80,6 @@ export function ReceiptDialog({
   const handlePrint = () => {
     if (!ref.current) return;
 
-    // Measure only the real receipt content. Firefox/CUPS otherwise treats the
-    // RP80 driver's 80mm × 210mm media as a full fixed page and feeds the
-    // unused remainder before cutting.
-    const pxPerMm = 96 / 25.4;
-    const contentHeightMm = ref.current.scrollHeight / pxPerMm;
-    const paperHeightMm = Math.max(70, Math.ceil(contentHeightMm + 4));
     const html = ref.current.outerHTML;
     const w = window.open("", "_blank", "width=380,height=700");
 
@@ -101,53 +95,33 @@ export function ReceiptDialog({
           <meta charset="utf-8" />
           <title>Receipt</title>
           <style>
-            @page {
-              size: 80mm ${paperHeightMm}mm;
-              margin: 0;
-            }
-
+            @page { size: 80mm auto; margin: 0; }
             html, body {
               width: 80mm !important;
-              height: ${paperHeightMm}mm !important;
               min-height: 0 !important;
               margin: 0 !important;
               padding: 0 !important;
-              overflow: hidden !important;
               background: #fff !important;
             }
-
             body {
               font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
                 "Liberation Mono", "Courier New", monospace;
             }
-
             .receipt-print {
               box-sizing: border-box !important;
               width: 80mm !important;
               max-width: 80mm !important;
-              height: auto !important;
               min-height: 0 !important;
+              height: auto !important;
               margin: 0 !important;
-              padding: 3mm 4mm 0 !important;
-              overflow: hidden !important;
-              break-after: avoid-page !important;
-              page-break-after: avoid !important;
+              padding: 3mm 4mm 2mm !important;
               color: #000 !important;
               background: #fff !important;
+              overflow: visible !important;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
-
-            .receipt-print, .receipt-print * {
-              box-sizing: border-box !important;
-            }
-
-            @media print {
-              html, body {
-                width: 80mm !important;
-                height: ${paperHeightMm}mm !important;
-              }
-            }
+            .receipt-print, .receipt-print * { box-sizing: border-box !important; }
           </style>
         </head>
         <body>

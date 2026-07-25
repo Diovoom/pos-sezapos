@@ -170,6 +170,7 @@ function InventoryPage() {
       const minStock = Number(editForm.min_stock);
       if (!editForm.name.trim()) throw new Error("Product name is required");
       if (![price, cost, stock, minStock].every(Number.isFinite)) throw new Error("Enter valid numbers");
+      if (price < 0 || cost < 0 || stock < 0 || minStock < 0) throw new Error("Price, cost, stock, and low-stock alert cannot be negative");
       const { error } = await supabase
         .from("products")
         .update({
@@ -533,7 +534,21 @@ function InventoryPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="inventory-edit-stock">Current stock</Label>
-                  <Input id="inventory-edit-stock" type="number" step="1" value={editForm.stock} onChange={(event) => setEditForm({ ...editForm, stock: event.target.value })} />
+                  <Input id="inventory-edit-stock" type="number" min="0" step="1" value={editForm.stock} onChange={(event) => setEditForm({ ...editForm, stock: event.target.value })} />
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {[1, 5, 10, 25].map((amount) => (
+                      <Button
+                        key={amount}
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setEditForm({ ...editForm, stock: String(Math.max(0, Number(editForm.stock || 0)) + amount) })}
+                      >
+                        +{amount}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="inventory-edit-min-stock">Low-stock alert</Label>

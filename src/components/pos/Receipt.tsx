@@ -54,8 +54,8 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
   return (
     <div
       ref={ref}
-      className="receipt-print bg-white text-black mx-auto p-4 font-mono text-[12px] leading-tight"
-      style={{ width: "80mm", maxWidth: "80mm" }}
+      className="receipt-print bg-white text-black mx-auto font-mono text-[11px] leading-[1.2]"
+      style={{ width: "80mm", maxWidth: "80mm", padding: "3mm 4mm 2mm" }}
     >
       <div className="text-center">
         <div className="text-[16px] font-bold uppercase">{data.store.name ?? "Store"}</div>
@@ -85,7 +85,7 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
 
       {data.lines.map((l, i) => (
         <div key={i} className="mb-1">
-          <div className="truncate">{l.name}</div>
+          <div className="break-words whitespace-normal">{l.name}</div>
           <div className="flex justify-between">
             <span>
               {l.qty} × {fmtCurrency(l.unit_price, cur)}
@@ -147,9 +147,9 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
 
 function Row({ l, r }: { l: string; r: string }) {
   return (
-    <div className="flex justify-between">
-      <span>{l}</span>
-      <span>{r}</span>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-start">
+      <span className="min-w-0">{l}</span>
+      <span className="text-right break-words max-w-[48mm]">{r}</span>
     </div>
   );
 }
