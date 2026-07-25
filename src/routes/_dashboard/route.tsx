@@ -89,7 +89,7 @@ function DashboardLayout() {
     queryKey: ["merchant_platform_notice"],
     queryFn: () => loadPlatformNotice(),
     staleTime: 5_000,
-    refetchInterval: 15_000,
+    refetchInterval: 30_000,
     refetchOnWindowFocus: true,
   });
 

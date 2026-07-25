@@ -12,6 +12,17 @@ export const Route = createFileRoute("/email/unsubscribe")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.email.unsubscribe.view",
+          limit: 60,
+          windowSeconds: 60,
+          blockSeconds: 60,
+          maxBodyBytes: 2048,
+          allowMissingOrigin: true,
+          skipOriginCheck: false,
+        });
+        if (blocked) return blocked;
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -48,6 +59,17 @@ export const Route = createFileRoute("/email/unsubscribe")({
       },
 
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.email.unsubscribe.apply",
+          limit: 20,
+          windowSeconds: 60,
+          blockSeconds: 300,
+          maxBodyBytes: 16384,
+          allowMissingOrigin: true,
+          skipOriginCheck: false,
+        });
+        if (blocked) return blocked;
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -117,7 +139,7 @@ export const Route = createFileRoute("/email/unsubscribe")({
           .maybeSingle()
 
         if (updateError) {
-          console.error('Failed to mark token as used', { error: updateError, token })
+          console.error('Failed to mark unsubscribe token as used', { error: updateError })
           return Response.json({ error: 'Failed to process unsubscribe' }, { status: 500 })
         }
 

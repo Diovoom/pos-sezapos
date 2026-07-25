@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { createClient } from '@supabase/supabase-js'
+import { publicReadRateLimit } from '@/lib/security/rate-limit'
 
 /**
  * Dev-only helper: returns the most recent signup email log entry
@@ -7,6 +8,7 @@ import { createClient } from '@supabase/supabase-js'
  * during local testing. Reads a limited safe projection via service role.
  */
 export const getLatestSignupEmailStatus = createServerFn({ method: 'POST' })
+  .middleware([publicReadRateLimit])
   .inputValidator((input: { email: string }) => {
     if (!input || typeof input.email !== 'string' || !input.email.includes('@')) {
       throw new Error('Invalid email')
@@ -14,6 +16,7 @@ export const getLatestSignupEmailStatus = createServerFn({ method: 'POST' })
     return { email: input.email.toLowerCase().trim().slice(0, 320) }
   })
   .handler(async ({ data }) => {
+    if (process.env.NODE_ENV === 'production') return { status: 'disabled' as const }
     const url = process.env.SUPABASE_URL
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!url || !key) return { status: 'unknown', error: 'server_not_configured' as const }

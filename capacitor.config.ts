@@ -4,7 +4,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 //
 // The Android app is a BUNDLED Capacitor application. All web assets live in
 // `android-webdir/` (produced by `vite.capacitor.config.ts` — see
-// `bun run build:android`). There is NO `server.url` — the WebView loads
+// `npm run android:build`). There is NO `server.url` — the WebView loads
 // local files instantly via the `capacitor://` scheme.
 //
 // Backend access happens over HTTPS:
@@ -23,8 +23,8 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1500,
-      launchAutoHide: true,
+      launchShowDuration: 6000,
+      launchAutoHide: false,
       backgroundColor: "#1e40af",
       showSpinner: false,
       androidSplashResourceName: "splash",

@@ -121,7 +121,7 @@ function AdminLayout() {
   const supportSessionQuery = useQuery({
     queryKey: ["admin_support_session_active"],
     queryFn: () => getSession(),
-    refetchInterval: 5_000,
+    refetchInterval: 15_000,
   });
 
   const activeSession = supportSessionQuery.data?.session as

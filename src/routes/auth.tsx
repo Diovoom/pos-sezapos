@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,9 @@ import { toast } from "sonner";
 import { KeyRound, Loader2, LogIn } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { hasAnyPlatformRole } from "@/lib/platform-roles";
-import { dashboardUrl, marketingUrl } from "@/lib/host";
+import { marketingUrl } from "@/lib/host";
+import { secureOwnerPasswordSignIn, securePasswordReset } from "@/lib/auth/auth.functions";
+import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/auth";
 
 const PLATFORM_STAFF_MSG =
   "Platform administrators cannot sign in here. Use admin.sezapos.com.";
@@ -146,6 +149,10 @@ function OwnerEmailLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const signIn = useServerFn(secureOwnerPasswordSignIn);
+  const cooldown = useAuthCooldown();
+  const [captchaToken, setCaptchaToken] = useState<string>();
+  const [captchaReset, setCaptchaReset] = useState(0);
 
   const finishSignIn = async (userId: string) => {
     if (!(await ensureOwnerWebsiteAccess(userId))) return;
@@ -158,20 +165,27 @@ function OwnerEmailLogin() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (cooldown.active) return;
     setBusy(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const result = await signIn({ data: { email, password, captchaToken } });
+      if (!result.ok || !result.session || !result.user_id) {
+        cooldown.start(result.ok ? 0 : result.retry_after_seconds);
+        toast.error(result.ok ? "Sign in failed" : result.error);
+        return;
+      }
+      const { error } = await supabase.auth.setSession({
+        access_token: result.session.access_token,
+        refresh_token: result.session.refresh_token,
       });
       if (error) throw error;
-      if (!data.user) throw new Error("Sign in failed");
-      await finishSignIn(data.user.id);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Sign in failed");
+      navigate({ to: "/dashboard", replace: true });
+    } catch {
+      toast.error("Sign in is temporarily unavailable. Please try again.");
     } finally {
       setBusy(false);
+      setCaptchaReset((value) => value + 1);
     }
   };
 
@@ -263,15 +277,20 @@ function OwnerEmailLogin() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
-            minLength={6}
+            minLength={8}
           />
         </div>
-        <Button type="submit" className="h-11 w-full" disabled={busy}>
+        <AuthTurnstile onTokenChange={setCaptchaToken} resetKey={captchaReset} />
+        <Button
+          type="submit"
+          className="h-11 w-full"
+          disabled={busy || cooldown.active || (authCaptchaEnabled && !captchaToken)}
+        >
           {busy ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
             <>
-              <LogIn className="mr-2 size-4" /> Sign in
+              <LogIn className="mr-2 size-4" /> {cooldown.active ? `Try again in ${cooldown.seconds}s` : "Sign in"}
             </>
           )}
         </Button>
@@ -286,25 +305,29 @@ function ForgotPasswordLink() {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  const resetPassword = useServerFn(securePasswordReset);
+  const cooldown = useAuthCooldown();
+  const [captchaToken, setCaptchaToken] = useState<string>();
+  const [captchaReset, setCaptchaReset] = useState(0);
 
   const sendReset = async () => {
     if (!email) return;
     setBusy(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: dashboardUrl("/reset-password"),
+      const result = await resetPassword({
+        data: { email, surface: "owner", captchaToken },
       });
-      if (error) throw error;
+      cooldown.start(result.retry_after_seconds);
       toast.success("If that owner email exists, a reset link is on its way.");
       setOpen(false);
       setEmail("");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not send reset email",
-      );
+    } catch {
+      toast.success("If that owner email exists, a reset link is on its way.");
+      setOpen(false);
     } finally {
       setBusy(false);
+      setCaptchaReset((value) => value + 1);
     }
   };
 
@@ -337,11 +360,12 @@ function ForgotPasswordLink() {
               placeholder="owner@example.com"
             />
           </div>
+          <AuthTurnstile onTokenChange={setCaptchaToken} resetKey={captchaReset} />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={sendReset} disabled={busy || !email}>
+            <Button onClick={sendReset} disabled={busy || !email || cooldown.active || (authCaptchaEnabled && !captchaToken)}>
               {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
               <KeyRound className="mr-2 size-4" />
               Send reset link

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { expensiveActionRateLimit } from "@/lib/security/rate-limit";
 import {
   type StripeEnv,
   createStripeClient,
@@ -49,7 +50,7 @@ async function resolveOrCreateCustomer(
  * Uses embedded UI mode; server returns clientSecret.
  */
 export const createSubscriptionCheckout = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, expensiveActionRateLimit])
   .inputValidator((data: { priceId: string; returnUrl: string; environment: StripeEnv }) => {
     if (!VALID_PRICES.has(data.priceId)) throw new Error("Invalid priceId");
     return data;
@@ -94,7 +95,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
  * their subscription, payment method, or view invoices.
  */
 export const createBillingPortalSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, expensiveActionRateLimit])
   .inputValidator((data: { returnUrl?: string; environment: StripeEnv }) => data)
   .handler(async ({ data, context }): Promise<PortalSessionResult> => {
     const { supabase, userId } = context;

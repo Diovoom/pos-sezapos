@@ -49,7 +49,7 @@ function MerchantSupportChat() {
       await (supabase.rpc as any)("merchant_mark_support_read", { _ticket_id: ticketId }).catch(() => undefined);
       return { ticket, messages: notes ?? [], currentUserId: userRes.user.id, currentUserEmail: userRes.user.email ?? null };
     },
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
   });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["merchant-support-chat", ticketId] });

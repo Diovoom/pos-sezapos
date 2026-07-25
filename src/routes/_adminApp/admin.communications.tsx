@@ -52,7 +52,7 @@ function CommunicationsPage() {
   const listQuery = useQuery({
     queryKey: ["admin_communications", view, search],
     queryFn: () => list({ data: { view, search } }),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
   const rows = listQuery.data?.rows ?? [];
@@ -77,7 +77,7 @@ function CommunicationsPage() {
     queryKey: ["admin_support_case", selectedId],
     queryFn: () => getCase({ data: { ticketId: selectedId! } }),
     enabled: !!selectedId,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
   const refresh = () => {

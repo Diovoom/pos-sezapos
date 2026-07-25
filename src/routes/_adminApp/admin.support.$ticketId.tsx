@@ -81,7 +81,7 @@ function SupportCasePage() {
   const query = useQuery({
     queryKey: ["admin_support_case", ticketId],
     queryFn: () => getCase({ data: { ticketId } }),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
   const [message, setMessage] = useState("");

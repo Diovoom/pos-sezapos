@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { expensiveActionRateLimit } from "@/lib/security/rate-limit";
 import {
   type StripeEnv,
   createStripeClient,
@@ -26,7 +27,7 @@ type PaymentIntentResult = { id: string; clientSecret: string } | { error: strin
 type CaptureResult = { id: string; status: string } | { error: string };
 
 export const createTerminalConnectionToken = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, expensiveActionRateLimit])
   .inputValidator((data: { environment: StripeEnv }) => data)
   .handler(async ({ data }): Promise<ConnectionTokenResult> => {
     try {
@@ -39,7 +40,7 @@ export const createTerminalConnectionToken = createServerFn({ method: "POST" })
   });
 
 export const createReaderPaymentIntent = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, expensiveActionRateLimit])
   .inputValidator(
     (data: {
       amountCents: number;
@@ -75,7 +76,7 @@ export const createReaderPaymentIntent = createServerFn({ method: "POST" })
   });
 
 export const captureReaderPaymentIntent = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, expensiveActionRateLimit])
   .inputValidator((data: { paymentIntentId: string; environment: StripeEnv }) => {
     if (!/^pi_[A-Za-z0-9_]+$/.test(data.paymentIntentId)) {
       throw new Error("Invalid paymentIntentId");

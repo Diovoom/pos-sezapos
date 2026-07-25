@@ -55,4 +55,7 @@ SEZA-POS-PRODUCTION-FIX-PATCH/
 *.bak
 
 # Previous patch payloads must not be committed inside the source tree
-SEZA-POS-v1.3.0-PRODUCTION-PATCH/
+SEZA-POS-v*-PRODUCTION-PATCH/
+
+# Local release archives
+*.zip

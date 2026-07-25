@@ -20,6 +20,17 @@ export const Route = createFileRoute("/api/public/pos/support-end")({
     handlers: {
       OPTIONS: () => new Response(null, { status: 204, headers: CORS }),
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.pos.support_end",
+          limit: 20,
+          windowSeconds: 60,
+          blockSeconds: 300,
+          maxBodyBytes: 8192,
+          allowMissingOrigin: true,
+          skipOriginCheck: false,
+        });
+        if (blocked) return blocked;
         const authz = request.headers.get("authorization") ?? "";
         const token = authz.toLowerCase().startsWith("bearer ") ? authz.slice(7).trim() : "";
         if (!token) return json({ error: "Unauthorized" }, 401);

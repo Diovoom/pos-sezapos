@@ -165,5 +165,5 @@ export async function logPaymentAttempt(entry: {
   }
   // Structured console log for local dev visibility.
   // eslint-disable-next-line no-console
-  console.info("[payment]", new Date().toISOString(), entry);
+  if (import.meta.env.DEV) console.info("[payment]", new Date().toISOString(), entry);
 }

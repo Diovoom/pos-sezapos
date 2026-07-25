@@ -17,6 +17,17 @@ export const Route = createFileRoute("/api/public/pos/timeclock")({
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.pos.timeclock",
+          limit: 30,
+          windowSeconds: 60,
+          blockSeconds: 300,
+          maxBodyBytes: 16384,
+          allowMissingOrigin: true,
+          skipOriginCheck: false,
+        });
+        if (blocked) return blocked;
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         if (!supabaseUrl || !serviceKey) return json({ error: "Server configuration error" }, 500);

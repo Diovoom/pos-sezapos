@@ -21,6 +21,17 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/connection
     handlers: {
       OPTIONS: () => new Response(null, { status: 204, headers: CORS }),
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.pos.stripe_connection",
+          limit: 30,
+          windowSeconds: 60,
+          blockSeconds: 300,
+          maxBodyBytes: 8192,
+          allowMissingOrigin: true,
+          skipOriginCheck: false,
+        });
+        if (blocked) return blocked;
         const auth = request.headers.get("authorization") ?? "";
         const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
         if (!token) return json({ error: "Missing bearer token" }, 401);

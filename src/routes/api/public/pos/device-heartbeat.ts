@@ -26,6 +26,17 @@ export const Route = createFileRoute("/api/public/pos/device-heartbeat")({
     handlers: {
       OPTIONS: () => new Response(null, { status: 204, headers: CORS }),
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.pos.device_heartbeat",
+          limit: 180,
+          windowSeconds: 60,
+          blockSeconds: 60,
+          maxBodyBytes: 8192,
+          allowMissingOrigin: true,
+          skipOriginCheck: false,
+        });
+        if (blocked) return blocked;
         let body: Body;
         try {
           body = (await request.json()) as Body;

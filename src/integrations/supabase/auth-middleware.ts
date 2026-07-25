@@ -98,6 +98,20 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       throw new Error('Unauthorized: No user ID found in token');
     }
 
+    // Every authenticated server function gets a cheap process-local safety
+    // ceiling. Sensitive/public actions add a lower durable database-backed
+    // limit in their own handler or middleware.
+    const { enforceRateLimit, requestPath } = await import('@/lib/security/rate-limit.server');
+    await enforceRateLimit({
+      scope: 'server.authenticated',
+      limit: 180,
+      windowSeconds: 60,
+      blockSeconds: 60,
+      identifier: `${data.claims.sub}:${requestPath(request)}`,
+      request,
+      durable: false,
+    });
+
     return next({
       context: {
         supabase,

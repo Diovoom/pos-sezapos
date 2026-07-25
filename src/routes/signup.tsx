@@ -22,8 +22,10 @@ import { toast } from "sonner";
 import { Loader2, Mail, CheckCircle2, RefreshCw, Check } from "lucide-react";
 import { z } from "zod";
 import { getLatestSignupEmailStatus } from "@/lib/auth/verification-status.functions";
-import { dashboardUrl, marketingUrl } from "@/lib/host";
+import { marketingUrl } from "@/lib/host";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
+import { secureMerchantSignUp, secureResendVerification } from "@/lib/auth/auth.functions";
+import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/auth";
 
 const signupSearch = z.object({
   plan: z.enum(["starter", "pro", "business"]).optional(),
@@ -97,6 +99,10 @@ function SignupPage() {
   });
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
+  const signUp = useServerFn(secureMerchantSignUp);
+  const cooldown = useAuthCooldown();
+  const [captchaToken, setCaptchaToken] = useState<string>();
+  const [captchaReset, setCaptchaReset] = useState(0);
 
   const update = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -108,40 +114,43 @@ function SignupPage() {
       toast.error(parsed.error.issues[0]?.message ?? "Please check the form");
       return;
     }
+    if (cooldown.active) return;
     setBusy(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
-        options: {
-          emailRedirectTo: dashboardUrl(
-            `/select-plan${selectedPlan ? `?plan=${selectedPlan}` : ""}`,
-          ),
-          data: {
-            business_name: form.businessName.trim(),
-            time_zone: detectedTz,
-            country: "US",
-            selected_plan: selectedPlan ?? null,
-            legal_accepted_at: new Date().toISOString(),
-            terms_version: LEGAL_CONFIG.termsVersion,
-            privacy_version: LEGAL_CONFIG.privacyVersion,
-          },
+      const result = await signUp({
+        data: {
+          businessName: form.businessName,
+          email: form.email,
+          password: form.password,
+          timeZone: detectedTz,
+          selectedPlan: (selectedPlan as "starter" | "pro" | "business" | undefined) ?? null,
+          termsVersion: LEGAL_CONFIG.termsVersion,
+          privacyVersion: LEGAL_CONFIG.privacyVersion,
+          captchaToken,
         },
       });
-      if (error) throw error;
+      if (!result.ok) {
+        cooldown.start(result.retry_after_seconds);
+        toast.error(result.error);
+        return;
+      }
 
-      if (data.session) {
+      if (result.session) {
+        const { error } = await supabase.auth.setSession({
+          access_token: result.session.access_token,
+          refresh_token: result.session.refresh_token,
+        });
+        if (error) throw error;
         toast.success("Welcome to SEZA POS!");
         navigate({ to: "/select-plan", replace: true });
         return;
       }
       setSent(form.email);
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Could not create your account";
-      toast.error(msg);
+    } catch {
+      toast.error("Could not create your account. Please try again.");
     } finally {
       setBusy(false);
+      setCaptchaReset((value) => value + 1);
     }
   };
 
@@ -255,13 +264,14 @@ function SignupPage() {
                   </span>
                 </label>
 
-                <Button type="submit" className="w-full h-11" disabled={busy}>
+                <AuthTurnstile onTokenChange={setCaptchaToken} resetKey={captchaReset} />
+                <Button type="submit" className="w-full h-11" disabled={busy || cooldown.active || (authCaptchaEnabled && !captchaToken)}>
                   {busy ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
                     <>
                       <CheckCircle2 className="size-4 mr-2" />
-                      Create my store
+                      {cooldown.active ? `Try again in ${cooldown.seconds}s` : "Create my store"}
                     </>
                   )}
                 </Button>
@@ -308,6 +318,10 @@ function SignupPage() {
 function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
   const [cooldown, setCooldown] = useState(60);
   const [resending, setResending] = useState(false);
+  const resendVerification = useServerFn(secureResendVerification);
+  const serverCooldown = useAuthCooldown();
+  const [captchaToken, setCaptchaToken] = useState<string>();
+  const [captchaReset, setCaptchaReset] = useState(0);
   const [devStatus, setDevStatus] = useState<null | {
     status: string;
     error_message?: string | null;
@@ -346,17 +360,20 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
   const resend = async () => {
     setResending(true);
     try {
-      const { error } = await supabase.auth.resend({ type: "signup", email });
-      if (error) throw error;
-      toast.success("Verification email sent again");
+      const result = await resendVerification({ data: { email, captchaToken } });
+      if (!result.ok) {
+        serverCooldown.start(result.retry_after_seconds);
+        toast.error(result.error);
+        return;
+      }
+      toast.success("If the account is awaiting verification, another email was sent.");
       setCooldown(60);
       refresh();
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Could not resend email",
-      );
+    } catch {
+      toast.error("Could not resend email. Please try again later.");
     } finally {
       setResending(false);
+      setCaptchaReset((value) => value + 1);
     }
   };
 
@@ -387,12 +404,13 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
+          <AuthTurnstile onTokenChange={setCaptchaToken} resetKey={captchaReset} />
           <Button
             type="button"
             variant="outline"
             className="w-full"
             onClick={resend}
-            disabled={resending || cooldown > 0}
+            disabled={resending || cooldown > 0 || serverCooldown.active || (authCaptchaEnabled && !captchaToken)}
           >
             {resending ? (
               <Loader2 className="size-4 animate-spin mr-2" />

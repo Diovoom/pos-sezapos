@@ -80,7 +80,7 @@ export function useRolePermissions() {
     refetchOnReconnect: true,
     // Realtime is primary. This small fallback covers deployments where the
     // table was not yet added to the realtime publication.
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 }
 

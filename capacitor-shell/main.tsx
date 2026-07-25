@@ -1,13 +1,13 @@
-import { StrictMode, useEffect, useMemo, useState } from "react";
+import { StrictMode, useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
 import { SplashScreen as SplashScreenUi } from "./screens/SplashScreen";
 import { BrandedBootScreen } from "./screens/BrandedBootScreen";
-import { AppLoadBoundary } from "./screens/AppLoadBoundary";
+import { BootFailureScreen } from "./screens/BootFailureScreen";
 import { createShellRouter } from "./router";
-import { supabase } from "./supabase";
+import { assertNativeSupabaseConfiguration, supabase } from "./supabase";
 import { ExitConfirmToast, initAndroidLifecycle } from "./lifecycle";
 import "@/i18n";
 import "@/styles.css";
@@ -15,26 +15,54 @@ import { startDeviceHeartbeat } from "./lib/deviceHeartbeat";
 import { SupportRequestListener } from "./support/SupportRequestListener";
 import { initializePairing } from "./lib/pairing";
 
-const SESSION_BOOT_TIMEOUT_MS = 4_000;
+const STARTUP_TIMEOUT_MS = 8_000;
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-  return Promise.race([
-    promise,
-    new Promise<null>((resolve) => window.setTimeout(() => resolve(null), ms)),
-  ]);
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(
+      () => reject(new Error(`${label} timed out after ${timeoutMs}ms.`)),
+      timeoutMs,
+    );
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+async function hideNativeSplash(): Promise<void> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const capacitor = (window as any).Capacitor;
+    if (capacitor?.Plugins?.SplashScreen?.hide) {
+      await capacitor.Plugins.SplashScreen.hide({ fadeOutDuration: 300 });
+    }
+  } catch {
+    // The HTML fallback remains visible if the native plugin is unavailable.
+  }
 }
 
 function ShellApp() {
   const [sessionReady, setSessionReady] = useState(false);
   const [booted, setBooted] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  const [runtimeError, setRuntimeError] = useState<unknown>(null);
+
   const queryClient = useMemo(
     () =>
       new QueryClient({
         defaultOptions: {
-          mutations: { networkMode: "always" },
+          mutations: { networkMode: "always", retry: 0 },
           queries: {
             networkMode: "offlineFirst",
+            staleTime: 30_000,
+            gcTime: 5 * 60_000,
             retry: 1,
             refetchOnWindowFocus: false,
           },
@@ -44,76 +72,74 @@ function ShellApp() {
   );
   const router = useMemo(() => createShellRouter(queryClient), [queryClient]);
 
+  const finishBoot = useCallback(() => {
+    setBooted(true);
+    void router.navigate({ to: "/pos", replace: true });
+  }, [router]);
+
   useEffect(() => {
     let alive = true;
-    void initAndroidLifecycle(router, queryClient);
-    const stopHeartbeat = startDeviceHeartbeat();
+    let stopHeartbeat = () => {};
 
-    // Render immediately and give auth a short deadline. A slow/offline
-    // Supabase request must never leave the WebView blank forever.
-    void withTimeout(supabase.auth.getSession(), SESSION_BOOT_TIMEOUT_MS)
-      .then((result) => {
+    const start = async () => {
+      try {
+        await initAndroidLifecycle(router, queryClient);
+        stopHeartbeat = startDeviceHeartbeat();
+
+        const { data } = await withTimeout(
+          supabase.auth.getSession(),
+          STARTUP_TIMEOUT_MS,
+          "Session verification",
+        );
         if (!alive) return;
-        setHasSession(Boolean(result?.data.session));
-      })
-      .catch((error) => {
-        console.warn("[SEZA Android] session restore failed", error);
-        if (alive) setHasSession(false);
-      })
-      .finally(() => {
-        if (alive) setSessionReady(true);
-      });
+        setHasSession(Boolean(data.session));
+        setSessionReady(true);
+      } catch (error) {
+        if (!alive) return;
+        setRuntimeError(error);
+        setSessionReady(true);
+      } finally {
+        await hideNativeSplash();
+      }
+    };
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
-        router.invalidate();
-        if (event === "SIGNED_OUT") {
-          queryClient.clear();
-          setHasSession(false);
-          setBooted(false);
-          void router.navigate({ to: "/auth", replace: true });
-        } else if (event === "SIGNED_IN") {
-          setHasSession(true);
-          setBooted(false);
-        }
+    void start();
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      void router.invalidate();
+      if (event === "SIGNED_OUT") {
+        queryClient.clear();
+        setHasSession(false);
+        setBooted(false);
+        void router.navigate({ to: "/auth", replace: true });
+      } else if (event === "SIGNED_IN") {
+        setHasSession(true);
+        setBooted(false);
       }
     });
 
     void (async () => {
       try {
-        const cap = (window as typeof window & {
-          Capacitor?: { Plugins?: { SplashScreen?: { hide?: (options: unknown) => Promise<void> } } };
-        }).Capacitor;
-        await cap?.Plugins?.SplashScreen?.hide?.({ fadeOutDuration: 300 });
-      } catch {
-        // The React loading screen is already visible.
-      }
-      try {
         const { CapacitorUpdater } = await import("@capgo/capacitor-updater");
         await CapacitorUpdater.notifyAppReady();
       } catch {
-        // Browser preview or updater unavailable.
+        // Not running natively, or updater is unavailable. Startup continues.
       }
     })();
 
     return () => {
       alive = false;
-      sub.subscription.unsubscribe();
+      subscription.subscription.unsubscribe();
       stopHeartbeat();
     };
   }, [router, queryClient]);
 
+  if (runtimeError) return <BootFailureScreen error={runtimeError} />;
   if (!sessionReady) return <SplashScreenUi />;
 
   if (hasSession && !booted) {
-    return (
-      <BrandedBootScreen
-        onReady={() => {
-          setBooted(true);
-          void router.navigate({ to: "/pos", replace: true });
-        }}
-      />
-    );
+    return <BrandedBootScreen onReady={finishBoot} />;
   }
 
   return (
@@ -126,21 +152,22 @@ function ShellApp() {
   );
 }
 
-function renderApp() {
-  const root = document.getElementById("root");
-  if (!root) throw new Error("Android app root element is missing.");
+async function bootstrap() {
+  const rootElement = document.getElementById("root");
+  if (!rootElement) throw new Error("Android shell root element is missing.");
 
-  createRoot(root).render(
-    <StrictMode>
-      <AppLoadBoundary>
+  try {
+    assertNativeSupabaseConfiguration();
+    await withTimeout(initializePairing(), STARTUP_TIMEOUT_MS, "Device pairing initialization");
+    createRoot(rootElement).render(
+      <StrictMode>
         <ShellApp />
-      </AppLoadBoundary>
-    </StrictMode>,
-  );
+      </StrictMode>,
+    );
+  } catch (error) {
+    await hideNativeSplash();
+    createRoot(rootElement).render(<BootFailureScreen error={error} />);
+  }
 }
 
-// Pairing restoration is useful, but it is not allowed to block first paint.
-renderApp();
-void initializePairing().catch((error) => {
-  console.warn("[SEZA Android] pairing restore failed", error);
-});
+void bootstrap();

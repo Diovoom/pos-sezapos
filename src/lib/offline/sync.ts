@@ -321,7 +321,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
     }
     for (const sale of pendingSales) {
       if (sale.register_session_id && blockedSessionIds.has(sale.register_session_id)) {
-        console.info("[sync] sale deferred until local register session syncs", sale.id);
+        if (import.meta.env.DEV) console.info("[sync] sale deferred until local register session syncs", sale.id);
         emitSync({ type: "progress" });
         continue;
       }
@@ -331,7 +331,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
     }
     for (const movement of pendingCash) {
       if (movement.register_session_id && blockedSessionIds.has(movement.register_session_id)) {
-        console.info("[sync] cash movement deferred until local register session syncs", movement.id);
+        if (import.meta.env.DEV) console.info("[sync] cash movement deferred until local register session syncs", movement.id);
         emitSync({ type: "progress" });
         continue;
       }
@@ -362,7 +362,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
         ? currentSales.find((sale) => sale.id === referencedSaleId)
         : undefined;
       if (localSale && localSale.status !== "synced") {
-        console.info("[sync] receipt deferred until sale syncs", action.id);
+        if (import.meta.env.DEV) console.info("[sync] receipt deferred until sale syncs", action.id);
         emitSync({ type: "progress" });
         continue;
       }
@@ -381,7 +381,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
         || currentSales.some((sale) => sale.register_session_id === sessionId && sale.status !== "synced")
         || currentCash.some((movement) => movement.register_session_id === sessionId && movement.status !== "synced");
       if (hasUnsyncedDependency) {
-        console.info("[sync] register close deferred until shift records sync", sessionId);
+        if (import.meta.env.DEV) console.info("[sync] register close deferred until shift records sync", sessionId);
         emitSync({ type: "progress" });
         continue;
       }

@@ -22,7 +22,7 @@ export function AuditLogPanel() {
         .select("*").order("created_at", { ascending: false }).limit(500);
       return (data ?? []) as Row[];
     },
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
   const filtered = data.filter((r) => {

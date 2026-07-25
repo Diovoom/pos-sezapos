@@ -105,7 +105,7 @@ function SupportPage() {
   const countsQ = useQuery({
     queryKey: ["admin_ticket_counts"],
     queryFn: () => counts({}),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
   const agentsQ = useQuery({
     queryKey: ["admin_support_agents"],

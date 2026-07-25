@@ -37,7 +37,7 @@ function MerchantPaymentsPage() {
   const query = useQuery({
     queryKey: ["admin_merchant_billing_payments", status, environment, search, page],
     queryFn: () => list({ data: { status, environment, search, page, pageSize: 25 } }),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
   const summary = query.data?.summary;

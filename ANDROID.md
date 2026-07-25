@@ -1,76 +1,74 @@
 # SEZA POS — Android (Capacitor, bundled)
 
-The Android app is a **bundled** Capacitor application. All web assets ship
-inside the APK under `android-webdir/`; the WebView loads them instantly
-via the `capacitor://` scheme with **no remote HTML fetch on launch**.
+The Android app is a bundled Capacitor application. Its web assets ship inside the APK under `android-webdir/`; the WebView does not depend on a remote homepage to render the register.
 
-Backend access happens over HTTPS from the bundled JS:
-- Supabase auth + RLS-scoped reads/writes go directly to Supabase.
-- Server functions and public API routes go to `https://sezapos.com`.
+Backend traffic still uses HTTPS:
 
-This split is the foundation for offline mode: local reads can be served
-from IndexedDB, and writes can be queued against the same base URL when
-the network returns.
+- Supabase authentication and RLS-scoped data access use the configured Supabase project.
+- Public POS/API functions use `https://sezapos.com` unless a different production API base is supplied at build time.
+- Offline cash operations use IndexedDB queues and synchronize after connectivity returns.
 
-## First-time setup (per machine)
+## Requirements
 
-Requires Android Studio + JDK 17.
+- Node version from `.nvmrc` (Node 24)
+- npm
+- Android Studio
+- JDK 17 or newer supported by the included Android Gradle setup
+
+## First-time setup
 
 ```bash
-bun install
-bun run android:build        # build the bundled SPA into android-webdir/
-npx cap add android          # generates ./android on first run only
-bun run android:assets       # generate launcher icons + splash from resources/
-bun run android:sync         # rebuild shell + copy config + assets into android/
+npm ci
+npm run android:build
+npx cap add android          # only when ./android does not exist
+npm run android:assets
+npm run android:sync
 npx cap open android
 ```
 
-## Day-to-day
-
-The shell is bundled, so JS/UI changes must be rebuilt and re-synced:
+## Day-to-day Android build
 
 ```bash
-bun run android:sync         # runs android:build then cap sync
-npx cap open android         # then Run ▶ in Android Studio
+npm run android:sync
+npx cap open android
 ```
 
-## Where the bundled shell lives
+`android:sync` rebuilds the bundled shell and runs Capacitor sync. Do not hand-edit `android-webdir/` because it is generated.
 
-- `capacitor-shell/` — source for the bundled SPA (React, Supabase client,
-  splash / auth / register screens).
-- `vite.capacitor.config.ts` — standalone Vite build config (does NOT use
-  TanStack Start; the Android app has no server).
-- `android-webdir/` — build output packaged into the APK. Regenerated on
-  every `android:build`. Do not hand-edit.
+## Android shell locations
+
+- `capacitor-shell/` — bundled React application
+- `capacitor-shell/index.html` — static loading fallback shown before React
+- `capacitor-shell/main.tsx` — startup/session/pairing bootstrap
+- `capacitor-shell/screens/BootFailureScreen.tsx` — white-screen recovery UI
+- `vite.capacitor.config.ts` — standalone Vite configuration
+- `capacitor.config.ts` — native Capacitor settings
+- `android/` — native Android project
+
+## Barcode scanner policy
+
+The dedicated Android POS uses physical USB or Bluetooth HID/wedge scanners. The scanner sends barcode characters like a keyboard and the register automatically searches the catalog. The unused ML Kit camera-scanner plugin is intentionally removed from the APK.
 
 ## Branding
 
-All Android launcher icons and the native splash screen are generated
-from files in `resources/` via `@capacitor/assets`:
-
-- `resources/icon.png` — 1024×1024 launcher icon (SEZA logo on blue)
-- `resources/icon-foreground.png` — Android 13+ adaptive/themed icon
-- `resources/icon-background.png` — solid SEZA blue background layer
-- `resources/splash.png` / `splash-dark.png` — 2732×2732 splash artwork
-
-Regenerate after any brand change:
+Launcher icons and splash assets come from `resources/`:
 
 ```bash
-bun run android:assets && bun run android:sync
+npm run android:assets
+npm run android:sync
 ```
 
-## Native startup flow
+## Startup flow
 
-1. Android launches the native splash (SEZA blue background + logo,
-   `launchAutoHide: false`).
-2. The WebView loads `android-webdir/index.html` instantly from disk.
-3. React mounts, restores any cached Supabase session from localStorage,
-   then calls `SplashScreen.hide()`.
-4. Users with a valid session land on the POS register; others see the
-   employee sign-in screen.
+1. Android shows the native SEZA splash.
+2. `capacitor-shell/index.html` immediately shows a static branded loading screen.
+3. React validates public configuration and initializes pairing/session state with timeouts.
+4. The native splash is hidden even when startup fails.
+5. A recoverable error screen appears instead of a blank WebView when initialization cannot complete.
 
 ## App identity
 
-- Package / appId: `com.sezapos.app`
+- Package/app ID: `com.sezapos.app`
 - App name: `SEZA POS`
-- Theme / splash color: `#1e40af`
+- Current release: 1.3.2
+- Android build: 8

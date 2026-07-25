@@ -23,7 +23,7 @@ function RegistersPage() {
     queryKey: ["admin", "registers", q, status, page],
     queryFn: () => adminListPairedDevices({ data: { q, status, page, pageSize: 25 } }),
     enabled: canView,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
   if (perms && !canView) return <p className="text-sm text-muted-foreground">Not authorized.</p>;

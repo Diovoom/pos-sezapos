@@ -10,8 +10,16 @@ import type { Database } from "./types";
 
 const ADMIN_STORAGE_KEY = "sb-seza-admin-auth";
 
-function isNewSupabaseApiKey(value: string): boolean {
+function isOpaqueSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
+}
+
+function assertBrowserSafeKey(value: string): void {
+  if (value.startsWith("sb_secret_")) {
+    throw new Error(
+      "Security configuration error: the admin browser received a secret Supabase key.",
+    );
+  }
 }
 
 function createAdminFetch(supabaseKey: string): typeof fetch {
@@ -22,7 +30,7 @@ function createAdminFetch(supabaseKey: string): typeof fetch {
     if (init?.headers) {
       new Headers(init.headers).forEach((value, key) => headers.set(key, value));
     }
-    if (isNewSupabaseApiKey(supabaseKey) && headers.get("Authorization") === `Bearer ${supabaseKey}`) {
+    if (isOpaqueSupabaseApiKey(supabaseKey) && headers.get("Authorization") === `Bearer ${supabaseKey}`) {
       headers.delete("Authorization");
     }
     headers.set("apikey", supabaseKey);
@@ -37,6 +45,8 @@ function createAdminClient() {
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     throw new Error("Missing Supabase env vars for admin client.");
   }
+  assertBrowserSafeKey(SUPABASE_PUBLISHABLE_KEY);
+
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: { fetch: createAdminFetch(SUPABASE_PUBLISHABLE_KEY) },
     auth: {

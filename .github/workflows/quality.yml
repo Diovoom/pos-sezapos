@@ -33,6 +33,8 @@ jobs:
         run: npm ci
       - name: Verify release contracts
         run: npm run verify:production
+      - name: Verify security contracts
+        run: npm run verify:security
       - name: Lint
         run: npm run lint
       - name: Build hosted website

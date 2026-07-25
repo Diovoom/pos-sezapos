@@ -188,7 +188,7 @@ export function createDecodedStream(): {
         decoder.decode(chunk);
       } catch (e) {
         // A stray delta before the first keyframe is expected — swallow.
-        console.debug("[nativeScreenCapture] decode skip", e);
+        if (import.meta.env.DEV) console.debug("[nativeScreenCapture] decode skip", e);
       }
     },
     close() {

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { authenticatedWriteRateLimit } from "@/lib/security/rate-limit";
 import {
   createStripeClient,
   getStripeErrorMessage,
@@ -156,7 +157,7 @@ export const adminOverviewStats = createServerFn({ method: "GET" })
 // ============================================================================
 
 export const adminGlobalSearch = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { query: string }) => data)
   .handler(async ({ data, context }) => {
     await ensurePlatformStaff(context);
@@ -174,7 +175,7 @@ export const adminGlobalSearch = createServerFn({ method: "POST" })
 // ============================================================================
 
 export const adminListBusinesses = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       filter?: string;
@@ -264,7 +265,7 @@ export const adminListBusinesses = createServerFn({ method: "POST" })
   });
 
 export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { storeId: string }) => data)
   .handler(async ({ data, context }) => {
     // Read-only business investigation is available to SEZA platform staff.
@@ -459,7 +460,7 @@ async function loadStoreOrThrow(supabaseAdmin: any, id: string) {
 }
 
 export const adminSuspendBusiness = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { storeId: string; reason: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -484,7 +485,7 @@ export const adminSuspendBusiness = createServerFn({ method: "POST" })
   });
 
 export const adminUnsuspendBusiness = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { storeId: string; reason: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -509,7 +510,7 @@ export const adminUnsuspendBusiness = createServerFn({ method: "POST" })
   });
 
 export const adminUpdateBusinessContact = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       storeId: string;
@@ -549,7 +550,7 @@ export const adminUpdateBusinessContact = createServerFn({ method: "POST" })
   });
 
 export const adminExtendTrial = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { storeId: string; days: number; reason: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -580,7 +581,7 @@ export const adminExtendTrial = createServerFn({ method: "POST" })
   });
 
 export const adminEndTrial = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { storeId: string; reason: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -608,7 +609,7 @@ export const adminEndTrial = createServerFn({ method: "POST" })
 // ============================================================================
 
 export const adminSendPasswordReset = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { userId: string; reason: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -633,7 +634,7 @@ export const adminSendPasswordReset = createServerFn({ method: "POST" })
   });
 
 export const adminResendVerification = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { userId: string; reason: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -658,7 +659,7 @@ export const adminResendVerification = createServerFn({ method: "POST" })
   });
 
 export const adminRevokeSessions = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { userId: string; reason: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -690,21 +691,21 @@ const NOT_PERMITTED_EMPLOYEE_MGMT =
   "Merchant employee management is not permitted from the Platform Admin. The Business Owner must perform this action inside the Merchant Dashboard.";
 
 export const adminSetEmployeeStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { userId: string; status: "active" | "disabled"; reason: string }) => data)
   .handler(async () => {
     throw new Error(NOT_PERMITTED_EMPLOYEE_MGMT);
   });
 
 export const adminResetEmployeePin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { userId: string; reason: string }) => data)
   .handler(async () => {
     throw new Error(NOT_PERMITTED_EMPLOYEE_MGMT);
   });
 
 export const adminChangeEmployeeRole = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       userId: string;
@@ -723,7 +724,7 @@ export const adminChangeEmployeeRole = createServerFn({ method: "POST" })
 // ============================================================================
 
 export const adminRenameTerminal = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { terminalId: string; label: string; reason: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -749,7 +750,7 @@ export const adminRenameTerminal = createServerFn({ method: "POST" })
   });
 
 export const adminSetTerminalStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { terminalId: string; status: "active" | "inactive"; reason: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -775,7 +776,7 @@ export const adminSetTerminalStatus = createServerFn({ method: "POST" })
   });
 
 export const adminRevokeTerminal = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { terminalId: string; reason: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -800,7 +801,7 @@ export const adminRevokeTerminal = createServerFn({ method: "POST" })
   });
 
 export const adminListDevices = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       filter?: string;
@@ -920,7 +921,7 @@ export const adminDeviceCounts = createServerFn({ method: "GET" })
 // ============================================================================
 
 export const adminListSubscriptions = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { filter?: string; page?: number; pageSize?: number }) => data)
   .handler(async ({ data, context }) => {
     await ensureSuperAdmin(context);
@@ -959,7 +960,7 @@ export const adminListSubscriptions = createServerFn({ method: "POST" })
   });
 
 export const adminRefreshSubscription = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { subscriptionId: string; environment: StripeEnv }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -1005,7 +1006,7 @@ export const adminRefreshSubscription = createServerFn({ method: "POST" })
   });
 
 export const adminCancelSubscription = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { subscriptionId: string; environment: StripeEnv; reason: string; atPeriodEnd: boolean }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -1046,7 +1047,7 @@ export const adminCancelSubscription = createServerFn({ method: "POST" })
   });
 
 export const adminRestoreSubscription = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { subscriptionId: string; environment: StripeEnv; reason: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -1091,7 +1092,7 @@ export const adminRestoreSubscription = createServerFn({ method: "POST" })
 // ============================================================================
 
 export const adminListTickets = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       status?: string;
@@ -1227,7 +1228,7 @@ export const adminListSupportAgents = createServerFn({ method: "GET" })
   });
 
 export const adminGetTicket = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { ticketId: string }) => data)
   .handler(async ({ data, context }) => {
     await ensureSupportStaff(context);
@@ -1258,7 +1259,7 @@ export const adminGetTicket = createServerFn({ method: "POST" })
   });
 
 export const adminCreateTicket = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       storeId?: string;
@@ -1308,7 +1309,7 @@ export const adminCreateTicket = createServerFn({ method: "POST" })
   });
 
 export const adminUpdateTicket = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       ticketId: string;
@@ -1343,7 +1344,7 @@ export const adminUpdateTicket = createServerFn({ method: "POST" })
   });
 
 export const adminClaimTicket = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { ticketId: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSupportStaff(context);
@@ -1374,7 +1375,7 @@ export const adminClaimTicket = createServerFn({ method: "POST" })
   });
 
 export const adminAddTicketNote = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { ticketId: string; body: string; internal: boolean }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSupportStaff(context);
@@ -1396,7 +1397,7 @@ export const adminAddTicketNote = createServerFn({ method: "POST" })
 // ============================================================================
 
 export const adminListAuditLogs = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: { storeId?: string; action?: string; actorEmail?: string; entity?: string; from?: string; to?: string; page?: number; pageSize?: number }) => data,
   )
@@ -1440,7 +1441,7 @@ export const adminAuditFacets = createServerFn({ method: "GET" })
   });
 
 export const adminExportAuditLogs = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: { storeId?: string; action?: string; actorEmail?: string; entity?: string; from?: string; to?: string }) => data,
   )
@@ -1525,7 +1526,7 @@ export const adminSubscriptionStats = createServerFn({ method: "GET" })
 // ============================================================================
 
 export const adminStartSupportSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { storeId: string; reason: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -1568,7 +1569,7 @@ export const adminStartSupportSession = createServerFn({ method: "POST" })
   });
 
 export const adminCancelSupportRequest = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { sessionId: string }) => data)
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
@@ -1597,7 +1598,7 @@ export const adminCancelSupportRequest = createServerFn({ method: "POST" })
   });
 
 export const adminEndSupportSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { sessionId: string; reason?: string }) => data)
   .handler(async ({ data, context }) => {
     const { runSafeAction } = await import("@/lib/admin/safe-action.server");
@@ -1686,7 +1687,7 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
 // ============================================================================
 
 export const merchantRespondSupportSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       sessionId: string;
@@ -1790,7 +1791,7 @@ export const merchantRespondSupportSession = createServerFn({ method: "POST" })
   });
 
 export const merchantEndSupportSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { sessionId: string; note?: string }) => data)
 
   .handler(async ({ data, context }) => {
@@ -1885,7 +1886,7 @@ export const adminPlatformHealth = createServerFn({ method: "GET" })
 // ============================================================================
 
 export const adminListStores = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { q?: string; page?: number; pageSize?: number }) => data)
   .handler(async ({ data, context }) => {
     await ensurePlatformStaff(context);
@@ -1909,7 +1910,7 @@ export const adminListStores = createServerFn({ method: "POST" })
   });
 
 export const adminListEmployees = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { q?: string; storeId?: string; page?: number; pageSize?: number }) => data)
   .handler(async ({ data, context }) => {
     await ensurePlatformStaff(context);
@@ -1945,7 +1946,7 @@ export const adminListEmployees = createServerFn({ method: "POST" })
   });
 
 export const adminListPairedDevices = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { q?: string; status?: string; page?: number; pageSize?: number }) => data)
   .handler(async ({ data, context }) => {
     await ensurePlatformStaff(context);
@@ -1986,7 +1987,7 @@ export const adminListPairedDevices = createServerFn({ method: "POST" })
   });
 
 export const adminSalesOverview = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { days?: number }) => data)
   .handler(async ({ data, context }) => {
     await ensurePlatformStaff(context);
@@ -2055,7 +2056,7 @@ export const adminOfflineSyncOverview = createServerFn({ method: "GET" })
   });
 
 export const adminPaymentsOverview = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { days?: number }) => data)
   .handler(async ({ data, context }) => {
     await ensurePlatformStaff(context);
@@ -2104,7 +2105,7 @@ export const adminListAdmins = createServerFn({ method: "GET" })
   });
 
 export const adminListIncidents = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { days?: number }) => data)
   .handler(async ({ data, context }) => {
     await ensurePlatformStaff(context);

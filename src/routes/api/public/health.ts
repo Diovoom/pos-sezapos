@@ -3,7 +3,18 @@ import { createFileRoute } from "@tanstack/react-router";
 export const Route = createFileRoute("/api/public/health")({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.health",
+          limit: 30,
+          windowSeconds: 60,
+          blockSeconds: 0,
+          maxBodyBytes: 1024,
+          allowMissingOrigin: true,
+          skipOriginCheck: false,
+        });
+        if (blocked) return blocked;
         const started = Date.now();
         let database = "operational";
         try {

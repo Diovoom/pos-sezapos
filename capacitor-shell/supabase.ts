@@ -21,8 +21,13 @@ if (!SUPABASE_PUBLISHABLE_KEY) {
     "SEZA Android configuration error: missing Supabase publishable key.",
   );
 }
+if (SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_")) {
+  throw new Error(
+    "SEZA Android security error: a secret Supabase key cannot be bundled in the APK.",
+  );
+}
 
-function isNewKey(v: string) {
+function isOpaqueKey(v: string) {
   return v.startsWith("sb_publishable_") || v.startsWith("sb_secret_");
 }
 
@@ -36,7 +41,7 @@ const patchedFetch: typeof fetch = (input, init) => {
     new Headers(init.headers).forEach((v, k) => headers.set(k, v));
   }
   if (
-    isNewKey(SUPABASE_PUBLISHABLE_KEY) &&
+    isOpaqueKey(SUPABASE_PUBLISHABLE_KEY) &&
     headers.get("Authorization") === `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
   ) {
     headers.delete("Authorization");

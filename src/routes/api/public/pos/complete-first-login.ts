@@ -24,6 +24,17 @@ export const Route = createFileRoute("/api/public/pos/complete-first-login")({
     handlers: {
       OPTIONS: () => new Response(null, { status: 204, headers: CORS }),
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.pos.complete_first_login",
+          limit: 10,
+          windowSeconds: 600,
+          blockSeconds: 1800,
+          maxBodyBytes: 16384,
+          allowMissingOrigin: true,
+          skipOriginCheck: false,
+        });
+        if (blocked) return blocked;
         const auth = request.headers.get("authorization") ?? "";
         const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
         if (!token) return json({ error: "Missing bearer token" }, 401);

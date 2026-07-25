@@ -2,6 +2,7 @@
 // signed-in user's store. Owner / admin / manager only.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { authenticatedWriteRateLimit } from "@/lib/security/rate-limit";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Ctx = { supabase: any; userId: string };
@@ -29,7 +30,7 @@ export const listPosDevices = createServerFn({ method: "GET" })
   });
 
 export const createPairingCode = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { label?: string; ttl_minutes?: number }) => data)
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as Ctx;
@@ -61,7 +62,7 @@ export const createPairingCode = createServerFn({ method: "POST" })
   });
 
 export const revokePosDevice = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { device_id: string; reason?: string }) => data)
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as Ctx;

@@ -23,6 +23,12 @@ export default defineConfig(({ mode }) => {
     env.VITE_SUPABASE_PUBLISHABLE_KEY ||
     env.SUPABASE_PUBLISHABLE_KEY ||
     FALLBACK_SUPABASE_PUBLISHABLE_KEY;
+  if (supabasePublishableKey.startsWith("sb_secret_")) {
+    throw new Error(
+      "Refusing to build the APK: a secret Supabase key was supplied.",
+    );
+  }
+
   const supabaseProjectId =
     env.VITE_SUPABASE_PROJECT_ID ||
     env.SUPABASE_PROJECT_ID ||

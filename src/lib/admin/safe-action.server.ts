@@ -78,6 +78,17 @@ async function actorEmail(ctx: { supabase: any }) {
 export async function runSafeAction<T>(input: SafeActionInput<T>): Promise<SafeActionResult<T>> {
   const correlationId = randomUUID();
 
+  const { enforceRateLimit } = await import("@/lib/security/rate-limit.server");
+  const actionMaximum = input.danger === "dangerous" ? 5 : input.danger === "sensitive" ? 15 : 30;
+  await enforceRateLimit({
+    scope: `admin.action.${input.danger}`,
+    limit: actionMaximum,
+    windowSeconds: 60,
+    blockSeconds: input.danger === "dangerous" ? 600 : 120,
+    identifier: `${input.context.userId}:${input.action}`,
+    durable: true,
+  });
+
   await ensurePlatformStaff(input.context);
   await ensurePermission(input.context, input.permission);
 

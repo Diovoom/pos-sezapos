@@ -1,65 +1,38 @@
 # Repository Cleanup Instructions
 
-## Remove the nested project copy
+Run the included cleanup script from PowerShell after copying the patch files into the project:
 
-The uploaded archive contained a complete second project at:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\cleanup-project.ps1 -ProjectPath 'F:\pos-sezapos'
+```
+
+The script removes only verified disposable artifacts:
+
+- `.eslintcache`
+- `*.bak`, `*.backup`, `*.orig`, and editor `*~` files
+- nested `SEZA-POS-v*-PRODUCTION-PATCH` project copies
+- stale generated build folders such as `android-webdir`, `dist`, and Android Gradle build output
+- old one-time patch/recovery documents listed in the script
+
+It does not remove `.env`, source files, migrations, Android resources, or Git history.
+
+After cleanup:
+
+```powershell
+cd F:\pos-sezapos
+npm ci
+npm run verify:production
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npm run android:sync
+```
+
+The new public API rate-limit migration must be applied to Lovable Cloud before relying on cross-instance protection:
 
 ```text
-F:\pos-sezapos\pos-sezapos-main
+supabase/migrations/20260725043000_public_api_rate_limits.sql
 ```
 
-After confirming `F:\pos-sezapos\package.json`, `src`, and `android` are the working outer project, remove only the nested copy:
-
-```powershell
-Remove-Item 'F:\pos-sezapos\pos-sezapos-main' -Recurse -Force
-```
-
-## Remove stale generated output before rebuilding
-
-```powershell
-Remove-Item 'F:\pos-sezapos\dist' -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item 'F:\pos-sezapos\android-webdir' -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item 'F:\pos-sezapos\android\app\build' -Recurse -Force -ErrorAction SilentlyContinue
-```
-
-## Review backup files
-
-List them first:
-
-```powershell
-Get-ChildItem 'F:\pos-sezapos' -Recurse -File -Include '*.bak','*.backup','*.tmp','*~'
-```
-
-After confirming they are obsolete:
-
-```powershell
-Get-ChildItem 'F:\pos-sezapos' -Recurse -File -Include '*.bak','*.backup','*.tmp','*~' | Remove-Item -Force
-```
-
-## Protect environment secrets
-
-Keep your active local `.env` files, but make sure Git does not track them:
-
-```powershell
-git status --short
-git ls-files .env .env.development .env.production .env.local
-```
-
-When any are listed as tracked:
-
-```powershell
-git rm --cached .env .env.development .env.production .env.local
-```
-
-Commit only an `.env.example` containing variable names and no live values.
-
-## Never commit
-
-- `node_modules/`
-- `dist/`
-- `android-webdir/`
-- `android/app/build/`
-- APK or AAB files
-- signing keystores or passwords
-- `.env*` secrets
-- the nested duplicate source tree
+The source includes a process-local fallback so a temporary database error does not lock every cashier out, but the database migration is the real shared limiter.

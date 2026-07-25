@@ -55,6 +55,17 @@ export const Route = createFileRoute("/lovable/email/suppression")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.email.suppression_webhook",
+          limit: 300,
+          windowSeconds: 60,
+          blockSeconds: 60,
+          maxBodyBytes: 524288,
+          allowMissingOrigin: true,
+          skipOriginCheck: true,
+        });
+        if (blocked) return blocked;
         const apiKey = process.env.LOVABLE_API_KEY
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY

@@ -21,6 +21,12 @@ const publicSupabasePublishableKey =
   process.env.SUPABASE_PUBLISHABLE_KEY ??
   "sb_publishable_D06VufRmNrbKI6Fe0OF70Q_Wzr5pkBn";
 
+if (publicSupabasePublishableKey.startsWith("sb_secret_")) {
+  throw new Error(
+    "Refusing to build: VITE_SUPABASE_PUBLISHABLE_KEY contains a secret key.",
+  );
+}
+
 const publicSupabaseProjectId =
   process.env.VITE_SUPABASE_PROJECT_ID ??
   process.env.SUPABASE_PROJECT_ID ??

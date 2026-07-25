@@ -4,13 +4,15 @@ Record the tester, date, device model, Android version, store, database project,
 
 ## A. Installation and release identity
 
-- [ ] Clean install Android build 6.
+- [ ] Clean install Android build 8.
 - [ ] Upgrade from the previous APK without clearing data.
-- [ ] App shows version 1.3.0/build 6 where version is displayed.
+- [ ] App shows version 1.3.2/build 8 where version is displayed.
 - [ ] Website, dashboard, POS, and admin deploy from the same source revision.
-- [ ] No nested `pos-sezapos-main` directory remains.
+- [ ] No nested `SEZA-POS-v*-PRODUCTION-PATCH` or second project root remains.
 - [ ] No `.env`, signing secret, APK, or generated output is tracked by Git.
 - [ ] `npm run verify:production` passes.
+- [ ] `npm run typecheck` passes.
+- [ ] `npm test` passes.
 - [ ] `npm run lint` passes.
 - [ ] Hosted website build passes.
 - [ ] Capacitor build/sync passes.
@@ -25,6 +27,7 @@ Record the tester, date, device model, Android version, store, database project,
 - [ ] Support columns exist.
 - [ ] Platform `global` settings row exists.
 - [ ] Support tickets and notes are in realtime publication.
+- [ ] `public_api_rate_limits` and `consume_public_rate_limit` exist.
 - [ ] A database backup/restore point exists.
 
 ## C. Authentication, pairing, and security
@@ -149,7 +152,7 @@ Record the tester, date, device model, Android version, store, database project,
 - [ ] No-sale/payout requires reason/permission as designed.
 - [ ] Drawer disconnected reports failure—not success.
 - [ ] USB/Bluetooth HID scanner works repeatedly.
-- [ ] Android camera scanner permissions and detection work.
+- [ ] No camera-scanner permission or ML Kit barcode dependency is present in the dedicated APK.
 - [ ] Customer display shows correct line items/total if enabled.
 - [ ] Stripe reader/Tap to Pay uses production-approved SDK and account.
 

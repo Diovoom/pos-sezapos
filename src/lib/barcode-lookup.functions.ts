@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { publicReadRateLimit } from "@/lib/security/rate-limit";
 
 export type BarcodeLookupResult = {
   barcode: string;
@@ -66,6 +67,7 @@ async function lookupUpcItemDb(barcode: string): Promise<BarcodeLookupResult | n
 }
 
 export const lookupBarcode = createServerFn({ method: "POST" })
+  .middleware([publicReadRateLimit])
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
     const off = await lookupOpenFoodFacts(data.barcode);

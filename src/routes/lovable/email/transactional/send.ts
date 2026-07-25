@@ -51,6 +51,17 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
     handlers: {
       OPTIONS: async () => optionsResponse(),
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.email.transactional_send",
+          limit: 30,
+          windowSeconds: 60,
+          blockSeconds: 300,
+          maxBodyBytes: 131072,
+          allowMissingOrigin: true,
+          skipOriginCheck: false,
+        });
+        if (blocked) return blocked;
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -75,6 +86,22 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
 
         if (authError || !user) {
           return jsonResponse({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { consumeRateLimit } = await import("@/lib/security/rate-limit.server")
+        const userLimit = await consumeRateLimit({
+          scope: "api.email.transactional_send.user",
+          limit: 20,
+          windowSeconds: 60,
+          blockSeconds: 300,
+          identifier: user.id,
+          request,
+        })
+        if (!userLimit.allowed) {
+          return jsonResponse(
+            { error: 'Too many email requests', retry_after_seconds: userLimit.retryAfterSeconds },
+            { status: 429, headers: { 'Retry-After': String(userLimit.retryAfterSeconds) } },
+          )
         }
 
         // Parse request body

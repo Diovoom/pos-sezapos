@@ -43,7 +43,7 @@ function EmployeesPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin_company_employees"],
     queryFn: () => load(),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("all");

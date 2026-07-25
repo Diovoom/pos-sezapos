@@ -35,7 +35,7 @@ function IncidentsPage() {
     queryKey: ["admin_platform_incidents", days],
     queryFn: () => list({ data: { days } }),
     enabled: canView,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     retry: 1,
   });
 

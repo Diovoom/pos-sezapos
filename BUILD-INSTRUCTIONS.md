@@ -1,37 +1,40 @@
-# Build and Installation Instructions
+# Build and Installation Instructions — SEZA POS 1.3.2
 
-## 1. Confirm the real project root
+## 1. Use the real project root
 
-The supplied ZIP contained a second full project inside the first. Use the outer project as the real root.
-
-```powershell
-Test-Path F:\pos-sezapos\package.json
-Test-Path F:\pos-sezapos\src
-Test-Path F:\pos-sezapos\android
-```
-
-All three commands should return `True`.
-
-## 2. Back up and apply the patch
-
-Extract this ZIP somewhere outside the project, then run:
+The correct root contains all three paths:
 
 ```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\APPLY-PATCH.ps1 -ProjectPath 'F:\pos-sezapos'
+Test-Path .\package.json
+Test-Path .\src
+Test-Path .\android
 ```
 
-The script copies only the files listed in `PATCH-FILES.json` and backs up every replaced file beside the project. It does not copy or modify `.env` files.
+Each command must return `True`. Do not keep another full SEZA project or an old production-patch folder inside this root.
 
-Manual alternative: copy the patch folders/files into `F:\pos-sezapos` and select **Replace files in the destination**.
+## 2. Copy the patch files
 
-## 3. Clean ambiguous and generated content
+Extract the cleanup patch into the project root and choose **Replace files in the destination**. The ZIP preserves paths such as `src/`, `capacitor-shell/`, `android/`, `scripts/`, and `supabase/migrations/`.
 
-Follow `CLEANUP-INSTRUCTIONS.md`. In particular, remove the nested duplicate `F:\pos-sezapos\pos-sezapos-main` after confirming the outer root is correct. Do not delete the active `.env` files; untrack them from Git if necessary.
+The patch does not contain `.env` files, signing keys, `node_modules`, APK/AAB files, or generated builds.
+
+## 3. Remove verified disposable artifacts
+
+Windows:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\cleanup-project.ps1 -ProjectPath (Get-Location).Path
+```
+
+macOS/Linux/Git Bash:
+
+```bash
+./scripts/cleanup-project.sh .
+```
+
+The scripts do not delete environment files.
 
 ## 4. Use the locked runtime
-
-The dependency lock requires Node 24.
 
 ```powershell
 nvm install 24
@@ -43,60 +46,47 @@ npm --version
 ## 5. Install and validate
 
 ```powershell
-cd F:\pos-sezapos
 npm ci
 npm run verify:production
+npm run typecheck
 npm run lint
+npm test
 npm run build
 ```
 
-Fix any failure before deployment. Do not use `--force` to hide dependency or compile errors.
+Fix every failure. Do not use `--force` to hide install or compiler problems.
 
-## 6. Apply the database migrations
+## 6. Apply database migrations
 
-Complete `DATABASE-INSTRUCTIONS.md` before releasing the website or APK.
+Follow `DATABASE-INSTRUCTIONS.md`. At minimum, make sure the atomic sale, support/legal, live-chat, and public rate-limit migrations are present in production.
 
-## 7. Build Android web assets and sync Capacitor
+## 7. Build/sync Android
 
 ```powershell
-cd F:\pos-sezapos
-npm run android:build
-npx cap sync android
+npm run android:sync
+npx cap open android
 ```
 
-Confirm the sync output includes `SezaSecureStorage` and the expected native plugins.
-
-## 8. Clean-build a test APK
+## 8. Build a debug APK
 
 ```powershell
-cd F:\pos-sezapos\android
+cd android
 .\gradlew.bat clean
 .\gradlew.bat assembleDebug
 ```
 
-Expected debug APK:
+Expected output:
 
 ```text
-F:\pos-sezapos\android\app\build\outputs\apk\debug\app-debug.apk
+android\app\build\outputs\apk\debug\app-debug.apk
 ```
 
-Install that build on a dedicated test terminal and complete every item in `RELEASE-TEST-CHECKLIST.md`.
+Install it on a dedicated test POS and complete `RELEASE-TEST-CHECKLIST.md`.
 
 ## 9. Release signing
 
-A Play Store or merchant release must use your private signing keystore and protected Gradle properties. Never place the keystore password or signing secrets in Git or this patch. Build an AAB only after the debug acceptance test passes:
+Keep the keystore and passwords outside Git. Build a signed AAB/APK only after the debug build passes the full checklist.
 
-```powershell
-.\gradlew.bat bundleRelease
-```
+## 10. Publish all surfaces from one revision
 
-## 10. Deploy website/admin
-
-Deploy the same commit and version that produced Android build 6. Confirm:
-
-- `sezapos.com`
-- merchant dashboard host
-- POS host
-- admin host
-
-all point to the intended release and not the nested duplicate source tree.
+The marketing website, merchant dashboard, web POS, admin portal, and Android APK must come from the same tested commit/version: 1.3.2, Android build 8.

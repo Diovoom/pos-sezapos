@@ -3,7 +3,9 @@
 // but require the caller to be an authenticated owner (via has_role).
 
 import { createServerFn } from "@tanstack/react-start";
+import { credentialRateLimit } from "@/lib/security/rate-limit";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { authenticatedWriteRateLimit } from "@/lib/security/rate-limit";
 
 /* ------------------------------- helpers ------------------------------- */
 
@@ -135,7 +137,7 @@ type SupabaseCtx = {
 export type EmployeeTimeClockAction = "clock_in" | "clock_out" | "start_break" | "end_break";
 
 export const updateMyTimeClock = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { action: EmployeeTimeClockAction; occurredAt?: string; idempotencyKey?: string }) => data)
   .handler(async ({ data, context }) => {
     const ctx = context as { userId: string };
@@ -216,7 +218,7 @@ export const updateMyTimeClock = createServerFn({ method: "POST" })
 /* ---------------------------- create employee -------------------------- */
 
 export const createEmployee = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       first_name: string;
@@ -302,7 +304,7 @@ export const createEmployee = createServerFn({ method: "POST" })
 /* -------------------- toggle status / reset password ------------------- */
 
 export const setEmployeeStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       user_id: string;
@@ -342,7 +344,7 @@ export const setEmployeeStatus = createServerFn({ method: "POST" })
   });
 
 export const resetEmployeeCredentials = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { user_id: string; reason?: string }) => data)
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
@@ -380,7 +382,7 @@ export const resetEmployeeCredentials = createServerFn({ method: "POST" })
 /* --------------- force logout from every device / session -------------- */
 
 export const forceLogoutEmployee = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { user_id: string; reason?: string }) => data)
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
@@ -405,7 +407,7 @@ export const forceLogoutEmployee = createServerFn({ method: "POST" })
 /* ------------------------- first-login onboarding --------------------- */
 
 export const completeFirstLogin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { new_password: string; pin?: string }) => data)
   .handler(async ({ data, context }) => {
     const ctx = context as { userId: string };
@@ -453,7 +455,7 @@ export const completeFirstLogin = createServerFn({ method: "POST" })
 /* ------------------- set / clear PIN for signed-in user --------------- */
 
 export const setMyPin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { pin: string | null }) => data)
   .handler(async ({ data, context }) => {
     const ctx = context as { userId: string };
@@ -501,6 +503,7 @@ export const setMyPin = createServerFn({ method: "POST" })
 // client can pass to `supabase.auth.verifyOtp` to establish a real session.
 // Never returns the user's password or any auth secret.
 export const signInWithEmployeePin = createServerFn({ method: "POST" })
+  .middleware([credentialRateLimit])
   .inputValidator((data: { employee_id: string; pin: string }) => data)
   .handler(async ({ data }) => {
     if (!/^\d{6}$/.test(data.employee_id)) throw new Error("Invalid employee ID");
@@ -551,6 +554,7 @@ export const signInWithEmployeePin = createServerFn({ method: "POST" })
 // `signInWithEmployeePin`. This stub preserves the API shape and forces
 // the UI's `MULTIPLE_MATCHES` fallback so users are prompted for their ID.
 export const signInWithPin = createServerFn({ method: "POST" })
+  .middleware([credentialRateLimit])
   .inputValidator((data: { pin: string }) => data)
   .handler(async ({ data }) => {
     if (!/^\d{6}$/.test(data.pin)) throw new Error("PIN must be exactly 6 digits");
@@ -562,7 +566,7 @@ export const signInWithPin = createServerFn({ method: "POST" })
 /* ---------------------- update employee (admin edit) ------------------- */
 
 export const updateEmployee = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       user_id: string;
@@ -650,7 +654,7 @@ export const updateEmployee = createServerFn({ method: "POST" })
 /* -------------------------- employee ID mgmt --------------------------- */
 
 export const setEmployeeCode = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { user_id: string; employee_id: string }) => data)
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
@@ -673,7 +677,7 @@ export const setEmployeeCode = createServerFn({ method: "POST" })
   });
 
 export const regenerateEmployeeCode = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { user_id: string }) => data)
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
@@ -704,7 +708,7 @@ export const regenerateEmployeeCode = createServerFn({ method: "POST" })
 // Set a specific PIN OR generate a random one. If `force_change` is true the
 // employee will be required to pick a new PIN at next sign-in.
 export const adminResetPin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: { user_id: string; pin?: string | null; force_change?: boolean; clear?: boolean; reason?: string }) => data,
   )
@@ -759,7 +763,7 @@ export const adminResetPin = createServerFn({ method: "POST" })
 /* --------------- remove employee (soft-delete when history exists) ----- */
 
 export const deleteEmployee = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: { user_id: string; reason: string; confirm: true }) => data,
   )
@@ -831,7 +835,7 @@ export const deleteEmployee = createServerFn({ method: "POST" })
 /* ------------------------- pay & schedule ------------------------------ */
 
 export const updateEmployeePay = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       user_id: string;
@@ -868,7 +872,7 @@ export const updateEmployeePay = createServerFn({ method: "POST" })
 /* ------------------------- adjust time entry --------------------------- */
 
 export const adjustTimeEntry = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
       entry_id: string;

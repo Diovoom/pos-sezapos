@@ -73,7 +73,7 @@ function DevicesPage() {
   const devicesQ = useQuery({
     queryKey: ["pos-devices"],
     queryFn: () => list(),
-    refetchInterval: 15_000,
+    refetchInterval: 30_000,
     refetchOnWindowFocus: true,
   });
 

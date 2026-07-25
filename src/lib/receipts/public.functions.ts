@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { publicReadRateLimit } from "@/lib/security/rate-limit";
 
 export type PublicReceiptLine = {
   name: string;
@@ -37,6 +38,7 @@ export type PublicReceipt = {
 };
 
 export const getPublicReceipt = createServerFn({ method: "GET" })
+  .middleware([publicReadRateLimit])
   .inputValidator((data: unknown) =>
     z.object({ id: z.string().uuid() }).parse(data),
   )

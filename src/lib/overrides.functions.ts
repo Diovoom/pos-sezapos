@@ -7,11 +7,12 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { authenticatedWriteRateLimit } from "@/lib/security/rate-limit";
 
 const MANAGER_ROLES = ["owner", "admin", "manager"] as const;
 
 export const verifyManagerOverride = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: { employee_id: string; pin: string; action: string; details?: Record<string, unknown> }) =>
       data,
@@ -90,7 +91,7 @@ export const verifyManagerOverride = createServerFn({ method: "POST" })
 // caller's store and finds the one whose PIN matches. Owner and admin PINs
 // implicitly bypass any manager-only rule.
 export const verifyManagerPin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: { pin: string; action: string; details?: Record<string, unknown> }) => data,
   )

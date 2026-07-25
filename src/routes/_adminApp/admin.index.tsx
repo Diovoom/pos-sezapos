@@ -73,7 +73,7 @@ function OperationsCenter() {
   const query = useQuery({
     queryKey: ["admin_operations_overview"],
     queryFn: () => load(),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     retry: 1,
     staleTime: 10_000,
   });

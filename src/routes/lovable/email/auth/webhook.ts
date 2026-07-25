@@ -47,6 +47,17 @@ export const Route = createFileRoute("/lovable/email/auth/webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.email.auth_webhook",
+          limit: 300,
+          windowSeconds: 60,
+          blockSeconds: 60,
+          maxBodyBytes: 524288,
+          allowMissingOrigin: true,
+          skipOriginCheck: true,
+        });
+        if (blocked) return blocked;
         const apiKey = process.env.LOVABLE_API_KEY
 
         if (!apiKey) {

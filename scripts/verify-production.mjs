@@ -96,7 +96,8 @@ forbidText("src/components/i18n/GlobalLanguageRuntime.tsx", "replaceTextNodeBySu
 requireText("src/routes/_dashboard/setup.tsx", 'to="/legal/$slug"', "working legal policy links");
 forbidText("src/routes/_dashboard/setup.tsx", 'href="#"', "placeholder legal links");
 requireText("src/routes/_dashboard/setup.tsx", '"record_legal_acceptance"', "versioned legal acceptance RPC");
-requireText("src/routes/signup.tsx", "terms_version: LEGAL_CONFIG.termsVersion", "signup policy version metadata");
+requireText("src/routes/signup.tsx", "termsVersion: LEGAL_CONFIG.termsVersion", "signup policy version input");
+requireText("src/lib/auth/auth.functions.ts", "terms_version: data.termsVersion", "server-side signup policy metadata");
 requireText("supabase/migrations/20260723220000_legal_acceptance_records.sql", "CREATE TABLE IF NOT EXISTS public.legal_acceptances", "legal acceptance migration");
 
 // The generated TanStack route tree imports all route modules during SSR.

@@ -10,6 +10,17 @@ export const Route = createFileRoute("/lovable/email/transactional/preview")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.email.transactional_preview",
+          limit: 30,
+          windowSeconds: 60,
+          blockSeconds: 300,
+          maxBodyBytes: 65536,
+          allowMissingOrigin: true,
+          skipOriginCheck: false,
+        });
+        if (blocked) return blocked;
         const apiKey = process.env.LOVABLE_API_KEY
         if (!apiKey) {
           return Response.json(

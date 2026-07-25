@@ -63,6 +63,17 @@ export const Route = createFileRoute("/api/public/live-chat")({
     handlers: {
       OPTIONS: () => new Response(null, { status: 204, headers: CORS }),
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.live_chat",
+          limit: 30,
+          windowSeconds: 60,
+          blockSeconds: 300,
+          maxBodyBytes: 24576,
+          allowMissingOrigin: true,
+          skipOriginCheck: false,
+        });
+        if (blocked) return blocked;
         let body: Record<string, unknown>;
         try {
           body = await request.json();

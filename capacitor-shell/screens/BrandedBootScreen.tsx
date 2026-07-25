@@ -13,79 +13,53 @@ const STEPS: Step[] = [
   { id: "ready", label: "Ready" },
 ];
 
-const STEP_TIMEOUT_MS = 1_800;
-const MAX_BOOT_MS = 7_000;
-
-function withTimeout(work: Promise<unknown>, ms = STEP_TIMEOUT_MS) {
-  return Promise.race([
-    work,
-    new Promise<void>((resolve) => window.setTimeout(resolve, ms)),
-  ]);
-}
-
-export function BrandedBootScreen({ onReady }: { onReady: () => void }) {
+export function BrandedBootScreen({
+  onReady,
+}: {
+  onReady: () => void;
+}) {
   const [stepIndex, setStepIndex] = useState(0);
   const [logo, setLogo] = useState<string>(SEZA_LOGO_URL);
   const [storeName, setStoreName] = useState<string>("SEZA POS");
 
   useEffect(() => {
     let cancelled = false;
-    let finished = false;
 
-    const finish = () => {
-      if (cancelled || finished) return;
-      finished = true;
-      setStepIndex(STEPS.length - 1);
-      onReady();
-    };
-
-    const hardDeadline = window.setTimeout(finish, MAX_BOOT_MS);
-
-    void (async () => {
+    (async () => {
       const bump = async (i: number, work?: () => Promise<void>) => {
-        if (cancelled || finished) return;
+        if (cancelled) return;
         setStepIndex(i);
         if (work) {
           try {
-            await withTimeout(work());
-          } catch (error) {
-            console.warn(`[SEZA Android] boot step ${STEPS[i]?.id ?? i} failed`, error);
+            await Promise.race([
+              work(),
+              new Promise<never>((_, reject) =>
+                window.setTimeout(() => reject(new Error("Boot step timed out")), 3_000),
+              ),
+            ]);
+          } catch {
+            // A stale connection must not trap the register on the boot screen.
           }
         }
-        await new Promise((resolve) => window.setTimeout(resolve, 120));
+        await new Promise((resolve) => window.setTimeout(resolve, 180));
       };
 
       await bump(0);
-      await bump(1, async () => {
-        await supabase.auth.getSession();
-      });
+      await bump(1, async () => { await supabase.auth.getSession(); });
       await bump(2, async () => {
-        const { data } = await supabase
-          .from("stores")
-          .select("name, logo_url")
-          .limit(1)
-          .maybeSingle();
+        const { data } = await supabase.from("stores").select("name, logo_url").limit(1).maybeSingle();
         if (cancelled) return;
         if (data?.logo_url) setLogo(data.logo_url);
         if (data?.name) setStoreName(data.name);
       });
-      await bump(3, async () => {
-        await supabase.from("products").select("id").limit(1);
-      });
-      await bump(4, async () => {
-        await supabase.from("register_sessions").select("id").limit(1);
-      });
-      await bump(5, async () => {
-        await supabase.from("user_roles").select("role").limit(1);
-      });
+      await bump(3, async () => { await supabase.from("products").select("id").limit(1); });
+      await bump(4, async () => { await supabase.from("register_sessions").select("id").limit(1); });
+      await bump(5, async () => { await supabase.from("user_roles").select("role").limit(1); });
       await bump(6);
-      finish();
+      if (!cancelled) onReady();
     })();
 
-    return () => {
-      cancelled = true;
-      window.clearTimeout(hardDeadline);
-    };
+    return () => { cancelled = true; };
   }, [onReady]);
 
   const step = STEPS[stepIndex] ?? STEPS[STEPS.length - 1];
@@ -94,26 +68,15 @@ export function BrandedBootScreen({ onReady }: { onReady: () => void }) {
   return (
     <div
       style={{
-        position: "fixed",
-        inset: 0,
-        background: "#1e40af",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 20,
-        padding: 24,
+        position: "fixed", inset: 0, background: "#1e40af",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        gap: 20, padding: 24,
       }}
     >
       <div
         style={{
-          width: 132,
-          height: 132,
-          borderRadius: "50%",
-          background: "#fff",
-          display: "grid",
-          placeItems: "center",
-          boxShadow: "0 20px 60px rgba(0,0,0,.25)",
+          width: 132, height: 132, borderRadius: "50%", background: "#fff",
+          display: "grid", placeItems: "center", boxShadow: "0 20px 60px rgba(0,0,0,.25)",
           overflow: "hidden",
         }}
       >
@@ -127,25 +90,18 @@ export function BrandedBootScreen({ onReady }: { onReady: () => void }) {
       </div>
       <div
         style={{
-          width: "min(260px, 70%)",
-          height: 4,
-          background: "rgba(255,255,255,.2)",
-          borderRadius: 999,
-          overflow: "hidden",
+          width: "min(260px, 70%)", height: 4, background: "rgba(255,255,255,.2)",
+          borderRadius: 999, overflow: "hidden",
         }}
       >
         <div
           style={{
-            width: `${progress}%`,
-            height: "100%",
-            background: "#fff",
+            width: `${progress}%`, height: "100%", background: "#fff",
             transition: "width 220ms ease",
           }}
         />
       </div>
-      <div style={{ color: "rgba(255,255,255,.7)", fontSize: 11 }}>
-        Loading POS...
-      </div>
+      <div style={{ color: "rgba(255,255,255,.7)", fontSize: 11 }}>Loading POS...</div>
     </div>
   );
 }

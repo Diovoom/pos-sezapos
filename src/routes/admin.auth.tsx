@@ -8,9 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "sonner";
 import { Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
-import { logAudit } from "@/lib/audit-log";
-import { recordAdminLoginAttempt } from "@/lib/admin/login-attempts.functions";
 import { useServerFn } from "@tanstack/react-start";
+import { secureAdminPasswordSignIn, securePasswordReset } from "@/lib/auth/auth.functions";
+import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/auth";
 
 export const Route = createFileRoute("/admin/auth")({
   head: () => ({
@@ -42,7 +42,11 @@ function AdminAuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
-  const recordAttempt = useServerFn(recordAdminLoginAttempt);
+  const signIn = useServerFn(secureAdminPasswordSignIn);
+  const resetPassword = useServerFn(securePasswordReset);
+  const cooldown = useAuthCooldown();
+  const [captchaToken, setCaptchaToken] = useState<string>();
+  const [captchaReset, setCaptchaReset] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -56,60 +60,43 @@ function AdminAuthPage() {
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
-    if (loading) return;
+    if (loading || cooldown.active) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      const success = !error && !!data?.session;
-
-      // Record + check rate limit (does both in one call).
-      let limitInfo: { rate_limited: boolean; remaining_seconds: number } | null = null;
-      try {
-        limitInfo = await recordAttempt({ data: { email, success } });
-      } catch { /* audit best-effort */ }
-
-      if (!success) {
-        await logAudit({ action: "login", entity: "admin", details: { ok: false, email, reason: "invalid_credentials" } }).catch(() => {});
-        if (limitInfo?.rate_limited) {
-          const mins = Math.ceil((limitInfo.remaining_seconds || 0) / 60);
-          toast.error(`Too many attempts. Try again in ~${Math.max(1, mins)} minute${mins === 1 ? "" : "s"}.`);
-        } else {
-          toast.error(GENERIC_ERROR);
-        }
+      const result = await signIn({ data: { email, password, captchaToken } });
+      if (!result.ok || !result.session) {
+        cooldown.start(result.ok ? 0 : result.retry_after_seconds);
+        toast.error(result.ok ? GENERIC_ERROR : result.error);
         return;
       }
-      const ok = await isPlatformStaff(data.session.user.id);
-      if (!ok) {
-        await logAudit({ action: "override.denied", entity: "admin", details: { reason: "not_super_admin" } });
-        await supabase.auth.signOut();
-        toast.error(GENERIC_ERROR);
-        return;
-      }
-      await logAudit({ action: "login", entity: "admin", details: { ok: true } });
+      const { error } = await supabase.auth.setSession({
+        access_token: result.session.access_token,
+        refresh_token: result.session.refresh_token,
+      });
+      if (error) throw error;
       navigate({ to: "/admin", replace: true });
     } catch {
       toast.error(GENERIC_ERROR);
     } finally {
       setLoading(false);
+      setCaptchaReset((value) => value + 1);
     }
   }
 
   async function handleForgot(e: React.FormEvent) {
     e.preventDefault();
-    if (loading) return;
+    if (loading || cooldown.active) return;
     setLoading(true);
     try {
-      await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      // Always show the same generic message — never reveal whether an
-      // email exists in the system.
+      const result = await resetPassword({ data: { email, surface: "admin", captchaToken } });
+      cooldown.start(result.retry_after_seconds);
       toast.success("If that account exists, a reset link has been sent.");
       setForgotMode(false);
     } catch {
       toast.success("If that account exists, a reset link has been sent.");
     } finally {
       setLoading(false);
+      setCaptchaReset((value) => value + 1);
     }
   }
 
@@ -154,6 +141,7 @@ function AdminAuthPage() {
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required
+                    minLength={8}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={loading}
@@ -172,8 +160,13 @@ function AdminAuthPage() {
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : forgotMode ? "Send reset link" : "Sign In"}
+            <AuthTurnstile onTokenChange={setCaptchaToken} resetKey={captchaReset} />
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || cooldown.active || (authCaptchaEnabled && !captchaToken)}
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : cooldown.active ? `Try again in ${cooldown.seconds}s` : forgotMode ? "Send reset link" : "Sign In"}
             </Button>
 
             <div className="text-center text-sm">

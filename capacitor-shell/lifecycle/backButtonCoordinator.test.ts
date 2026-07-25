@@ -1,52 +1,48 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import test, { beforeEach } from "node:test";
+import assert from "node:assert/strict";
 import {
   BackPriority,
   registerBackHandler,
   runBackHandlers,
   _resetForTests,
-} from "./backButtonCoordinator";
+} from "./backButtonCoordinator.ts";
 
-describe("backButtonCoordinator", () => {
-  beforeEach(() => _resetForTests());
+beforeEach(() => _resetForTests());
 
-  it("runs highest-priority handler first and stops on true", async () => {
-    const calls: string[] = [];
-    registerBackHandler(BackPriority.Screen, () => { calls.push("screen"); return false; });
-    registerBackHandler(BackPriority.Overlay, () => { calls.push("overlay"); return true; });
-    registerBackHandler(BackPriority.PaymentBusy, () => { calls.push("payment"); return true; });
+test("runs highest-priority handler first and stops on true", async () => {
+  const calls: string[] = [];
+  registerBackHandler(BackPriority.Screen, () => { calls.push("screen"); return false; });
+  registerBackHandler(BackPriority.Overlay, () => { calls.push("overlay"); return true; });
+  registerBackHandler(BackPriority.PaymentBusy, () => { calls.push("payment"); return true; });
 
-    const handled = await runBackHandlers();
-    expect(handled).toBe(true);
-    expect(calls).toEqual(["overlay"]);
-  });
+  const handled = await runBackHandlers();
+  assert.equal(handled, true);
+  assert.deepEqual(calls, ["overlay"]);
+});
 
-  it("falls through when no handler claims the press", async () => {
-    registerBackHandler(BackPriority.Screen, () => false);
-    const handled = await runBackHandlers();
-    expect(handled).toBe(false);
-  });
+test("falls through when no handler claims the press", async () => {
+  registerBackHandler(BackPriority.Screen, () => false);
+  assert.equal(await runBackHandlers(), false);
+});
 
-  it("skips handlers that throw", async () => {
-    registerBackHandler(BackPriority.Overlay, () => { throw new Error("boom"); });
-    registerBackHandler(BackPriority.Screen, () => true);
-    const handled = await runBackHandlers();
-    expect(handled).toBe(true);
-  });
+test("skips handlers that throw", async () => {
+  registerBackHandler(BackPriority.Overlay, () => { throw new Error("boom"); });
+  registerBackHandler(BackPriority.Screen, () => true);
+  assert.equal(await runBackHandlers(), true);
+});
 
-  it("unregister removes handler", async () => {
-    const off = registerBackHandler(BackPriority.Overlay, () => true);
-    off();
-    const handled = await runBackHandlers();
-    expect(handled).toBe(false);
-  });
+test("unregister removes handler", async () => {
+  const unregister = registerBackHandler(BackPriority.Overlay, () => true);
+  unregister();
+  assert.equal(await runBackHandlers(), false);
+});
 
-  it("respects priority ordering: PaymentBusy > UnsavedWork > Screen", async () => {
-    const calls: string[] = [];
-    registerBackHandler(BackPriority.UnsavedWork, () => { calls.push("cart"); return false; });
-    registerBackHandler(BackPriority.PaymentBusy, () => { calls.push("payment"); return true; });
-    registerBackHandler(BackPriority.Screen, () => { calls.push("screen"); return false; });
+test("respects priority ordering", async () => {
+  const calls: string[] = [];
+  registerBackHandler(BackPriority.UnsavedWork, () => { calls.push("cart"); return false; });
+  registerBackHandler(BackPriority.PaymentBusy, () => { calls.push("payment"); return true; });
+  registerBackHandler(BackPriority.Screen, () => { calls.push("screen"); return false; });
 
-    await runBackHandlers();
-    expect(calls).toEqual(["payment"]);
-  });
+  await runBackHandlers();
+  assert.deepEqual(calls, ["payment"]);
 });

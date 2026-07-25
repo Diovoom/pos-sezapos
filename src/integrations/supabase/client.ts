@@ -2,8 +2,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-function isNewSupabaseApiKey(value: string): boolean {
+function isOpaqueSupabaseApiKey(value: string): boolean {
   return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
+}
+
+function assertBrowserSafeKey(value: string): void {
+  if (value.startsWith('sb_secret_')) {
+    throw new Error('Security configuration error: a secret Supabase key was added to the browser bundle. Use only the publishable key in VITE_SUPABASE_PUBLISHABLE_KEY.');
+  }
 }
 
 function createSupabaseFetch(supabaseKey: string): typeof fetch {
@@ -17,7 +23,7 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
     }
 
     // New Supabase API keys are opaque strings, not bearer JWTs.
-    if (isNewSupabaseApiKey(supabaseKey) && headers.get('Authorization') === `Bearer ${supabaseKey}`) {
+    if (isOpaqueSupabaseApiKey(supabaseKey) && headers.get('Authorization') === `Bearer ${supabaseKey}`) {
       headers.delete('Authorization');
     }
 
@@ -42,6 +48,8 @@ function createSupabaseClient() {
     console.error(`[Supabase] ${message}`);
     throw new Error(message);
   }
+
+  assertBrowserSafeKey(SUPABASE_PUBLISHABLE_KEY);
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {

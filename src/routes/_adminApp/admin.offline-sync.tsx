@@ -16,7 +16,7 @@ function OfflineSyncPage() {
     queryKey: ["admin", "offline-sync"],
     queryFn: () => adminOfflineSyncOverview(),
     enabled: canView,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
   if (perms && !canView) return <p className="text-sm text-muted-foreground">Not authorized.</p>;

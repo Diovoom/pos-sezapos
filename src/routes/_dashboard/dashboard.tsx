@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_dashboard/dashboard")({
 function DashboardPage() {
   const { data } = useQuery({
     queryKey: ["dashboard-today"],
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     queryFn: async () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
