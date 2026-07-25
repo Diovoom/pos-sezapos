@@ -59,3 +59,7 @@ SEZA-POS-v*-PRODUCTION-PATCH/
 
 # Local release archives
 *.zip
+
+.eslintcache
+*.bak
+SEZA-POS-v1.3.0-PRODUCTION-PATCH/
