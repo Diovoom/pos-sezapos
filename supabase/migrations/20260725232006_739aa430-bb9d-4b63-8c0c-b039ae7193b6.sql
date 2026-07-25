@@ -1,0 +1,1 @@
+ALTER POLICY ticket_notes_merchant_view ON public.support_ticket_notes TO authenticated;
