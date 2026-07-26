@@ -1,7 +1,6 @@
 // SEZA-owned MCP route. Guarded by guardApiRequest; the mcp-js Vite plugin
 // emits its generated copies outside src/routes so this file is not overwritten.
 // route: /.mcp/list-tools
-// emitted to: src/routes/[.mcp]/list-tools.ts
 
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -9,16 +8,18 @@ import { createTanStackListToolsHandler } from "@lovable.dev/mcp-js/stacks/tanst
 
 import mcp from "../../lib/mcp/index";
 
-const listToolsHandler = createTanStackListToolsHandler(mcp, { resourcePath: "/mcp", metadataPath: "/.well-known/oauth-protected-resource", trustForwardedHost: true });
+const listToolsHandler = createTanStackListToolsHandler(mcp, {
+  resourcePath: "/mcp",
+  metadataPath: "/.well-known/oauth-protected-resource",
+  trustForwardedHost: true,
+});
 
 export const Route = createFileRoute("/.mcp/list-tools")({
   server: {
     handlers: {
       // ANY: TanStack returns SPA HTML for methods not in `handlers`; the SDK 405s instead.
       ANY: async (ctx: Parameters<typeof listToolsHandler>[0]) => {
-        const { guardApiRequest } = await import(
-          "@/lib/security/api-security.server"
-        );
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
         const blocked = await guardApiRequest(ctx.request, {
           scope: "mcp.list-tools",
           limit: 120,
