@@ -159,7 +159,7 @@ export function ReceiptDialog({
               } catch {}
               window.close();
             });
-          <\/script>
+          <\u002fscript>
         </body>
       </html>
     `);

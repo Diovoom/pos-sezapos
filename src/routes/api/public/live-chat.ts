@@ -17,7 +17,8 @@ const clean = (value: unknown, max: number) =>
   typeof value === "string"
     ? value
         .trim()
-        .replace(/\u0000/g, "")
+        .split("\u0000")
+        .join("")
         .slice(0, max)
     : "";
 
