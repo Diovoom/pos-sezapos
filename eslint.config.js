@@ -6,7 +6,20 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+  {
+    // Generated output and native shells are not hand-authored sources, so
+    // linting/formatting them only produces noise in CI.
+    ignores: [
+      ".lovable/**",
+      "android/**",
+      "capacitor-shell/**",
+      "dist/**",
+      "build/**",
+      "node_modules/**",
+      ".output/**",
+      ".vinxi/**",
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
