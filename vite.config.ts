@@ -61,7 +61,12 @@ export default defineConfig({
     router: { autoCodeSplitting: true },
   },
   vite: {
-    plugins: enableMcpPlugin ? [mcpPlugin()] : [],
+    plugins: enableMcpPlugin
+      ? // The three MCP routes in src/routes are SEZA-owned (they add
+        // guardApiRequest), so point the plugin at a scratch dir instead of
+        // letting it regenerate and strip the guards.
+        [mcpPlugin({ routesDir: ".lovable/mcp/generated" })]
+      : [],
     define: publicEnv,
   },
 });
