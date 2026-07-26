@@ -195,12 +195,9 @@ const RETAIL_DEPARTMENTS = [
 
 const TENDER: Array<{ id: PaymentMethod; label: string; icon: typeof Banknote }> = [
   { id: "cash", label: "Cash", icon: Banknote },
-  { id: "split", label: "Split", icon: SplitSquareHorizontal },
   { id: "card", label: "Card", icon: CreditCard },
-  { id: "tap", label: "Tap", icon: Smartphone },
-  { id: "apple_pay", label: "Apple", icon: Wallet },
+  { id: "split", label: "Split", icon: SplitSquareHorizontal },
   { id: "gift_card", label: "Gift", icon: Gift },
-  { id: "google_pay", label: "Google", icon: SplitSquareHorizontal },
 ];
 
 export function PosPage() {
@@ -1007,7 +1004,9 @@ export function PosPage() {
   const cartPanel = (
     <>
       <div className="px-4 py-3 flex items-center justify-between">
-        <h2 className="font-semibold">{t("pos.current_sale")}</h2>
+        <h2 className="text-sm font-bold">
+          Order · {cart.length} line{cart.length === 1 ? "" : "s"}
+        </h2>
         {cart.length > 0 && (
           <button
             onClick={clearCart}
@@ -1124,11 +1123,11 @@ export function PosPage() {
 
         {!online && (
           <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-            Offline mode - cash sales will be saved on this register and synced when connection
+            Offline mode. Cash sales will be saved on this register and synced when connection
             returns. Card payments require an internet connection.
           </div>
         )}
-        <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="grid grid-cols-2 gap-2 mb-3">
           {TENDER.map((t) => {
             const Icon = t.icon;
             const active = tender === t.id;
@@ -1147,7 +1146,7 @@ export function PosPage() {
                 aria-disabled={disabled}
                 title={disabled ? "Card payments require an internet connection." : undefined}
                 className={cn(
-                  "h-12 border rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors",
+                  "h-11 border rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors",
                   active ? "border-primary bg-primary/5 text-primary" : "bg-card hover:bg-accent",
                   disabled && "opacity-40 cursor-not-allowed hover:bg-card",
                 )}
@@ -1250,7 +1249,7 @@ export function PosPage() {
       )}
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        <section className="flex-1 md:flex-1 flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
+        <section className="flex-1 md:basis-[80%] flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
           <div className="p-4 flex flex-col gap-3">
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -1323,10 +1322,10 @@ export function PosPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <Button
                 variant="outline"
-                className="h-10"
+                className="h-9 text-xs"
                 onClick={() => setCustomOpen(true)}
                 disabled={!canManage}
                 title={canManage ? "Add a custom item" : "Owner or manager approval required"}
@@ -1336,7 +1335,7 @@ export function PosPage() {
               </Button>
               <Button
                 variant="outline"
-                className="h-10"
+                className="h-9 text-xs"
                 onClick={() => setDiscountOpen(true)}
                 disabled={!canDiscount}
                 title={canDiscount ? undefined : "Discount permission required"}
@@ -1344,13 +1343,17 @@ export function PosPage() {
                 <Percent className="size-4 mr-2" />
                 {discount ? "Edit discount" : "Discount"}
               </Button>
-              <Button variant="outline" className="h-10" onClick={() => setLoyaltyOpen(true)}>
+              <Button
+                variant="outline"
+                className="h-9 text-xs"
+                onClick={() => setLoyaltyOpen(true)}
+              >
                 <Heart className="size-4 mr-2" />
                 {loyalty ? "Loyalty ✓" : "Loyalty"}
               </Button>
               <Button
                 variant="outline"
-                className="h-10"
+                className="h-9 text-xs"
                 title={canRefund ? "Open refund workflow" : "Manager approval will be required"}
                 onClick={() => navigate({ to: "/refunds" })}
               >
@@ -1376,7 +1379,7 @@ export function PosPage() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2">
                 {filtered.map((p) => (
                   <ProductTile key={p.id} product={p} currency={currency} onAdd={addToCart} />
                 ))}
@@ -1385,7 +1388,7 @@ export function PosPage() {
           </div>
         </section>
 
-        <section className="hidden md:flex w-[clamp(320px,33vw,370px)] flex-none flex-col bg-card">
+        <section className="hidden md:flex md:basis-[20%] min-w-[248px] max-w-[330px] flex-none flex-col bg-card">
           {cartPanel}
         </section>
       </div>

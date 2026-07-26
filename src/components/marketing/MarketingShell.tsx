@@ -2,10 +2,8 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import {
   ArrowUpRight,
-  BookOpen,
   ChevronDown,
   Cookie,
-  LockKeyhole,
   Phone,
   MessageCircle,
   X,
@@ -27,7 +25,7 @@ import { SocialLinks } from "@/components/marketing/SocialLinks";
 import { WebsiteLiveChat, openWebsiteLiveChat } from "@/components/marketing/WebsiteLiveChat";
 import { cn } from "@/lib/utils";
 
-type NavItem = { to: string; label: string; description?: string; badge?: string };
+type NavItem = { to: string; label: string; description?: string };
 
 const PRODUCT_ITEMS: NavItem[] = [
   { to: "/features", label: "All features", description: "Checkout, inventory, teams and reports" },
@@ -50,7 +48,7 @@ const RESOURCE_ITEMS: NavItem[] = [
 
 const MOBILE_ITEMS: NavItem[] = [
   { to: "/guide", label: "User guide", description: "How to use SEZA POS and what is included" },
-  { to: "/hardware", label: "Hardware", description: "In production now", badge: "Coming soon" },
+  { to: "/hardware", label: "Hardware", description: "Compatibility and production updates" },
   { to: "/features", label: "All features", description: "Everything inside SEZA POS" },
   { to: "/industries", label: "Industries", description: "See how SEZA fits your business" },
   { to: "/pricing", label: "Pricing", description: "Simple monthly plans" },
@@ -234,10 +232,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 to="/hardware"
                 className="inline-flex h-10 items-center gap-2 rounded-full bg-blue-50 px-3 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/15"
               >
-                Shop now
-                <span className="hidden rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white xl:inline-flex">
-                  Soon
-                </span>
+                Hardware
               </Link>
               <NavDropdown label="Product" items={PRODUCT_ITEMS} />
               <Link
@@ -278,9 +273,6 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               aria-label="SEZA hardware coming soon"
             >
               <ShoppingCart className="size-5" />
-              <span className="absolute -right-2 -top-2 rounded-full bg-blue-700 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-white">
-                Soon
-              </span>
             </Link>
           </div>
         </div>
@@ -291,64 +283,47 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           side="left"
           className="inset-0 z-[90] h-dvh w-screen max-w-none overflow-y-auto border-0 bg-white p-0 shadow-none dark:bg-slate-950 [&>button:first-of-type]:hidden"
         >
-          <SheetHeader className="sticky top-0 z-10 border-b bg-white/95 px-5 py-4 text-left backdrop-blur dark:bg-slate-950/95">
-            <div className="flex items-center justify-between gap-4">
-              <SheetTitle className="flex items-center gap-3">
-                <span className="grid size-11 place-items-center rounded-2xl bg-blue-50 dark:bg-blue-500/10">
-                  <Logo className="size-9" alt="SEZA POS" />
-                </span>
-                <span>
-                  <span className="block text-lg font-black tracking-tight">SEZA POS</span>
-                  <span className="block text-xs font-normal text-muted-foreground">
-                    Everything for your store
-                  </span>
-                </span>
-              </SheetTitle>
+          <SheetHeader className="sticky top-0 z-10 border-b bg-white/95 px-4 py-3 text-left backdrop-blur dark:bg-slate-950/95">
+            <div className="grid grid-cols-[48px_1fr_48px] items-center gap-3">
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
                 aria-label="Close navigation menu"
-                className="grid size-12 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-sm dark:border-white/10 dark:bg-slate-900 dark:text-white"
+                className="grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-950 shadow-sm dark:border-white/10 dark:bg-slate-900 dark:text-white"
               >
                 <MenuGlyph open />
               </button>
+              <SheetTitle className="min-w-0 text-left">
+                <span className="block text-base font-black tracking-tight">SEZA POS</span>
+                <span className="block truncate text-xs font-normal text-muted-foreground">
+                  Everything for your store
+                </span>
+              </SheetTitle>
+              <span aria-hidden="true" />
             </div>
           </SheetHeader>
 
           <nav
-            className="mx-auto grid w-full max-w-xl grid-cols-2 gap-2 px-4 py-4"
+            className="mx-auto grid w-full max-w-xl grid-cols-2 gap-2 px-4 py-3"
             aria-label="Mobile navigation"
           >
-            {MOBILE_ITEMS.map((item, index) => (
+            {MOBILE_ITEMS.map((item) => (
               <Link
                 key={item.label}
                 to={item.to}
                 resetScroll
                 onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "group min-h-24 flex items-start justify-between rounded-2xl border px-3 py-3 transition-all hover:border-primary/35 hover:bg-primary/[0.035] hover:shadow-sm",
-                  index === 0
-                    ? "border-blue-200 bg-blue-50 dark:border-blue-400/20 dark:bg-blue-500/10"
-                    : "border-slate-200 bg-card dark:border-white/10",
-                )}
+                className="group flex min-h-[76px] items-start justify-between rounded-xl border border-slate-200 bg-card px-3 py-3 transition-colors hover:border-primary/35 hover:bg-primary/[0.035] dark:border-white/10"
               >
-                <span className="min-w-0">
-                  <span className="flex items-center gap-2">
-                    {index === 0 && <BookOpen className="size-4 text-primary" />}
-                    <span className="text-sm font-bold">{item.label}</span>
-                    {item.badge && (
-                      <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-                        {item.badge}
-                      </span>
-                    )}
-                  </span>
+                <span className="min-w-0 pr-2">
+                  <span className="block text-sm font-bold">{item.label}</span>
                   {item.description && (
-                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                    <span className="mt-1 block text-[11px] leading-4 text-muted-foreground">
                       {item.description}
                     </span>
                   )}
                 </span>
-                <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
+                <ArrowUpRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
               </Link>
             ))}
             <button
@@ -357,14 +332,12 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 setMobileOpen(false);
                 openWebsiteLiveChat();
               }}
-              className="group col-span-2 flex w-full items-center justify-between rounded-2xl border border-blue-200 bg-blue-700 px-4 py-3 text-left text-white transition-all hover:bg-blue-800"
+              className="group col-span-2 flex min-h-[70px] w-full items-center justify-between rounded-xl border border-blue-800 bg-blue-800 px-4 py-3 text-left text-white transition-colors hover:bg-blue-900"
             >
               <span>
-                <span className="flex items-center gap-2 text-sm font-bold">
-                  <MessageCircle className="size-4" /> Contact us
-                </span>
-                <span className="mt-1 block text-xs leading-5 text-blue-100">
-                  Start a live chat with SEZA Support
+                <span className="block text-sm font-bold">Contact SEZA</span>
+                <span className="mt-1 block text-[11px] leading-4 text-blue-100">
+                  Live support, pricing and setup help
                 </span>
               </span>
               <ArrowUpRight className="size-4" />
@@ -403,10 +376,6 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 Modern point-of-sale software for independent stores that need fast checkout, clear
                 inventory, accountable shifts and useful reports.
               </p>
-              <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300">
-                <LockKeyhole className="size-3.5 text-blue-300" />
-                Subscription payments securely processed by Stripe
-              </div>
               <div className="mt-5">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                   Follow SEZA POS
@@ -496,6 +465,9 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 Questions before you start?
               </span>
               <span className="block text-sm font-black">Talk with a SEZA specialist</span>
+              <span className="mt-0.5 block text-[11px] text-blue-100 underline underline-offset-2">
+                View contact options
+              </span>
             </span>
             <ArrowUpRight className="size-5 shrink-0" />
           </button>

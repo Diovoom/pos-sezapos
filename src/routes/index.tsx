@@ -350,8 +350,8 @@ function LandingPage() {
                   <span className="size-2.5 rounded-full bg-amber-300/80" />
                   <span className="size-2.5 rounded-full bg-emerald-400/80" />
                 </div>
-                <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                  <ShieldCheck className="size-3.5 text-blue-300" /> SEZA Register
+                <div className="text-xs font-semibold tracking-wide text-slate-300">
+                  SEZA Register
                 </div>
                 <div className="w-14" />
               </div>
@@ -361,41 +361,23 @@ function LandingPage() {
                 className="block w-full rounded-b-[22px] bg-white"
               />
             </div>
-
-            <div className="seza-float-card absolute -left-4 top-24 hidden w-40 rounded-2xl border border-blue-200 bg-white p-4 shadow-xl md:block dark:border-blue-400/15 dark:bg-slate-900">
-              <div className="flex items-center gap-3">
-                <span className="grid size-9 place-items-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10">
-                  <Check className="size-5" />
-                </span>
-                <div className="text-sm font-black text-blue-950 dark:text-blue-100">Online</div>
-              </div>
-            </div>
-
-            <div className="seza-float-card seza-float-card-delay absolute -right-4 bottom-24 hidden w-40 rounded-2xl border border-blue-200 bg-blue-800 p-4 text-white shadow-xl md:block dark:border-blue-400/20 dark:bg-blue-700">
-              <div className="flex items-center gap-3">
-                <span className="grid size-9 place-items-center rounded-full bg-white/15 text-emerald-300">
-                  <Check className="size-5" />
-                </span>
-                <div className="text-sm font-black">Offline</div>
-              </div>
-            </div>
           </Reveal>
         </div>
       </section>
 
       <section className="border-y border-slate-200/80 bg-white dark:border-white/10 dark:bg-slate-950">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-px bg-slate-200/80 px-px sm:grid-cols-3 lg:grid-cols-5 dark:bg-white/10">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-px bg-slate-200/80 px-px sm:grid-cols-3 lg:grid-cols-6 dark:bg-white/10">
           {[
-            { icon: Gauge, value: "Fast", label: "Touch-first checkout" },
-            { icon: LockKeyhole, value: "Controlled", label: "Roles & manager PINs" },
-            { icon: RefreshCw, value: "Resilient", label: "Offline cash sync" },
-            { icon: HardDriveDownload, value: "Connected", label: "Cloud dashboard" },
-            { icon: CreditCard, value: "Secure", label: "Billing through Stripe" },
+            { value: "Fast", label: "Touch-first checkout" },
+            { value: "Controlled", label: "Roles and manager PINs" },
+            { value: "Resilient", label: "Offline cash sales" },
+            { value: "Connected", label: "Cloud dashboard" },
+            { value: "Secure", label: "Stripe billing" },
+            { value: "Supported", label: "Real setup help" },
           ].map((item) => (
             <div key={item.label} className="bg-white px-4 py-6 text-center dark:bg-slate-950">
-              <item.icon className="mx-auto size-5 text-primary" />
-              <div className="mt-2 text-sm font-bold">{item.value}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">{item.label}</div>
+              <div className="text-sm font-bold">{item.value}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{item.label}</div>
             </div>
           ))}
         </div>
@@ -409,13 +391,8 @@ function LandingPage() {
           >
             <div className="seza-grid-bg absolute inset-0 opacity-15" />
             <div className="relative">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.15em] backdrop-blur">
-                  <MonitorSmartphone className="size-4" /> Hardware planning guide
-                </span>
-                <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black uppercase tracking-[0.12em] text-blue-700">
-                  Compatibility first
-                </span>
+              <div className="text-xs font-bold uppercase tracking-[0.15em] text-blue-100">
+                Hardware planning
               </div>
               <h2 className="mt-5 text-balance text-3xl font-black tracking-[-0.035em] sm:text-4xl">
                 Plan the complete setup built for your business.
