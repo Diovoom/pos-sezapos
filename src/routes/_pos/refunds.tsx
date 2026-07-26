@@ -41,6 +41,7 @@ import {
   type ManagerOverrideResult,
 } from "@/components/pos/ManagerOverrideDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { userFacingError } from "@/lib/user-error";
 
 export const Route = createFileRoute("/_pos/refunds")({
   head: () => ({
@@ -397,7 +398,7 @@ function RefundDialog({
       };
       onIssued(rd);
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Refund failed"),
+    onError: (e) => toast.error(userFacingError(e, "The refund could not be completed. Try again.")),
   });
 
   return (

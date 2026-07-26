@@ -49,6 +49,7 @@ import {
   getAllOfflineSales,
 } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
+import { userFacingError } from "@/lib/user-error";
 
 export const Route = createFileRoute("/_pos/register")({
   head: () => ({
@@ -243,7 +244,7 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
       );
       onOpened();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to open register"),
+    onError: (e) => toast.error(userFacingError(e, "Could not open the register. Try again.")),
   });
 
   return (
@@ -667,7 +668,7 @@ function CashMovementDialog({
       onOpenChange(false);
       onDone();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : `${label} failed`),
+    onError: (e) => toast.error(userFacingError(e, `${label} could not be completed. Try again.`)),
   });
 
   return (

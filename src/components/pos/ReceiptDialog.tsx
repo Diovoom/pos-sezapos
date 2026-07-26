@@ -12,6 +12,7 @@ import { sendTransactionalEmail } from "@/lib/email/send";
 import { supabase } from "@/integrations/supabase/client";
 import type { CountryCode } from "libphonenumber-js";
 import { isNativeMode } from "@/lib/native";
+import { userFacingError } from "@/lib/user-error";
 import {
   autoPrintOnComplete,
   reprintReceipt,
@@ -206,7 +207,7 @@ export function ReceiptDialog({
         },
       });
       if (!res.ok) {
-        toast.error(`Failed to send receipt: ${res.error}`);
+        toast.error(userFacingError(res.error, "The receipt could not be sent. Try again."));
         return;
       }
       setDeliveryStatus(res.queued ? "queued" : "sent");

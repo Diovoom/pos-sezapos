@@ -287,6 +287,7 @@ function RootComponent() {
       "/support",
       "/setup",
       "/onboarding",
+      "/customer-display",
     ];
 
     const isDashboardPath = dashboardPrefixes.some(

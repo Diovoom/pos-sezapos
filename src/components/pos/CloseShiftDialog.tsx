@@ -32,6 +32,7 @@ import {
   readMeta,
 } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
+import { userFacingError } from "@/lib/user-error";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
@@ -460,7 +461,7 @@ export function CloseShiftDialog({
       }
       onClosed();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to close shift"),
+    onError: (e) => toast.error(userFacingError(e, "The shift could not be closed. Try again.")),
   });
 
   const attemptClose = () => {

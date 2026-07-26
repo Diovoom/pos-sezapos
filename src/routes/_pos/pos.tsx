@@ -760,6 +760,7 @@ export function PosPage() {
         version: 2,
         storeId: store?.id ?? null,
         storeName: store?.name ?? "Store",
+        logoUrl: store?.logo_url ?? null,
         currency,
         phase: "complete",
         lines: rd.lines.map((line, index) => ({
@@ -774,6 +775,8 @@ export function PosPage() {
         tax: rd.tax,
         total: rd.total,
         paymentMethod: rd.paymentMethod,
+        amountTendered: rd.amountTendered ?? null,
+        changeDue: rd.changeDue ?? null,
         receiptNumber: rd.receiptNumber,
         updatedAt: new Date().toISOString(),
       };
@@ -882,6 +885,7 @@ export function PosPage() {
       version: 2,
       storeId: store?.id ?? null,
       storeName: store?.name ?? "Store",
+      logoUrl: store?.logo_url ?? null,
       currency,
       phase: cart.length ? "sale" : "idle",
       lines: cart.map((line) => ({
@@ -908,6 +912,7 @@ export function PosPage() {
     currency,
     store?.id,
     store?.name,
+    store?.logo_url,
     displayCompletion,
   ]);
 

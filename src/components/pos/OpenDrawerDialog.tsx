@@ -24,6 +24,7 @@ import {
 } from "@/components/pos/ManagerOverrideDialog";
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import { saveOfflineCashMovement } from "@/lib/offline/db";
+import { userFacingError } from "@/lib/user-error";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
@@ -195,7 +196,7 @@ export function OpenDrawerDialog({
       if (requiresAmount) onSafeDropRecorded?.();
       if (isCountShift) onCountShift?.();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to record drawer request"),
+    onError: (e) => toast.error(userFacingError(e, "The drawer request could not be recorded.")),
   });
 
   const handleRequest = () => {

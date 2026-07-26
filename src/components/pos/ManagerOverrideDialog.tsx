@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/user-error";
 
 export type ManagerOverrideResult = { manager_id: string; manager_name: string };
 
@@ -57,7 +58,7 @@ export function ManagerOverrideDialog({
       onApprove(r);
       onOpenChange(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Override denied");
+      toast.error(userFacingError(e, "Manager approval could not be verified."));
       setPin("");
     } finally {
       setBusy(false);

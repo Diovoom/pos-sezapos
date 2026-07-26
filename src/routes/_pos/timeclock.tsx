@@ -16,6 +16,7 @@ import { isOnlineNow } from "@/lib/offline/useOnline";
 import type { EmployeeTimeClockAction } from "@/lib/employees.functions";
 import { postTimeClockAction } from "@/lib/timeclock/client";
 import { logAudit } from "@/lib/audit-log";
+import { userFacingError } from "@/lib/user-error";
 
 // Native APK shell detection — Clock Out on the APK routes through the
 // existing Shift Review flow when a register shift is open, and enforces
@@ -271,7 +272,7 @@ export function TimeclockPage() {
       toast.success(isOnlineNow() ? "Clocked in" : "Clocked in offline — will sync automatically");
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Clock in failed"),
+    onError: (e) => toast.error(userFacingError(e, "Could not clock in. Try again.")),
   });
 
   const clockOut = useMutation({
@@ -283,7 +284,7 @@ export function TimeclockPage() {
       );
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Clock out failed"),
+    onError: (e) => toast.error(userFacingError(e, "Could not clock out. Try again.")),
   });
 
   const startBreak = useMutation({
@@ -293,7 +294,7 @@ export function TimeclockPage() {
       toast.success(isOnlineNow() ? "Break started" : "Break started offline");
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Break failed"),
+    onError: (e) => toast.error(userFacingError(e, "Could not update the break. Try again.")),
   });
 
   const endBreak = useMutation({
@@ -303,7 +304,7 @@ export function TimeclockPage() {
       toast.success(isOnlineNow() ? "Break ended" : "Break ended offline");
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Break failed"),
+    onError: (e) => toast.error(userFacingError(e, "Could not update the break. Try again.")),
   });
 
   const anyBusy =

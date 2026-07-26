@@ -13,6 +13,7 @@ export type CustomerDisplayPayload = {
   version: 2;
   storeId: string | null;
   storeName: string;
+  logoUrl?: string | null;
   currency: string;
   phase: "idle" | "sale" | "complete";
   lines: CustomerDisplayLine[];
@@ -21,6 +22,8 @@ export type CustomerDisplayPayload = {
   tax: number;
   total: number;
   paymentMethod?: string | null;
+  amountTendered?: number | null;
+  changeDue?: number | null;
   receiptNumber?: string | null;
   updatedAt: string;
 };
@@ -75,36 +78,73 @@ function realtimeTopic(storeId: string) {
   return `customer-display:${storeId}`;
 }
 
+const publisherChannels = new Map<string, ReturnType<typeof supabase.channel>>();
+const publisherReady = new Map<string, Promise<ReturnType<typeof supabase.channel>>>();
+
+function getPublisherChannel(storeId: string) {
+  const existing = publisherChannels.get(storeId);
+  if (existing) return Promise.resolve(existing);
+
+  const pending = publisherReady.get(storeId);
+  if (pending) return pending;
+
+  const channel = supabase.channel(realtimeTopic(storeId), {
+    config: { broadcast: { self: false, ack: false } },
+  });
+
+  const ready = new Promise<ReturnType<typeof supabase.channel>>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      publisherReady.delete(storeId);
+      void supabase.removeChannel(channel);
+      reject(new Error("Customer display connection timed out"));
+    }, 5_000);
+
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        window.clearTimeout(timeout);
+        publisherReady.delete(storeId);
+        publisherChannels.set(storeId, channel);
+        resolve(channel);
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+        window.clearTimeout(timeout);
+        publisherReady.delete(storeId);
+        publisherChannels.delete(storeId);
+        reject(new Error(`Customer display channel ${status.toLowerCase()}`));
+      }
+    });
+  });
+
+  publisherReady.set(storeId, ready);
+  return ready;
+}
+
 /**
  * Publish through three layers:
  * 1) localStorage for Firefox/Linux polling,
  * 2) BroadcastChannel for same-browser instant updates,
- * 3) Supabase Realtime broadcast for APK -> web display on another device.
+ * 3) Supabase Realtime broadcast for Android/web registers on another device.
  */
 export async function publishCustomerDisplay(payload: CustomerDisplayPayload): Promise<void> {
   if (typeof window !== "undefined") {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      if (payload.storeId)
+      if (payload.storeId) {
         window.localStorage.setItem("seza.customer-display.storeId", payload.storeId);
+      }
       if (typeof BroadcastChannel !== "undefined") {
         const channel = new BroadcastChannel(LOCAL_CHANNEL);
         channel.postMessage(payload);
         channel.close();
       }
     } catch {
-      // Local display support is best-effort and must never block a sale.
+      // Display support is best-effort and must never block checkout.
     }
   }
 
   if (!payload.storeId || typeof navigator === "undefined" || !navigator.onLine) return;
   try {
-    const channel = supabase.channel(realtimeTopic(payload.storeId), {
-      config: { broadcast: { self: false, ack: false } },
-    });
-    await channel.subscribe();
+    const channel = await getPublisherChannel(payload.storeId);
     await channel.send({ type: "broadcast", event: EVENT, payload });
-    await supabase.removeChannel(channel);
   } catch {
     // Remote display failure must never affect checkout.
   }
@@ -113,8 +153,13 @@ export async function publishCustomerDisplay(payload: CustomerDisplayPayload): P
 export function subscribeCustomerDisplay(
   storeId: string | null,
   onPayload: (payload: CustomerDisplayPayload) => void,
+  onConnectionChange?: (connected: boolean) => void,
 ): () => void {
-  if (!storeId) return () => undefined;
+  if (!storeId) {
+    onConnectionChange?.(false);
+    return () => undefined;
+  }
+
   const channel = supabase
     .channel(realtimeTopic(storeId), {
       config: { broadcast: { self: false, ack: false } },
@@ -123,9 +168,12 @@ export function subscribeCustomerDisplay(
       const next = payload as CustomerDisplayPayload;
       if (next?.type === "seza-pos-display" && next.storeId === storeId) onPayload(next);
     })
-    .subscribe();
+    .subscribe((status) => {
+      onConnectionChange?.(status === "SUBSCRIBED");
+    });
 
   return () => {
+    onConnectionChange?.(false);
     void supabase.removeChannel(channel);
   };
 }

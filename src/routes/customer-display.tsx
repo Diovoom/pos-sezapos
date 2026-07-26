@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { fmtCurrency } from "@/lib/format";
 import {
   customerDisplayLocalChannel,
@@ -32,7 +33,7 @@ function requestedStoreId() {
 }
 
 function CustomerDisplayPage() {
-  const storeId = useMemo(requestedStoreId, []);
+  const [storeId, setStoreId] = useState<string | null>(() => requestedStoreId());
   const [sale, setSale] = useState<CustomerDisplayPayload>(() => {
     const local = readLocalCustomerDisplay();
     return storeId && local.storeId && local.storeId !== storeId
@@ -40,6 +41,29 @@ function CustomerDisplayPage() {
       : local;
   });
   const [remoteConnected, setRemoteConnected] = useState(false);
+
+  useEffect(() => {
+    if (storeId) return;
+    let cancelled = false;
+    void supabase
+      .from("stores")
+      .select("id")
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data?.id) return;
+        try {
+          localStorage.setItem("seza.customer-display.storeId", data.id);
+        } catch {
+          // Storage is optional.
+        }
+        setStoreId(data.id);
+        setSale((current) => ({ ...current, storeId: data.id }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId]);
 
   useEffect(() => {
     const accept = (next: CustomerDisplayPayload) => {
@@ -70,11 +94,14 @@ function CustomerDisplayPage() {
         if (event.data?.type === "seza-pos-display") accept(event.data);
       };
     }
-    const unsubscribeRemote = subscribeCustomerDisplay(storeId, (payload) => {
-      setRemoteConnected(true);
-      markDisplayConnected();
-      accept(payload);
-    });
+    const unsubscribeRemote = subscribeCustomerDisplay(
+      storeId,
+      (payload) => {
+        markDisplayConnected();
+        accept(payload);
+      },
+      setRemoteConnected,
+    );
     const onStorage = (event: StorageEvent) => {
       if (event.key === customerDisplayStorageKey) refreshFromStorage();
     };
@@ -102,23 +129,33 @@ function CustomerDisplayPage() {
   }, [storeId]);
 
   const completed = sale.phase === "complete";
+  const isFresh = useMemo(() => {
+    const updated = Date.parse(sale.updatedAt);
+    return Number.isFinite(updated) && Date.now() - updated < 15_000;
+  }, [sale.updatedAt, remoteConnected]);
+  const connected = remoteConnected || isFresh;
   return (
     <main className="min-h-screen bg-slate-950 text-white flex flex-col p-8 md:p-12">
       <header className="flex items-center justify-between border-b border-white/15 pb-6">
-        <div>
-          <h1 className="text-3xl md:text-5xl font-bold">{sale.storeName}</h1>
-          <p className="mt-2 text-sm uppercase tracking-[0.22em] text-white/55">Customer display</p>
+        <div className="flex items-center gap-4">
+          {sale.logoUrl ? (
+            <img
+              src={sale.logoUrl}
+              alt=""
+              className="size-14 md:size-20 rounded-xl bg-white object-contain p-1"
+            />
+          ) : null}
+          <div>
+            <h1 className="text-3xl md:text-5xl font-bold">{sale.storeName}</h1>
+            <p className="mt-2 text-sm uppercase tracking-[0.22em] text-white/55">Customer display</p>
+          </div>
         </div>
         <div className="text-right">
           <p className="text-sm text-emerald-300">
             {completed ? "Payment complete" : "Register ready"}
           </p>
           <p className="mt-1 text-xs text-white/45">
-            {storeId
-              ? remoteConnected
-                ? "Connected to register"
-                : "Waiting for register updates"
-              : "Same-device display mode"}
+            {connected ? "Connected to register" : "Waiting for register"}
           </p>
         </div>
       </header>
@@ -135,6 +172,17 @@ function CustomerDisplayPage() {
               <p className="mt-6 text-4xl font-mono font-bold">
                 {fmtCurrency(sale.total, sale.currency)}
               </p>
+              {sale.changeDue != null && sale.changeDue > 0 ? (
+                <div className="mt-6 rounded-xl border border-emerald-300/25 bg-emerald-300/10 px-8 py-4">
+                  <p className="text-sm uppercase tracking-[0.2em] text-emerald-200/70">Change due</p>
+                  <p className="mt-1 text-4xl font-mono font-black text-emerald-200">
+                    {fmtCurrency(sale.changeDue, sale.currency)}
+                  </p>
+                </div>
+              ) : null}
+              {sale.receiptNumber ? (
+                <p className="mt-5 text-sm text-white/45">Receipt {sale.receiptNumber}</p>
+              ) : null}
             </div>
           </div>
         ) : sale.lines.length === 0 ? (
@@ -142,12 +190,7 @@ function CustomerDisplayPage() {
             <div>
               <p className="text-3xl font-semibold">Welcome</p>
               <p className="mt-3 text-lg text-white/55">Your items will appear here.</p>
-              {storeId ? null : (
-                <p className="mt-5 max-w-md text-sm text-amber-200/70">
-                  For an Android register on another device, open this page with
-                  <span className="font-mono"> ?store=STORE_ID</span>.
-                </p>
-              )}
+
             </div>
           </div>
         ) : (

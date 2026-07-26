@@ -281,7 +281,7 @@ export function SettingsPage() {
             </TabsContent>
             {/* Legacy deep-links still supported */}
             <TabsContent value="printer" className="mt-0">
-              <UnifiedHardwarePanel />
+              <PrinterCompatibilityPanel />
             </TabsContent>
             <TabsContent value="scanner" className="mt-0">
               <UnifiedHardwarePanel />
@@ -296,7 +296,7 @@ export function SettingsPage() {
               <UnifiedHardwarePanel />
             </TabsContent>
             <TabsContent value="display" className="mt-0">
-              <UnifiedHardwarePanel />
+              <CustomerDisplayPanel />
             </TabsContent>
             <TabsContent value="setup_receipt" className="mt-0">
               <UnifiedReceiptPanel />
@@ -1147,6 +1147,47 @@ function UnifiedReceiptPanel() {
   );
 }
 
+
+function PrinterCompatibilityPanel() {
+  return (
+    <div className="space-y-4 max-w-3xl">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Printer className="size-5" />
+            Receipt printer setup
+          </CardTitle>
+          <CardDescription>
+            Use the same receipt screen on the web POS and Android register.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="rounded-md border p-4">
+            <div className="font-medium">Linux or desktop web POS</div>
+            <p className="mt-1 text-muted-foreground">
+              Install the printer in Linux, select the correct 58 mm or 80 mm paper size, then use
+              Print from the completed-sale receipt. SEZA opens the operating system print dialog so
+              USB and network printers supported by Linux can be used without a browser extension.
+            </p>
+          </div>
+          <div className="rounded-md border p-4">
+            <div className="font-medium">Android POS</div>
+            <p className="mt-1 text-muted-foreground">
+              Pair a compatible Bluetooth ESC/POS printer from the register Hardware screen. Auto
+              print and cash-drawer pulses run locally on that Android register.
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Printer failures never reverse a completed sale. The receipt remains available for
+            reprinting after the connection is restored.
+          </p>
+        </CardContent>
+      </Card>
+      <ReceiptPreferences />
+    </div>
+  );
+}
+
 function UnifiedHardwarePanel() {
   return (
     <Card className="max-w-3xl">
@@ -1265,6 +1306,18 @@ function CameraPanel() {
 }
 
 function CustomerDisplayPanel() {
+  const { data: store } = useQuery({
+    queryKey: ["store"],
+    queryFn: async () =>
+      (await supabase.from("stores").select("id").limit(1).maybeSingle()).data,
+  });
+
+  const openCustomerDisplay = () => {
+    const url = new URL("/customer-display", window.location.origin);
+    if (store?.id) url.searchParams.set("store", store.id);
+    window.open(url.toString(), "customer-display", "width=800,height=600");
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -1275,15 +1328,11 @@ function CustomerDisplayPanel() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Button
-            onClick={() =>
-              window.open("/customer-display", "customer-display", "width=800,height=600")
-            }
-          >
+          <Button onClick={openCustomerDisplay}>
             Open customer display window
           </Button>
           <p className="text-xs text-muted-foreground">
-            Tip: drag the window onto your second monitor and press F11 for fullscreen.
+            Move the window to the customer-facing screen, then use fullscreen for the best view.
           </p>
         </CardContent>
       </Card>
@@ -1516,20 +1565,6 @@ function Row({ k, v }: { k: string; v: string }) {
       <span className="text-muted-foreground">{k}</span>
       <span className="font-mono">{v}</span>
     </div>
-  );
-}
-
-function ComingSoon({ title, desc }: { title: string; desc: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{desc}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Badge variant="outline">Coming soon</Badge>
-      </CardContent>
-    </Card>
   );
 }
 
