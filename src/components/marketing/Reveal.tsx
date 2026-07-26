@@ -7,9 +7,13 @@ type RevealProps = {
   delay?: number;
 };
 
+/**
+ * Keeps marketing content painted and readable immediately. Motion is a small
+ * position polish only, so slow devices never show blank or faded sections.
+ */
 export function Reveal({ children, className, delay = 0 }: RevealProps) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [entered, setEntered] = useState(false);
 
   useEffect(() => {
     const node = ref.current;
@@ -19,18 +23,18 @@ export function Reveal({ children, className, delay = 0 }: RevealProps) {
       window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
       !("IntersectionObserver" in window)
     ) {
-      setVisible(true);
+      setEntered(true);
       return;
     }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry?.isIntersecting) {
-          setVisible(true);
+          setEntered(true);
           observer.disconnect();
         }
       },
-      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
+      { threshold: 0.04, rootMargin: "160px 0px 160px 0px" },
     );
 
     observer.observe(node);
@@ -40,8 +44,8 @@ export function Reveal({ children, className, delay = 0 }: RevealProps) {
   return (
     <div
       ref={ref}
-      className={cn("seza-reveal", visible && "is-visible", className)}
-      style={{ transitionDelay: `${delay}ms` }}
+      className={cn("seza-reveal", entered && "is-visible", className)}
+      style={{ transitionDelay: `${Math.min(delay, 120)}ms` }}
     >
       {children}
     </div>

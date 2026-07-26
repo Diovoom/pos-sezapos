@@ -72,6 +72,44 @@ function SelectPlanPage() {
           </p>
         </div>
 
+        <section className="mb-8 overflow-hidden rounded-3xl border border-blue-200 bg-blue-50 p-5 shadow-sm sm:p-7 dark:border-blue-400/20 dark:bg-blue-500/10">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-sm font-black uppercase tracking-[0.12em] text-blue-700 dark:text-blue-200">
+                Start without paying today
+              </div>
+              <h2 className="mt-2 text-2xl font-black tracking-tight">
+                Continue with your 14-day free trial
+              </h2>
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600 dark:text-slate-300">
+                <span className="inline-flex items-center gap-1.5">
+                  <Check className="size-4 text-emerald-600" /> No credit card required
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Check className="size-4 text-emerald-600" /> Full Pro access
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Check className="size-4 text-emerald-600" /> Choose a plan later
+                </span>
+              </div>
+            </div>
+            <Button
+              asChild
+              size="lg"
+              className="h-14 shrink-0 rounded-2xl px-7 text-base font-black shadow-lg"
+            >
+              <Link to="/dashboard">Continue free trial</Link>
+            </Button>
+          </div>
+        </section>
+
+        <div className="mb-5 text-center">
+          <h2 className="text-xl font-bold">Or subscribe now</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            You can review pricing now without losing the free-trial option above.
+          </p>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-3">
           {PLANS.map((p) => (
             <Card
@@ -116,10 +154,10 @@ function SelectPlanPage() {
 
         <div className="mt-8 text-center space-y-2">
           <p className="text-xs text-muted-foreground">
-            Secure payment. Cancel anytime from Settings → Billing.
+            Secure payment. Cancel anytime from Settings, then Billing.
           </p>
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/dashboard">Skip for now - continue on trial</Link>
+          <Button asChild variant="outline" size="lg" className="h-12 rounded-2xl px-6 font-bold">
+            <Link to="/dashboard">Continue with free trial</Link>
           </Button>
         </div>
       </div>

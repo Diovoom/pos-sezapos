@@ -5,7 +5,6 @@ import {
   BookOpen,
   ChevronDown,
   Cookie,
-  Headphones,
   LockKeyhole,
   Phone,
   MessageCircle,
@@ -119,10 +118,10 @@ function MorphingBrand({ progress }: { progress: number }) {
       resetScroll
       aria-label="SEZA POS home"
       className="group flex h-12 items-center justify-center gap-2 overflow-hidden rounded-2xl px-1"
-      style={{ width: `${48 + 100 * progress}px` }}
+      style={{ width: `${52 + 104 * progress}px` }}
     >
-      <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_28px_-14px_rgba(37,99,235,0.65)] transition-transform duration-500 group-hover:scale-[1.03] dark:border-white/10 dark:bg-slate-900">
-        <Logo className="size-8" alt="SEZA POS" />
+      <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-blue-200 bg-blue-50 shadow-[0_10px_28px_-14px_rgba(37,99,235,0.75)] transition-transform duration-500 group-hover:scale-[1.03] dark:border-blue-400/20 dark:bg-blue-500/10">
+        <Logo className="size-9" alt="SEZA POS" />
       </span>
       <span
         className={cn(
@@ -140,30 +139,12 @@ function MorphingBrand({ progress }: { progress: number }) {
   );
 }
 
-function HardwareCartButton() {
-  return (
-    <Link
-      to="/guide"
-      resetScroll
-      aria-label="Open the SEZA POS user guide"
-      title="SEZA POS user guide"
-      className="group relative grid size-13 place-items-center rounded-full border-4 border-white bg-blue-600 text-white shadow-[0_15px_35px_-12px_rgba(37,99,235,0.85)] transition-all hover:-translate-y-0.5 hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 dark:border-slate-950"
-    >
-      <BookOpen className="size-6" />
-      <span className="absolute -right-1 -top-2 rounded-full border-2 border-white bg-slate-950 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-white shadow-sm dark:border-slate-950">
-        Guide
-      </span>
-    </Link>
-  );
-}
-
 export function MarketingShell({ children }: { children: ReactNode }) {
   const locationHref = useRouterState({ select: (state) => state.location.href });
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [homeScrollProgress, setHomeScrollProgress] = useState(0);
-  const [supportVisible, setSupportVisible] = useState(true);
-  const [supportOpen, setSupportOpen] = useState(false);
+  const [salesOpen, setSalesOpen] = useState(false);
 
   useEffect(() => {
     if (pathname !== "/") {
@@ -200,8 +181,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
 
   useBrowserLayoutEffect(() => {
     setMobileOpen(false);
-    setSupportVisible(true);
-    setSupportOpen(false);
+    setSalesOpen(false);
 
     const resetPosition = () => {
       const hash = window.location.hash.slice(1);
@@ -232,13 +212,6 @@ export function MarketingShell({ children }: { children: ReactNode }) {
 
   const openCookieSettings = () => {
     window.dispatchEvent(new Event(OPEN_COOKIE_SETTINGS_EVENT));
-  };
-
-  const hideSupport = () => {
-    // Close it only for the current page view. It returns on the next website
-    // entry or navigation instead of being permanently hidden in localStorage.
-    setSupportOpen(false);
-    setSupportVisible(false);
   };
 
   return (
@@ -305,18 +278,36 @@ export function MarketingShell({ children }: { children: ReactNode }) {
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent
           side="right"
-          className="bottom-0 top-[76px] z-[60] h-[calc(100dvh-76px)] w-[min(92vw,390px)] overflow-y-auto border-l bg-background p-0 shadow-lg [&>button:first-of-type]:hidden"
+          className="inset-0 z-[90] h-dvh w-screen max-w-none overflow-y-auto border-0 bg-white p-0 shadow-none dark:bg-slate-950 [&>button:first-of-type]:hidden"
         >
-          <SheetHeader className="border-b px-6 py-5 text-left">
-            <SheetTitle>
-              <span className="block text-lg font-black tracking-tight">Explore SEZA POS</span>
-              <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                Everything you need, without repeating the homepage.
-              </span>
-            </SheetTitle>
+          <SheetHeader className="sticky top-0 z-10 border-b bg-white/95 px-5 py-4 text-left backdrop-blur dark:bg-slate-950/95">
+            <div className="flex items-center justify-between gap-4">
+              <SheetTitle className="flex items-center gap-3">
+                <span className="grid size-11 place-items-center rounded-2xl bg-blue-50 dark:bg-blue-500/10">
+                  <Logo className="size-9" alt="SEZA POS" />
+                </span>
+                <span>
+                  <span className="block text-lg font-black tracking-tight">SEZA POS</span>
+                  <span className="block text-xs font-normal text-muted-foreground">
+                    Everything for your store
+                  </span>
+                </span>
+              </SheetTitle>
+              <button
+                type="button"
+                onClick={() => setMobileOpen(false)}
+                aria-label="Close navigation menu"
+                className="grid size-12 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-sm dark:border-white/10 dark:bg-slate-900 dark:text-white"
+              >
+                <X className="size-6" />
+              </button>
+            </div>
           </SheetHeader>
 
-          <nav className="space-y-2 p-4" aria-label="Mobile navigation">
+          <nav
+            className="mx-auto w-full max-w-xl space-y-3 px-5 py-6"
+            aria-label="Mobile navigation"
+          >
             {MOBILE_ITEMS.map((item, index) => (
               <Link
                 key={item.label}
@@ -369,8 +360,8 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             </button>
           </nav>
 
-          <div className="border-t p-4">
-            <Button asChild className="h-11 w-full rounded-full font-bold">
+          <div className="sticky bottom-0 border-t bg-white/95 p-5 backdrop-blur dark:bg-slate-950/95">
+            <Button asChild className="h-14 w-full rounded-2xl text-base font-bold">
               <a href={dashboardUrl("/dashboard")}>Login to owner dashboard</a>
             </Button>
           </div>
@@ -481,104 +472,110 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         </div>
       </footer>
 
-      {pathname !== "/" && (
-        <div
-          className="fixed bottom-24 right-3 z-[65] sm:bottom-6 sm:right-5"
-          aria-label="SEZA user guide"
-        >
-          <HardwareCartButton />
-        </div>
-      )}
+      {pathname === "/" && (
+        <>
+          <button
+            type="button"
+            onClick={() => setSalesOpen(true)}
+            className="fixed inset-x-3 bottom-4 z-[65] mx-auto flex h-14 max-w-xl items-center justify-between rounded-2xl border border-blue-800 bg-blue-800 px-5 text-left text-white shadow-[0_20px_50px_-18px_rgba(30,64,175,0.85)] transition-transform hover:-translate-y-0.5 sm:bottom-6"
+            aria-label="Contact SEZA sales"
+          >
+            <span>
+              <span className="block text-xs font-bold uppercase tracking-[0.14em] text-blue-100">
+                Questions before you start?
+              </span>
+              <span className="block text-sm font-black">Talk with a SEZA specialist</span>
+            </span>
+            <ArrowUpRight className="size-5 shrink-0" />
+          </button>
 
-      {supportVisible && (
-        <div
-          className="fixed bottom-24 left-3 z-[65] sm:bottom-6 sm:left-5"
-          aria-label="SEZA customer service"
-        >
-          {supportOpen && (
-            <div className="absolute bottom-0 left-14 w-[min(78vw,300px)] overflow-hidden rounded-3xl border border-blue-200 bg-white shadow-[0_24px_70px_-24px_rgba(30,64,175,0.65)] dark:border-blue-400/20 dark:bg-slate-900">
-              <div className="border-b border-blue-900 bg-blue-800 px-5 py-5 text-white">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-blue-100">
-                      Customer service
+          {salesOpen && (
+            <div
+              className="fixed inset-0 z-[95] flex items-end bg-slate-950/55 p-3 backdrop-blur-sm sm:items-center sm:justify-center"
+              onClick={() => setSalesOpen(false)}
+            >
+              <section
+                className="w-full max-w-lg overflow-hidden rounded-[28px] border border-blue-100 bg-white shadow-2xl dark:border-blue-400/15 dark:bg-slate-950"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Contact SEZA sales"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="bg-blue-800 px-6 py-6 text-white">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-[0.16em] text-blue-100">
+                        SEZA Sales
+                      </div>
+                      <h2 className="mt-2 text-2xl font-black">Let us plan the right setup.</h2>
+                      <p className="mt-2 text-sm leading-6 text-blue-50">
+                        Get clear answers about pricing, hardware, setup, and your free trial.
+                      </p>
                     </div>
-                    <div className="mt-1 text-lg font-black">Need help with SEZA?</div>
+                    <button
+                      type="button"
+                      onClick={() => setSalesOpen(false)}
+                      aria-label="Close contact sales"
+                      className="grid size-10 shrink-0 place-items-center rounded-full bg-white/15 hover:bg-white/25"
+                    >
+                      <X className="size-5" />
+                    </button>
                   </div>
+                </div>
+                <div className="grid gap-3 p-5">
+                  <a
+                    href={`tel:${LEGAL_CONFIG.phone}`}
+                    className="flex min-h-16 items-center gap-4 rounded-2xl border border-slate-200 px-4 py-3 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:hover:bg-blue-500/10"
+                  >
+                    <span className="grid size-11 place-items-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200">
+                      <Phone className="size-5" />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-black">Call sales</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {LEGAL_CONFIG.phoneDisplay}
+                      </span>
+                    </span>
+                  </a>
                   <button
                     type="button"
-                    onClick={hideSupport}
-                    aria-label="Hide customer service widget"
-                    className="grid size-8 shrink-0 place-items-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/25"
+                    onClick={() => {
+                      setSalesOpen(false);
+                      openWebsiteLiveChat();
+                    }}
+                    className="flex min-h-16 items-center gap-4 rounded-2xl border border-slate-200 px-4 py-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:hover:bg-blue-500/10"
                   >
-                    <X className="size-4" />
-                  </button>
-                </div>
-                <p className="mt-3 text-sm leading-6 text-blue-50">
-                  Call customer service or start a live chat for help with sales, setup, hardware,
-                  pricing, or your account.
-                </p>
-              </div>
-              <div className="space-y-3 p-4">
-                <a
-                  href={`tel:${LEGAL_CONFIG.phone}`}
-                  className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-3 text-blue-950 transition-colors hover:bg-blue-100 dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-100 dark:hover:bg-blue-500/15"
-                >
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-600 text-white">
-                    <Phone className="size-5" />
-                  </span>
-                  <span>
-                    <span className="block text-xs font-semibold text-blue-600 dark:text-blue-300">
-                      Tap to call
+                    <span className="grid size-11 place-items-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200">
+                      <MessageCircle className="size-5" />
                     </span>
-                    <span className="block text-sm font-black">{LEGAL_CONFIG.phoneDisplay}</span>
-                  </span>
-                </a>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSupportOpen(false);
-                    openWebsiteLiveChat();
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-700 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800"
-                >
-                  <MessageCircle className="size-4" /> Start live chat
-                </button>
-                <Link
-                  to="/support"
-                  resetScroll
-                  className="block text-center text-xs font-semibold text-muted-foreground transition-colors hover:text-primary"
-                >
-                  Open Support Center
-                </Link>
-              </div>
+                    <span>
+                      <span className="block text-sm font-black">Chat with SEZA</span>
+                      <span className="block text-xs text-muted-foreground">
+                        Ask a question without leaving the page
+                      </span>
+                    </span>
+                  </button>
+                  <Link
+                    to="/contact"
+                    resetScroll
+                    onClick={() => setSalesOpen(false)}
+                    className="flex min-h-16 items-center gap-4 rounded-2xl border border-slate-200 px-4 py-3 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:hover:bg-blue-500/10"
+                  >
+                    <span className="grid size-11 place-items-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200">
+                      <ArrowUpRight className="size-5" />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-black">Request a consultation</span>
+                      <span className="block text-xs text-muted-foreground">
+                        Tell us what kind of store you run
+                      </span>
+                    </span>
+                  </Link>
+                </div>
+              </section>
             </div>
           )}
-
-          <div className="relative inline-flex">
-            <button
-              type="button"
-              onClick={() => setSupportOpen((value) => !value)}
-              aria-expanded={supportOpen}
-              aria-label={
-                supportOpen ? "Close customer service details" : "Open customer service details"
-              }
-              className="grid size-13 place-items-center rounded-full border-4 border-white bg-blue-600 text-white shadow-[0_15px_35px_-12px_rgba(37,99,235,0.85)] transition-all hover:-translate-y-0.5 hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 dark:border-slate-950"
-            >
-              <Headphones className="size-6" />
-            </button>
-            {!supportOpen && (
-              <button
-                type="button"
-                onClick={hideSupport}
-                aria-label="Hide customer service widget"
-                className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full border-2 border-white bg-slate-900 text-white shadow-sm transition-transform hover:scale-110 dark:border-slate-950"
-              >
-                <X className="size-2.5" />
-              </button>
-            )}
-          </div>
-        </div>
+        </>
       )}
 
       <WebsiteLiveChat />
