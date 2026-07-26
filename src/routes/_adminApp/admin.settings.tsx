@@ -32,7 +32,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_adminApp/admin/settings")({
   head: () => ({
-    meta: [{ title: "Settings — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [{ title: "Settings  -  SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: SettingsPage,
 });
@@ -218,7 +218,7 @@ function SettingsPage() {
               <User className="h-5 w-5" /> My SEZA profile
             </CardTitle>
             <CardDescription>
-              This is your company staff profile—not a merchant employee profile.
+              This is your company staff profile - not a merchant employee profile.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -239,7 +239,7 @@ function SettingsPage() {
             <div className="rounded-lg border p-3 text-sm">
               <div>
                 <span className="text-muted-foreground">Email:</span>{" "}
-                <span className="font-mono">{data.profile?.email ?? "—"}</span>
+                <span className="font-mono">{data.profile?.email ?? " - "}</span>
               </div>
               <div className="mt-1">
                 <span className="text-muted-foreground">Title:</span>{" "}
@@ -472,7 +472,7 @@ function SettingsPage() {
             ok={!!health?.database?.ok}
             note={
               health?.database?.ok
-                ? `Reachable in ${health.database.latency_ms ?? "—"} ms`
+                ? `Reachable in ${health.database.latency_ms ?? " - "} ms`
                 : ((health as any)?.database?.error ?? "Unavailable")
             }
           />
@@ -504,9 +504,10 @@ function SettingsPage() {
           />
           <div className="rounded-lg border p-3 text-sm">
             <div className="text-xs text-muted-foreground">Application version</div>
-            <div className="font-mono">{health?.app_version ?? "—"}</div>
+            <div className="font-mono">{health?.app_version ?? " - "}</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Checked {health?.checked_at ? new Date(health.checked_at).toLocaleTimeString() : "—"}
+              Checked{" "}
+              {health?.checked_at ? new Date(health.checked_at).toLocaleTimeString() : " - "}
             </div>
           </div>
         </CardContent>

@@ -1,6 +1,6 @@
 // Shared WebRTC / signaling helpers for the merchant ↔ platform-admin
 // support screen-share session. Signaling is done exclusively via a Supabase
-// Realtime broadcast channel keyed by the support session id — Realtime is
+// Realtime broadcast channel keyed by the support session id  -  Realtime is
 // NOT used to send any media. Media flows peer-to-peer over WebRTC using a
 // public STUN server; TURN can be added later by extending `iceServers`
 // without changing anything else.
@@ -43,7 +43,7 @@ export type SignalPayload =
   | { kind: "ice"; from: SignalRole; candidate: RTCIceCandidateInit };
 
 // The channel name is derived from an unguessable per-session token
-// (admin_support_sessions.channel_token) — NOT the session UUID — so that
+// (admin_support_sessions.channel_token)  -  NOT the session UUID  -  so that
 // only participants who can read the session row (assigned admin + target
 // store's employees, per RLS) can compute the topic and join the signaling
 // channel.

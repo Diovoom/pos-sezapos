@@ -127,7 +127,7 @@ export function parseIdBarcode(raw: string): ParsedID {
   const isAamva = /@/.test(s) && /ANSI\s?\d{6}/i.test(s);
   if (!isAamva) return { format: "unknown", raw: s };
 
-  // Extract subfile — split on newlines, entries like "DAA...", "DBB..." etc.
+  // Extract subfile  -  split on newlines, entries like "DAA...", "DBB..." etc.
   const lines = s
     .split(/[\r\n]+/)
     .map((l) => l.trim())

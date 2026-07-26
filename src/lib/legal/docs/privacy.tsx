@@ -146,18 +146,18 @@ export const privacyPolicy: LegalDocument = {
       body: (
         <ul>
           <li>
-            <strong>Performance of a contract</strong> — to provide the Service you signed up for.
+            <strong>Performance of a contract</strong> - to provide the Service you signed up for.
           </li>
           <li>
-            <strong>Legitimate interests</strong> — to secure, maintain, and improve the Service,
+            <strong>Legitimate interests</strong> - to secure, maintain, and improve the Service,
             prevent fraud, and communicate with customers about their accounts.
           </li>
           <li>
-            <strong>Compliance with a legal obligation</strong> — for tax, accounting, and lawful
+            <strong>Compliance with a legal obligation</strong> - for tax, accounting, and lawful
             requests.
           </li>
           <li>
-            <strong>Consent</strong> — for optional cookies, marketing, and certain data types where
+            <strong>Consent</strong> - for optional cookies, marketing, and certain data types where
             required.
           </li>
         </ul>

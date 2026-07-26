@@ -1,5 +1,5 @@
 // PIN hashing utilities. scrypt is a memory-hard KDF that ships with Node's
-// crypto module — no extra dependency required and safe for Cloudflare Workers
+// crypto module  -  no extra dependency required and safe for Cloudflare Workers
 // via nodejs_compat.
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 

@@ -27,7 +27,7 @@ import { dashboardUrl } from "@/lib/host";
 export const Route = createFileRoute("/guide")({
   head: () => ({
     meta: [
-      { title: "SEZA POS User Guide — Setup, Sales, Inventory and Shifts" },
+      { title: "SEZA POS User Guide  -  Setup, Sales, Inventory and Shifts" },
       {
         name: "description",
         content:

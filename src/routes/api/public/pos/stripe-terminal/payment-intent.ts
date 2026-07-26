@@ -57,7 +57,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
         const userId = userRes.user.id;
 
         // Resolve store for audit.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const admin: any = supabaseAdmin;
         const { data: profile } = await admin
           .from("profiles")

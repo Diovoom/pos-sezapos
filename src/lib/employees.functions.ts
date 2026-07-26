@@ -98,7 +98,7 @@ async function auditMerchant(
       : Math.random().toString(36).slice(2);
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     await (supabaseAdmin.from as any)("audit_log").insert({
       actor_id: actorId,
       action: entry.action,
@@ -144,7 +144,7 @@ export const updateMyTimeClock = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as { userId: string };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
     const requested = data.occurredAt ? new Date(data.occurredAt) : new Date();
     if (Number.isNaN(requested.getTime())) throw new Error("Invalid time-clock timestamp");
@@ -273,7 +273,7 @@ export const createEmployee = createServerFn({ method: "POST" })
     // handle_new_user() trigger already created a profile + a `cashier`
     // user_role. Update the profile with the extra fields and, if the
     // caller wanted `manager`, overwrite the role.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
 
     const { error: profileErr } = await admin
@@ -327,7 +327,7 @@ export const setEmployeeStatus = createServerFn({ method: "POST" })
       throw new Error("A reason of at least 4 characters is required");
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
     const dbStatus = data.status === "suspended" ? "disabled" : data.status;
     const { error } = await admin
@@ -363,7 +363,7 @@ export const resetEmployeeCredentials = createServerFn({ method: "POST" })
       password: tempPassword,
     });
     if (error) throw new Error(error.message);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
     await admin
       .from("profiles")
@@ -373,7 +373,7 @@ export const resetEmployeeCredentials = createServerFn({ method: "POST" })
     try {
       await supabaseAdmin.auth.admin.signOut(data.user_id, "global");
     } catch {
-      /* older SDKs may not expose signOut(scope) — best effort */
+      /* older SDKs may not expose signOut(scope)  -  best effort */
     }
     const correlationId = await auditMerchant(ctx.userId, {
       action: "employee.reset",
@@ -430,7 +430,6 @@ export const completeFirstLogin = createServerFn({ method: "POST" })
     });
     if (pwErr) throw new Error(pwErr.message);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
     const patch: Record<string, unknown> = { must_change_password: false };
     if (data.pin) {
@@ -472,7 +471,7 @@ export const setMyPin = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as { userId: string };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
 
     // Cashiers cannot change or clear their own quick-login PIN from the
@@ -538,7 +537,7 @@ export const signInWithEmployeePin = createServerFn({ method: "POST" })
     if (!/^\d{6}$/.test(data.pin)) throw new Error("Invalid PIN");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
 
     const { data: profile, error } = await admin
@@ -633,7 +632,7 @@ export const updateEmployee = createServerFn({ method: "POST" })
     }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
 
     const patch: Record<string, unknown> = {};
@@ -701,7 +700,7 @@ export const setEmployeeCode = createServerFn({ method: "POST" })
     await assertCanManage(ctx, data.user_id, { allowSelf: true });
     if (!/^\d{6}$/.test(data.employee_id)) throw new Error("Employee ID must be 6 digits");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
     const { data: dup } = await admin
       .from("profiles")
@@ -731,7 +730,7 @@ export const regenerateEmployeeCode = createServerFn({ method: "POST" })
     await assertOwnerAdminOrManager(ctx);
     await assertCanManage(ctx, data.user_id, { allowSelf: true });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
     for (let i = 0; i < 20; i++) {
       const candidate = generateSixDigitId();
@@ -779,7 +778,7 @@ export const adminResetPin = createServerFn({ method: "POST" })
     const reason = (data.reason ?? "").trim();
     if (reason.length < 4) throw new Error("A reason of at least 4 characters is required");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
 
     if (data.clear) {
@@ -846,7 +845,7 @@ export const deleteEmployee = createServerFn({ method: "POST" })
     if (reason.length < 4) throw new Error("A reason of at least 4 characters is required");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
 
     // Preserve historical integrity: if the employee has any linked history,
@@ -934,7 +933,7 @@ export const updateEmployeePay = createServerFn({ method: "POST" })
     await assertOwnerAdminOrManager(ctx);
     await assertCanManage(ctx, data.user_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
     const patch: Record<string, unknown> = {};
     for (const k of [
@@ -975,7 +974,7 @@ export const adjustTimeEntry = createServerFn({ method: "POST" })
       context as unknown as { supabase: SupabaseCtx; userId: string },
     );
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
     const patch: Record<string, unknown> = {
       adjusted_at: new Date().toISOString(),

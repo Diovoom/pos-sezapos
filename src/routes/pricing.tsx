@@ -13,13 +13,13 @@ export const Route = createFileRoute("/pricing")({
   validateSearch: pricingSearch,
   head: () => ({
     meta: [
-      { title: "Pricing — SEZA POS" },
+      { title: "Pricing  -  SEZA POS" },
       {
         name: "description",
         content:
           "Simple pricing for SEZA POS. Starter $29, Pro $59, Business $89. 14-day free trial. No credit card required. Cancel anytime.",
       },
-      { property: "og:title", content: "Simple pricing. Start free, choose later. — SEZA POS" },
+      { property: "og:title", content: "Simple pricing. Start free, choose later.  -  SEZA POS" },
       {
         property: "og:description",
         content:
@@ -49,8 +49,8 @@ function PricingPage() {
           </h1>
           <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">
             Try SEZA for 14 days with the tools you need to test your store. No credit card
-            required. Choose the plan that best fits your business—you can change it before billing
-            begins.
+            required. Choose the plan that best fits your business - you can change it before
+            billing begins.
           </p>
         </div>
 

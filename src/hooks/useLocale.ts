@@ -49,7 +49,6 @@ export function useLocaleContext(): LocaleContext {
     queryKey: ["country-profile", store?.country_code ?? "US"],
     enabled: !!store,
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase.from as any)("country_profiles")
         .select("*")
         .eq("country_code", store?.country_code ?? "US")
@@ -79,7 +78,6 @@ export function useCountryProfile(code?: string) {
   return useQuery<CountryProfile | null>({
     queryKey: ["country-profile", code ?? "US"],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase.from as any)("country_profiles")
         .select("*")
         .eq("country_code", code ?? "US")
@@ -101,7 +99,6 @@ export function useCountryList() {
   >({
     queryKey: ["country-list"],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase.from as any)("country_profiles")
         .select("country_code,country_name,default_locale,currency_code,regions")
         .order("country_name");

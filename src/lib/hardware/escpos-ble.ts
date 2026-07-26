@@ -10,7 +10,7 @@
 //   3. write() connects on demand, writes the ESC/POS bytes in ≤180-byte
 //      chunks (default BLE MTU), and disconnects.
 //
-// This is intentionally minimal — merchants that need advanced printer
+// This is intentionally minimal  -  merchants that need advanced printer
 // features (image logo, kanji, cash-drawer pulse tuning) should use the
 // Star or Epson driver once their SDK is linked.
 

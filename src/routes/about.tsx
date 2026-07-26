@@ -9,7 +9,7 @@ import { Shield, Zap, Heart, Users, Lock, Cloud } from "lucide-react";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About — SEZA POS" },
+      { title: "About  -  SEZA POS" },
       {
         name: "description",
         content: `Learn about ${LEGAL_CONFIG.companyName}, the team behind SEZA POS, our mission, values, and commitment to building reliable point-of-sale software for independent retailers.`,
@@ -45,7 +45,7 @@ function AboutPage() {
           Point of sale, done right for independent retail.
         </h1>
         <p className="mt-5 text-lg text-muted-foreground">
-          SEZA POS is built for the shops that keep neighborhoods running — convenience stores,
+          SEZA POS is built for the shops that keep neighborhoods running - convenience stores,
           liquor stores, mini marts, and specialty retail. We believe those businesses deserve
           software that is fast, dependable, and priced fairly.
         </p>
@@ -76,7 +76,7 @@ function AboutPage() {
       <Section title="Our vision">
         <p>
           A world where independent retailers compete on the strength of their product, service, and
-          community — not on whether they can afford the same software as the chains next door.
+          community - not on whether they can afford the same software as the chains next door.
         </p>
       </Section>
 
@@ -84,7 +84,7 @@ function AboutPage() {
         <p>
           Legacy POS software is expensive, slow to update, and locks merchants into hardware they
           don't need. Newer alternatives often skip the depth that real stores require: shifts,
-          refunds, purchase orders, tax rules, offline fallback. We built SEZA to close that gap —
+          refunds, purchase orders, tax rules, offline fallback. We built SEZA to close that gap -
           modern cloud infrastructure, real depth, honest pricing.
         </p>
       </Section>
@@ -101,7 +101,7 @@ function AboutPage() {
             {
               icon: Shield,
               title: "Trust is earned",
-              body: "We treat merchant data with the same care we would want for our own business. Security is not a feature — it is the foundation.",
+              body: "We treat merchant data with the same care we would want for our own business. Security is not a feature  -  it is the foundation.",
             },
             {
               icon: Heart,

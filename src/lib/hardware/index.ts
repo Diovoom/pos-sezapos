@@ -6,11 +6,11 @@
 //
 // Drivers included in this build:
 //   printer:  "none" | "escpos-ble" (generic BT, fully functional)
-//             | "star"  (StarPRNT — stub; needs Star SDK .aar)
-//             | "epson" (ePOS — stub; needs Epson SDK .aar)
+//             | "star"  (StarPRNT  -  stub; needs Star SDK .aar)
+//             | "epson" (ePOS  -  stub; needs Epson SDK .aar)
 //   terminal: "none" | "stripe-tap-to-pay" | "stripe-wisepos" | "stripe-wisepad3"
 //             (Stripe drivers wrap @capacitor-community/stripe-terminal
-//              via dynamic import — see terminal-stripe.ts.)
+//              via dynamic import  -  see terminal-stripe.ts.)
 //
 // Adding a vendor SDK later requires only:
 //   1. Install the Capacitor plugin exposing the SDK's JS API.
@@ -202,7 +202,7 @@ export function setActiveTerminal(id: TerminalDriverId) {
  *
  * If no terminal is configured yet, prefer Tap to Pay on any NFC-capable
  * Android where the merchant has Stripe approval; otherwise fall back to
- * WisePOS E, then WisePad 3. Only ever returns a driver id — the caller
+ * WisePOS E, then WisePad 3. Only ever returns a driver id  -  the caller
  * still has to persist it via setActiveTerminal().
  */
 export async function suggestPreferredTerminal(): Promise<TerminalDriverId> {

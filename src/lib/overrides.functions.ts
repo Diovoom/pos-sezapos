@@ -1,6 +1,6 @@
 // Manager override verification. Two flows:
-//   verifyManagerOverride  — legacy: employee_id + PIN
-//   verifyManagerPin       — PIN-only: matches any active manager/owner/admin
+//   verifyManagerOverride   -  legacy: employee_id + PIN
+//   verifyManagerPin        -  PIN-only: matches any active manager/owner/admin
 //                            in the caller's store by PIN. Cashiers no longer
 //                            need to know the manager's employee ID.
 // Both write an audit_log row and never return credentials.
@@ -26,7 +26,7 @@ export const verifyManagerOverride = createServerFn({ method: "POST" })
     if (!/^\d{4,8}$/.test(data.pin)) throw new Error("Invalid PIN");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
     const ctx = context as { userId: string };
 
@@ -111,7 +111,7 @@ export const verifyManagerPin = createServerFn({ method: "POST" })
     if (!/^\d{4,8}$/.test(data.pin)) throw new Error("Invalid PIN");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
     const ctx = context as { userId: string };
 
@@ -148,7 +148,7 @@ export const verifyManagerPin = createServerFn({ method: "POST" })
       .eq("status", "active");
 
     const { verifyPin } = await import("./pin.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const match = (managers ?? []).find((m: any) => m.pin_hash && verifyPin(data.pin, m.pin_hash));
 
     if (!match) return deny("Incorrect manager PIN");

@@ -70,7 +70,6 @@ const POS_NAV = [
 
 const MANAGER_ROLES = new Set(["owner", "admin", "manager"]);
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
 
 export function PosShell({ children }: { children: ReactNode }) {
@@ -129,7 +128,7 @@ export function PosShell({ children }: { children: ReactNode }) {
   const [drawerDialog, setDrawerDialog] = useState(false);
 
   // Native APK exposes Support + Settings in the mobile menu. Web POS is
-  // unchanged — those live in the merchant dashboard on the web.
+  // unchanged  -  those live in the merchant dashboard on the web.
 
   const isNativeShell =
     typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.();
@@ -138,7 +137,7 @@ export function PosShell({ children }: { children: ReactNode }) {
     await qc.cancelQueries();
     qc.clear();
     await supabase.auth.signOut();
-    // Use replace so the protected route stays off history — no back-button leak.
+    // Use replace so the protected route stays off history  -  no back-button leak.
     navigate({ to: "/auth", replace: true });
   };
 
@@ -155,7 +154,7 @@ export function PosShell({ children }: { children: ReactNode }) {
     setMobileMenu(false);
     await supabase.auth.signOut();
     qc.clear();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     navigate({ to: "/auth", search: { mode: "pin" } as any, replace: true });
   };
 
@@ -201,7 +200,7 @@ export function PosShell({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        {/* Cash drawer control — always visible above the cashier row per POS spec. */}
+        {/* Cash drawer control  -  always visible above the cashier row per POS spec. */}
         {openShift.data && (
           <div className="p-2 border-t">
             <Button
@@ -295,7 +294,7 @@ export function PosShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      {/* Mobile top bar — hosts logo + cashier menu trigger. Desktop uses the sidebar. */}
+      {/* Mobile top bar  -  hosts logo + cashier menu trigger. Desktop uses the sidebar. */}
       <header
         className="md:hidden fixed top-0 inset-x-0 z-40 h-12 border-b bg-background/95 backdrop-blur flex items-center justify-between px-3"
         style={{ paddingTop: "env(safe-area-inset-top)" }}

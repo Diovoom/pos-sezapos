@@ -22,7 +22,7 @@ async function ensureSuperAdmin(context: {
   return { email: user?.user?.email ?? null };
 }
 
-// Read-only gate — any SEZA platform-staff role may read admin data.
+// Read-only gate  -  any SEZA platform-staff role may read admin data.
 // Mutations continue to use ensureSuperAdmin.
 async function ensurePlatformStaff(context: {
   supabase: any;
@@ -41,7 +41,7 @@ async function ensurePlatformStaff(context: {
   return { email: user?.user?.email ?? null, roles };
 }
 
-// Support-scoped gate — super_admin, operations_admin, or support_admin.
+// Support-scoped gate  -  super_admin, operations_admin, or support_admin.
 async function ensureSupportStaff(context: {
   supabase: any;
   userId: string;
@@ -549,7 +549,7 @@ export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
   });
 
 // ============================================================================
-// Businesses — safe mutations
+// Businesses  -  safe mutations
 // ============================================================================
 
 async function loadStoreOrThrow(supabaseAdmin: any, id: string) {
@@ -802,7 +802,7 @@ export const adminRevokeSessions = createServerFn({ method: "POST" })
   });
 
 // ============================================================================
-// Employees — merchant-managed only.
+// Employees  -  merchant-managed only.
 // Platform Admin is NOT permitted to promote/demote employees, reset PINs,
 // disable accounts, or otherwise manage merchant staffing. The Business Owner
 // (or an authorized manager per the merchant permissions system) handles this
@@ -1011,7 +1011,7 @@ export const adminListDevices = createServerFn({ method: "POST" })
         const { config, ...safe } = r;
         return {
           ...safe,
-          store_name: storesMap.get(r.store_id) ?? "—",
+          store_name: storesMap.get(r.store_id) ?? " - ",
           has_config: !!config && Object.keys(config ?? {}).length > 0,
         };
       }),
@@ -1108,7 +1108,7 @@ export const adminListSubscriptions = createServerFn({ method: "POST" })
     return {
       rows: (rows ?? []).map((r: any) => ({
         ...r,
-        store_name: storesMap.get(r.store_id)?.name ?? "—",
+        store_name: storesMap.get(r.store_id)?.name ?? " - ",
         store_email: storesMap.get(r.store_id)?.email ?? null,
       })),
       count: count ?? 0,
@@ -1589,7 +1589,7 @@ export const adminClaimTicket = createServerFn({ method: "POST" })
     const admin = await ensureSupportStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // Claiming assigns ownership but must NEVER remove the ticket from active
-    // work — do not change status here. Staff explicitly transition status
+    // work  -  do not change status here. Staff explicitly transition status
     // via adminUpdateTicket when they begin investigating or resolve.
     const { data: existing } = await supabaseAdmin
       .from("support_tickets")
@@ -1785,7 +1785,7 @@ export const adminSubscriptionStats = createServerFn({ method: "GET" })
       past_due: pastDue.map((r: any) => ({
         id: r.id,
         store_id: r.store_id,
-        store_name: storesMap.get(r.store_id)?.name ?? "—",
+        store_name: storesMap.get(r.store_id)?.name ?? " - ",
         store_email: storesMap.get(r.store_id)?.email ?? null,
         price_id: r.price_id,
         current_period_end: r.current_period_end,
@@ -1916,7 +1916,7 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await ensureSuperAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
     const { data } = await admin
       .from("admin_support_sessions")
@@ -1984,7 +1984,7 @@ export const merchantRespondSupportSession = createServerFn({ method: "POST" })
       throw new Error("Invalid decision");
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
 
     const { data: profile } = await admin
@@ -2003,7 +2003,7 @@ export const merchantRespondSupportSession = createServerFn({ method: "POST" })
     if (sess.store_id !== profile.store_id) throw new Error("Not authorized");
     if (sess.status !== "pending") throw new Error("Request already resolved");
 
-    // Sanitize any client-supplied metadata — strip forbidden keys.
+    // Sanitize any client-supplied metadata  -  strip forbidden keys.
     const FORBIDDEN =
       /(pin|password|token|secret|apikey|api_key|authorization|card|cvv|cvc|track|pan|refresh)/i;
     function scrub(v: unknown): unknown {
@@ -2320,7 +2320,7 @@ export const adminSalesOverview = createServerFn({ method: "POST" })
       (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
     }
     const topStores = [...byStore.entries()]
-      .map(([id, v]) => ({ id, name: storesMap.get(id) ?? "—", ...v }))
+      .map(([id, v]) => ({ id, name: storesMap.get(id) ?? " - ", ...v }))
       .sort((a, b) => b.gross - a.gross)
       .slice(0, 10);
     return { totals, recent: (rows ?? []).slice(0, 50), topStores, days };
@@ -2358,9 +2358,9 @@ export const adminOfflineSyncOverview = createServerFn({ method: "GET" })
       total: rows?.length ?? 0,
       recent: (rows ?? [])
         .slice(0, 50)
-        .map((r: any) => ({ ...r, store_name: storesMap.get(r.store_id) ?? "—" })),
+        .map((r: any) => ({ ...r, store_name: storesMap.get(r.store_id) ?? " - " })),
       byStore: [...byStore.entries()]
-        .map(([id, count]) => ({ id, name: storesMap.get(id) ?? "—", count }))
+        .map(([id, count]) => ({ id, name: storesMap.get(id) ?? " - ", count }))
         .sort((a, b) => b.count - a.count),
     };
   });

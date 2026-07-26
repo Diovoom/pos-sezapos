@@ -80,7 +80,6 @@ export function useRolePermissions() {
     queryKey: ["role_permissions", storeId],
     enabled: !!storeId,
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from as any)("role_permissions")
         .select("role, permission")
         .eq("store_id", storeId);

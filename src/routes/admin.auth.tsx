@@ -14,7 +14,7 @@ import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/a
 
 export const Route = createFileRoute("/admin/auth")({
   head: () => ({
-    meta: [{ title: "SEZA Admin — Sign in" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [{ title: "SEZA Admin  -  Sign in" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: AdminAuthPage,
 });
@@ -108,7 +108,7 @@ function AdminAuthPage() {
           <CardDescription>
             {forgotMode
               ? "Enter your admin email to receive a password reset link."
-              : "Restricted access — authorized personnel only."}
+              : "Restricted access  -  authorized personnel only."}
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -72,7 +72,7 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
         const { verifyDeviceSecret } = await import("@/lib/pos/device.server");
         const { pinFingerprint } = await import("@/lib/pos/fingerprint.server");
         const { verifyPin } = await import("@/lib/pin.server");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const admin: any = supabaseAdmin;
 
         // 1. Validate the device.

@@ -60,7 +60,7 @@ export const Route = createFileRoute("/api/public/pos/device-heartbeat")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { verifyDeviceSecret } = await import("@/lib/pos/device.server");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const admin: any = supabaseAdmin;
 
         const { data: device } = await admin

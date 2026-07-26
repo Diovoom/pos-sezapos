@@ -26,18 +26,18 @@ export const cookiePolicy: LegalDocument = {
       body: (
         <ul>
           <li>
-            <strong>Strictly necessary</strong> — required for the Service to function, such as
+            <strong>Strictly necessary</strong> - required for the Service to function, such as
             authentication, load balancing, and CSRF protection. These cannot be disabled.
           </li>
           <li>
-            <strong>Preferences</strong> — remember your language, currency, and interface settings.
+            <strong>Preferences</strong> - remember your language, currency, and interface settings.
           </li>
           <li>
-            <strong>Analytics</strong> — may be used, with permission where required, to understand
+            <strong>Analytics</strong> - may be used, with permission where required, to understand
             aggregate usage and improve the Service.
           </li>
           <li>
-            <strong>Marketing</strong> — may be used only where you have opted in, to measure
+            <strong>Marketing</strong> - may be used only where you have opted in, to measure
             campaigns or provide relevant advertising.
           </li>
         </ul>
@@ -558,7 +558,7 @@ export const dmcaPolicy: LegalDocument = {
       title: "Designated Agent",
       body: (
         <>
-          <p>{C.companyName} — Copyright Notice Contact</p>
+          <p>{C.companyName} - Copyright Notice Contact</p>
           <p>Electronic copyright notices may be sent to:</p>
           <p>
             Email: <a href={`mailto:${C.dmcaAgentEmail}`}>{C.dmcaAgentEmail}</a>

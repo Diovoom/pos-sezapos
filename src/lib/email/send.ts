@@ -17,8 +17,7 @@ type SendOptions = {
 };
 
 export type SendTransactionalResult =
-  | { ok: true; messageId?: string; queued?: boolean }
-  | { ok: false; error: string };
+  { ok: true; messageId?: string; queued?: boolean } | { ok: false; error: string };
 
 // In the bundled Android APK the WebView origin is not sezapos.com, so a
 // relative fetch resolves to the local WebView instead of the live server.

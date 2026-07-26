@@ -10,16 +10,17 @@ import { LEGAL_CONFIG } from "@/lib/legal/config";
 export const Route = createFileRoute("/support")({
   head: () => ({
     meta: [
-      { title: "Support — SEZA POS" },
+      { title: "Support  -  SEZA POS" },
       {
         name: "description",
         content:
           "Get help with SEZA POS: setup, hardware, billing, and troubleshooting. Answers to common questions and how to reach our team.",
       },
-      { property: "og:title", content: "Support — SEZA POS" },
+      { property: "og:title", content: "Support  -  SEZA POS" },
       {
         property: "og:description",
-        content: "Setup, hardware, billing, and troubleshooting — get answers and reach our team.",
+        content:
+          "Setup, hardware, billing, and troubleshooting  -  get answers and reach our team.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://sezapos.com/support" },
@@ -108,14 +109,14 @@ function MarketingSupportPage() {
           {
             icon: PhoneCall,
             title: "Call customer service",
-            body: `${LEGAL_CONFIG.phoneDisplay} — tap to call for account, setup, sales, or hardware help.`,
+            body: `${LEGAL_CONFIG.phoneDisplay}  -  tap to call for account, setup, sales, or hardware help.`,
             href: `tel:${LEGAL_CONFIG.phone}`,
             cta: "Call now",
           },
           {
             icon: Mail,
             title: "Email support",
-            body: "support@sezapos.com — send account, billing, or register questions here.",
+            body: "support@sezapos.com  -  send account, billing, or register questions here.",
             href: "mailto:support@sezapos.com",
             cta: "Email us",
           },

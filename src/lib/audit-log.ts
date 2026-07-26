@@ -98,7 +98,6 @@ export async function logAudit(entry: AuditEntry) {
     };
 
     if (isOnlineNow()) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from as any)("audit_log").insert(row);
       if (!error || error.code === "23505") return;
       console.warn("[audit] online insert failed; queued for retry", error);

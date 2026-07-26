@@ -40,7 +40,10 @@ const DEFAULTS: BusinessesSearch = {
 
 export const Route = createFileRoute("/_adminApp/admin/businesses/")({
   head: () => ({
-    meta: [{ title: "Businesses — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [
+      { title: "Businesses  -  SEZA Admin" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
   }),
   validateSearch: (raw: Record<string, unknown>): BusinessesSearch => ({
     q: typeof raw.q === "string" ? raw.q : DEFAULTS.q,
@@ -91,11 +94,11 @@ function planBadge(status: string) {
 }
 
 function fmtDate(v: string | null | undefined) {
-  if (!v) return "—";
+  if (!v) return " - ";
   try {
     return format(new Date(v), "MMM d, yyyy");
   } catch {
-    return "—";
+    return " - ";
   }
 }
 
@@ -435,10 +438,10 @@ function BusinessesPage() {
                         )}
                       </td>
                       <td className="p-3 text-xs">
-                        <div className="truncate max-w-[220px]">{r.email ?? "—"}</div>
+                        <div className="truncate max-w-[220px]">{r.email ?? " - "}</div>
                         <div className="text-muted-foreground">{r.phone ?? ""}</div>
                       </td>
-                      <td className="p-3">{r.plan_tier ?? "—"}</td>
+                      <td className="p-3">{r.plan_tier ?? " - "}</td>
                       <td className="p-3">
                         <div className="flex flex-wrap gap-1">
                           <Badge className={planBadge(r.plan_status)}>{r.plan_status}</Badge>

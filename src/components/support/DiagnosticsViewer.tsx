@@ -92,7 +92,7 @@ function KVGrid({ data }: { data: Record<string, unknown> }) {
                   {JSON.stringify(v, null, 2)}
                 </pre>
               ) : (
-                String(v ?? "—")
+                String(v ?? " - ")
               )}
             </div>
           </div>

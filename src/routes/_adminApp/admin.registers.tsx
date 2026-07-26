@@ -10,7 +10,7 @@ import { adminListPairedDevices } from "@/lib/admin/admin.functions";
 
 export const Route = createFileRoute("/_adminApp/admin/registers")({
   head: () => ({
-    meta: [{ title: "Registers — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [{ title: "Registers  -  SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: RegistersPage,
 });
@@ -88,9 +88,9 @@ function RegistersPage() {
                 {(data?.rows ?? []).map((d: any) => (
                   <tr key={d.id} className="border-t">
                     <td className="py-2">{d.label}</td>
-                    <td>{d.store_name ?? "—"}</td>
-                    <td className="text-xs">{d.platform ?? "—"}</td>
-                    <td className="text-xs font-mono">{d.app_version ?? "—"}</td>
+                    <td>{d.store_name ?? " - "}</td>
+                    <td className="text-xs">{d.platform ?? " - "}</td>
+                    <td className="text-xs font-mono">{d.app_version ?? " - "}</td>
                     <td className="text-xs text-muted-foreground">
                       {d.last_seen_at ? (
                         <span className="flex items-center gap-2">

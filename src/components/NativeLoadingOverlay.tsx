@@ -23,7 +23,6 @@ export function NativeLoadingOverlay() {
     // the transition is overlay -> overlay (no white gap).
     (async () => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const cap = (window as any).Capacitor;
         if (cap?.Plugins?.SplashScreen?.hide) {
           await cap.Plugins.SplashScreen.hide({ fadeOutDuration: 300 });

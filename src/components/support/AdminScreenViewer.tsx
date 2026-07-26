@@ -272,7 +272,7 @@ export function AdminScreenViewer({
             ) : (
               <Wifi className="h-3 w-3" />
             )}
-            {quality.label === "unknown" ? "—" : quality.label}
+            {quality.label === "unknown" ? " - " : quality.label}
           </span>
         )}
         <Button

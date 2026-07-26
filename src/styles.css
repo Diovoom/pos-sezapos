@@ -58,7 +58,7 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.15 0.02 264);
 
-  --primary: oklch(0.55 0.21 265);          /* blue-600 #2563eb */
+  --primary: oklch(0.55 0.21 265); /* blue-600 #2563eb */
   --primary-foreground: oklch(0.99 0 0);
 
   --secondary: oklch(0.965 0.005 247);
@@ -113,8 +113,12 @@
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
-  html, body, #root {
+  * {
+    border-color: var(--color-border);
+  }
+  html,
+  body,
+  #root {
     height: 100%;
     width: 100%;
     max-width: 100%;
@@ -128,20 +132,51 @@
     -webkit-font-smoothing: antialiased;
     padding-bottom: env(safe-area-inset-bottom);
   }
-  .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
   /* Confine wide tables to a horizontal scroll area (never blow out the page) */
-  .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @media print {
-  aside, header, nav, [data-slot="dialog-overlay"] { display: none !important; }
-  body, .bg-background, .bg-surface\/40, .bg-surface\/60 { background: white !important; color: black !important; }
-  #shift-report, #shift-report * { color: black !important; }
-  #shift-report .border { border-color: #ddd !important; }
-  .print\:hidden { display: none !important; }
-  .print\:break-before-page { break-before: page; }
-  @page { margin: 0.5in; }
+  aside,
+  header,
+  nav,
+  [data-slot="dialog-overlay"] {
+    display: none !important;
+  }
+  body,
+  .bg-background,
+  .bg-surface\/40,
+  .bg-surface\/60 {
+    background: white !important;
+    color: black !important;
+  }
+  #shift-report,
+  #shift-report * {
+    color: black !important;
+  }
+  #shift-report .border {
+    border-color: #ddd !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+  .print\:break-before-page {
+    break-before: page;
+  }
+  @page {
+    margin: 0.5in;
+  }
 }
 
 /* Native Android shell (Capacitor WebView) — dedicated POS terminal feel.
@@ -172,30 +207,60 @@ html.native-app a {
 
 /* Owner-selected interface sizing. These preferences are applied immediately
    by src/lib/ui-preferences.ts and do not require a rebuild. */
-html[data-ui-text="small"] { font-size: 14px; }
-html[data-ui-text="normal"] { font-size: 16px; }
-html[data-ui-text="large"] { font-size: 18px; }
+html[data-ui-text="small"] {
+  font-size: 14px;
+}
+html[data-ui-text="normal"] {
+  font-size: 16px;
+}
+html[data-ui-text="large"] {
+  font-size: 18px;
+}
 
-html[data-ui-density="compact"] [data-slot="card-header"] { padding: 1rem; gap: 0.2rem; }
-html[data-ui-density="compact"] [data-slot="card-content"] { padding: 0 1rem 1rem; }
-html[data-ui-density="compact"] [data-slot="card-footer"] { padding: 0 1rem 1rem; }
-html[data-ui-density="compact"] [data-slot="button"] { min-height: 2rem; }
-html[data-ui-density="compact"] [data-slot="input"] { height: 2rem; }
+html[data-ui-density="compact"] [data-slot="card-header"] {
+  padding: 1rem;
+  gap: 0.2rem;
+}
+html[data-ui-density="compact"] [data-slot="card-content"] {
+  padding: 0 1rem 1rem;
+}
+html[data-ui-density="compact"] [data-slot="card-footer"] {
+  padding: 0 1rem 1rem;
+}
+html[data-ui-density="compact"] [data-slot="button"] {
+  min-height: 2rem;
+}
+html[data-ui-density="compact"] [data-slot="input"] {
+  height: 2rem;
+}
 html[data-ui-density="compact"] table th,
-html[data-ui-density="compact"] table td { padding-top: 0.35rem; padding-bottom: 0.35rem; }
+html[data-ui-density="compact"] table td {
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
 
 html[data-ui-touch="true"] [data-slot="button"],
 html[data-ui-touch="true"] [data-slot="input"],
 html[data-ui-touch="true"] button,
-html[data-ui-touch="true"] [role="button"] { min-height: 44px; }
+html[data-ui-touch="true"] [role="button"] {
+  min-height: 44px;
+}
 
 /* --------------------------------------------------------------------------
    SEZA marketing motion and visual system
    -------------------------------------------------------------------------- */
 .seza-grid-bg {
   background-image:
-    linear-gradient(to right, color-mix(in oklab, var(--primary) 8%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklab, var(--primary) 8%, transparent) 1px, transparent 1px);
+    linear-gradient(
+      to right,
+      color-mix(in oklab, var(--primary) 8%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--primary) 8%, transparent) 1px,
+      transparent 1px
+    );
   background-size: 42px 42px;
   mask-image: radial-gradient(circle at center, black 15%, transparent 78%);
   -webkit-mask-image: radial-gradient(circle at center, black 15%, transparent 78%);
@@ -239,13 +304,22 @@ html[data-ui-touch="true"] [role="button"] { min-height: 44px; }
 }
 
 @keyframes seza-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 @keyframes seza-float {
-  0%, 100% { transform: translateY(0) rotate(-0.4deg); }
-  50% { transform: translateY(-10px) rotate(0.4deg); }
+  0%,
+  100% {
+    transform: translateY(0) rotate(-0.4deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(0.4deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

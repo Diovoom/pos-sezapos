@@ -60,7 +60,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_dashboard/inventory")({
   head: () => ({
     meta: [
-      { title: "Inventory — SEZA POS" },
+      { title: "Inventory  -  SEZA POS" },
       {
         name: "description",
         content: "Manage products, stock levels, categories, and inventory in real time.",
@@ -565,13 +565,13 @@ function InventoryPage() {
                         </TableCell>
                         <TableCell className="font-medium">{p.name}</TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">
-                          {p.sku ?? "—"}
+                          {p.sku ?? " - "}
                         </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">
-                          {p.barcode ?? "—"}
+                          {p.barcode ?? " - "}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {catName ?? <span className="text-muted-foreground">—</span>}
+                          {catName ?? <span className="text-muted-foreground"> - </span>}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {fmtCurrency(Number(p.cost), currency)}
@@ -592,7 +592,7 @@ function InventoryPage() {
                           <StatusBadge status={status} />
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                          {updated ? new Date(updated).toLocaleDateString() : "—"}
+                          {updated ? new Date(updated).toLocaleDateString() : " - "}
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>

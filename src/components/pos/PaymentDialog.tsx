@@ -34,13 +34,7 @@ import { isOnlineNow } from "@/lib/offline/useOnline";
 import { ManagerOverrideDialog } from "@/components/pos/ManagerOverrideDialog";
 
 export type PaymentMethod =
-  | "cash"
-  | "card"
-  | "tap"
-  | "apple_pay"
-  | "google_pay"
-  | "gift_card"
-  | "split";
+  "cash" | "card" | "tap" | "apple_pay" | "google_pay" | "gift_card" | "split";
 
 export type PaymentAllocation = {
   method: Exclude<PaymentMethod, "split">;
@@ -76,7 +70,7 @@ type Props = {
   bypassCancelApproval?: boolean;
 };
 
-// Once cash or card is selected we lock the payment flow — cashiers cannot
+// Once cash or card is selected we lock the payment flow  -  cashiers cannot
 // silently back out. A manager PIN is required to cancel. Cash panel handles
 // its own gate; TerminalPanel gates cancel unless the provider is missing.
 export function PaymentDialog({
@@ -547,7 +541,6 @@ function TerminalPanel({
   useEffect(() => {
     if (provider) start();
     return () => abortRef.current?.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---- No provider connected: block card payments entirely. ----

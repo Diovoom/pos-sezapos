@@ -44,7 +44,7 @@ import { Loader2, Plus, KeyRound, Ban, Check, Copy } from "lucide-react";
 export const Route = createFileRoute("/_dashboard/employees")({
   head: () => ({
     meta: [
-      { title: "Employees — SEZA POS" },
+      { title: "Employees  -  SEZA POS" },
       {
         name: "description",
         content: "Manage store employees, roles, and 6-digit PIN sign-in credentials.",
@@ -171,10 +171,10 @@ function EmployeesPage() {
                           <div className="font-semibold text-sm truncate">
                             {row.full_name ||
                               `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() ||
-                              "—"}
+                              " - "}
                           </div>
                           <div className="text-xs text-muted-foreground truncate">
-                            ID {row.employee_id ?? "—"} · {row.email ?? "no email"}
+                            ID {row.employee_id ?? " - "} · {row.email ?? "no email"}
                           </div>
                           <div className="mt-1 flex flex-wrap gap-1">
                             <Badge
@@ -227,7 +227,7 @@ function EmployeesPage() {
                                 <div className="font-semibold text-sm">
                                   {row.full_name ||
                                     `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() ||
-                                    "—"}
+                                    " - "}
                                 </div>
                                 {row.must_change_password && (
                                   <div className="text-[10px] text-warning uppercase tracking-wider">
@@ -237,7 +237,7 @@ function EmployeesPage() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="font-mono">{row.employee_id ?? "—"}</TableCell>
+                          <TableCell className="font-mono">{row.employee_id ?? " - "}</TableCell>
                           <TableCell className="text-xs">
                             <div>{row.email}</div>
                             {row.phone && <div className="text-muted-foreground">{row.phone}</div>}

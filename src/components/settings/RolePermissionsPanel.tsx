@@ -34,7 +34,6 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
     }) => {
       if (!storeId) throw new Error("No store context");
       if (enabled) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase.from as any)("role_permissions").insert({
           role,
           permission,
@@ -42,7 +41,6 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
         });
         if (error && !String(error.message).includes("duplicate")) throw error;
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase.from as any)("role_permissions")
           .delete()
           .eq("role", role)
@@ -72,7 +70,7 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
         <CardTitle>Roles &amp; Permissions</CardTitle>
         <CardDescription>
           Grant fine-grained abilities to each role. Owner and Admin have{" "}
-          <Badge variant="outline">*</Badge> — full access.
+          <Badge variant="outline">*</Badge> - full access.
           {!canEdit && (
             <span className="block text-warning mt-1">
               Read-only: only owners and admins can edit.

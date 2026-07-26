@@ -26,15 +26,10 @@ import { isOnlineNow } from "@/lib/offline/useOnline";
 import { saveOfflineCashMovement } from "@/lib/offline/db";
 import { userFacingError } from "@/lib/user-error";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
 
 export type DrawerReason =
-  | "make_change"
-  | "count_shift"
-  | "safe_drop"
-  | "manager_request"
-  | "other";
+  "make_change" | "count_shift" | "safe_drop" | "manager_request" | "other";
 
 const REASONS: { value: DrawerReason; label: string; description: string }[] = [
   { value: "make_change", label: "Make Change", description: "Break bills for a customer." },
@@ -229,7 +224,7 @@ export function OpenDrawerDialog({
           {noSession && (
             <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs flex items-start gap-2">
               <AlertTriangle className="size-4 mt-0.5 text-warning" />
-              <div>No active shift — a manager or owner must approve this opening.</div>
+              <div>No active shift - a manager or owner must approve this opening.</div>
             </div>
           )}
 
@@ -279,7 +274,7 @@ export function OpenDrawerDialog({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={
-                requiresNote ? "Required — describe why the drawer needs to open" : "Optional"
+                requiresNote ? "Required  -  describe why the drawer needs to open" : "Optional"
               }
             />
           </div>

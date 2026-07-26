@@ -32,7 +32,7 @@ import { fmtCurrency } from "@/lib/format";
 export const Route = createFileRoute("/_dashboard/customers")({
   head: () => ({
     meta: [
-      { title: "Customers — SEZA POS" },
+      { title: "Customers  -  SEZA POS" },
       {
         name: "description",
         content:
@@ -196,8 +196,8 @@ function CustomersPage() {
                       </button>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">{customer.phone || "—"}</div>
-                      <div className="text-xs text-muted-foreground">{customer.email || "—"}</div>
+                      <div className="text-sm">{customer.phone || " - "}</div>
+                      <div className="text-xs text-muted-foreground">{customer.email || " - "}</div>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">

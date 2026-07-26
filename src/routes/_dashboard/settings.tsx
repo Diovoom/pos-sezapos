@@ -81,7 +81,7 @@ import { isNativeMode } from "@/lib/native";
 export const Route = createFileRoute("/_dashboard/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — SEZA POS" },
+      { title: "Settings  -  SEZA POS" },
       {
         name: "description",
         content: "Store administration, hardware setup, inventory preferences, and billing.",
@@ -158,9 +158,8 @@ export function SettingsPage() {
   useEffect(() => {
     if (search.section && search.section !== tab) setTab(search.section);
     if (search.checkout === "success") {
-      toast.success("Subscription updated — welcome aboard!");
+      toast.success("Subscription updated  -  welcome aboard!");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.section, search.checkout]);
   const { has, isSuper } = usePermissions();
   const me = useMe();
@@ -182,7 +181,7 @@ export function SettingsPage() {
   useEffect(() => {
     if (me.isLoading) return;
     if (!allowedTabs.has(tab)) setTab(nativeRegister ? "support_contact" : "appearance");
-  }, [me.isLoading, tab, nativeRegister, isManagerLike]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [me.isLoading, tab, nativeRegister, isManagerLike]);
 
   return (
     <>
@@ -209,7 +208,7 @@ export function SettingsPage() {
                   .filter((s) => !s.href)
                   .map((s) => (
                     <option key={s.id} value={s.id}>
-                      {t(g.labelKey)} — {t(s.labelKey)}
+                      {t(g.labelKey)} - {t(s.labelKey)}
                     </option>
                   )),
               )}
@@ -650,7 +649,6 @@ function ProfilePanel() {
   const [form, setForm] = useState<Record<string, string>>({});
   useEffect(() => {
     if (profile) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const p = profile as any;
       setForm({
         first_name: p.first_name ?? "",
@@ -660,10 +658,9 @@ function ProfilePanel() {
     }
   }, [profile]);
   const save = async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = profile as any;
     if (!p?.id) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const { error } = await (supabase.from as any)("profiles")
       .update({
         first_name: form.first_name || null,
@@ -808,7 +805,7 @@ function SupportPanel({ kind }: { kind: "contact" | "website" | "status" | "rele
       desc: "Latest updates and improvements.",
       body: (
         <p className="text-sm text-muted-foreground">
-          Version 1.2.2 — reliable offline cash operations, Android clock-out and receipt delivery,
+          Version 1.2.2 - reliable offline cash operations, Android clock-out and receipt delivery,
           persistent screen sharing, complete-page language coverage, and production support
           workflows.
         </p>
@@ -841,7 +838,6 @@ function GeneralPanel({ canEdit }: { canEdit: boolean }) {
   const [form, setForm] = useState<Record<string, string>>({});
   useEffect(() => {
     if (store) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const s = store as any;
       setForm({
         name: s.name ?? "",
@@ -887,7 +883,7 @@ function GeneralPanel({ canEdit }: { canEdit: boolean }) {
         date_format: form.date_format,
         logo_url: form.logo_url || null,
       };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const { error } = await (supabase.from as any)("stores")
         .update(patch)
         .eq("id", (store as any).id);
@@ -1393,7 +1389,7 @@ function BackupPanel() {
       <CardHeader>
         <CardTitle>Data Backup & Export</CardTitle>
         <CardDescription>
-          Download a JSON copy of this store's business data. This exports merchant data—not the
+          Download a JSON copy of this store's business data. This exports merchant data - not the
           SEZA application source code. Your code history is stored in GitHub.
         </CardDescription>
       </CardHeader>

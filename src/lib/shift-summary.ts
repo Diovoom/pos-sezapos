@@ -1,8 +1,7 @@
 // Shift summary aggregator. Given a register_session_id, fetch and compute
-// every metric the end-of-shift report needs. Pure data — no UI.
+// every metric the end-of-shift report needs. Pure data  -  no UI.
 import { supabase } from "@/integrations/supabase/client";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
 
 export type ShiftSummary = Awaited<ReturnType<typeof fetchShiftSummary>>;
@@ -75,11 +74,10 @@ export async function fetchShiftSummary(sessionId: string) {
     ? ((await sb.from("sale_items").select("*").in("sale_id", saleIds)).data ?? [])
     : [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const s = (sales.data ?? []) as any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const r = (refunds.data ?? []) as any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const it = items as any[];
 
   const completedSales = s.filter((x) => x.status === "completed");
@@ -171,11 +169,10 @@ export async function fetchShiftSummary(sessionId: string) {
   const end = session.closed_at ? new Date(session.closed_at).getTime() : Date.now();
   const durationMin = Math.round((end - start) / 60000);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const movs = (movements.data ?? []) as any[];
   const safeDrops = movs.filter((m) => m.type === "safe_drop");
   const safeDropTotal = safeDrops.reduce((a, m) => a + Number(m.amount || 0), 0);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const noSaleEvents = (noSales.data ?? []) as any[];
 
   return {

@@ -28,10 +28,10 @@ export const RUNTIME_FALLBACKS: Record<string, Record<string, string>> = {
     "Send email": "Envoyer l’e-mail",
     "Send SMS": "Envoyer le SMS",
     "Receipt sent successfully": "Reçu envoyé avec succès",
-    "Receipt queued — it will send when the register reconnects":
-      "Reçu mis en attente — il sera envoyé lorsque la caisse sera reconnectée",
-    "SMS receipt queued — it will send when the register reconnects":
-      "Reçu SMS mis en attente — il sera envoyé lorsque la caisse sera reconnectée",
+    "Receipt queued  -  it will send when the register reconnects":
+      "Reçu mis en attente  -  il sera envoyé lorsque la caisse sera reconnectée",
+    "SMS receipt queued  -  it will send when the register reconnects":
+      "Reçu SMS mis en attente  -  il sera envoyé lorsque la caisse sera reconnectée",
     "Time Clock": "Pointeuse",
     "Clock in, take breaks, clock out.": "Pointez, prenez vos pauses et dépointez.",
     "Your status": "Votre statut",

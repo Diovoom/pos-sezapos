@@ -7,7 +7,7 @@ import { adminOfflineSyncOverview } from "@/lib/admin/admin.functions";
 export const Route = createFileRoute("/_adminApp/admin/offline-sync")({
   head: () => ({
     meta: [
-      { title: "Offline Sync — SEZA Admin" },
+      { title: "Offline Sync  -  SEZA Admin" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
@@ -90,7 +90,7 @@ function OfflineSyncPage() {
                       </td>
                       <td>{r.store_name}</td>
                       <td>${Number(r.total ?? 0).toFixed(2)}</td>
-                      <td className="font-mono text-xs">{r.idempotency_key ?? "—"}</td>
+                      <td className="font-mono text-xs">{r.idempotency_key ?? " - "}</td>
                     </tr>
                   ))}
                 </tbody>

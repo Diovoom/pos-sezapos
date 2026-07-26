@@ -215,7 +215,7 @@ export function AgeVerificationDialog({
         override_reason: (e.manager as unknown as { reason?: string })?.reason ?? null,
         raw_meta: { format: e.parsed?.format ?? "manual" },
       };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       await (supabase.from as any)("age_verifications").insert(payload);
       void logAudit({
         action: "override.granted",
@@ -244,7 +244,6 @@ export function AgeVerificationDialog({
       try {
         const { data: u } = await supabase.auth.getUser();
         if (u.user) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { data: roleRows } = await (supabase as any)
             .from("user_roles")
             .select("role")
@@ -374,7 +373,7 @@ export function AgeVerificationDialog({
                 <div className="mt-6 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <div className="size-2 rounded-full bg-primary animate-pulse" />
-                    Ready — scan an ID with your USB scanner now, or choose an option above.
+                    Ready - scan an ID with your USB scanner now, or choose an option above.
                   </div>
                   {settings.allowManualEntry && (
                     <button
@@ -490,7 +489,7 @@ export function AgeVerificationDialog({
               seenCodesRef.current.add(code);
               toast.error("Barcode read, but not a recognized government ID.");
               setScanNote(
-                "Barcode read but not a recognized government ID — try the PDF417 on the back of a driver's license, or use manual entry.",
+                "Barcode read but not a recognized government ID  -  try the PDF417 on the back of a driver's license, or use manual entry.",
               );
             }
             return; // keep camera open
@@ -599,10 +598,10 @@ function ResultView({
 
   const title =
     outcome.reason === "underage"
-      ? "Sale Blocked — Customer does not meet the minimum legal age"
+      ? "Sale Blocked  -  Customer does not meet the minimum legal age"
       : outcome.reason === "expired_id"
-        ? "Sale Blocked — Government ID has expired"
-        : "Sale Blocked — Date of birth could not be read";
+        ? "Sale Blocked  -  Government ID has expired"
+        : "Sale Blocked  -  Date of birth could not be read";
 
   const detail =
     outcome.reason === "underage"

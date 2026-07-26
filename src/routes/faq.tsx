@@ -11,13 +11,13 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/faq")({
   head: () => ({
     meta: [
-      { title: "FAQ — SEZA POS" },
+      { title: "FAQ  -  SEZA POS" },
       {
         name: "description",
         content:
-          "Frequently asked questions about SEZA POS — pricing, hardware, security, data, onboarding, and support.",
+          "Frequently asked questions about SEZA POS  -  pricing, hardware, security, data, onboarding, and support.",
       },
-      { property: "og:title", content: "SEZA POS — Frequently Asked Questions" },
+      { property: "og:title", content: "SEZA POS  -  Frequently Asked Questions" },
       {
         property: "og:description",
         content: "Answers about pricing, hardware, security, data, and support.",

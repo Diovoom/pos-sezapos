@@ -41,7 +41,7 @@ export const Route = createFileRoute("/_adminApp/admin/subscriptions")({
   }),
   head: () => ({
     meta: [
-      { title: "Subscriptions — SEZA Admin" },
+      { title: "Subscriptions  -  SEZA Admin" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
@@ -176,15 +176,15 @@ function SubscriptionsPage() {
                           {r.store_name}
                         </Link>
                       ) : (
-                        "—"
+                        " - "
                       )}
                       <div className="text-xs text-muted-foreground">{r.store_email ?? ""}</div>
                     </td>
-                    <td className="p-3 text-xs">{r.price_id ?? "—"}</td>
+                    <td className="p-3 text-xs">{r.price_id ?? " - "}</td>
                     <td className="p-3 text-xs">
                       {r.current_period_end
                         ? format(new Date(r.current_period_end), "MMM d, yyyy")
-                        : "—"}
+                        : " - "}
                     </td>
                   </tr>
                 ))}
@@ -256,11 +256,11 @@ function SubscriptionsPage() {
                               {s.store_name}
                             </Link>
                           ) : (
-                            "—"
+                            " - "
                           )}
                           <div className="text-xs text-muted-foreground">{s.store_email ?? ""}</div>
                         </td>
-                        <td className="p-3 text-xs">{s.price_id ?? "—"}</td>
+                        <td className="p-3 text-xs">{s.price_id ?? " - "}</td>
                         <td className="p-3">
                           <Badge variant="outline">{s.status}</Badge>
                           {s.cancel_at_period_end && (
@@ -272,13 +272,13 @@ function SubscriptionsPage() {
                         <td className="p-3 text-xs">
                           {s.current_period_end
                             ? format(new Date(s.current_period_end), "MMM d, yyyy")
-                            : "—"}
+                            : " - "}
                         </td>
                         <td className="p-3 text-xs">
                           <Badge variant="outline">{s.environment}</Badge>
                         </td>
                         <td className="p-3 text-xs font-mono truncate max-w-[180px]">
-                          {s.stripe_subscription_id ?? "—"}
+                          {s.stripe_subscription_id ?? " - "}
                         </td>
                         <td className="p-3 text-right space-x-1 whitespace-nowrap">
                           {s.stripe_subscription_id && (

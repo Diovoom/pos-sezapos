@@ -5,10 +5,10 @@ import { isOnlineNow } from "@/lib/offline/useOnline";
 
 export type MeData = {
   user: { id: string; email?: string };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   profile: any | null;
   roles: string[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   store: any | null;
 } | null;
 

@@ -8,7 +8,7 @@
 // when the connected provider reports it.
 //
 // Until a real provider is registered via `registerProvider(...)`, card
-// payments cannot be taken — the checkout UI surfaces a clear "no terminal
+// payments cannot be taken  -  the checkout UI surfaces a clear "no terminal
 // connected" state and blocks completion.
 
 import { supabase } from "@/integrations/supabase/client";
@@ -62,7 +62,7 @@ export interface PaymentProvider {
   /**
    * Start a charge. The promise MUST NOT resolve until the connected
    * terminal / gateway reports a real outcome. Providers are responsible
-   * for their own timeout policies — this layer never fabricates one.
+   * for their own timeout policies  -  this layer never fabricates one.
    */
   charge(
     req: PaymentRequest,
@@ -121,7 +121,7 @@ const stripeTerminalProvider: PaymentProvider = {
   },
 };
 
-// Registry — empty by default. Real integrations register themselves at
+// Registry  -  empty by default. Real integrations register themselves at
 // app boot (e.g. `registerProvider(stripeTerminalProvider)`).
 const providers = new Map<string, PaymentProvider>();
 
@@ -146,7 +146,7 @@ export function getActiveProvider(): PaymentProvider | null {
 
 /**
  * Best-effort audit log of every payment attempt / state transition.
- * Never throws — logging failures must not affect the checkout flow.
+ * Never throws  -  logging failures must not affect the checkout flow.
  */
 export async function logPaymentAttempt(entry: {
   provider: string | null;
@@ -158,7 +158,6 @@ export async function logPaymentAttempt(entry: {
   reference?: string | null;
 }) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from as any)("payment_attempts").insert({
       provider: entry.provider,
       method: entry.method,
@@ -169,7 +168,7 @@ export async function logPaymentAttempt(entry: {
       reference: entry.reference ?? null,
     });
   } catch {
-    // swallow — audit log is best-effort
+    // swallow  -  audit log is best-effort
   }
   // Structured console log for local dev visibility.
 

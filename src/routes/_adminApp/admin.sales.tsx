@@ -19,7 +19,7 @@ import { TrendingUp, Building2, DollarSign, CalendarCheck, RefreshCw, Search } f
 export const Route = createFileRoute("/_adminApp/admin/sales")({
   head: () => ({
     meta: [
-      { title: "New Merchant Sales — SEZA Admin" },
+      { title: "New Merchant Sales  -  SEZA Admin" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
@@ -150,7 +150,9 @@ function MerchantSalesPage() {
                       >
                         {row.store?.name ?? "Unknown merchant"}
                       </Link>
-                      <div className="text-xs text-muted-foreground">{row.store?.email ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {row.store?.email ?? " - "}
+                      </div>
                     </td>
                     <td className="p-3 font-semibold">
                       {money(
@@ -160,7 +162,7 @@ function MerchantSalesPage() {
                     </td>
                     <td className="p-3">
                       <Badge variant="outline">
-                        {row.store?.plan_tier ?? row.subscription?.price_id ?? "—"}
+                        {row.store?.plan_tier ?? row.subscription?.price_id ?? " - "}
                       </Badge>
                     </td>
                     <td className="p-3 whitespace-nowrap">
@@ -176,7 +178,7 @@ function MerchantSalesPage() {
                     </td>
                     <td className="p-3">
                       <Badge variant="outline">
-                        {row.subscription?.status ?? row.store?.plan_status ?? "—"}
+                        {row.subscription?.status ?? row.store?.plan_status ?? " - "}
                       </Badge>
                       {row.store?.trial_ends_at && (
                         <div className="mt-1 text-xs text-muted-foreground">

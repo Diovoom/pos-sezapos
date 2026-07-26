@@ -46,7 +46,7 @@ export const Route = createFileRoute("/api/public/pos/support-end")({
         if (!sessionId) return json({ error: "Invalid request" }, 400);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const admin: any = supabaseAdmin;
 
         const { data: userRes, error: userErr } = await supabaseAdmin.auth.getUser(token);

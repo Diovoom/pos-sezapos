@@ -14,7 +14,7 @@ import {
 export const Route = createFileRoute("/customer-display")({
   head: () => ({
     meta: [
-      { title: "Customer Display — SEZA POS" },
+      { title: "Customer Display  -  SEZA POS" },
       { name: "description", content: "Live customer-facing order display." },
     ],
   }),

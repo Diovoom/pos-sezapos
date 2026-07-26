@@ -6,13 +6,13 @@ import { Store, Wine, ShoppingBasket, Coffee, Package, Cigarette } from "lucide-
 export const Route = createFileRoute("/industries")({
   head: () => ({
     meta: [
-      { title: "Industries We Serve — SEZA POS" },
+      { title: "Industries We Serve  -  SEZA POS" },
       {
         name: "description",
         content:
           "SEZA POS is built for convenience stores, liquor stores, mini marts, specialty retail, cafés, and smoke shops. See how the platform fits your industry.",
       },
-      { property: "og:title", content: "Industries — SEZA POS" },
+      { property: "og:title", content: "Industries  -  SEZA POS" },
       {
         property: "og:description",
         content:
@@ -104,7 +104,7 @@ function IndustriesPage() {
         </h1>
         <p className="mt-5 text-lg text-muted-foreground">
           SEZA POS is used across convenience, liquor, grocery, café, and specialty retail. The core
-          is the same modern cloud platform — the workflows are tuned for the way your industry
+          is the same modern cloud platform - the workflows are tuned for the way your industry
           runs.
         </p>
       </section>
@@ -133,7 +133,7 @@ function IndustriesPage() {
       <section className="max-w-3xl mx-auto px-6 py-12 text-center">
         <h2 className="text-2xl font-bold tracking-tight">Don't see your industry?</h2>
         <p className="mt-2 text-muted-foreground">
-          SEZA's core is flexible — most retail formats work out of the box.
+          SEZA's core is flexible - most retail formats work out of the box.
         </p>
         <div className="mt-6 flex flex-wrap gap-3 justify-center">
           <Button asChild size="lg">

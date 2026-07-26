@@ -4,7 +4,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { authenticatedWriteRateLimit } from "@/lib/security/rate-limit";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Ctx = { supabase: any; userId: string };
 
 async function assertManager(ctx: Ctx) {
@@ -52,7 +51,7 @@ export const createPairingCode = createServerFn({ method: "POST" })
     const { generatePairingCode, hashPairingCode } = await import("@/lib/pos/device.server");
     const code = generatePairingCode();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
 
     const expiresAt = new Date(Date.now() + ttl * 60_000).toISOString();
@@ -78,7 +77,7 @@ export const revokePosDevice = createServerFn({ method: "POST" })
     if (reason.length < 4) throw new Error("A reason of at least 4 characters is required");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const admin: any = supabaseAdmin;
 
     // Ownership check via RLS-scoped read on ctx.supabase first, then admin write.

@@ -23,7 +23,6 @@ export function AuditLogPanel() {
   const { data = [], isLoading } = useQuery<Row[]>({
     queryKey: ["audit_log"],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase.from as any)("audit_log")
         .select("*")
         .order("created_at", { ascending: false })
@@ -84,11 +83,11 @@ export function AuditLogPanel() {
                       </Badge>
                     </td>
                     <td className="p-2 text-xs">
-                      {r.entity ?? "—"}
+                      {r.entity ?? " - "}
                       {r.entity_id ? ` #${r.entity_id.slice(0, 8)}` : ""}
                     </td>
                     <td className="p-2 text-xs font-mono text-muted-foreground max-w-md truncate">
-                      {r.details ? JSON.stringify(r.details) : "—"}
+                      {r.details ? JSON.stringify(r.details) : " - "}
                     </td>
                   </tr>
                 ))}

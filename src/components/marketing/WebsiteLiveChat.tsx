@@ -17,6 +17,15 @@ import { cn } from "@/lib/utils";
 
 export const OPEN_PUBLIC_LIVE_CHAT_EVENT = "seza-open-public-live-chat";
 const CHAT_SESSION_KEY = "seza-public-live-chat-session";
+function publicChatError(value: unknown): string {
+  const message = value instanceof Error ? value.message : String(value ?? "");
+  const technical =
+    /schema cache|column|relation|postgres|supabase|sql|permission denied|violates|uuid|stack|syntax/i;
+  if (!message || technical.test(message)) {
+    return "Live chat is temporarily unavailable. Please call or try again shortly.";
+  }
+  return message;
+}
 
 type ChatMessage = {
   id: string;
@@ -45,7 +54,7 @@ async function liveChatRequest(payload: Record<string, unknown>) {
     body: JSON.stringify(payload),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || "Could not connect to live chat.");
+  if (!response.ok) throw new Error(publicChatError(data?.error));
   return data;
 }
 
@@ -120,7 +129,6 @@ export function WebsiteLiveChat() {
     const session = readSession();
     if (session) void poll(session);
     // Resume once on mount only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -161,7 +169,7 @@ export function WebsiteLiveChat() {
       setChat({ ...session, chatStatus: data.chatStatus, messages: data.messages || [] });
       setOpeningMessage("");
     } catch (startError: any) {
-      setError(startError?.message || "Could not start live chat.");
+      setError(publicChatError(startError));
     } finally {
       setBusy(false);
     }
@@ -180,7 +188,7 @@ export function WebsiteLiveChat() {
       );
     } catch (sendError: any) {
       setDraft(message);
-      setError(sendError?.message || "Could not send message.");
+      setError(publicChatError(sendError));
     } finally {
       setBusy(false);
     }
@@ -196,7 +204,7 @@ export function WebsiteLiveChat() {
       setChat((current) => (current ? { ...current, chatStatus: "ended" } : current));
       saveSession(null);
     } catch (endError: any) {
-      setError(endError?.message || "Could not end chat.");
+      setError(publicChatError(endError));
     } finally {
       setBusy(false);
     }
@@ -301,7 +309,7 @@ export function WebsiteLiveChat() {
                   value={openingMessage}
                   onChange={(event) => setOpeningMessage(event.target.value)}
                   rows={5}
-                  placeholder="Tell us about setup, pricing, hardware, your account, or a POS issue…"
+                  placeholder="Tell us about setup, pricing, hardware, your account, or a POS issue."
                 />
               </div>
               {error && (
@@ -328,7 +336,7 @@ export function WebsiteLiveChat() {
             <div className="border-b border-blue-100 bg-blue-50 px-5 py-3 text-xs text-blue-900 dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-100">
               <div className="flex items-center justify-between gap-3">
                 <span>
-                  Chat #{chat.ticketNumber ?? "—"} · {chat.visitorName}
+                  Chat #{chat.ticketNumber ?? "Pending"} | {chat.visitorName}
                 </span>
                 {!isEnded && (
                   <button
@@ -406,7 +414,7 @@ export function WebsiteLiveChat() {
                     rows={2}
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
-                    placeholder="Write a message…"
+                    placeholder="Write a message"
                     onKeyDown={(event) => {
                       if (event.key === "Enter" && !event.shiftKey) {
                         event.preventDefault();

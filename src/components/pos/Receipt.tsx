@@ -48,7 +48,7 @@ export type ReceiptData = {
   pendingSync?: boolean;
 };
 
-/** 80mm thermal receipt — monospace, printer-friendly. */
+/** 80mm thermal receipt  -  monospace, printer-friendly. */
 export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(function Receipt(
   { data },
   ref,
@@ -155,7 +155,7 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
       )}
 
       <div className="text-center text-[10px] mt-2 opacity-70">
-        © SEZA POS — All rights reserved.
+        © SEZA POS - All rights reserved.
       </div>
     </div>
   );

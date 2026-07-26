@@ -1,7 +1,7 @@
 // Native-only helpers that connect the existing production ReceiptData
 // pipeline to the modular hardware drivers in src/lib/hardware.
 //
-// APK scope only — every entry point is a no-op on the web POS. Never throws
+// APK scope only  -  every entry point is a no-op on the web POS. Never throws
 // upward: printer/drawer failure must never fail a finalized sale.
 
 import { isNativeMode } from "@/lib/native";
@@ -155,7 +155,7 @@ async function printOnceInternal(payload: ReceiptPayload, copies: number): Promi
 
 /**
  * Auto-print a completed sale receipt. Idempotent per transactionId within
- * this app session — screen rotations, resumes, or re-renders will not
+ * this app session  -  screen rotations, resumes, or re-renders will not
  * trigger a second print. Safe-fail: never throws.
  */
 export async function autoPrintOnComplete(d: ReceiptData): Promise<PrintResult> {

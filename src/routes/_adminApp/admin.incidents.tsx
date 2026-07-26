@@ -26,7 +26,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_adminApp/admin/incidents")({
   head: () => ({
-    meta: [{ title: "Incidents — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [{ title: "Incidents  -  SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: IncidentsPage,
 });

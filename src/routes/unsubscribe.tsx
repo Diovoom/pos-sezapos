@@ -9,7 +9,7 @@ type Search = { token?: string };
 export const Route = createFileRoute("/unsubscribe")({
   head: () => ({
     meta: [
-      { title: "Unsubscribe — SEZA POS" },
+      { title: "Unsubscribe  -  SEZA POS" },
       { name: "description", content: "Manage your SEZA POS email subscription." },
       { name: "robots", content: "noindex, nofollow" },
     ],

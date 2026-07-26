@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowRight,
-  BadgeCheck,
   Banknote,
   BarChart3,
   Barcode,
@@ -47,7 +46,7 @@ import homeSell from "@/assets/home-sell.png.asset.json";
 import homeInventory from "@/assets/home-inventory.png.asset.json";
 import homeReports from "@/assets/home-reports.png.asset.json";
 
-const HOME_TITLE = "SEZA POS — Smart POS. Better business.";
+const HOME_TITLE = "SEZA POS  -  Smart POS. Better business.";
 const HOME_DESCRIPTION =
   "SEZA POS helps independent retailers sell faster, manage inventory, control cash, run employee shifts, work through internet outages and understand the business from one modern platform.";
 
@@ -78,7 +77,7 @@ const capabilityGroups = [
     icon: ScanLine,
     eyebrow: "Checkout",
     title: "Keep the line moving",
-    body: "A register designed around the actions cashiers use all day—not a dashboard squeezed onto a checkout screen.",
+    body: "A register designed around the actions cashiers use all day - not a dashboard squeezed onto a checkout screen.",
     items: [
       "USB, Bluetooth and camera barcode scanning",
       "Favorites, custom-price items, discounts and taxes",
@@ -300,15 +299,14 @@ function LandingPage() {
           <div className="mx-auto max-w-4xl text-center">
             <Reveal>
               <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-blue-800 bg-blue-800 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-sm dark:border-blue-500 dark:bg-blue-700">
-                <BadgeCheck className="size-4 text-emerald-300" /> Complete store operations
-                platform
+                Complete store operations platform
               </div>
               <h1 className="mt-7 text-balance text-5xl font-black tracking-[-0.045em] text-slate-950 sm:text-6xl lg:text-[5.25rem] lg:leading-[0.98] dark:text-white">
                 Run the whole store from one simple POS.
               </h1>
               <p className="mx-auto mt-7 max-w-3xl text-pretty text-lg leading-8 text-slate-600 sm:text-xl dark:text-slate-300">
                 Ring up sales, manage inventory, control cash, run employee shifts, send receipts
-                and understand the day—without stitching together five different systems.
+                and understand the day - without stitching together five different systems.
               </p>
               <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <Button
@@ -331,13 +329,13 @@ function LandingPage() {
               </div>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                 <span className="inline-flex items-center gap-1.5">
-                  <Check className="size-3.5 text-emerald-600" /> 14-day free trial
+                  <span aria-hidden="true">•</span> 14-day free trial
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Check className="size-3.5 text-emerald-600" /> No credit card required
+                  <span aria-hidden="true">•</span> No credit card required
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Check className="size-3.5 text-emerald-600" /> Cancel anytime
+                  <span aria-hidden="true">•</span> Cancel anytime
                 </span>
               </div>
             </Reveal>

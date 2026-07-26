@@ -18,7 +18,6 @@ import { Loader2, Plus, Trash2, CreditCard } from "lucide-react";
 import { useMe } from "@/hooks/useMe";
 import { logAudit } from "@/lib/audit-log";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
 
 type Terminal = {
@@ -181,8 +180,8 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                   <tr key={t.id} className="border-b last:border-0">
                     <td className="py-2 font-medium">{t.label}</td>
                     <td>{PROVIDERS.find((p) => p.id === t.provider)?.label ?? t.provider}</td>
-                    <td className="text-muted-foreground">{t.serial ?? "—"}</td>
-                    <td className="text-muted-foreground">{t.location ?? "—"}</td>
+                    <td className="text-muted-foreground">{t.serial ?? " - "}</td>
+                    <td className="text-muted-foreground">{t.location ?? " - "}</td>
                     <td>
                       <Badge
                         variant="outline"

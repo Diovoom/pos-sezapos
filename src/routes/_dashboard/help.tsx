@@ -22,7 +22,7 @@ import { Loader2, LifeBuoy, Send, Mail, Globe } from "lucide-react";
 export const Route = createFileRoute("/_dashboard/help")({
   head: () => ({
     meta: [
-      { title: "Support — SEZA POS" },
+      { title: "Support  -  SEZA POS" },
       { name: "description", content: "Get help from the SEZA POS platform team." },
     ],
   }),
@@ -135,7 +135,7 @@ export function HelpPage() {
                 <SelectItem value="low">Low</SelectItem>
                 <SelectItem value="normal">Normal</SelectItem>
                 <SelectItem value="high">High</SelectItem>
-                <SelectItem value="urgent">Urgent — store down</SelectItem>
+                <SelectItem value="urgent">Urgent - store down</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -199,7 +199,7 @@ export function HelpPage() {
                       params={{ ticketId: t.id }}
                       className="font-medium truncate text-primary hover:underline"
                     >
-                      #{t.ticket_number ?? "—"} · {t.subject}
+                      #{t.ticket_number ?? " - "} · {t.subject}
                     </Link>
                     <div className="text-xs text-muted-foreground">
                       {new Date(t.created_at).toLocaleString()}

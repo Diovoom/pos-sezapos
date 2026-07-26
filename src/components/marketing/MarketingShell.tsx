@@ -119,28 +119,17 @@ function MorphingBrand({ expanded }: { expanded: boolean }) {
       resetScroll
       aria-label="SEZA POS home"
       className={cn(
-        "group relative flex h-12 items-center justify-center overflow-hidden rounded-2xl transition-[width] duration-700 ease-[cubic-bezier(.22,1,.36,1)]",
-        expanded ? "w-[136px]" : "w-12",
+        "group flex h-12 items-center justify-center gap-2 overflow-hidden rounded-2xl px-1 transition-all duration-500 ease-out",
+        expanded ? "w-[148px]" : "w-12",
       )}
     >
-      <span
-        className={cn(
-          "absolute left-0 grid size-12 place-items-center transition-all duration-700 ease-[cubic-bezier(.22,1,.36,1)]",
-          expanded
-            ? "-translate-x-10 -rotate-[360deg] scale-75 opacity-0"
-            : "translate-x-0 rotate-0 scale-100 opacity-100",
-        )}
-      >
-        <span className="relative grid size-11 place-items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_28px_-14px_rgba(37,99,235,0.65)] dark:border-white/10 dark:bg-slate-900">
-          <Logo className="size-8" alt="SEZA POS" />
-          <span className="absolute -inset-1 -z-10 rounded-[20px] bg-primary/15 opacity-0 blur-md transition-opacity group-hover:opacity-100" />
-        </span>
+      <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_28px_-14px_rgba(37,99,235,0.65)] transition-transform duration-500 group-hover:scale-[1.03] dark:border-white/10 dark:bg-slate-900">
+        <Logo className="size-8" alt="SEZA POS" />
       </span>
-
       <span
         className={cn(
-          "absolute inset-0 flex items-center justify-center whitespace-nowrap text-[16px] font-black tracking-[-0.035em] text-slate-950 transition-all duration-700 ease-[cubic-bezier(.22,1,.36,1)] dark:text-white",
-          expanded ? "translate-x-0 opacity-100" : "translate-x-12 opacity-0",
+          "whitespace-nowrap text-[16px] font-black tracking-[-0.035em] text-slate-950 transition-all duration-500 dark:text-white",
+          expanded ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-2 opacity-0",
         )}
       >
         SEZA POS
@@ -168,13 +157,14 @@ function HardwareCartButton() {
 
 export function MarketingShell({ children }: { children: ReactNode }) {
   const locationHref = useRouterState({ select: (state) => state.location.href });
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [supportVisible, setSupportVisible] = useState(true);
   const [supportOpen, setSupportOpen] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 64);
+    const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -463,12 +453,14 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         </div>
       </footer>
 
-      <div
-        className="fixed bottom-24 right-3 z-[65] sm:bottom-6 sm:right-5"
-        aria-label="SEZA hardware cart"
-      >
-        <HardwareCartButton />
-      </div>
+      {pathname !== "/" && (
+        <div
+          className="fixed bottom-24 right-3 z-[65] sm:bottom-6 sm:right-5"
+          aria-label="SEZA user guide"
+        >
+          <HardwareCartButton />
+        </div>
+      )}
 
       {supportVisible && (
         <div

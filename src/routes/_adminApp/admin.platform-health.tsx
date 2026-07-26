@@ -10,7 +10,7 @@ import { Activity, Database, Mail, RefreshCw, ShieldCheck, Webhook } from "lucid
 export const Route = createFileRoute("/_adminApp/admin/platform-health")({
   head: () => ({
     meta: [
-      { title: "Platform Health — SEZA Admin" },
+      { title: "Platform Health  -  SEZA Admin" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
@@ -97,7 +97,7 @@ function PlatformHealthPage() {
             <Activity className="h-5 w-5" /> Core services
           </CardTitle>
           <CardDescription>
-            No keys or secrets are displayed—only whether required configuration is present.
+            No keys or secrets are displayed - only whether required configuration is present.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -134,11 +134,11 @@ function PlatformHealthPage() {
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
           <div className="rounded-lg border p-3">
             <div className="text-xs text-muted-foreground">Application version</div>
-            <div className="font-mono">{data?.app_version ?? "—"}</div>
+            <div className="font-mono">{data?.app_version ?? " - "}</div>
           </div>
           <div className="rounded-lg border p-3">
             <div className="text-xs text-muted-foreground">Last checked</div>
-            <div>{data?.checked_at ? new Date(data.checked_at).toLocaleString() : "—"}</div>
+            <div>{data?.checked_at ? new Date(data.checked_at).toLocaleString() : " - "}</div>
           </div>
         </CardContent>
       </Card>

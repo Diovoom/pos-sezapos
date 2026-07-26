@@ -3,10 +3,10 @@
 //
 // Mirrors `merchantRespondSupportSession` (a TanStack Start server fn that
 // the APK cannot reach). Web merchant dashboard continues to use the
-// server-fn path — this endpoint only exists for the APK.
+// server-fn path  -  this endpoint only exists for the APK.
 //
 // Security:
-//   - Requires a valid Supabase bearer token — caller must be signed in.
+//   - Requires a valid Supabase bearer token  -  caller must be signed in.
 //   - Session must belong to the caller's own store; cross-tenant blocked.
 //   - Session must still be in status 'pending' (single-decision).
 //   - Every accept/decline is written to audit_log.
@@ -88,7 +88,7 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
         if (!sessionId || !decision) return json({ error: "Invalid request" }, 400);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const admin: any = supabaseAdmin;
 
         const { data: userRes, error: userErr } = await supabaseAdmin.auth.getUser(token);

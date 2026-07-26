@@ -56,7 +56,7 @@ import { rememberAdminChat } from "@/components/admin/AdminPersistentChat";
 export const Route = createFileRoute("/_adminApp/admin/support/$ticketId")({
   head: () => ({
     meta: [
-      { title: "Support Case — SEZA Admin" },
+      { title: "Support Case  -  SEZA Admin" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
@@ -156,7 +156,6 @@ function SupportCasePage() {
       void supabaseAdminAuth.removeChannel(messages);
       void supabaseAdminAuth.removeChannel(ticket);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticketId]);
 
   const data = query.data;
@@ -543,7 +542,7 @@ function SupportCasePage() {
               <CardTitle>Case context</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <ContextRow icon={Building2} label="Business" value={store?.name || "—"} />
+              <ContextRow icon={Building2} label="Business" value={store?.name || " - "} />
               {store && (
                 <Button asChild variant="outline" size="sm" className="w-full">
                   <Link to="/admin/businesses/$storeId" params={{ storeId: store.id }}>
@@ -554,7 +553,9 @@ function SupportCasePage() {
               <ContextRow
                 icon={User}
                 label="Requester"
-                value={ticket.visitor_name || requester?.full_name || ticket.requester_email || "—"}
+                value={
+                  ticket.visitor_name || requester?.full_name || ticket.requester_email || " - "
+                }
                 note={
                   ticket.visitor_phone ||
                   (requester?.employee_id ? `Employee ${requester.employee_id}` : undefined)
@@ -632,7 +633,7 @@ function SupportCasePage() {
                       </div>
                       {event.from_status !== event.to_status && event.to_status && (
                         <div className="mt-1 text-xs">
-                          {event.from_status || "—"} → {event.to_status}
+                          {event.from_status || " - "} → {event.to_status}
                         </div>
                       )}
                     </div>

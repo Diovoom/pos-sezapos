@@ -1,7 +1,7 @@
 // Restricted Cashier Quick-Add Product dialog.
 //
 // Native-only surface (gated by callers via isNativeMode). Uses the existing
-// products table via RLS — the server enforces store scope and the
+// products table via RLS  -  the server enforces store scope and the
 // products.create / products.quick_add permission. On success, returns the
 // created product to the caller (typically added to the current cart line).
 import { useEffect, useState } from "react";
@@ -76,10 +76,9 @@ export function QuickAddProductDialog({
     const p = Number(price);
     if (!trimmed) return toast.error("Enter a product name");
     if (!Number.isFinite(p) || p < 0 || p > 1_000_000) return toast.error("Enter a valid price");
-    if (!storeId) return toast.error("Store isn't loaded yet — try again in a moment.");
+    if (!storeId) return toast.error("Store isn't loaded yet  -  try again in a moment.");
     setBusy(true);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from as any)("products")
         .insert({
           store_id: storeId,

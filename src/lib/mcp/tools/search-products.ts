@@ -11,7 +11,7 @@ export default defineTool({
       .string()
       .trim()
       .min(1)
-      .describe("Search text — matches product name, SKU, or barcode.")
+      .describe("Search text  -  matches product name, SKU, or barcode.")
       .optional(),
     limit: z
       .number()

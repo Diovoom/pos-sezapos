@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Logo } from "@/components/brand/Logo";
 import { Loader2 } from "lucide-react";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 type OAuthNS = {
   getAuthorizationDetails: (id: string) => Promise<{ data: any; error: any }>;
   approveAuthorization: (id: string) => Promise<{ data: any; error: any }>;

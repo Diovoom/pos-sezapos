@@ -7,7 +7,7 @@ import { Briefcase } from "lucide-react";
 export const Route = createFileRoute("/careers")({
   head: () => ({
     meta: [
-      { title: "Careers — SEZA POS" },
+      { title: "Careers  -  SEZA POS" },
       {
         name: "description",
         content:
@@ -36,7 +36,7 @@ function CareersPage() {
         </h1>
         <p className="mt-5 text-lg text-muted-foreground">
           {LEGAL_CONFIG.companyName} is a small, focused team. We aren't currently running an open
-          hiring round — but we're always interested in hearing from thoughtful engineers,
+          hiring round - but we're always interested in hearing from thoughtful engineers,
           designers, and support leaders who care about small business.
         </p>
         <p className="mt-3 text-muted-foreground">

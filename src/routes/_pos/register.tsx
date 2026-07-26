@@ -54,7 +54,7 @@ import { userFacingError } from "@/lib/user-error";
 export const Route = createFileRoute("/_pos/register")({
   head: () => ({
     meta: [
-      { title: "Register — SEZA POS" },
+      { title: "Register  -  SEZA POS" },
       {
         name: "description",
         content: "Open and close the cash register for the current shift with cash reconciliation.",
@@ -64,7 +64,6 @@ export const Route = createFileRoute("/_pos/register")({
   component: RegisterPage,
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
 
 type Session = {
@@ -240,7 +239,7 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
       toast.success(
         isOnlineNow()
           ? "Register opened"
-          : "Register opened offline — changes will sync automatically",
+          : "Register opened offline  -  changes will sync automatically",
       );
       onOpened();
     },
@@ -312,9 +311,9 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
           .select("total, payment_method, refund_type, sale_id, sales!inner(register_session_id)")
           .eq("sales.register_session_id", session.id),
       ]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const sales = (salesRes.data ?? []).filter((row: any) => row.status === "completed");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const refunds = (refundRes.data ?? []).filter((row: any) => row.refund_type !== "void");
 
       const cashSales = sales
@@ -484,7 +483,7 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
                         )}
                         <div>
                           <div className="font-medium capitalize">
-                            {m.type} — {m.reason}
+                            {m.type} - {m.reason}
                           </div>
                           {m.notes && (
                             <div className="text-xs text-muted-foreground">{m.notes}</div>
@@ -517,7 +516,7 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
         onClosed={() => {
           setCloseOpen(false);
           onChanged();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           navigate({ to: "/auth", search: { mode: "pin" } as any, replace: true });
         }}
       />
@@ -662,7 +661,9 @@ function CashMovementDialog({
     },
     onSuccess: () => {
       toast.success(
-        isOnlineNow() ? `${label} recorded` : `${label} recorded offline — will sync automatically`,
+        isOnlineNow()
+          ? `${label} recorded`
+          : `${label} recorded offline  -  will sync automatically`,
       );
       reset();
       onOpenChange(false);
@@ -815,19 +816,21 @@ function HistoryCard({ sessions }: { sessions: Session[] }) {
                 {sessions.map((s) => (
                   <tr key={s.id} className="border-b last:border-0">
                     <td className="py-2">{new Date(s.opened_at).toLocaleString()}</td>
-                    <td>{s.closed_at ? new Date(s.closed_at).toLocaleString() : "—"}</td>
+                    <td>{s.closed_at ? new Date(s.closed_at).toLocaleString() : " - "}</td>
                     <td className="text-right tabular-nums">{fmt(s.opening_cash)}</td>
                     <td className="text-right tabular-nums">{fmt(s.cash_sales)}</td>
                     <td className="text-right tabular-nums">
-                      {s.expected_cash != null ? fmt(s.expected_cash) : "—"}
+                      {s.expected_cash != null ? fmt(s.expected_cash) : " - "}
                     </td>
                     <td className="text-right tabular-nums">
-                      {s.closing_cash != null ? fmt(s.closing_cash) : "—"}
+                      {s.closing_cash != null ? fmt(s.closing_cash) : " - "}
                     </td>
                     <td
                       className={`text-right tabular-nums ${s.variance == null ? "" : s.variance === 0 ? "" : s.variance > 0 ? "text-success" : "text-destructive"}`}
                     >
-                      {s.variance != null ? `${s.variance > 0 ? "+" : ""}${fmt(s.variance)}` : "—"}
+                      {s.variance != null
+                        ? `${s.variance > 0 ? "+" : ""}${fmt(s.variance)}`
+                        : " - "}
                     </td>
                     <td>
                       <Badge

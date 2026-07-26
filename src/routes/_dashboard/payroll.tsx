@@ -21,7 +21,7 @@ import { format, startOfWeek, endOfWeek } from "date-fns";
 export const Route = createFileRoute("/_dashboard/payroll")({
   head: () => ({
     meta: [
-      { title: "Payroll — SEZA POS" },
+      { title: "Payroll  -  SEZA POS" },
       {
         name: "description",
         content: "Hours worked and estimated pay per employee for the current pay period.",
@@ -70,7 +70,6 @@ function PayrollPage() {
   const { data: profiles = [] } = useQuery<Profile[]>({
     queryKey: ["payroll-profiles"],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase.from as any)("profiles")
         .select(
           "id, full_name, first_name, last_name, email, employee_id, hourly_wage, scheduled_start_time, scheduled_end_time",
@@ -91,7 +90,7 @@ function PayrollPage() {
     queryFn: async () => {
       const fromIso = new Date(`${from}T00:00:00`).toISOString();
       const toIso = new Date(`${to}T23:59:59.999`).toISOString();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const { data } = await (supabase.from as any)("time_entries")
         .select("id, user_id, clock_in, clock_out, break_minutes, late, late_minutes")
         .gte("clock_in", fromIso)
@@ -187,7 +186,7 @@ function PayrollPage() {
                     <div className="min-w-0">
                       <div className="font-semibold text-sm truncate">{r.name}</div>
                       <div className="text-xs text-muted-foreground font-mono truncate">
-                        ID {r.employee_id ?? "—"}
+                        ID {r.employee_id ?? " - "}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
@@ -253,7 +252,7 @@ function PayrollPage() {
                   {rows.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{r.name}</TableCell>
-                      <TableCell className="font-mono text-xs">{r.employee_id ?? "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.employee_id ?? " - "}</TableCell>
                       <TableCell className="text-right font-mono">{r.shifts}</TableCell>
                       <TableCell className="text-right font-mono">{r.hours.toFixed(2)}</TableCell>
                       <TableCell className="text-right font-mono">{r.breakMins}m</TableCell>

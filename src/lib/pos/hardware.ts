@@ -2,7 +2,7 @@
  * Browser-only hardware helpers.
  * These use experimental Web* APIs (WebUSB, WebBluetooth, WebSerial, WebHID).
  * They provide connect/status semantics for the Settings hardware pages.
- * Real driver logic is intentionally left to per-provider modules — this file
+ * Real driver logic is intentionally left to per-provider modules  -  this file
  * only handles device discovery and connection state.
  */
 

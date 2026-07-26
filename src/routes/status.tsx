@@ -8,13 +8,13 @@ import { Activity, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 export const Route = createFileRoute("/status")({
   head: () => ({
     meta: [
-      { title: "System Status — SEZA POS" },
+      { title: "System Status  -  SEZA POS" },
       {
         name: "description",
         content:
           "Current SEZA POS platform, authentication, database, dashboard, sync, and billing service status.",
       },
-      { property: "og:title", content: "System Status — SEZA POS" },
+      { property: "og:title", content: "System Status  -  SEZA POS" },
       { property: "og:description", content: "Current SEZA POS service health and availability." },
     ],
   }),

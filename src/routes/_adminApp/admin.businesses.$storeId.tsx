@@ -51,7 +51,7 @@ import { getStripeEnvironment } from "@/lib/stripe";
 
 export const Route = createFileRoute("/_adminApp/admin/businesses/$storeId")({
   head: () => ({
-    meta: [{ title: "Business — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [{ title: "Business  -  SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: BusinessWorkspace,
 });
@@ -315,7 +315,7 @@ function BusinessWorkspace() {
         <Metric
           icon={CreditCard}
           label="Subscription"
-          value={subscription?.status ?? store.plan_status ?? "—"}
+          value={subscription?.status ?? store.plan_status ?? " - "}
         />
         <Metric
           icon={Monitor}
@@ -528,7 +528,7 @@ function BusinessWorkspace() {
             <CardHeader>
               <CardTitle className="text-base">SEZA subscription</CardTitle>
               <CardDescription>
-                Merchant billing relationship with SEZA—not checkout sales.
+                Merchant billing relationship with SEZA - not checkout sales.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -542,7 +542,7 @@ function BusinessWorkspace() {
                           {sub.environment} · period ends{" "}
                           {sub.current_period_end
                             ? new Date(sub.current_period_end).toLocaleDateString()
-                            : "—"}
+                            : " - "}
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -636,7 +636,7 @@ function BusinessWorkspace() {
                     <div>
                       <div className="font-medium">{device.label}</div>
                       <div className="text-xs text-muted-foreground">
-                        {device.platform ?? "Android"} · app {device.app_version ?? "—"}
+                        {device.platform ?? "Android"} · app {device.app_version ?? " - "}
                       </div>
                     </div>
                     <div className="text-right">
@@ -908,7 +908,7 @@ function Row({ label, value }: { label: string; value: any }) {
   return (
     <div className="flex justify-between gap-4 border-b py-2 last:border-0">
       <span className="text-muted-foreground">{label}</span>
-      <span className="text-right">{value || "—"}</span>
+      <span className="text-right">{value || " - "}</span>
     </div>
   );
 }

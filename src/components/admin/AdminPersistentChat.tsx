@@ -196,7 +196,6 @@ export function AdminPersistentChat() {
       void supabaseAdminAuth.removeChannel(notes);
       void supabaseAdminAuth.removeChannel(tickets);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminUserId, onFullChatPage, selectedId]);
 
   useEffect(() => {
@@ -210,7 +209,6 @@ export function AdminPersistentChat() {
     void markRead({ data: { ticketId: selectedId } })
       .then(refresh)
       .catch(() => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, selectedId, caseQuery.data?.messages?.length]);
 
   useEffect(() => {
@@ -339,7 +337,7 @@ export function AdminPersistentChat() {
                 {activeRows.map((row: any) => (
                   <SelectItem key={row.id} value={row.id}>
                     <span data-no-translate>
-                      {row.visitor_name ?? row.store?.name ?? row.requester_email ?? "Merchant"} —{" "}
+                      {row.visitor_name ?? row.store?.name ?? row.requester_email ?? "Merchant"} -{" "}
                       {row.subject}
                     </span>
                   </SelectItem>

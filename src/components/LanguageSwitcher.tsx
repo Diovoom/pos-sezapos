@@ -30,7 +30,7 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
       const { data: u } = await supabase.auth.getUser();
       if (u.user) {
         // Personal preference is retained for account recovery and future use.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         await (supabase.from as any)("profiles")
           .update({ preferred_language: value, preferred_locale: value })
           .eq("id", u.user.id);
@@ -38,7 +38,6 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
       // Owner/manager dashboard selection is store-wide so every online APK
       // changes language without a rebuild.
       if (storeId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase.from as any)("stores")
           .update({ language: value, locale: value })
           .eq("id", storeId);

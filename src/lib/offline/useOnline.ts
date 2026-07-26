@@ -1,7 +1,7 @@
 // Online/offline hook + broadcast of sync events.
 //
 // Android WebView's `navigator.onLine` is unreliable for pages loaded from
-// the `capacitor://` scheme — it often stays `true` after Wi-Fi is turned
+// the `capacitor://` scheme  -  it often stays `true` after Wi-Fi is turned
 // off. We layer an authoritative override on top, driven by the Capacitor
 // Network plugin (wired in androidLifecycle.ts). When the override is set,
 // it takes precedence over `navigator.onLine`.

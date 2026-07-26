@@ -10,13 +10,13 @@ import type { LegalDocument } from "@/lib/legal/types";
 export const Route = createFileRoute("/legal/")({
   head: () => ({
     meta: [
-      { title: "Legal Center — SEZA POS" },
+      { title: "Legal Center  -  SEZA POS" },
       {
         name: "description",
         content:
           "Terms, privacy, security, compliance, and other legal documents for the SEZA POS platform.",
       },
-      { property: "og:title", content: "Legal Center — SEZA POS" },
+      { property: "og:title", content: "Legal Center  -  SEZA POS" },
       {
         property: "og:description",
         content: "Every legal document that governs the SEZA POS platform in one place.",

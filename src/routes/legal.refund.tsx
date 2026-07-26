@@ -6,7 +6,7 @@ import { refundPolicy } from "@/lib/legal/docs/policies";
 export const Route = createFileRoute("/legal/refund")({
   head: () => ({
     meta: [
-      { title: "Refund Policy — SEZA POS" },
+      { title: "Refund Policy  -  SEZA POS" },
       { name: "description", content: refundPolicy.summary },
     ],
     links: [{ rel: "canonical", href: "https://sezapos.com/legal/refund" }],

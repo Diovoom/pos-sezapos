@@ -23,7 +23,7 @@ import { formatDistanceToNow } from "date-fns";
 export const Route = createFileRoute("/_adminApp/admin/")({
   head: () => ({
     meta: [
-      { title: "Operations Center — SEZA Admin" },
+      { title: "Operations Center  -  SEZA Admin" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
@@ -90,7 +90,7 @@ function OperationsCenter() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Operations Center</h1>
           <p className="text-sm text-muted-foreground">
-            Live SEZA company operations—not merchant checkout activity.
+            Live SEZA company operations - not merchant checkout activity.
           </p>
         </div>
         <Button

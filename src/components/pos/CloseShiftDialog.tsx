@@ -34,7 +34,6 @@ import {
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import { userFacingError } from "@/lib/user-error";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
 
 type Session = {
@@ -85,7 +84,7 @@ export function CloseShiftDialog({
   onClosed: () => void;
   /** Runs AFTER the shift closes but BEFORE sign-out (e.g. clock-out). */
   beforeSignOut?: () => Promise<void>;
-  /** Skip the built-in signOut — caller handles session teardown. */
+  /** Skip the built-in signOut  -  caller handles session teardown. */
   skipSignOut?: boolean;
 }) {
   const qc = useQueryClient();
@@ -233,13 +232,13 @@ export function CloseShiftDialog({
           .eq("action", "drawer.no_sale_open")
           .eq("entity_id", session.id),
       ]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const sales = (salesRes.data ?? []) as any[];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const refunds = (refundRes.data ?? []) as any[];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const movs = (movRes.data ?? []) as any[];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const noSales = (noSaleRes.data ?? []) as any[];
       const completed = sales.filter((sale) => sale.status === "completed");
       const voided = sales.filter((sale) => sale.status === "voided");
@@ -448,7 +447,7 @@ export function CloseShiftDialog({
     onSuccess: async (closed) => {
       const offlineClosed = Boolean((closed as any)?.offline);
       toast.success(
-        offlineClosed ? "Shift closed offline — it will sync automatically" : "Shift closed",
+        offlineClosed ? "Shift closed offline  -  it will sync automatically" : "Shift closed",
       );
       const ok = await runPostCloseHook();
       if (!ok) return;
@@ -497,7 +496,7 @@ export function CloseShiftDialog({
           <DialogHeader>
             <DialogTitle>
               {postCloseFailed
-                ? "Shift Closed — Action Required"
+                ? "Shift Closed  -  Action Required"
                 : `Review & Close Shift · Step ${step} of 5`}
             </DialogTitle>
             <DialogDescription>
@@ -684,7 +683,7 @@ export function CloseShiftDialog({
                       {needsApproval && (
                         <div className="text-xs text-muted-foreground flex items-start gap-2">
                           <ShieldCheck className="size-4 mt-0.5" />
-                          Variance exceeds the ${threshold.toFixed(2)} threshold — a manager must
+                          Variance exceeds the ${threshold.toFixed(2)} threshold - a manager must
                           approve at close.
                         </div>
                       )}

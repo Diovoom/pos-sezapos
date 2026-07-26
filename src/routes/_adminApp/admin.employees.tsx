@@ -15,7 +15,7 @@ import { formatDistanceToNow } from "date-fns";
 export const Route = createFileRoute("/_adminApp/admin/employees")({
   head: () => ({
     meta: [
-      { title: "SEZA Employees — SEZA Admin" },
+      { title: "SEZA Employees  -  SEZA Admin" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),

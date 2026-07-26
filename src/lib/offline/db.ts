@@ -3,12 +3,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 
 export type OfflineSaleStatus =
-  | "pending"
-  | "syncing"
-  | "synced"
-  | "failed"
-  | "conflict"
-  | "needs_attention";
+  "pending" | "syncing" | "synced" | "failed" | "conflict" | "needs_attention";
 
 // Bumped whenever the offline payload shape changes so old records can be
 // safely migrated / quarantined instead of silently dropped.

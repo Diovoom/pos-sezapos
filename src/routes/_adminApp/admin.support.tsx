@@ -48,7 +48,7 @@ const searchSchema = z.object({
 export const Route = createFileRoute("/_adminApp/admin/support")({
   validateSearch: zodValidator(searchSchema),
   head: () => ({
-    meta: [{ title: "Support — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [{ title: "Support  -  SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: SupportPage,
 });
@@ -97,7 +97,7 @@ function SupportPage() {
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [qLocal]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [qLocal]);
 
   const countsQ = useQuery({
     queryKey: ["admin_ticket_counts"],
@@ -543,7 +543,7 @@ function SupportPage() {
                             {ticket.store_name ?? ticket.store_id.slice(0, 8)}
                           </Link>
                         ) : (
-                          "—"
+                          " - "
                         )}
                       </td>
                       <td className="p-3 text-xs">
@@ -555,7 +555,7 @@ function SupportPage() {
                       </td>
                       <td className="p-3">
                         {finalStatus ? (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-muted-foreground"> - </span>
                         ) : (
                           <Badge
                             variant="outline"

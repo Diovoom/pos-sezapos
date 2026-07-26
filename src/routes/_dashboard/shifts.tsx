@@ -21,13 +21,12 @@ import { ArrowLeft, Loader2, Download } from "lucide-react";
 import { format } from "date-fns";
 import { fmtCurrency } from "@/lib/format";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
 
 export const Route = createFileRoute("/_dashboard/shifts")({
   head: () => ({
     meta: [
-      { title: "Shifts — SEZA POS" },
+      { title: "Shifts  -  SEZA POS" },
       {
         name: "description",
         content: "Employee shifts from clock-in to clock-out, with register session reports.",
@@ -413,7 +412,7 @@ function ShiftsList() {
                           </td>
                           <td>{format(inD, "p")}</td>
                           <td>
-                            {outD ? format(outD, "p") : <span className="text-primary">—</span>}
+                            {outD ? format(outD, "p") : <span className="text-primary"> - </span>}
                           </td>
                           <td className="text-right tabular-nums">{r.break_minutes ?? 0}m</td>
                           <td className="text-right tabular-nums font-medium">
@@ -523,7 +522,7 @@ function RegisterSessionsCard({ dateFrom, dateTo }: { dateFrom: string; dateTo: 
                 {data.map((s) => (
                   <tr key={s.id} className="border-b last:border-0">
                     <td className="py-2">{format(new Date(s.opened_at), "MMM d, p")}</td>
-                    <td>{s.closed_at ? format(new Date(s.closed_at), "MMM d, p") : "—"}</td>
+                    <td>{s.closed_at ? format(new Date(s.closed_at), "MMM d, p") : " - "}</td>
                     <td className="text-right tabular-nums">
                       {fmtCurrency(Number(s.opening_cash ?? 0), "USD")}
                     </td>
@@ -531,17 +530,19 @@ function RegisterSessionsCard({ dateFrom, dateTo }: { dateFrom: string; dateTo: 
                       {fmtCurrency(Number(s.cash_sales ?? 0), "USD")}
                     </td>
                     <td className="text-right tabular-nums">
-                      {s.expected_cash != null ? fmtCurrency(Number(s.expected_cash), "USD") : "—"}
+                      {s.expected_cash != null
+                        ? fmtCurrency(Number(s.expected_cash), "USD")
+                        : " - "}
                     </td>
                     <td className="text-right tabular-nums">
-                      {s.closing_cash != null ? fmtCurrency(Number(s.closing_cash), "USD") : "—"}
+                      {s.closing_cash != null ? fmtCurrency(Number(s.closing_cash), "USD") : " - "}
                     </td>
                     <td
                       className={`text-right tabular-nums ${s.variance == null || s.variance === 0 ? "" : s.variance > 0 ? "text-success" : "text-destructive"}`}
                     >
                       {s.variance != null
                         ? `${s.variance > 0 ? "+" : ""}${fmtCurrency(Number(s.variance), "USD")}`
-                        : "—"}
+                        : " - "}
                     </td>
                     <td>
                       <Badge
@@ -680,7 +681,7 @@ function ShiftDetail({ id }: { id: string }) {
           </CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KV k="Clock In" v={format(inD, "p")} />
-            <KV k="Clock Out" v={outD ? format(outD, "p") : "—"} />
+            <KV k="Clock Out" v={outD ? format(outD, "p") : " - "} />
             <KV k="Break" v={`${entry.break_minutes ?? 0} min`} />
             <KV k="Total Duration" v={`${(totalMin / 60).toFixed(2)} h`} />
             <KV k="Hours Worked" v={`${(workedMin / 60).toFixed(2)} h`} />

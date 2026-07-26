@@ -10,7 +10,7 @@ import { StripeCheckoutDialog } from "@/components/billing/StripeCheckoutDialog"
 export const Route = createFileRoute("/select-plan")({
   head: () => ({
     meta: [
-      { title: "Choose your plan — SEZA POS" },
+      { title: "Choose your plan  -  SEZA POS" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
@@ -119,7 +119,7 @@ function SelectPlanPage() {
             Secure payment. Cancel anytime from Settings → Billing.
           </p>
           <Button asChild variant="ghost" size="sm">
-            <Link to="/dashboard">Skip for now — continue on trial</Link>
+            <Link to="/dashboard">Skip for now - continue on trial</Link>
           </Button>
         </div>
       </div>

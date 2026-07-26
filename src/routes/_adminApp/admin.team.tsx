@@ -51,7 +51,10 @@ export const Route = createFileRoute("/_adminApp/admin/team")({
     }
   },
   head: () => ({
-    meta: [{ title: "Admin Team — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [
+      { title: "Admin Team  -  SEZA Admin" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
   }),
   component: AdminTeamPage,
 });
@@ -287,7 +290,7 @@ function AdminTeamPage() {
                     <td className="p-3 text-xs text-muted-foreground">
                       {person.last_activity_at
                         ? new Date(person.last_activity_at).toLocaleString()
-                        : "—"}
+                        : " - "}
                     </td>
                     <td className="p-3 text-right whitespace-nowrap">
                       <Button

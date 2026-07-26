@@ -14,13 +14,13 @@ import { LEGAL_CONFIG } from "@/lib/legal/config";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact — SEZA POS" },
+      { title: "Contact  -  SEZA POS" },
       {
         name: "description",
         content:
           "Talk to the SEZA POS team about pricing, hardware, migrations, or a demo. Send a message about pricing, hardware, migrations, or a demo.",
       },
-      { property: "og:title", content: "Contact — SEZA POS" },
+      { property: "og:title", content: "Contact  -  SEZA POS" },
       {
         property: "og:description",
         content:
@@ -51,11 +51,11 @@ function ContactPage() {
         `Contact from ${form.name}${form.business ? ` (${form.business})` : ""}`,
       );
       const body = encodeURIComponent(
-        `Name: ${form.name}\nEmail: ${form.email}\nBusiness: ${form.business || "—"}\n\n${form.message}`,
+        `Name: ${form.name}\nEmail: ${form.email}\nBusiness: ${form.business || " - "}\n\n${form.message}`,
       );
       window.location.href = `mailto:support@sezapos.com?subject=${subject}&body=${body}`;
       setSent(true);
-      toast.success("Opening your email — send the message to reach us");
+      toast.success("Opening your email  -  send the message to reach us");
     } finally {
       setBusy(false);
     }
@@ -67,7 +67,7 @@ function ContactPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold tracking-tight">Get in touch</h1>
           <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
-            Questions about pricing, hardware, migrating from another POS, or a live demo — we're
+            Questions about pricing, hardware, migrating from another POS, or a live demo - we're
             happy to help.
           </p>
         </div>

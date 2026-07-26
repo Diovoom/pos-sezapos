@@ -132,7 +132,7 @@ function friendlyDbMessage(err: unknown, fallback: string): string {
 export const Route = createFileRoute("/_pos/pos")({
   head: () => ({
     meta: [
-      { title: "Checkout — SEZA POS" },
+      { title: "Checkout  -  SEZA POS" },
       {
         name: "description",
         content:
@@ -204,7 +204,7 @@ export function PosPage() {
   const scannerLastKeyAtRef = useRef(0);
   const me = useMe();
   const perms = usePermissions();
-  // Trusted permission system only — no role-name fallback. Owners and
+  // Trusted permission system only  -  no role-name fallback. Owners and
   // admins remain super-users via perms.isSuper (also computed from roles).
   const canCreateSale = perms.has("sales.create") || perms.isSuper;
   const canVoid = perms.has("sales.void") || perms.isSuper;
@@ -221,10 +221,10 @@ export function PosPage() {
   const [hasCameraCap, setHasCameraCap] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Android APK ships without the camera scanner — the WebView cannot
+    // Android APK ships without the camera scanner  -  the WebView cannot
     // reliably request camera permission for POS scanning, so the button
     // must not appear. Detection still runs for the mobile web POS.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
     if (isNative) {
       setHasCameraCap(false);
@@ -236,7 +236,6 @@ export function PosPage() {
   }, []);
   const showMobileCamera = isMobile && hasCameraCap;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: store } = useQuery<any>({
     queryKey: ["store"],
     queryFn: async () => {
@@ -252,7 +251,6 @@ export function PosPage() {
     },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profile } = useQuery<any>({
     queryKey: ["me-profile"],
     queryFn: async () => {
@@ -277,7 +275,7 @@ export function PosPage() {
   const taxRate = Number(store?.tax_rate ?? 0.0825);
   const currency = store?.currency ?? "USD";
 
-  // Scope offline cache to this store — never leak another store's cache.
+  // Scope offline cache to this store  -  never leak another store's cache.
   useEffect(() => {
     if (!store?.id) return;
     void purgeIfStoreChanged(store.id)
@@ -639,7 +637,6 @@ export function PosPage() {
       let registerSessionId: string | null = null;
       if (store?.id) {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { data: rs } = await (supabase.from as any)("register_sessions")
             .select("id")
             .eq("store_id", store.id)
@@ -691,7 +688,7 @@ export function PosPage() {
 
       // 4. Atomically create header + items + payment ledger. Inventory
       // triggers run in the same PostgreSQL transaction.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const { data: sale, error: saleErr } = await (supabase.rpc as any)("finalize_pos_sale", {
         p_sale: {
           id: saleId,
@@ -725,7 +722,6 @@ export function PosPage() {
       return { sale, payment };
     },
     onSuccess: ({ sale, payment }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const isOffline = (sale as any)._offline === true;
       const rd: ReceiptData = {
         store: store ?? {},
@@ -784,7 +780,7 @@ export function PosPage() {
       window.setTimeout(() => setDisplayCompletion(null), 4_500);
       toast.success(
         isOffline
-          ? `Offline sale saved · ${fmtCurrency(total, currency)} — will sync when online`
+          ? `Offline sale saved · ${fmtCurrency(total, currency)}  -  will sync when online`
           : `Sale completed · ${fmtCurrency(total, currency)}`,
       );
       if (loyalty) {
@@ -869,7 +865,6 @@ export function PosPage() {
   // Auto-open verification whenever restricted items enter an unverified cart
   useEffect(() => {
     if (needsAgeVerification && !ageOpen) setAgeOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restrictedItems.length]);
 
   // Keep the web customer display synchronized from both the temporary web
@@ -1036,7 +1031,7 @@ export function PosPage() {
 
         {!online && (
           <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-            Offline mode — cash sales will be saved on this register and synced when connection
+            Offline mode - cash sales will be saved on this register and synced when connection
             returns. Card payments require an internet connection.
           </div>
         )}
@@ -1083,7 +1078,7 @@ export function PosPage() {
             <span>
               {ageVerification
                 ? `Age verified (${ageVerification.ageYears}+ · ${ageVerification.method === "override" ? "manager override" : ageVerification.method === "manual" ? "manual" : "ID scan"})`
-                : `${restrictedItems.length} age-restricted item${restrictedItems.length > 1 ? "s" : ""} — ID required`}
+                : `${restrictedItems.length} age-restricted item${restrictedItems.length > 1 ? "s" : ""}  -  ID required`}
             </span>
             {!ageVerification && (
               <button className="underline" onClick={() => setAgeOpen(true)}>
@@ -1308,7 +1303,7 @@ export function PosPage() {
         onComplete={(p) => finalize.mutate(p)}
         // Owners/managers/admins already possess payment-cancel authority.
         // Requiring a second manager PIN to back out of tender selection
-        // is friction, not security — no payment has committed yet.
+        // is friction, not security  -  no payment has committed yet.
         bypassCancelApproval={canCancelTender}
       />
 
@@ -1322,7 +1317,7 @@ export function PosPage() {
         storeId={store?.id ?? null}
         onVerified={(v) => {
           setAgeVerification(v);
-          toast.success("Age verified — checkout may continue");
+          toast.success("Age verified  -  checkout may continue");
         }}
         onRemoveRestricted={() => {
           removeAllRestricted();

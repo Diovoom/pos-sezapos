@@ -55,7 +55,7 @@ export const Route = createFileRoute("/api/public/pos/verify-employee-pin")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { verifyPin } = await import("@/lib/pin.server");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const admin: any = supabaseAdmin;
 
         let match: { id: string; email: string } | null = null;
@@ -105,7 +105,7 @@ export const Route = createFileRoute("/api/public/pos/verify-employee-pin")({
         });
         if (linkErr || !link.properties) return json({ error: "Could not create session" }, 500);
 
-        // Best-effort audit trail — do not fail the sign-in on log errors.
+        // Best-effort audit trail  -  do not fail the sign-in on log errors.
         try {
           await admin.from("audit_log").insert({
             actor_id: match.id,

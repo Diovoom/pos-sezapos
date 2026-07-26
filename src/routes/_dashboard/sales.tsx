@@ -21,7 +21,7 @@ import type { ReceiptData } from "@/components/pos/Receipt";
 export const Route = createFileRoute("/_dashboard/sales")({
   head: () => ({
     meta: [
-      { title: "Sales — SEZA POS" },
+      { title: "Sales  -  SEZA POS" },
       { name: "description", content: "Recent sales transactions, receipts, and payment details." },
     ],
   }),
@@ -160,7 +160,7 @@ function SalesPage() {
                       <TableCell className="text-right font-mono text-destructive">
                         {Number(s.refunded_amount) > 0
                           ? `-${fmtCurrency(Number(s.refunded_amount), cur)}`
-                          : "—"}
+                          : " - "}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button

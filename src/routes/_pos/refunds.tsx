@@ -46,7 +46,7 @@ import { userFacingError } from "@/lib/user-error";
 export const Route = createFileRoute("/_pos/refunds")({
   head: () => ({
     meta: [
-      { title: "Refunds — SEZA POS" },
+      { title: "Refunds  -  SEZA POS" },
       {
         name: "description",
         content: "Search sales by receipt number to refund, exchange, or void a transaction.",
@@ -194,7 +194,7 @@ export function RefundsPage() {
                     <TableCell className="text-right font-mono text-destructive">
                       {Number(s.refunded_amount) > 0
                         ? `-${fmtCurrency(Number(s.refunded_amount), cur)}`
-                        : "—"}
+                        : " - "}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -398,7 +398,8 @@ function RefundDialog({
       };
       onIssued(rd);
     },
-    onError: (e) => toast.error(userFacingError(e, "The refund could not be completed. Try again.")),
+    onError: (e) =>
+      toast.error(userFacingError(e, "The refund could not be completed. Try again.")),
   });
 
   return (

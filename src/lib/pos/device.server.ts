@@ -9,7 +9,7 @@
 //
 // The pairing code is hashed at rest (only the SHA-256 hash lives in
 // device_pairing_codes.code_hash) so a database read cannot pair a rogue
-// device. The device secret is similarly hashed at rest — the plaintext is
+// device. The device secret is similarly hashed at rest  -  the plaintext is
 // returned exactly once, when the code is consumed.
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 

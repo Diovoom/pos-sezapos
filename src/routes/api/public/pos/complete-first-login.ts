@@ -1,4 +1,4 @@
-// Public HTTPS endpoint for the bundled Android POS shell — first-login
+// Public HTTPS endpoint for the bundled Android POS shell  -  first-login
 // onboarding (set permanent password + optional PIN). Mirrors the
 // `completeFirstLogin` TanStack server function.
 import { createFileRoute } from "@tanstack/react-router";
@@ -61,7 +61,6 @@ export const Route = createFileRoute("/api/public/pos/complete-first-login")({
         });
         if (pwErr) return json({ error: pwErr.message }, 500);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const admin: any = supabaseAdmin;
         const patch: Record<string, unknown> = { must_change_password: false };
         if (pin) {

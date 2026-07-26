@@ -164,6 +164,12 @@ const signupInput = z.object({
 export const secureMerchantSignUp = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => signupInput.parse(input))
   .handler(async ({ data }): Promise<SecureAuthResult> => {
+    const { isDisposableEmail, DISPOSABLE_EMAIL_MESSAGE } =
+      await import("@/lib/security/disposable-email");
+    if (isDisposableEmail(data.email)) {
+      return { ok: false, error: DISPOSABLE_EMAIL_MESSAGE };
+    }
+
     const allowed = await limit("auth.merchant.signup", data.email, 3, 60 * 60, 6 * 60 * 60);
     if (!allowed.ok) {
       return {

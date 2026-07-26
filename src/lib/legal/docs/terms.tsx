@@ -36,36 +36,36 @@ export const termsOfService: LegalDocument = {
       body: (
         <ul>
           <li>
-            <strong>Account</strong> — a registered user profile used to access the Service.
+            <strong>Account</strong> - a registered user profile used to access the Service.
           </li>
           <li>
-            <strong>Business Account</strong> — an Account controlled by an owner or authorized
+            <strong>Business Account</strong> - an Account controlled by an owner or authorized
             representative of a merchant that operates one or more Stores.
           </li>
           <li>
-            <strong>Store</strong> — a workspace inside the Service representing a physical or
+            <strong>Store</strong> - a workspace inside the Service representing a physical or
             online retail location.
           </li>
           <li>
-            <strong>Merchant</strong> — the business entity that owns a Business Account.
+            <strong>Merchant</strong> - the business entity that owns a Business Account.
           </li>
           <li>
-            <strong>Employee Account</strong> — a sub-account created by a Merchant for its staff.
+            <strong>Employee Account</strong> - a sub-account created by a Merchant for its staff.
           </li>
           <li>
-            <strong>Customer Data</strong> — information about a Merchant's end customers processed
+            <strong>Customer Data</strong> - information about a Merchant's end customers processed
             through the Service.
           </li>
           <li>
-            <strong>Transaction Data</strong> — sales, refunds, tax, tender, and payment records
+            <strong>Transaction Data</strong> - sales, refunds, tax, tender, and payment records
             generated in the Service.
           </li>
           <li>
-            <strong>Subscription</strong> — a paid plan giving access to the Service for a defined
+            <strong>Subscription</strong> - a paid plan giving access to the Service for a defined
             billing cycle.
           </li>
           <li>
-            <strong>Billing Processor</strong> — {C.billingProcessor}, which securely processes
+            <strong>Billing Processor</strong> - {C.billingProcessor}, which securely processes
             subscription checkout, invoices, and saved payment methods for SEZA.
           </li>
         </ul>

@@ -24,7 +24,10 @@ import { Download } from "lucide-react";
 
 export const Route = createFileRoute("/_adminApp/admin/audit-logs")({
   head: () => ({
-    meta: [{ title: "Audit Logs — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [
+      { title: "Audit Logs  -  SEZA Admin" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
   }),
   component: AuditLogsPage,
 });
@@ -227,15 +230,15 @@ function AuditLogsPage() {
                             {r.store_id.slice(0, 8)}
                           </Link>
                         ) : (
-                          "—"
+                          " - "
                         )}
                       </td>
                       <td className="p-2 text-xs">
-                        {r.entity ?? "—"}
+                        {r.entity ?? " - "}
                         {r.entity_id ? ` #${String(r.entity_id).slice(0, 8)}` : ""}
                       </td>
                       <td className="p-2 text-xs font-mono text-muted-foreground max-w-md truncate">
-                        {r.details ? JSON.stringify(r.details) : "—"}
+                        {r.details ? JSON.stringify(r.details) : " - "}
                       </td>
                     </tr>
                   ))}

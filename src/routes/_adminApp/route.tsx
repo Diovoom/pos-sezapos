@@ -218,7 +218,6 @@ function AdminLayout() {
     const mm = String(Math.floor(s / 60)).padStart(2, "0");
     const ss = String(s % 60).padStart(2, "0");
     return `${mm}:${ss}`;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSession?.started_at, tick]);
 
   async function handleSignOut() {
@@ -360,7 +359,7 @@ function AdminLayout() {
                       </span>
                     </div>
                     <div className="text-[10px] font-mono text-muted-foreground mt-0.5 truncate">
-                      store {r.store_id ?? "—"}
+                      store {r.store_id ?? " - "}
                     </div>
                   </button>
                 ))}
@@ -413,7 +412,7 @@ function AdminLayout() {
                 <span>
                   <span className="uppercase tracking-wide mr-1">Business</span>
                   <span className="text-foreground font-medium">
-                    {activeSession.store?.name ?? "—"}
+                    {activeSession.store?.name ?? " - "}
                   </span>
                 </span>
                 <span>
@@ -429,7 +428,7 @@ function AdminLayout() {
                       <span className="text-foreground">
                         {activeSession.accepted_by?.full_name ??
                           activeSession.accepted_by?.email ??
-                          "—"}
+                          " - "}
                         {activeSession.accepted_by?.employee_id
                           ? ` · #${activeSession.accepted_by.employee_id}`
                           : ""}

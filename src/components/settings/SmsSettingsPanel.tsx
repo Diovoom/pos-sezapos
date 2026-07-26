@@ -161,7 +161,7 @@ export function SmsSettingsPanel() {
     try {
       const res = await sendSms({
         to: parsed.number,
-        body: "SEZA POS test message — your SMS provider is connected.",
+        body: "SEZA POS test message  -  your SMS provider is connected.",
         test: true,
       });
       if (!res.ok) {

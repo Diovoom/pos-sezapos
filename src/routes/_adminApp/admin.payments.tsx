@@ -27,7 +27,7 @@ import {
 export const Route = createFileRoute("/_adminApp/admin/payments")({
   head: () => ({
     meta: [
-      { title: "Merchant Payments — SEZA Admin" },
+      { title: "Merchant Payments  -  SEZA Admin" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
@@ -193,7 +193,7 @@ function MerchantPaymentsPage() {
                         <span className="font-medium">Unmatched Stripe customer</span>
                       )}
                       <div className="text-xs text-muted-foreground">
-                        {payment.store?.email ?? payment.stripe_customer_id ?? "—"}
+                        {payment.store?.email ?? payment.stripe_customer_id ?? " - "}
                       </div>
                       {payment.store?.plan_tier && (
                         <Badge variant="outline" className="mt-1">
@@ -232,12 +232,12 @@ function MerchantPaymentsPage() {
                         </div>
                       )}
                     </td>
-                    <td className="p-3 text-xs">{payment.billing_reason ?? "—"}</td>
+                    <td className="p-3 text-xs">{payment.billing_reason ?? " - "}</td>
                     <td className="p-3">
                       <Badge variant="outline">{payment.environment}</Badge>
                     </td>
                     <td className="p-3 font-mono text-xs">
-                      <div>{payment.stripe_invoice_id ?? "—"}</div>
+                      <div>{payment.stripe_invoice_id ?? " - "}</div>
                       <div className="max-w-[180px] truncate text-muted-foreground">
                         {payment.stripe_subscription_id ?? ""}
                       </div>

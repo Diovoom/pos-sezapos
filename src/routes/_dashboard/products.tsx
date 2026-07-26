@@ -39,7 +39,7 @@ import {
 export const Route = createFileRoute("/_dashboard/products")({
   head: () => ({
     meta: [
-      { title: "Products — SEZA POS" },
+      { title: "Products  -  SEZA POS" },
       {
         name: "description",
         content: "Manage your product catalog, categories, pricing, and barcodes.",
@@ -184,7 +184,7 @@ function ProductsPage() {
               ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
-                    No products yet — click "New product" to add one.
+                    No products yet - click "New product" to add one.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -216,10 +216,10 @@ function ProductsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">
-                        {p.sku ?? "—"}
+                        {p.sku ?? " - "}
                       </TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">
-                        {p.barcode ?? "—"}
+                        {p.barcode ?? " - "}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {fmtCurrency(Number(p.cost), cur)}
@@ -319,7 +319,6 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
       age_restricted: form.age_restricted,
       min_age: form.age_restricted ? Number(form.min_age) || 21 : null,
       age_category: form.age_restricted ? form.age_category : null,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     setBusy(false);
     if (error) return toast.error(error.message);

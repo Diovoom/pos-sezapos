@@ -98,7 +98,7 @@ async function syncSale(sale: OfflineSale): Promise<void> {
 
   // One RPC = one PostgreSQL transaction. Header, items, payment ledger, and
   // inventory trigger effects either all commit or all roll back.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { data, error } = await (supabase.rpc as any)("finalize_pos_sale", {
     p_sale: {
       id: sale.id,
@@ -165,7 +165,7 @@ async function syncCashMovement(m: OfflineCashMovement): Promise<void> {
     last_error: null,
     last_error_code: null,
   });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const { error } = await (supabase.from as any)("cash_movements").insert({
     id: m.id,
     store_id: m.store_id,
@@ -203,16 +203,13 @@ async function syncAction(action: OfflineAction): Promise<void> {
     if (action.kind === "timeclock") {
       await postTimeClockAction({
         action: String(action.payload.action) as
-          | "clock_in"
-          | "clock_out"
-          | "start_break"
-          | "end_break",
+          "clock_in" | "clock_out" | "start_break" | "end_break",
         occurredAt: String(action.payload.occurredAt ?? action.local_created_at),
         idempotencyKey: action.idempotency_key,
       });
     } else if (action.kind === "register_open") {
       const row = action.payload;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const { error } = await (supabase.from as any)("register_sessions").upsert(
         {
           id: row.id,
@@ -228,7 +225,7 @@ async function syncAction(action: OfflineAction): Promise<void> {
       if (error && error.code !== "23505") throw error;
     } else if (action.kind === "register_close") {
       const row = action.payload;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const { error } = await (supabase.from as any)("register_sessions")
         .update({
           status: "closed",
@@ -245,7 +242,7 @@ async function syncAction(action: OfflineAction): Promise<void> {
     } else if (action.kind === "audit_event") {
       // The queued row has a client-generated UUID, making retries
       // idempotent even if the first response was lost after commit.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const { error } = await (supabase.from as any)("audit_log").insert(action.payload);
       if (error && error.code !== "23505") throw error;
     } else if (action.kind === "receipt_email") {
@@ -285,7 +282,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
   let synced = 0;
   let failed = 0;
   try {
-    // Verify authenticated session — never sync without one. This prevents
+    // Verify authenticated session  -  never sync without one. This prevents
     // the shell from posting queued sales as an anonymous user after a
     // sign-out or session expiry.
     const { data: u } = await supabase.auth.getUser();
@@ -476,7 +473,7 @@ export function installAutoSync() {
   window.addEventListener("online", () => {
     void syncNow();
   });
-  // Retry on interval as a safety net — the backoff gate inside
+  // Retry on interval as a safety net  -  the backoff gate inside
   // getPendingSales prevents this from hammering a failing endpoint.
   setInterval(() => {
     void syncNow();

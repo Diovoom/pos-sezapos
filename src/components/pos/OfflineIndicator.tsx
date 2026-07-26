@@ -107,7 +107,7 @@ export function OfflineIndicator() {
           </div>
           {state === "offline" && (
             <p className="mt-2 text-xs text-muted-foreground">
-              Offline mode — cash sales will be saved on this register and synced when connection
+              Offline mode - cash sales will be saved on this register and synced when connection
               returns.
             </p>
           )}
@@ -124,7 +124,7 @@ export function OfflineIndicator() {
           <Row label="Failed records" value={counts.failedSales} />
           <Row
             label="Last sync"
-            value={counts.lastSync ? new Date(counts.lastSync).toLocaleTimeString() : "—"}
+            value={counts.lastSync ? new Date(counts.lastSync).toLocaleTimeString() : " - "}
           />
         </div>
         {sales.length > 0 && (

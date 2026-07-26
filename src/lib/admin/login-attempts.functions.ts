@@ -1,5 +1,5 @@
 // Rate-limit + audit for /admin/auth sign-in attempts.
-// This module is client-reachable — the admin client (browser) calls
+// This module is client-reachable  -  the admin client (browser) calls
 // recordAdminLoginAttempt after each sign-in. All writes go through the
 // service-role admin client, loaded lazily inside the handler.
 
@@ -38,7 +38,7 @@ export const recordAdminLoginAttempt = createServerFn({ method: "POST" })
     const emailNorm = data.email.trim().toLowerCase();
     const windowStart = new Date(Date.now() - WINDOW_MINUTES * 60_000).toISOString();
 
-    // Record the attempt. We ignore insert errors — never block the user's
+    // Record the attempt. We ignore insert errors  -  never block the user's
     // sign-in on audit-write failure.
     await supabaseAdmin
       .from("admin_login_attempts")

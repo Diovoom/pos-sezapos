@@ -14,7 +14,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_dashboard/help/$ticketId")({
   head: () => ({
     meta: [
-      { title: "Support Chat — SEZA POS" },
+      { title: "Support Chat  -  SEZA POS" },
       { name: "description", content: "Chat live with SEZA POS support." },
     ],
   }),
@@ -96,7 +96,6 @@ function MerchantSupportChat() {
       void supabase.removeChannel(notes);
       void supabase.removeChannel(ticket);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticketId]);
 
   async function sendMessage() {
@@ -152,7 +151,7 @@ function MerchantSupportChat() {
         <ArrowLeft className="h-4 w-4" /> Back to support
       </Link>
       <PageHeader
-        title={`Support case #${ticket.ticket_number ?? "—"}`}
+        title={`Support case #${ticket.ticket_number ?? " - "}`}
         subtitle={ticket.subject}
       />
 

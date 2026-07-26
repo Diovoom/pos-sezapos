@@ -68,7 +68,7 @@ function NativePdfButton({ d }: { d: ShiftSummary }) {
     try {
       const { saveAndSharePdf } = await import("../../../capacitor-shell/lib/shiftSummaryPdf");
       const r = await saveAndSharePdf(d);
-      if (r.ok) toast.success("PDF ready — saved to Documents and shared");
+      if (r.ok) toast.success("PDF ready  -  saved to Documents and shared");
       else toast.error(`PDF failed: ${r.error}`);
     } catch (e) {
       toast.error(`PDF failed: ${e instanceof Error ? e.message : "unknown error"}`);
@@ -205,10 +205,10 @@ function ShiftHeader({ d }: { d: ShiftSummary }) {
           </Badge>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-          <Info label="Employee" value={cashier?.full_name ?? cashier?.email ?? "—"} />
-          <Info label="Employee ID" value={cashier?.employee_id ?? "—"} />
+          <Info label="Employee" value={cashier?.full_name ?? cashier?.email ?? " - "} />
+          <Info label="Employee ID" value={cashier?.employee_id ?? " - "} />
           <Info label="Register" value={terminal?.label ?? "Default"} />
-          <Info label="Terminal" value={terminal?.serial ?? terminal?.id?.slice(0, 8) ?? "—"} />
+          <Info label="Terminal" value={terminal?.serial ?? terminal?.id?.slice(0, 8) ?? " - "} />
           <Info label="Date" value={new Date(session.opened_at).toLocaleDateString()} />
           <Info label="Shift start" value={new Date(session.opened_at).toLocaleTimeString()} />
           <Info
@@ -251,7 +251,11 @@ function CashReconciliation({ d }: { d: ShiftSummary }) {
         <div className="border-t pt-2">
           <Row label="Expected in drawer" value={fmt(expected)} bold />
         </div>
-        <Row label="Actual counted" value={session.closing_cash != null ? fmt(actual) : "—"} bold />
+        <Row
+          label="Actual counted"
+          value={session.closing_cash != null ? fmt(actual) : " - "}
+          bold
+        />
         {variance !== null && (
           <div
             className={`flex items-center justify-between rounded-md border p-2 ${Math.abs(variance) > 5 ? "border-destructive/50 bg-destructive/5" : ""}`}
@@ -273,7 +277,7 @@ function CashReconciliation({ d }: { d: ShiftSummary }) {
           </>
         )}
         {approver && (
-          <Row label="Approved by" value={approver.full_name ?? approver.email ?? "—"} />
+          <Row label="Approved by" value={approver.full_name ?? approver.email ?? " - "} />
         )}
         {session.close_notes && (
           <div className="text-xs text-muted-foreground border-t pt-2">
@@ -318,14 +322,14 @@ function DrawerEvents({ d }: { d: ShiftSummary }) {
                 return (
                   <tr key={e.id} className="border-b last:border-0 align-top">
                     <td className="py-2">{new Date(e.created_at).toLocaleTimeString()}</td>
-                    <td className="capitalize">{String(det.reason ?? "—").replace(/_/g, " ")}</td>
-                    <td className="capitalize">{String(det.status ?? "—")}</td>
+                    <td className="capitalize">{String(det.reason ?? " - ").replace(/_/g, " ")}</td>
+                    <td className="capitalize">{String(det.status ?? " - ")}</td>
                     <td className="text-xs text-muted-foreground">
-                      {String(det.approver_name ?? "—")}
+                      {String(det.approver_name ?? " - ")}
                     </td>
                     <td className="text-xs">{String(det.note ?? "")}</td>
                     <td className="text-right tabular-nums">
-                      {det.safe_drop_amount != null ? fmt(Number(det.safe_drop_amount)) : "—"}
+                      {det.safe_drop_amount != null ? fmt(Number(det.safe_drop_amount)) : " - "}
                     </td>
                   </tr>
                 );
@@ -388,7 +392,7 @@ function TaxDiscountSummary({ d }: { d: ShiftSummary }) {
     .filter((x) => Number(x.tax) > 0)
     .reduce((a, x) => a + Number(x.subtotal || 0), 0);
   const nonTaxable = s.grossSales - taxable;
-  const rate = d.store?.tax_rate ? `${(Number(d.store.tax_rate) * 100).toFixed(2)}%` : "—";
+  const rate = d.store?.tax_rate ? `${(Number(d.store.tax_rate) * 100).toFixed(2)}%` : " - ";
   return (
     <Card>
       <CardHeader>
@@ -437,11 +441,11 @@ function RefundList({ d }: { d: ShiftSummary }) {
             <tbody>
               {d.refunds.map((r) => (
                 <tr key={r.id} className="border-b last:border-0">
-                  <td className="py-2">#{r.sales?.receipt_number ?? "—"}</td>
+                  <td className="py-2">#{r.sales?.receipt_number ?? " - "}</td>
                   <td className="capitalize">{r.refund_type}</td>
                   <td>{r.reason}</td>
                   <td className="text-muted-foreground">
-                    {r.approver_id ? shortId(r.approver_id) : "—"}
+                    {r.approver_id ? shortId(r.approver_id) : " - "}
                   </td>
                   <td className="capitalize">
                     {METHOD_LABELS[r.payment_method] ?? r.payment_method}
@@ -499,7 +503,7 @@ function EmployeePerformance({ d }: { d: ShiftSummary }) {
         <CardTitle>Employee Performance</CardTitle>
       </CardHeader>
       <CardContent className="space-y-1 text-sm">
-        <Row label="Cashier" value={cashier?.full_name ?? "—"} />
+        <Row label="Cashier" value={cashier?.full_name ?? " - "} />
         <Row label="Transactions" value={fmtInt(salesSummary.totalTx)} />
         <Row label="Items sold" value={fmtInt(salesSummary.totalItems)} />
         <Row label="Sales total" value={fmt(salesSummary.grossSales)} />
@@ -507,11 +511,11 @@ function EmployeePerformance({ d }: { d: ShiftSummary }) {
         <Row label="Avg sale" value={fmt(salesSummary.avgTx)} />
         <Row
           label="Clock in"
-          value={timeEntry?.clock_in ? new Date(timeEntry.clock_in).toLocaleTimeString() : "—"}
+          value={timeEntry?.clock_in ? new Date(timeEntry.clock_in).toLocaleTimeString() : " - "}
         />
         <Row
           label="Clock out"
-          value={timeEntry?.clock_out ? new Date(timeEntry.clock_out).toLocaleTimeString() : "—"}
+          value={timeEntry?.clock_out ? new Date(timeEntry.clock_out).toLocaleTimeString() : " - "}
         />
       </CardContent>
     </Card>

@@ -57,12 +57,12 @@ async function ensureOwnerWebsiteAccess(userId: string): Promise<boolean> {
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Owner sign in — SEZA" },
+      { title: "Owner sign in  -  SEZA" },
       {
         name: "description",
         content: "Store owners sign in to the SEZA management dashboard.",
       },
-      { property: "og:title", content: "Owner sign in — SEZA" },
+      { property: "og:title", content: "Owner sign in  -  SEZA" },
       {
         property: "og:description",
         content: "Sign in to manage your SEZA store.",

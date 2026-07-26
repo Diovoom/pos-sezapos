@@ -29,13 +29,12 @@ import {
   YAxis,
 } from "recharts";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
 
 export const Route = createFileRoute("/_dashboard/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — SEZA POS" },
+      { title: "Dashboard  -  SEZA POS" },
       {
         name: "description",
         content:
@@ -82,7 +81,6 @@ function DashboardPage() {
           sb.from("time_entries").select("user_id").gte("clock_in", today.toISOString()),
         ]);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allSales = (salesRes.data ?? []) as any[];
       const completed = allSales.filter((s) => s.status === "completed");
       const todays = completed.filter((s) => new Date(s.created_at) >= today);
@@ -114,7 +112,7 @@ function DashboardPage() {
           ).data ?? [])
         : [];
       const perProduct = new Map<string, { name: string; qty: number; revenue: number }>();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       for (const it of items as any[]) {
         const e = perProduct.get(it.product_name) ?? { name: it.product_name, qty: 0, revenue: 0 };
         e.qty += Number(it.quantity || 0);
@@ -124,7 +122,7 @@ function DashboardPage() {
       const topProducts = Array.from(perProduct.values())
         .sort((a, b) => b.qty - a.qty)
         .slice(0, 5);
-      const bestSelling = topProducts[0]?.name ?? "—";
+      const bestSelling = topProducts[0]?.name ?? " - ";
 
       const byHour = new Array(24).fill(0).map((_, h) => ({ hour: h, sales: 0, count: 0 }));
       for (const s of todays) {
@@ -155,7 +153,7 @@ function DashboardPage() {
         (s: number, p: any) => s + Number(p.price) * Number(p.stock),
         0,
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const employeesWorked = new Set((employeesToday.data ?? []).map((t: any) => t.user_id)).size;
 
       const openShiftCount = (openShifts.data ?? []).length;
@@ -173,7 +171,7 @@ function DashboardPage() {
         txCount: todays.length,
         itemsSold,
         bestSelling,
-        busiestHour: busiestHour.count > 0 ? `${busiestHour.hour}:00` : "—",
+        busiestHour: busiestHour.count > 0 ? `${busiestHour.hour}:00` : " - ",
         employeesWorked,
         openShiftCount,
         topProducts,
@@ -220,8 +218,8 @@ function DashboardPage() {
             value={fmtCurrency(data?.netRevenue ?? 0, cur)}
             highlight
           />
-          <Kpi icon={Trophy} label="Best seller" value={data?.bestSelling ?? "—"} small />
-          <Kpi icon={Clock} label="Busiest hour" value={data?.busiestHour ?? "—"} />
+          <Kpi icon={Trophy} label="Best seller" value={data?.bestSelling ?? " - "} small />
+          <Kpi icon={Clock} label="Busiest hour" value={data?.busiestHour ?? " - "} />
           <Kpi icon={Users} label="Employees today" value={fmtNumber(data?.employeesWorked ?? 0)} />
         </div>
 

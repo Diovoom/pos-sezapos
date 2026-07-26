@@ -104,7 +104,7 @@ export const Route = createFileRoute("/email/unsubscribe")({
               token = body.token;
             }
           } catch {
-            // Fall through — token stays from query param
+            // Fall through  -  token stays from query param
           }
         }
 

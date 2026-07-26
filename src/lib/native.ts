@@ -12,7 +12,7 @@ export function detectAndPersistNative(): boolean {
   if (typeof window === "undefined") return false;
   try {
     // Capacitor injects window.Capacitor when running inside a native shell.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const cap = (window as any).Capacitor;
     const isCapacitor =
       !!cap && typeof cap.isNativePlatform === "function" && cap.isNativePlatform();
@@ -36,7 +36,6 @@ export function detectAndPersistNative(): boolean {
 export function isNativeMode(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cap = (window as any).Capacitor;
     if (cap && typeof cap.isNativePlatform === "function" && cap.isNativePlatform()) return true;
     return window.localStorage.getItem(KEY) === "1";

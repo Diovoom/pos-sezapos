@@ -59,7 +59,7 @@ export function BusinessBrandingPanel() {
     const kind =
       field === "logo_url" ? "primary" : field === "receipt_logo_url" ? "receipt" : "text";
     setSaving(kind);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const { error } = await (supabase as any)
       .from("stores")
       .update({ [field]: value })
@@ -166,7 +166,7 @@ export function BusinessBrandingPanel() {
         <CardTitle>Business Branding</CardTitle>
         <CardDescription>
           Branding is stored in the cloud. Online Android registers refresh automatically when you
-          save a change—no APK rebuild required.
+          save a change - no APK rebuild required.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

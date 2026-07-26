@@ -8,7 +8,7 @@
 // carrying the current flags. The Android shell subscribes to that event;
 // on the web nobody listens and it costs one addEventListener no-op.
 //
-// This file MUST remain browser-safe (no Capacitor imports) — it is
+// This file MUST remain browser-safe (no Capacitor imports)  -  it is
 // imported from web POS routes as well as the shell.
 import { useEffect, useRef } from "react";
 
@@ -21,7 +21,7 @@ export type NativeActivityFlags = {
   paymentBusy: boolean;
 };
 
-// Latest broadcast flags — consumed by anything that needs to check
+// Latest broadcast flags  -  consumed by anything that needs to check
 // "is a payment in flight right now?" without listening to the event
 // stream (e.g. the Clock Out gate on the Time Clock screen).
 let _lastFlags: NativeActivityFlags = { hasCart: false, paymentBusy: false };
@@ -38,7 +38,7 @@ export function getNativeActivityFlags(): Readonly<NativeActivityFlags> {
 
 /**
  * Broadcasts current cart / payment activity to the Android shell.
- * No-op on the web (no shell listener present) — safe to call unconditionally.
+ * No-op on the web (no shell listener present)  -  safe to call unconditionally.
  */
 export function useNativeActivitySignal(flags: NativeActivityFlags) {
   const last = useRef<NativeActivityFlags | null>(null);

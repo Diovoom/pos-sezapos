@@ -8,13 +8,16 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
-    "lint": "eslint .",
-    "format": "prettier --write .",
+    "lint": "eslint src --cache --cache-location .eslintcache --quiet",
+    "format": "prettier --write src",
     "android:assets": "capacitor-assets generate --android --assetPath resources",
     "android:build": "vite build --config vite.capacitor.config.ts",
-    "android:sync": "bun run android:build && npx cap sync android",
+    "android:sync": "npm run android:build && npx cap sync android",
     "verify:production": "node scripts/verify-production.mjs",
-    "verify:security": "node scripts/verify-security.mjs"
+    "verify:security": "node scripts/verify-security.mjs",
+    "lint:full": "eslint src --cache --cache-location .eslintcache",
+    "lint:fix": "eslint src --cache --cache-location .eslintcache --fix",
+    "format:check": "prettier --check src"
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^8.2.0",

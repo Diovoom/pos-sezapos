@@ -15,6 +15,7 @@ import { marketingUrl } from "@/lib/host";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { secureMerchantSignUp, secureResendVerification } from "@/lib/auth/auth.functions";
 import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/auth";
+import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "@/lib/security/disposable-email";
 
 const signupSearch = z.object({
   plan: z.enum(["starter", "pro", "business"]).optional(),
@@ -24,13 +25,13 @@ export const Route = createFileRoute("/signup")({
   validateSearch: signupSearch,
   head: () => ({
     meta: [
-      { title: "Create your SEZA store — Start your free trial" },
+      { title: "Create your SEZA store  -  Start your free trial" },
       {
         name: "description",
         content:
           "Create your SEZA POS store and start a 14-day free trial. No credit card required. Cancel anytime.",
       },
-      { property: "og:title", content: "Create your SEZA store — SEZA POS" },
+      { property: "og:title", content: "Create your SEZA store  -  SEZA POS" },
       {
         property: "og:description",
         content: "14-day free trial. No credit card required. Cancel anytime.",
@@ -51,7 +52,12 @@ const PLAN_LABELS: Record<string, string> = {
 
 const schema = z.object({
   businessName: z.string().trim().min(2, "Business name is required").max(120),
-  email: z.string().trim().email("Enter a valid email").max(255),
+  email: z
+    .string()
+    .trim()
+    .email("Enter a valid email")
+    .max(255)
+    .refine((email) => !isDisposableEmail(email), DISPOSABLE_EMAIL_MESSAGE),
   password: z.string().min(8, "Password must be at least 8 characters").max(128),
   accept: z.literal(true, { message: "You must accept the terms" }),
 });
@@ -330,7 +336,6 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
     refresh();
     const id = window.setInterval(refresh, 4000);
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
 
   const resend = async () => {
@@ -436,7 +441,7 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
                   )}
                   {devStatus.status === "none" && (
                     <div className="text-slate-600">
-                      No send row yet — the queue processes every ~5s. Give it a moment or click
+                      No send row yet - the queue processes every ~5s. Give it a moment or click
                       resend.
                     </div>
                   )}

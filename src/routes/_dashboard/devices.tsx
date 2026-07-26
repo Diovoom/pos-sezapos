@@ -41,7 +41,7 @@ import { useMe } from "@/hooks/useMe";
 export const Route = createFileRoute("/_dashboard/devices")({
   head: () => ({
     meta: [
-      { title: "POS Devices — SEZA POS" },
+      { title: "POS Devices  -  SEZA POS" },
       { name: "description", content: "Read-only health and pairing for Android POS registers." },
     ],
   }),

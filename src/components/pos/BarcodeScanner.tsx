@@ -154,7 +154,7 @@ export function BarcodeScanner({
             width: { ideal: 1920 },
             height: { ideal: 1080 },
             // best-effort; ignored by browsers that don't support it
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             advanced: [{ focusMode: "continuous" } as any],
           },
           audio: false,
@@ -170,7 +170,7 @@ export function BarcodeScanner({
               onOpenChange(false);
               return;
             }
-            // Silently ignore per-frame "no barcode found" — spams console otherwise.
+            // Silently ignore per-frame "no barcode found"  -  spams console otherwise.
             if (err && !isNotFoundError(err, NotFoundException)) {
               // console.debug("[scanner]", err);
             }
@@ -191,7 +191,6 @@ export function BarcodeScanner({
       controlsRef.current?.stop();
       controlsRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, deviceId]);
 
   return (

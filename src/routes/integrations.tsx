@@ -8,13 +8,13 @@ import { dashboardUrl } from "@/lib/host";
 export const Route = createFileRoute("/integrations")({
   head: () => ({
     meta: [
-      { title: "Integrations — SEZA POS" },
+      { title: "Integrations  -  SEZA POS" },
       {
         name: "description",
         content:
           "See which SEZA POS payment, messaging, export, hardware, and platform connections are available, require configuration, or remain on the roadmap.",
       },
-      { property: "og:title", content: "Integrations — SEZA POS" },
+      { property: "og:title", content: "Integrations  -  SEZA POS" },
       {
         property: "og:description",
         content: "A transparent view of available, setup-required, and roadmap connections.",
@@ -181,7 +181,7 @@ function IntegrationsPage() {
       <section className="mx-auto max-w-4xl px-6 py-16 text-center">
         <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">Integrations</p>
         <h1 className="mt-4 text-balance text-4xl font-black tracking-[-0.04em] sm:text-6xl">
-          Clear about what is live—and what still needs work.
+          Clear about what is live - and what still needs work.
         </h1>
         <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
           Some connections work immediately, some require merchant credentials or compatible

@@ -19,11 +19,10 @@ const receiptQuery = (id: string) =>
 export const Route = createFileRoute("/r/$id")({
   head: ({ loaderData }) => {
     const r = loaderData as
-      | { receiptNumber: string | number; store: { name: string | null } }
-      | undefined;
+      { receiptNumber: string | number; store: { name: string | null } } | undefined;
     return {
       meta: [
-        { title: r ? `Receipt #${r.receiptNumber} — ${r.store.name ?? "Store"}` : "Receipt" },
+        { title: r ? `Receipt #${r.receiptNumber}  -  ${r.store.name ?? "Store"}` : "Receipt" },
         { name: "description", content: "Your digital receipt." },
         { name: "robots", content: "noindex, nofollow" },
       ],

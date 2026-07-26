@@ -91,15 +91,15 @@ export function AdminDiagnosticsPanel({
         <div className="ml-2 hidden sm:flex items-center gap-2 text-[11px] text-muted-foreground min-w-0">
           <span className="truncate">
             <span className="uppercase tracking-wide mr-1">Biz</span>
-            <span className="text-foreground font-medium">{businessName ?? "—"}</span>
+            <span className="text-foreground font-medium">{businessName ?? " - "}</span>
           </span>
           <span className="truncate">
             <span className="uppercase tracking-wide mr-1">Store</span>
-            <span className="font-mono text-foreground">{storeCode ?? "—"}</span>
+            <span className="font-mono text-foreground">{storeCode ?? " - "}</span>
           </span>
           <span className="truncate">
             <span className="uppercase tracking-wide mr-1">Emp</span>
-            <span className="text-foreground">{employeeName ?? "—"}</span>
+            <span className="text-foreground">{employeeName ?? " - "}</span>
           </span>
           <span className="font-mono text-foreground" title="Elapsed">
             {duration}
@@ -147,7 +147,7 @@ export function AdminDiagnosticsPanel({
           )}
         >
           <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-800 dark:text-amber-200">
-            Live screen viewing wasn't granted for this Android session — the merchant accepted
+            Live screen viewing wasn't granted for this Android session - the merchant accepted
             diagnostics only. You can still help using the device context and hardware state shared
             below.
           </div>

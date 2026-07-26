@@ -7,13 +7,13 @@ import { Shield, Lock, Cloud, KeyRound, Eye, Server, AlertTriangle, FileCheck } 
 export const Route = createFileRoute("/security")({
   head: () => ({
     meta: [
-      { title: "Security — SEZA POS" },
+      { title: "Security  -  SEZA POS" },
       {
         name: "description",
         content:
           "How SEZA POS protects merchant data through encrypted connections, row-level authorization, role controls, audited operations, signed payment webhooks and Stripe-hosted billing.",
       },
-      { property: "og:title", content: "Security — SEZA POS" },
+      { property: "og:title", content: "Security  -  SEZA POS" },
       {
         property: "og:description",
         content:
@@ -48,7 +48,7 @@ const PILLARS = [
   {
     icon: Eye,
     title: "Audit history",
-    body: "Sensitive operations—including refunds, voids, cash movements, permission changes and admin actions—can be recorded for review.",
+    body: "Sensitive operations - including refunds, voids, cash movements, permission changes and admin actions - can be recorded for review.",
   },
   {
     icon: FileCheck,

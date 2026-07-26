@@ -17,13 +17,13 @@ import { dashboardUrl } from "@/lib/host";
 export const Route = createFileRoute("/hardware")({
   head: () => ({
     meta: [
-      { title: "POS Hardware — SEZA POS" },
+      { title: "POS Hardware  -  SEZA POS" },
       {
         name: "description",
         content:
           "Plan a SEZA POS setup with compatible Android devices, computers, scanners, thermal printers, cash drawers, customer displays, and payment readers.",
       },
-      { property: "og:title", content: "Hardware that fits your counter — SEZA POS" },
+      { property: "og:title", content: "Hardware that fits your counter  -  SEZA POS" },
       {
         property: "og:description",
         content:
@@ -145,7 +145,7 @@ function HardwarePage() {
           </h2>
           <p className="mt-4 text-muted-foreground">
             Compatibility is determined by the exact model, operating system, connection method, and
-            installed drivers or native plugins—not only the product category.
+            installed drivers or native plugins - not only the product category.
           </p>
         </div>
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">

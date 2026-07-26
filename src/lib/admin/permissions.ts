@@ -1,5 +1,5 @@
 // Client-facing catalog of admin permission keys + React hook.
-// Server enforcement remains authoritative — this hook is used to hide UI.
+// Server enforcement remains authoritative  -  this hook is used to hide UI.
 
 import { useQuery } from "@tanstack/react-query";
 import { supabaseAdminAuth } from "@/integrations/supabase/admin-client";
@@ -74,7 +74,7 @@ export function useAdminPermissions() {
       }
       const [{ data: roles }, { data: rows }] = await Promise.all([
         supabaseAdminAuth.from("user_roles").select("role").eq("user_id", uid),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         (supabaseAdminAuth.from as any)("admin_permissions").select("role, permission"),
       ]);
       const myRoles = (roles ?? [])

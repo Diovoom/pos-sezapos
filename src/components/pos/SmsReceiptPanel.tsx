@@ -102,7 +102,7 @@ export function SmsReceiptPanel({
       setDeliveryStatus(res.queued ? "queued" : res.alreadySent ? "already_sent" : "sent");
       toast.success(
         res.queued
-          ? "SMS receipt queued — it will send when the register reconnects"
+          ? "SMS receipt queued  -  it will send when the register reconnects"
           : res.alreadySent
             ? "Already sent to this number"
             : "SMS receipt sent",

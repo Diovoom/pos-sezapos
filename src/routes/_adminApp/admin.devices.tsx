@@ -73,7 +73,7 @@ const DEFAULTS: DevicesSearch = {
 
 export const Route = createFileRoute("/_adminApp/admin/devices")({
   head: () => ({
-    meta: [{ title: "Devices — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [{ title: "Devices  -  SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   validateSearch: (raw: Record<string, unknown>): DevicesSearch => ({
     q: typeof raw.q === "string" ? raw.q : DEFAULTS.q,
@@ -138,7 +138,7 @@ function fmtDateTime(v: string | null | undefined) {
   try {
     return format(new Date(v), "MMM d, yyyy HH:mm");
   } catch {
-    return "—";
+    return " - ";
   }
 }
 
@@ -147,7 +147,7 @@ function fmtRelative(v: string | null | undefined) {
   try {
     return `${formatDistanceToNow(new Date(v))} ago`;
   } catch {
-    return "—";
+    return " - ";
   }
 }
 
@@ -511,11 +511,11 @@ function DevicesPage() {
                             {r.store_name}
                           </Link>
                         ) : (
-                          "—"
+                          " - "
                         )}
                       </td>
                       <td className="p-3 text-xs">
-                        <div>{r.provider ?? "—"}</div>
+                        <div>{r.provider ?? " - "}</div>
                         {r.has_config && (
                           <div className="text-[10px] text-muted-foreground">configured</div>
                         )}

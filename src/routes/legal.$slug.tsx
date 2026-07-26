@@ -11,13 +11,13 @@ export const Route = createFileRoute("/legal/$slug")({
   },
   head: ({ loaderData }) => {
     const doc = loaderData?.doc;
-    if (!doc) return { meta: [{ title: "Legal — SEZA POS" }] };
+    if (!doc) return { meta: [{ title: "Legal  -  SEZA POS" }] };
     const url = `https://sezapos.com/legal/${doc.slug}`;
     return {
       meta: [
-        { title: `${doc.title} — SEZA POS` },
+        { title: `${doc.title}  -  SEZA POS` },
         { name: "description", content: doc.summary },
-        { property: "og:title", content: `${doc.title} — SEZA POS` },
+        { property: "og:title", content: `${doc.title}  -  SEZA POS` },
         { property: "og:description", content: doc.summary },
         { property: "og:type", content: "article" },
         { property: "og:url", content: url },

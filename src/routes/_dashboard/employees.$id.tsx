@@ -71,7 +71,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_dashboard/employees/$id")({
   head: () => ({
     meta: [
-      { title: "Employee — SEZA POS" },
+      { title: "Employee  -  SEZA POS" },
       {
         name: "description",
         content: "Manage employee profile, role, PIN, hourly wage, and time clock activity.",
@@ -98,7 +98,6 @@ type Profile = {
   created_at: string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
 
 function EmployeeProfile() {
@@ -201,13 +200,13 @@ function EmployeeProfile() {
     profile.full_name ||
     `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() ||
     profile.email ||
-    "—";
+    " - ";
 
   return (
     <>
       <PageHeader
         title={displayName}
-        subtitle={`Employee · ${profile.employee_id ?? "—"} · ${currentRole}`}
+        subtitle={`Employee · ${profile.employee_id ?? " - "} · ${currentRole}`}
         actions={
           <Button asChild variant="outline" size="sm">
             <Link to="/employees">
@@ -383,7 +382,7 @@ function ProfileCard({
         <div>
           <div className="font-semibold">{profile.full_name || profile.email}</div>
           <div className="text-xs text-muted-foreground font-mono">
-            ID {profile.employee_id ?? "—"}
+            ID {profile.employee_id ?? " - "}
           </div>
         </div>
         <div className="flex justify-center gap-2 flex-wrap">
@@ -414,9 +413,9 @@ function ProfileCard({
           )}
         </div>
         <dl className="text-left text-xs space-y-1 pt-3 border-t">
-          <Row label="Email" value={profile.email ?? "—"} />
-          <Row label="Phone" value={profile.phone ?? "—"} />
-          <Row label="Hire date" value={profile.hire_date ?? "—"} />
+          <Row label="Email" value={profile.email ?? " - "} />
+          <Row label="Phone" value={profile.phone ?? " - "} />
+          <Row label="Hire date" value={profile.hire_date ?? " - "} />
           <Row label="Joined" value={format(new Date(profile.created_at), "MMM d, yyyy")} />
         </dl>
       </CardContent>
@@ -626,10 +625,10 @@ function ReadOnlyDetails({ profile, role }: { profile: Profile; role: string }) 
         <CardTitle className="text-base">Details</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-        <KV k="First name" v={profile.first_name ?? "—"} />
-        <KV k="Last name" v={profile.last_name ?? "—"} />
-        <KV k="Email" v={profile.email ?? "—"} />
-        <KV k="Phone" v={profile.phone ?? "—"} />
+        <KV k="First name" v={profile.first_name ?? " - "} />
+        <KV k="Last name" v={profile.last_name ?? " - "} />
+        <KV k="Email" v={profile.email ?? " - "} />
+        <KV k="Phone" v={profile.phone ?? " - "} />
         <KV k="Role" v={role} />
         <KV k="Status" v={profile.status} />
       </CardContent>
@@ -669,7 +668,7 @@ function EmployeeIdCard({ profile, onChanged }: { profile: Profile; onChanged: (
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center gap-3">
-          <div className="font-mono text-2xl">{profile.employee_id ?? "—"}</div>
+          <div className="font-mono text-2xl">{profile.employee_id ?? " - "}</div>
           <Button
             variant="outline"
             size="sm"
@@ -880,7 +879,6 @@ function PayScheduleCard({ userId }: { userId: string }) {
   const { data } = useQuery({
     queryKey: ["employee-pay", userId],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase.from as any)("profiles")
         .select("hourly_wage, scheduled_start_time, scheduled_end_time, late_threshold_minutes")
         .eq("id", userId)
@@ -1254,8 +1252,8 @@ function AttendanceList({ userId }: { userId: string }) {
       <CardHeader>
         <CardTitle className="text-base">Attendance history</CardTitle>
         <CardDescription>
-          Last clock-in: {lastIn ? format(new Date(lastIn.clock_in), "PPp") : "—"} · Last clock-out:{" "}
-          {lastOut?.clock_out ? format(new Date(lastOut.clock_out), "PPp") : "—"}
+          Last clock-in: {lastIn ? format(new Date(lastIn.clock_in), "PPp") : " - "} · Last
+          clock-out: {lastOut?.clock_out ? format(new Date(lastOut.clock_out), "PPp") : " - "}
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
@@ -1299,7 +1297,7 @@ function AttendanceList({ userId }: { userId: string }) {
               </div>
               <div className="flex items-center gap-2">
                 <div className="text-right font-mono">
-                  {mins != null ? `${(mins / 60).toFixed(2)} h` : "—"}
+                  {mins != null ? `${(mins / 60).toFixed(2)} h` : " - "}
                 </div>
                 {canAdjust && (
                   <Button size="sm" variant="outline" onClick={() => setEditing(e)}>
@@ -1537,7 +1535,7 @@ function ActivityLog({ userId }: { userId: string }) {
           >
             <div>
               <div className="font-medium">{a.action}</div>
-              <div className="text-muted-foreground">{a.entity ?? "—"}</div>
+              <div className="text-muted-foreground">{a.entity ?? " - "}</div>
             </div>
             <div className="text-muted-foreground">{format(new Date(a.created_at), "PPp")}</div>
           </div>

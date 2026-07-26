@@ -98,7 +98,7 @@ export function BillingPanel() {
                   ? `Access ends ${format(plan.periodEnd, "PPP")} (cancellation scheduled)`
                   : `Renews ${format(plan.periodEnd, "PPP")}`}
               {plan.daysLeft != null &&
-                ` — ${plan.daysLeft} day${plan.daysLeft === 1 ? "" : "s"} left`}
+                `  -  ${plan.daysLeft} day${plan.daysLeft === 1 ? "" : "s"} left`}
             </div>
           )}
 
@@ -122,7 +122,7 @@ export function BillingPanel() {
           <CardTitle>{hasPaidPlan ? "Change plan" : "Choose a plan"}</CardTitle>
           <CardDescription>
             {hasPaidPlan
-              ? "Upgrade or downgrade at any time — changes take effect immediately."
+              ? "Upgrade or downgrade at any time  -  changes take effect immediately."
               : "Subscribe to keep using SEZA POS after your trial ends."}
           </CardDescription>
         </CardHeader>

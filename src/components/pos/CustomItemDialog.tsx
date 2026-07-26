@@ -39,7 +39,7 @@ export function CustomItemDialog({ open, onOpenChange, currency, onAdd }: Props)
   const push = (d: string) => {
     if (raw.length >= 9) return;
     if (d === "." || d === "00") {
-      // ignore — we always accumulate as cents; "00" convenience
+      // ignore  -  we always accumulate as cents; "00" convenience
       if (d === "00") setRaw((r) => (r === "" ? "" : r + "00"));
       return;
     }

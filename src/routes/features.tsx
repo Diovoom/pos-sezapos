@@ -22,13 +22,13 @@ import { MarketingShell } from "@/components/marketing/MarketingShell";
 export const Route = createFileRoute("/features")({
   head: () => ({
     meta: [
-      { title: "Features — SEZA POS" },
+      { title: "Features  -  SEZA POS" },
       {
         name: "description",
         content:
-          "Fast checkout, inventory tracking, employee time clock, refunds, SMS and email receipts, reports, and more — everything a modern retail store needs.",
+          "Fast checkout, inventory tracking, employee time clock, refunds, SMS and email receipts, reports, and more  -  everything a modern retail store needs.",
       },
-      { property: "og:title", content: "Features — SEZA POS" },
+      { property: "og:title", content: "Features  -  SEZA POS" },
       {
         property: "og:description",
         content: "Everything a modern retail store needs, in one cloud POS.",
@@ -53,7 +53,7 @@ const GROUPS: {
       {
         icon: ScanBarcode,
         title: "Barcode & keypad checkout",
-        body: "Scan or type — supports USB and Bluetooth scanners, custom items, and quick keys.",
+        body: "Scan or type  -  supports USB and Bluetooth scanners, custom items, and quick keys.",
       },
       {
         icon: CreditCard,
@@ -131,7 +131,7 @@ const GROUPS: {
       {
         icon: Wifi,
         title: "Cloud sync",
-        body: "Your data lives in the cloud — access it from any device, anywhere.",
+        body: "Your data lives in the cloud  -  access it from any device, anywhere.",
       },
       {
         icon: Printer,
@@ -155,7 +155,7 @@ function FeaturesPage() {
           Everything you need to run a modern store
         </h1>
         <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-          SEZA POS bundles checkout, inventory, employees, and reporting into one cloud system — no
+          SEZA POS bundles checkout, inventory, employees, and reporting into one cloud system - no
           plugins, no add-ons.
         </p>
         <div className="mt-6 flex justify-center gap-3">

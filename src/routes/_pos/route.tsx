@@ -14,7 +14,6 @@ export const Route = createFileRoute("/_pos")({
     if (error || !data.user) throw redirect({ to: "/auth" });
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: roleRows, error: roleError } = await (supabase as any)
         .from("user_roles")
         .select("role")
@@ -31,7 +30,6 @@ export const Route = createFileRoute("/_pos")({
         throw redirect({ to: "/auth" });
       }
     } catch (routeError) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((routeError as any)?.isRedirect) throw routeError;
       throw redirect({ to: "/auth" });
     }

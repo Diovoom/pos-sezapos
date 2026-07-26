@@ -37,7 +37,7 @@ export const SignupEmail = ({
         <Heading style={h1}>Verify your email</Heading>
         <Text style={text}>
           Welcome to <strong>{siteName}</strong>! You're one click away from your 14-day free trial
-          — no credit card required.
+          - no credit card required.
         </Text>
         <Text style={text}>
           Please confirm <strong>{recipient}</strong> to activate your account:

@@ -12,7 +12,7 @@ import { Logo } from "@/components/brand/Logo";
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
-      { title: "Reset password — SEZA POS" },
+      { title: "Reset password  -  SEZA POS" },
       { name: "description", content: "Choose a new password for your SEZA POS account." },
       { name: "robots", content: "noindex, nofollow" },
     ],

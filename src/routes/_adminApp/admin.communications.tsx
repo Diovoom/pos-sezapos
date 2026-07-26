@@ -32,7 +32,7 @@ import { ADMIN_ACTIVE_CHAT_KEY, rememberAdminChat } from "@/components/admin/Adm
 export const Route = createFileRoute("/_adminApp/admin/communications")({
   head: () => ({
     meta: [
-      { title: "Live Communications — SEZA Admin" },
+      { title: "Live Communications  -  SEZA Admin" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
@@ -121,7 +121,6 @@ function CommunicationsPage() {
       void supabaseAdminAuth.removeChannel(notes);
       void supabaseAdminAuth.removeChannel(tickets);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
   useEffect(() => {
@@ -129,7 +128,6 @@ function CommunicationsPage() {
     void markRead({ data: { ticketId: selectedId } })
       .then(refresh)
       .catch(() => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, caseQuery.data?.ticket?.last_message_at]);
 
   const selected = caseQuery.data;
@@ -267,7 +265,7 @@ function CommunicationsPage() {
                     )}
                   </div>
                   <div className="mt-1 truncate text-xs text-muted-foreground" data-no-translate>
-                    {row.last_message?.body ?? "Ticket opened—waiting for the first message"}
+                    {row.last_message?.body ?? "Ticket opened - waiting for the first message"}
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <div className="flex gap-1">

@@ -68,7 +68,7 @@ const ReceiptEmail = (props: ReceiptEmailData) => {
     <Html lang="en" dir="ltr">
       <Head />
       <Preview>
-        Your receipt from {storeName} — {fmt(props.total, currency)}
+        Your receipt from {storeName} - {fmt(props.total, currency)}
       </Preview>
       <Body style={main}>
         <Container style={container}>
@@ -83,7 +83,7 @@ const ReceiptEmail = (props: ReceiptEmailData) => {
             <Row>
               <Column>
                 <Text style={metaLabel}>Receipt #</Text>
-                <Text style={metaValue}>{String(props.receiptNumber ?? "—")}</Text>
+                <Text style={metaValue}>{String(props.receiptNumber ?? " - ")}</Text>
               </Column>
               <Column>
                 <Text style={metaLabel}>Date</Text>

@@ -28,7 +28,6 @@ export const Route = createFileRoute("/_dashboard")({
     if (error || !data.user) throw redirect({ to: "/auth" });
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: roleRows, error: roleError } = await (supabase as any)
         .from("user_roles")
         .select("role")
@@ -46,7 +45,6 @@ export const Route = createFileRoute("/_dashboard")({
         throw redirect({ to: "/auth" });
       }
     } catch (routeError) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((routeError as any)?.isRedirect) throw routeError;
       await supabase.auth.signOut();
       throw redirect({ to: "/auth" });
@@ -121,7 +119,7 @@ function DashboardLayout() {
 
     if (isBlocked && !isAllowed) {
       if (!toastedRef.current) {
-        toast.error("Read-only mode — subscribe to keep using this feature", {
+        toast.error("Read-only mode  -  subscribe to keep using this feature", {
           duration: 5000,
         });
         toastedRef.current = true;

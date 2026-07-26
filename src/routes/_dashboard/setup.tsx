@@ -46,6 +46,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useCountryList } from "@/hooks/useLocale";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
+import { isDisposableEmail } from "@/lib/security/disposable-email";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 function CountrySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { data: countries = [] } = useCountryList();
@@ -68,7 +70,7 @@ function CountrySelect({ value, onChange }: { value: string; onChange: (v: strin
 export const Route = createFileRoute("/_dashboard/setup")({
   head: () => ({
     meta: [
-      { title: "Store setup — SEZA POS" },
+      { title: "Store setup  -  SEZA POS" },
       {
         name: "description",
         content: "Configure your store details, currency, and tax rates before going live.",
@@ -309,7 +311,7 @@ function SetupWizardPage() {
         business_hours: { text: next.store.hours } as unknown as Record<string, unknown>,
       });
       if (opts?.complete) patch.setup_completed_at = new Date().toISOString();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const { error } = await (supabase.from("stores") as any).update(patch).eq("id", store.id);
       if (error) throw error;
       // Owner profile
@@ -331,7 +333,7 @@ function SetupWizardPage() {
         next.owner.privacy_version
       ) {
         // The RPC derives user/store from the authenticated session and is idempotent by policy version.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const { error: legalError } = await (supabase.rpc as any)("record_legal_acceptance", {
           p_terms_version: next.owner.terms_version,
           p_privacy_version: next.owner.privacy_version,
@@ -342,7 +344,7 @@ function SetupWizardPage() {
       }
       return true;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Save failed");
+      toast.error(userFacingError(err, "Your setup could not be saved. Please try again."));
       return false;
     } finally {
       setSaving(false);
@@ -364,6 +366,7 @@ function SetupWizardPage() {
           !!state.owner.first_name &&
           !!state.owner.last_name &&
           !!state.owner.email &&
+          !isDisposableEmail(state.owner.email) &&
           state.owner.accepted_terms
         );
       case 2:
@@ -381,7 +384,7 @@ function SetupWizardPage() {
       // Add employee if provided
       if (!state.employee.skip && state.employee.first_name && state.employee.email) {
         // Create as a profile row with a random employee_id (owner can invite later)
-        toast.info("Employee will be created from Employees page — settings saved.");
+        toast.info("Employee will be created from Employees page  -  settings saved.");
       }
       // Add products if manual entries provided
       if (state.products.mode === "manual" && state.products.items.length && store?.id) {
@@ -397,7 +400,10 @@ function SetupWizardPage() {
           }));
         if (rows.length) {
           const { error } = await supabase.from("products").insert(rows);
-          if (error) toast.error(`Products: ${error.message}`);
+          if (error)
+            toast.error(
+              userFacingError(error, "Some products could not be added. You can add them later."),
+            );
         }
       }
       const saved = await persist(state, { complete: true });
@@ -601,7 +607,7 @@ function StepWelcome({ onStart, onExit }: { onStart: () => void; onExit: () => v
         <h2 className="text-3xl font-bold">Welcome to SEZA POS</h2>
         <p className="text-muted-foreground max-w-xl mx-auto">
           Let's get your business up and running. This wizard walks you through everything you need
-          — owner account, store details, taxes, receipts, employees, products, hardware, and
+          - owner account, store details, taxes, receipts, employees, products, hardware, and
           payments. It takes about 5 minutes.
         </p>
       </div>
@@ -628,7 +634,7 @@ function StepOwner({
   return (
     <div className="space-y-4 max-w-2xl">
       <p className="text-sm text-muted-foreground">
-        You are the Owner. Confirm your details — your Owner role and 6-digit Employee ID are
+        You are the Owner. Confirm your details - your Owner role and 6-digit Employee ID are
         already assigned.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -640,6 +646,12 @@ function StepOwner({
         </Field>
         <Field label="Business email" required>
           <Input type="email" value={o.email} disabled />
+          {isDisposableEmail(o.email) && (
+            <p className="mt-2 text-sm font-medium text-red-600">
+              This account uses a temporary email address. Update it to a permanent business email
+              before continuing.
+            </p>
+          )}
         </Field>
         <Field label="Phone number">
           <Input value={o.phone} onChange={(e) => patch({ phone: e.target.value })} />
@@ -1152,7 +1164,7 @@ function StepHardware({
       patch({ [key]: true } as Partial<WizardState["hardware"]>);
       toast.success("Device connected");
     } catch {
-      toast.info("No device selected — you can configure this later.");
+      toast.info("No device selected  -  you can configure this later.");
     }
   };
   return (
@@ -1280,12 +1292,12 @@ function StepReview({ state, goTo }: { state: WizardState; goTo: (n: number) => 
     {
       step: 1,
       label: "Owner",
-      value: `${state.owner.first_name} ${state.owner.last_name} — ${state.owner.email}`,
+      value: `${state.owner.first_name} ${state.owner.last_name}  -  ${state.owner.email}`,
     },
     {
       step: 2,
       label: "Store",
-      value: `${state.store.name || "—"} · ${state.store.city}${state.store.state ? ", " + state.store.state : ""}`,
+      value: `${state.store.name || " - "} · ${state.store.city}${state.store.state ? ", " + state.store.state : ""}`,
     },
     {
       step: 3,
@@ -1338,7 +1350,7 @@ function StepReview({ state, goTo }: { state: WizardState; goTo: (n: number) => 
         >
           <div>
             <div className="text-xs uppercase tracking-wide text-muted-foreground">{r.label}</div>
-            <div className="text-sm mt-0.5">{r.value || "—"}</div>
+            <div className="text-sm mt-0.5">{r.value || " - "}</div>
           </div>
           <ChevronRight className="size-4 text-muted-foreground" />
         </button>

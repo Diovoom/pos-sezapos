@@ -123,7 +123,7 @@ export const Route = createFileRoute("/api/public/live-chat")({
           const { data: ticket, error: ticketError } = await admin
             .from("support_tickets")
             .insert({
-              subject: `Website live chat — ${name}`,
+              subject: `Website live chat  -  ${name}`,
               category: "website",
               priority: "normal",
               status: "open",
@@ -138,7 +138,10 @@ export const Route = createFileRoute("/api/public/live-chat")({
             .select("id,ticket_number,chat_status,status,visitor_name")
             .single();
           if (ticketError || !ticket)
-            return json({ error: ticketError?.message || "Could not start chat." }, 500);
+            return json(
+              { error: "Live chat is temporarily unavailable. Please try again shortly." },
+              503,
+            );
 
           const { error: noteError } = await admin.from("support_ticket_notes").insert({
             ticket_id: ticket.id,
@@ -146,10 +149,14 @@ export const Route = createFileRoute("/api/public/live-chat")({
             author_email: `${name} (website visitor)`,
             body: message,
             internal: false,
+            sender_kind: "visitor",
           });
           if (noteError) {
             await admin.from("support_tickets").delete().eq("id", ticket.id);
-            return json({ error: noteError.message }, 500);
+            return json(
+              { error: "Live chat is temporarily unavailable. Please try again shortly." },
+              503,
+            );
           }
 
           return json({
@@ -202,8 +209,10 @@ export const Route = createFileRoute("/api/public/live-chat")({
             author_email: `${ticket.visitor_name || "Website visitor"} (website visitor)`,
             body: message,
             internal: false,
+            sender_kind: "visitor",
           });
-          if (error) return json({ error: error.message }, 500);
+          if (error)
+            return json({ error: "Your message could not be sent. Please try again." }, 503);
           await admin
             .from("support_tickets")
             .update({

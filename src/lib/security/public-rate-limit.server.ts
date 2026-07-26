@@ -90,7 +90,6 @@ export async function checkPublicRateLimit(
   const keyHash = bucketHash(request, { ...options, scope });
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabaseAdmin.rpc as any)("consume_public_rate_limit", {
       p_scope: scope,
       p_key_hash: keyHash,

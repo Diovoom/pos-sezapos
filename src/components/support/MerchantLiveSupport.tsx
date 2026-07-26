@@ -153,7 +153,6 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
     return () => {
       void supabase.removeChannel(tickets);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [identity.storeId]);
 
   useEffect(() => {
@@ -175,7 +174,6 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
     return () => {
       void supabase.removeChannel(notes);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
   const createTicket = useMutation({
@@ -299,7 +297,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium">
-                          #{ticket.ticket_number ?? "—"} · {ticket.subject}
+                          #{ticket.ticket_number ?? " - "} · {ticket.subject}
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
                           Updated{" "}
@@ -340,7 +338,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="font-mono text-xs text-muted-foreground">
-                      CASE #{selectedTicket.ticket_number ?? "—"}
+                      CASE #{selectedTicket.ticket_number ?? " - "}
                     </div>
                     <CardTitle>{selectedTicket.subject}</CardTitle>
                     <CardDescription>
@@ -477,7 +475,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="normal">Normal</SelectItem>
                   <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent — store cannot operate</SelectItem>
+                  <SelectItem value="urgent">Urgent - store cannot operate</SelectItem>
                 </SelectContent>
               </Select>
             </div>

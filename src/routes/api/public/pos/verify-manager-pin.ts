@@ -59,7 +59,7 @@ export const Route = createFileRoute("/api/public/pos/verify-manager-pin")({
         if (!action) return json({ error: "action is required" }, 400);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const admin: any = supabaseAdmin;
 
         const { data: userRes, error: userErr } = await supabaseAdmin.auth.getUser(token);
@@ -102,7 +102,7 @@ export const Route = createFileRoute("/api/public/pos/verify-manager-pin")({
           .eq("status", "active");
 
         const { verifyPin } = await import("@/lib/pin.server");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const match = (managers ?? []).find((m: any) => m.pin_hash && verifyPin(pin, m.pin_hash));
         if (!match) return deny("Incorrect manager PIN");
 

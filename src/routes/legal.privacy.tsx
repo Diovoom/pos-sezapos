@@ -6,7 +6,7 @@ import { privacyPolicy } from "@/lib/legal/docs/privacy";
 export const Route = createFileRoute("/legal/privacy")({
   head: () => ({
     meta: [
-      { title: "Privacy Policy — SEZA POS" },
+      { title: "Privacy Policy  -  SEZA POS" },
       { name: "description", content: privacyPolicy.summary },
     ],
     links: [{ rel: "canonical", href: "https://sezapos.com/legal/privacy" }],

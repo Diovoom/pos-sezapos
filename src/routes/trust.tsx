@@ -15,12 +15,12 @@ import {
 export const Route = createFileRoute("/trust")({
   head: () => ({
     meta: [
-      { title: "Trust Center — SEZA POS" },
+      { title: "Trust Center  -  SEZA POS" },
       {
         name: "description",
         content: `${LEGAL_CONFIG.companyName}'s Trust Center: security practices, compliance posture, system status, privacy, incident response, and responsible disclosure.`,
       },
-      { property: "og:title", content: "SEZA POS — Trust Center" },
+      { property: "og:title", content: "SEZA POS  -  Trust Center" },
       {
         property: "og:description",
         content: "Security, compliance, status, privacy, and incident response.",

@@ -27,7 +27,7 @@ const SITE_NAME = "SEZA POS";
 // It MUST match the subdomain delegated to the configured email provider nameservers. NEVER use the root domain.
 const SENDER_DOMAIN = "notify.sezapos.com";
 // FROM_DOMAIN is the domain shown in the From: header (e.g., "example.com").
-// Can be the root domain when display_from_root is enabled — this is cosmetic only.
+// Can be the root domain when display_from_root is enabled  -  this is cosmetic only.
 const FROM_DOMAIN = "sezapos.com";
 
 function redactEmail(email: string | null | undefined): string {
@@ -71,7 +71,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
         }
 
         // Verify the caller has a valid Supabase auth token.
-        // In TanStack, there is no Supabase gateway — we validate the JWT ourselves.
+        // In TanStack, there is no Supabase gateway  -  we validate the JWT ourselves.
         const authHeader = request.headers.get("Authorization");
         if (!authHeader?.startsWith("Bearer ")) {
           return jsonResponse({ error: "Unauthorized" }, { status: 401 });
@@ -127,7 +127,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
           return jsonResponse({ error: "templateName is required" }, { status: 400 });
         }
 
-        // 1. Look up template from registry (early — needed to resolve recipient)
+        // 1. Look up template from registry (early  -  needed to resolve recipient)
         const template = TEMPLATES[templateName];
 
         if (!template) {
@@ -162,7 +162,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
           .maybeSingle();
 
         if (suppressionError) {
-          console.error("Suppression check failed — refusing to send", {
+          console.error("Suppression check failed  -  refusing to send", {
             error: suppressionError,
             recipient_redacted: redactEmail(effectiveRecipient),
           });
@@ -215,7 +215,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
           // Reuse existing unused token
           unsubscribeToken = existingToken.token;
         } else if (!existingToken) {
-          // Create new token — upsert handles concurrent inserts gracefully
+          // Create new token  -  upsert handles concurrent inserts gracefully
           unsubscribeToken = generateToken();
           const { error: tokenError } = await supabase
             .from("email_unsubscribe_tokens")
@@ -262,7 +262,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
           }
           unsubscribeToken = storedToken.token;
         } else {
-          // Token exists but is already used — email should have been caught by suppression check above.
+          // Token exists but is already used  -  email should have been caught by suppression check above.
           // This is a safety fallback; log and skip sending.
           console.warn("Unsubscribe token already used but email not suppressed", {
             email_redacted: redactEmail(normalizedEmail),
@@ -282,7 +282,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
         const html = await render(element);
         const plainText = await render(element, { plainText: true });
 
-        // Resolve subject — supports static string or dynamic function
+        // Resolve subject  -  supports static string or dynamic function
         const resolvedSubject =
           typeof template.subject === "function"
             ? template.subject(templateData)

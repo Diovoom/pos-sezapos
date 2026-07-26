@@ -18,7 +18,7 @@ import { postTimeClockAction } from "@/lib/timeclock/client";
 import { logAudit } from "@/lib/audit-log";
 import { userFacingError } from "@/lib/user-error";
 
-// Native APK shell detection — Clock Out on the APK routes through the
+// Native APK shell detection  -  Clock Out on the APK routes through the
 // existing Shift Review flow when a register shift is open, and enforces
 // the offline-sale / payment-busy guardrails. Web POS behavior is unchanged.
 
@@ -28,7 +28,7 @@ const isNativeShell =
 export const Route = createFileRoute("/_pos/timeclock")({
   head: () => ({
     meta: [
-      { title: "Time Clock — SEZA POS" },
+      { title: "Time Clock  -  SEZA POS" },
       {
         name: "description",
         content: "Clock in, take breaks, and clock out for the current shift.",
@@ -59,7 +59,7 @@ export function TimeclockPage() {
   const userId = me.data?.user?.id ?? null;
 
   // Resolve THIS employee's own open register shift. Scoping by store alone
-  // could close a coworker's shift on a shared device — always narrow by
+  // could close a coworker's shift on a shared device  -  always narrow by
   // `opened_by = auth.uid()`. If more than one open shift matches (a stuck
   // record from a prior crash), refuse to auto-close and surface a clear
   // ambiguity error with a correlation ID; only a manager should intervene
@@ -84,7 +84,7 @@ export function TimeclockPage() {
           rows: cached && cached.opened_by === userId && cached.status === "open" ? [cached] : [],
         };
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const { data, error } = await (supabase as any)
         .from("register_sessions")
         .select("id, store_id, opened_by, opened_at, opening_cash, status, terminal_id")
@@ -114,7 +114,7 @@ export function TimeclockPage() {
     enabled: !!me.data?.user.id,
     queryFn: async () => {
       if (!isOnlineNow()) return (await readMeta<TimeEntry | null>("timeclock_open")) ?? null;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const { data, error } = await (supabase as any)
         .from("time_entries")
         .select("*")
@@ -138,7 +138,7 @@ export function TimeclockPage() {
     enabled: !!me.data?.user.id,
     queryFn: async () => {
       if (!isOnlineNow()) return (await readMeta<TimeEntry[]>("timeclock_history")) ?? [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const { data, error } = await (supabase as any)
         .from("time_entries")
         .select("*")
@@ -156,7 +156,6 @@ export function TimeclockPage() {
     enabled: !!canManage,
     queryKey: ["whosIn"],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase as any)
         .from("time_entries")
         .select("id, user_id, clock_in, break_start")
@@ -269,7 +268,9 @@ export function TimeclockPage() {
     networkMode: "always",
     mutationFn: () => applyClockAction("clock_in"),
     onSuccess: () => {
-      toast.success(isOnlineNow() ? "Clocked in" : "Clocked in offline — will sync automatically");
+      toast.success(
+        isOnlineNow() ? "Clocked in" : "Clocked in offline  -  will sync automatically",
+      );
       invalidate();
     },
     onError: (e) => toast.error(userFacingError(e, "Could not clock in. Try again.")),
@@ -280,7 +281,7 @@ export function TimeclockPage() {
     mutationFn: () => applyClockAction("clock_out"),
     onSuccess: () => {
       toast.success(
-        isOnlineNow() ? "Clocked out" : "Clocked out offline — will sync automatically",
+        isOnlineNow() ? "Clocked out" : "Clocked out offline  -  will sync automatically",
       );
       invalidate();
     },
@@ -343,7 +344,7 @@ export function TimeclockPage() {
         const flags = getNativeActivityFlags();
         if (flags.paymentBusy) {
           // Covers active payment, refund, void, and any unknown/unresolved
-          // tender — the register broadcasts paymentBusy for all of them
+          // tender  -  the register broadcasts paymentBusy for all of them
           // via useNativeActivitySignal. Recovery lives in the POS itself.
           toast.error(
             "A transaction is in progress. Complete or cancel it in the register before clocking out.",
@@ -352,7 +353,7 @@ export function TimeclockPage() {
         }
         if (flags.hasCart) {
           // Never silently discard a cart. Send the user back to the
-          // register — they can complete the sale or use the register's
+          // register  -  they can complete the sale or use the register's
           // existing (permission-gated) cancel flow, which already routes
           // through ManagerOverrideDialog for cashiers.
           toast.error(
@@ -361,7 +362,7 @@ export function TimeclockPage() {
           return;
         }
       } catch {
-        /* module unavailable — proceed */
+        /* module unavailable  -  proceed */
       }
 
       // If a register shift is open under THIS cashier, force Shift Review
@@ -544,7 +545,7 @@ export function TimeclockPage() {
                   </div>
                   <div className="text-right">
                     <div className="font-mono">
-                      {mins != null ? `${(mins / 60).toFixed(2)} h` : "—"}
+                      {mins != null ? `${(mins / 60).toFixed(2)} h` : " - "}
                     </div>
                     {(e.break_minutes ?? 0) > 0 && (
                       <div className="text-muted-foreground">Break {e.break_minutes}m</div>
@@ -558,7 +559,7 @@ export function TimeclockPage() {
       </div>
 
       {/*
-        Native-shell Shift Review — reuses the production CloseShiftDialog.
+        Native-shell Shift Review  -  reuses the production CloseShiftDialog.
         Clock-out runs inside `beforeSignOut`: shift closes first, then time
         entry closes with the authenticated session, then the dialog signs
         the cashier out and we route back to the PIN screen. If the register

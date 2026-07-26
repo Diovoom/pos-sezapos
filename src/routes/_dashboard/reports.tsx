@@ -47,13 +47,12 @@ import {
   Cell,
 } from "recharts";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = supabase as any;
 
 export const Route = createFileRoute("/_dashboard/reports")({
   head: () => ({
     meta: [
-      { title: "Reports — SEZA POS" },
+      { title: "Reports  -  SEZA POS" },
       {
         name: "description",
         content: "Sales, payments, taxes, and performance reports for your store.",
@@ -165,7 +164,7 @@ function ReportsPage() {
           .lte("created_at", bounds.to.toISOString())
           .order("created_at"),
       ]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const allSales = (salesRes.data ?? []) as any[];
       const completed = allSales.filter((s) => s.status === "completed");
 
@@ -214,7 +213,7 @@ function ReportsPage() {
           ).data ?? [])
         : [];
       const perProduct = new Map<string, { name: string; qty: number; revenue: number }>();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       for (const it of items as any[]) {
         const e = perProduct.get(it.product_name) ?? { name: it.product_name, qty: 0, revenue: 0 };
         e.qty += Number(it.quantity || 0);

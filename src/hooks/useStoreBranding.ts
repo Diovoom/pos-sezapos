@@ -60,7 +60,6 @@ export function useStoreBranding() {
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from as any)("stores")
         .select("id, name, logo_url, receipt_logo_url, pos_display_name")
         .eq("id", storeId)

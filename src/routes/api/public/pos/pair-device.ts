@@ -54,7 +54,7 @@ export const Route = createFileRoute("/api/public/pos/pair-device")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { hashPairingCode, generateDeviceSecret, hashDeviceSecret } =
           await import("@/lib/pos/device.server");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const admin: any = supabaseAdmin;
 
         const codeHash = hashPairingCode(codeRaw);

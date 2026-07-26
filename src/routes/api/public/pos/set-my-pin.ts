@@ -1,7 +1,7 @@
 // Public HTTPS endpoint for the bundled Android POS shell.
 //
 // Sets or clears the signed-in employee's 6-digit POS PIN. Requires a
-// valid Supabase bearer token in the Authorization header — we resolve
+// valid Supabase bearer token in the Authorization header  -  we resolve
 // the user via supabaseAdmin.auth.getUser(token) and update only that
 // user's own profile.pin_hash. Never trust a user_id from the body.
 import { createFileRoute } from "@tanstack/react-router";
@@ -57,7 +57,6 @@ export const Route = createFileRoute("/api/public/pos/set-my-pin")({
         if (uerr || !userRes.user) return json({ error: "Unauthorized" }, 401);
         const userId = userRes.user.id;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const admin: any = supabaseAdmin;
 
         const { data: prof, error: profileError } = await admin

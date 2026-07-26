@@ -6,13 +6,13 @@ import { Newspaper } from "lucide-react";
 export const Route = createFileRoute("/blog")({
   head: () => ({
     meta: [
-      { title: "Blog — SEZA POS" },
+      { title: "Blog  -  SEZA POS" },
       {
         name: "description",
         content:
           "Product updates, release notes, and articles for independent retailers from the SEZA POS team.",
       },
-      { property: "og:title", content: "SEZA POS — Blog" },
+      { property: "og:title", content: "SEZA POS  -  Blog" },
       {
         property: "og:description",
         content: "Product updates and articles for independent retailers.",
