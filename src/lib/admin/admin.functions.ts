@@ -1149,8 +1149,8 @@ export const adminRefreshSubscription = createServerFn({ method: "POST" })
         try {
           await supabaseAdmin.rpc("recompute_store_plan", { _store_id: sub.store_id });
         } catch {
-        // Plan recomputation is best-effort; the primary update already landed.
-      }
+          // Plan recomputation is best-effort; the primary update already landed.
+        }
       }
       await writeAudit(supabaseAdmin, {
         actor_id: context.userId,

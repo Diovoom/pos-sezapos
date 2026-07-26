@@ -14,13 +14,7 @@ const json = (data: unknown, status = 200) =>
   });
 
 const clean = (value: unknown, max: number) =>
-  typeof value === "string"
-    ? value
-        .trim()
-        .split("\u0000")
-        .join("")
-        .slice(0, max)
-    : "";
+  typeof value === "string" ? value.trim().split("\u0000").join("").slice(0, max) : "";
 
 const normalizePhone = (value: unknown) => {
   const raw = clean(value, 40);
