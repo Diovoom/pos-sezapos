@@ -117,20 +117,19 @@ function MorphingBrand({ progress }: { progress: number }) {
       to="/"
       resetScroll
       aria-label="SEZA POS home"
-      className="group flex h-12 items-center justify-center gap-2 overflow-hidden rounded-2xl px-1"
-      style={{ width: `${52 + 104 * progress}px` }}
+      className="group relative block h-12 w-[156px]"
     >
-      <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-blue-200 bg-blue-50 shadow-[0_10px_28px_-14px_rgba(37,99,235,0.75)] transition-transform duration-500 group-hover:scale-[1.03] dark:border-blue-400/20 dark:bg-blue-500/10">
+      <span
+        className="absolute top-0 grid size-12 place-items-center rounded-2xl border border-blue-200 bg-blue-50 shadow-[0_10px_28px_-14px_rgba(37,99,235,0.75)] transition-transform duration-150 group-hover:scale-[1.03] dark:border-blue-400/20 dark:bg-blue-500/10"
+        style={{ transform: `translateX(${54 * (1 - progress)}px)` }}
+      >
         <Logo className="size-9" alt="SEZA POS" />
       </span>
       <span
-        className={cn(
-          "whitespace-nowrap text-[16px] font-black tracking-[-0.035em] text-slate-950 dark:text-white",
-          progress <= 0.02 && "pointer-events-none",
-        )}
+        className="absolute left-[58px] top-1/2 -translate-y-1/2 whitespace-nowrap text-[16px] font-black tracking-[-0.035em] text-slate-950 dark:text-white"
         style={{
           opacity: progress,
-          transform: `translateX(${(1 - progress) * -14}px)`,
+          transform: `translateY(-50%) translateX(${10 * (1 - progress)}px)`,
         }}
       >
         SEZA POS
@@ -299,7 +298,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 aria-label="Close navigation menu"
                 className="grid size-12 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-sm dark:border-white/10 dark:bg-slate-900 dark:text-white"
               >
-                <X className="size-6" />
+                <MenuGlyph open />
               </button>
             </div>
           </SheetHeader>
@@ -555,9 +554,8 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                       </span>
                     </span>
                   </button>
-                  <Link
-                    to="/contact"
-                    resetScroll
+                  <a
+                    href="/contact#message-us"
                     onClick={() => setSalesOpen(false)}
                     className="flex min-h-16 items-center gap-4 rounded-2xl border border-slate-200 px-4 py-3 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:hover:bg-blue-500/10"
                   >
@@ -570,7 +568,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                         Tell us what kind of store you run
                       </span>
                     </span>
-                  </Link>
+                  </a>
                 </div>
               </section>
             </div>

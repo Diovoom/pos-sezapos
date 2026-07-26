@@ -1,61 +1,99 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Mail, PhoneCall, Clock, MapPin, Loader2, CheckCircle2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Loader2, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
-import { SocialLinks } from "@/components/marketing/SocialLinks";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact  -  SEZA POS" },
+      { title: "Contact SEZA POS" },
       {
         name: "description",
-        content:
-          "Talk to the SEZA POS team about pricing, hardware, migrations, or a demo. Send a message about pricing, hardware, migrations, or a demo.",
+        content: "Tell SEZA about your store, hardware needs, pricing questions, or demo request.",
       },
-      { property: "og:title", content: "Contact  -  SEZA POS" },
-      {
-        property: "og:description",
-        content:
-          "Talk to the SEZA POS team. Send a message about pricing, hardware, migrations, or a demo.",
-      },
-      { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://sezapos.com/contact" },
     ],
     links: [{ rel: "canonical", href: "https://sezapos.com/contact" }],
   }),
   component: ContactPage,
 });
 
+type ConsultationForm = {
+  name: string;
+  email: string;
+  business: string;
+  phone: string;
+  message: string;
+};
+
 function ContactPage() {
+  const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", business: "", message: "" });
+  const [form, setForm] = useState<ConsultationForm>({
+    name: "",
+    email: "",
+    business: "",
+    phone: "",
+    message: "",
+  });
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
-      toast.error("Please fill in name, email, and message");
+  useEffect(() => {
+    if (window.location.hash !== "#message-us") return;
+    window.requestAnimationFrame(() => {
+      document.getElementById("message-us")?.scrollIntoView({ behavior: "auto", block: "start" });
+    });
+  }, []);
+
+  const next = () => {
+    if (step === 1 && (!form.name.trim() || !form.email.trim())) {
+      toast.error("Enter your name and email to continue.");
       return;
     }
+    if (step === 2 && (!form.business.trim() || !form.phone.trim())) {
+      toast.error("Tell us your business name and phone number.");
+      return;
+    }
+    setStep((current) => Math.min(3, current + 1));
+  };
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.message.trim()) {
+      toast.error("Tell us how we can help.");
+      return;
+    }
+
     setBusy(true);
     try {
-      const subject = encodeURIComponent(
-        `Contact from ${form.name}${form.business ? ` (${form.business})` : ""}`,
-      );
-      const body = encodeURIComponent(
-        `Name: ${form.name}\nEmail: ${form.email}\nBusiness: ${form.business || " - "}\n\n${form.message}`,
-      );
-      window.location.href = `mailto:support@sezapos.com?subject=${subject}&body=${body}`;
+      const response = await fetch("/api/public/live-chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "start",
+          name: form.name,
+          phone: form.phone,
+          website: "",
+          message: [
+            "Consultation request",
+            `Email: ${form.email}`,
+            `Business: ${form.business}`,
+            "",
+            form.message,
+          ].join("\n"),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || "Unable to send your request.");
       setSent(true);
-      toast.success("Opening your email  -  send the message to reach us");
+      toast.success("Your request was sent to SEZA.");
+    } catch {
+      toast.error("We could not send that right now. Please call SEZA or try again shortly.");
     } finally {
       setBusy(false);
     }
@@ -63,86 +101,62 @@ function ContactPage() {
 
   return (
     <MarketingShell>
-      <section className="max-w-6xl mx-auto px-6 py-16">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold tracking-tight">Get in touch</h1>
-          <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
-            Questions about pricing, hardware, migrating from another POS, or a live demo - we're
-            happy to help.
-          </p>
-        </div>
-
-        <div className="grid gap-8 md:grid-cols-3">
-          <div className="md:col-span-1 space-y-4">
-            <div className="rounded-xl border p-5">
-              <PhoneCall className="h-5 w-5 text-primary" />
-              <div className="mt-2 font-medium">Customer service</div>
-              <a
-                href={`tel:${LEGAL_CONFIG.phone}`}
-                className="text-sm font-semibold text-primary hover:underline"
-              >
-                {LEGAL_CONFIG.phoneDisplay}
-              </a>
-              <p className="mt-1 text-xs text-muted-foreground">Tap the number to call SEZA.</p>
-            </div>
-            <div className="rounded-xl border p-5">
-              <Mail className="h-5 w-5 text-primary" />
-              <div className="mt-2 font-medium">Email</div>
-              <a href="mailto:support@sezapos.com" className="text-sm text-primary hover:underline">
-                support@sezapos.com
-              </a>
-            </div>
-            <div className="rounded-xl border p-5">
-              <Clock className="h-5 w-5 text-primary" />
-              <div className="mt-2 font-medium">Support hours</div>
-              <p className="text-sm text-muted-foreground">
-                Mon–Fri, 9am–6pm EST · We reply within one business day.
-              </p>
-            </div>
-
-            <div className="rounded-xl border p-5">
-              <MapPin className="h-5 w-5 text-primary" />
-              <div className="mt-2 font-medium">SEZA Technologies Inc.</div>
-              <p className="text-sm text-muted-foreground">Serving retailers worldwide</p>
-            </div>
-            <div className="rounded-xl border p-5">
-              <div className="font-medium">Follow SEZA POS</div>
-              <p className="mt-1 text-xs text-muted-foreground">Open our official social pages.</p>
-              <SocialLinks className="mt-4" />
-            </div>
+      <section id="message-us" className="scroll-mt-24 px-5 py-10 sm:py-16">
+        <div className="mx-auto max-w-xl">
+          <div className="text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
+              SEZA Sales
+            </p>
+            <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">
+              Tell us about your store
+            </h1>
+            <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-muted-foreground">
+              A few quick details help us recommend the right setup, hardware, and plan.
+            </p>
           </div>
 
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>Send us a message</CardTitle>
-              <CardDescription>
-                Messages are reviewed as soon as practical during normal support operations.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {sent ? (
-                <div className="text-center py-8">
-                  <CheckCircle2 className="h-10 w-10 text-primary mx-auto" />
-                  <p className="mt-3 font-medium">Message ready in your email app</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Didn't open?{" "}
-                    <a href="mailto:support@sezapos.com" className="text-primary hover:underline">
-                      Email us directly
-                    </a>
-                    .
-                  </p>
-                </div>
-              ) : (
-                <form onSubmit={submit} className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
+          <div className="mt-8 overflow-hidden rounded-[28px] border bg-card shadow-[0_24px_70px_-36px_rgba(15,23,42,0.45)]">
+            <div className="border-b px-6 py-5">
+              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                <span>Step {sent ? 3 : step} of 3</span>
+                <span>
+                  {sent
+                    ? "Complete"
+                    : step === 1
+                      ? "About you"
+                      : step === 2
+                        ? "Your business"
+                        : "Your request"}
+                </span>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-blue-100">
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-[width] duration-300"
+                  style={{ width: `${sent ? 100 : (step / 3) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            {sent ? (
+              <div className="px-6 py-12 text-center">
+                <CheckCircle2 className="mx-auto size-12 text-emerald-600" />
+                <h2 className="mt-4 text-2xl font-black">We received your request</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  A SEZA specialist will review your store details and follow up using the contact
+                  information you provided.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={submit} className="p-6">
+                {step === 1 && (
+                  <div className="space-y-5">
                     <div className="space-y-2">
                       <Label htmlFor="name">Your name</Label>
                       <Input
                         id="name"
-                        value={form.name}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        required
                         autoComplete="name"
+                        value={form.name}
+                        onChange={(event) => setForm({ ...form, name: event.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
@@ -150,39 +164,102 @@ function ContactPage() {
                       <Input
                         id="email"
                         type="email"
-                        value={form.email}
-                        onChange={(e) => setForm({ ...form, email: e.target.value })}
-                        required
                         autoComplete="email"
+                        value={form.email}
+                        onChange={(event) => setForm({ ...form, email: event.target.value })}
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="business">Business name (optional)</Label>
-                    <Input
-                      id="business"
-                      value={form.business}
-                      onChange={(e) => setForm({ ...form, business: e.target.value })}
-                      autoComplete="organization"
-                    />
+                )}
+
+                {step === 2 && (
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="business">Business name</Label>
+                      <Input
+                        id="business"
+                        autoComplete="organization"
+                        value={form.business}
+                        onChange={(event) => setForm({ ...form, business: event.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone number</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        autoComplete="tel"
+                        value={form.phone}
+                        onChange={(event) => setForm({ ...form, phone: event.target.value })}
+                      />
+                    </div>
                   </div>
+                )}
+
+                {step === 3 && (
                   <div className="space-y-2">
                     <Label htmlFor="message">How can we help?</Label>
                     <Textarea
                       id="message"
-                      rows={5}
+                      rows={6}
+                      placeholder="Tell us what you sell, how many registers you need, and any questions about hardware, pricing, or switching from another POS."
                       value={form.message}
-                      onChange={(e) => setForm({ ...form, message: e.target.value })}
-                      required
+                      onChange={(event) => setForm({ ...form, message: event.target.value })}
                     />
                   </div>
-                  <Button type="submit" className="w-full h-11" disabled={busy}>
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send message"}
-                  </Button>
-                </form>
-              )}
-            </CardContent>
-          </Card>
+                )}
+
+                <div className="mt-7 flex items-center gap-3">
+                  {step > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-12 w-14 rounded-2xl px-0"
+                      onClick={() => setStep((current) => current - 1)}
+                      aria-label="Previous step"
+                    >
+                      <ArrowLeft className="size-5" />
+                    </Button>
+                  )}
+                  {step < 3 ? (
+                    <Button
+                      type="button"
+                      className="h-12 flex-1 rounded-2xl text-base font-bold"
+                      onClick={next}
+                    >
+                      Continue <ArrowRight className="ml-2 size-5" />
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      className="h-12 flex-1 rounded-2xl text-base font-bold"
+                      disabled={busy}
+                    >
+                      {busy ? (
+                        <Loader2 className="size-5 animate-spin" />
+                      ) : (
+                        <>
+                          Send request <ArrowRight className="ml-2 size-5" />
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </form>
+            )}
+
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t bg-slate-50 px-5 py-3 text-xs text-slate-600 dark:bg-slate-900/60 dark:text-slate-300">
+              <span className="inline-flex items-center gap-1.5">
+                <Clock3 className="size-3.5" /> Call 9am to 5pm ET
+              </span>
+              <a
+                href={`tel:${LEGAL_CONFIG.phone}`}
+                className="inline-flex items-center gap-1.5 font-bold text-blue-700 hover:underline dark:text-blue-300"
+              >
+                <Phone className="size-3.5" /> {LEGAL_CONFIG.phoneDisplay}
+              </a>
+            </div>
+          </div>
         </div>
       </section>
     </MarketingShell>
