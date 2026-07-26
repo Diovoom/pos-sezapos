@@ -11,28 +11,22 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 
 const FALLBACK_SUPABASE_URL = "https://xbirnlsbckbcjbxqkmjn.supabase.co";
-const FALLBACK_SUPABASE_PUBLISHABLE_KEY =
-  "sb_publishable_D06VufRmNrbKI6Fe0OF70Q_Wzr5pkBn";
+const FALLBACK_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_D06VufRmNrbKI6Fe0OF70Q_Wzr5pkBn";
 const FALLBACK_SUPABASE_PROJECT_ID = "xbirnlsbckbcjbxqkmjn";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const supabaseUrl =
-    env.VITE_SUPABASE_URL || env.SUPABASE_URL || FALLBACK_SUPABASE_URL;
+  const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL || FALLBACK_SUPABASE_URL;
   const supabasePublishableKey =
     env.VITE_SUPABASE_PUBLISHABLE_KEY ||
     env.SUPABASE_PUBLISHABLE_KEY ||
     FALLBACK_SUPABASE_PUBLISHABLE_KEY;
   if (supabasePublishableKey.startsWith("sb_secret_")) {
-    throw new Error(
-      "Refusing to build the APK: a secret Supabase key was supplied.",
-    );
+    throw new Error("Refusing to build the APK: a secret Supabase key was supplied.");
   }
 
   const supabaseProjectId =
-    env.VITE_SUPABASE_PROJECT_ID ||
-    env.SUPABASE_PROJECT_ID ||
-    FALLBACK_SUPABASE_PROJECT_ID;
+    env.VITE_SUPABASE_PROJECT_ID || env.SUPABASE_PROJECT_ID || FALLBACK_SUPABASE_PROJECT_ID;
 
   return {
     root: path.resolve(__dirname, "capacitor-shell"),
@@ -42,12 +36,8 @@ export default defineConfig(({ mode }) => {
     base: "./",
     define: {
       "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(supabaseUrl),
-      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(
-        supabasePublishableKey,
-      ),
-      "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(
-        supabaseProjectId,
-      ),
+      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(supabasePublishableKey),
+      "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(supabaseProjectId),
     },
     resolve: {
       alias: [
@@ -57,24 +47,15 @@ export default defineConfig(({ mode }) => {
         },
         {
           find: /^@\/components\/pos\/ManagerOverrideDialog$/,
-          replacement: path.resolve(
-            __dirname,
-            "capacitor-shell/stubs/ManagerOverrideDialog.tsx",
-          ),
+          replacement: path.resolve(__dirname, "capacitor-shell/stubs/ManagerOverrideDialog.tsx"),
         },
         {
           find: /^@\/components\/SupportRequestListener$/,
-          replacement: path.resolve(
-            __dirname,
-            "capacitor-shell/stubs/SupportRequestListener.tsx",
-          ),
+          replacement: path.resolve(__dirname, "capacitor-shell/stubs/SupportRequestListener.tsx"),
         },
         {
           find: /^@\/components\/pos\/BarcodeScanner$/,
-          replacement: path.resolve(
-            __dirname,
-            "capacitor-shell/stubs/BarcodeScanner.tsx",
-          ),
+          replacement: path.resolve(__dirname, "capacitor-shell/stubs/BarcodeScanner.tsx"),
         },
         { find: "@", replacement: path.resolve(__dirname, "src") },
       ],
