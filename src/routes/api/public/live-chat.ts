@@ -31,31 +31,125 @@ async function hashValue(value: string) {
 async function findTicket(admin: any, token: string) {
   if (!token || token.length < 32 || token.length > 256) return null;
   const tokenHash = await hashValue(token);
-  const { data } = await admin
+
+  const enhanced = await admin
     .from("support_tickets")
     .select("*")
     .eq("guest_token_hash", tokenHash)
     .eq("source", "website_live_chat")
     .maybeSingle();
-  return data ?? null;
+  if (!enhanced.error && enhanced.data) return enhanced.data;
+
+  const fallback = await admin
+    .from("support_tickets")
+    .select("*")
+    .eq("requester_email", `website-chat:${tokenHash}`)
+    .maybeSingle();
+  return fallback.data ?? null;
 }
 
 async function publicMessages(admin: any, ticketId: string) {
-  const { data, error } = await admin
+  let result = await admin
     .from("support_ticket_notes")
-    .select("id,body,created_at,author_email,internal,sender_kind")
+    .select("id,body,created_at,author_email,author_id,internal,sender_kind")
     .eq("ticket_id", ticketId)
     .eq("internal", false)
     .order("created_at", { ascending: true })
     .limit(250);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((item: any) => ({
-    id: item.id,
-    body: item.body,
-    createdAt: item.created_at,
-    from: item.sender_kind === "admin" ? "agent" : "visitor",
-    author: item.sender_kind === "admin" ? item.author_email || "SEZA Support" : null,
-  }));
+
+  if (result.error) {
+    result = await admin
+      .from("support_ticket_notes")
+      .select("id,body,created_at,author_email,author_id,internal")
+      .eq("ticket_id", ticketId)
+      .eq("internal", false)
+      .order("created_at", { ascending: true })
+      .limit(250);
+  }
+  if (result.error) throw new Error(result.error.message);
+
+  return (result.data ?? []).map((item: any) => {
+    const fromAgent =
+      item.sender_kind === "admin" ||
+      Boolean(item.author_id) ||
+      !String(item.author_email ?? "").includes("website visitor");
+    return {
+      id: item.id,
+      body: item.body,
+      createdAt: item.created_at,
+      from: fromAgent ? "agent" : "visitor",
+      author: fromAgent ? item.author_email || "SEZA Support" : null,
+    };
+  });
+}
+
+async function createPublicTicket(
+  admin: any,
+  input: {
+    name: string;
+    phone: string;
+    message: string;
+    tokenHash: string;
+    ipHash: string;
+    now: string;
+  },
+) {
+  const enhanced = await admin
+    .from("support_tickets")
+    .insert({
+      subject: `Website live chat - ${input.name}`,
+      category: "website",
+      priority: "normal",
+      status: "open",
+      chat_status: "waiting",
+      last_message_at: input.now,
+      visitor_name: input.name,
+      visitor_phone: input.phone,
+      guest_token_hash: input.tokenHash,
+      visitor_ip_hash: input.ipHash,
+      source: "website_live_chat",
+      requester_email: `website-chat:${input.tokenHash}`,
+    })
+    .select("*")
+    .single();
+
+  if (!enhanced.error && enhanced.data) return enhanced.data;
+
+  const fallback = await admin
+    .from("support_tickets")
+    .insert({
+      subject: `Website live chat - ${input.name}`,
+      category: "website",
+      priority: "normal",
+      status: "open",
+      requester_email: `website-chat:${input.tokenHash}`,
+      resolution: `Visitor: ${input.name} | Phone: ${input.phone}`,
+    })
+    .select("*")
+    .single();
+  if (fallback.error) throw fallback.error;
+  return fallback.data;
+}
+
+async function insertVisitorMessage(admin: any, ticketId: string, name: string, message: string) {
+  const enhanced = await admin.from("support_ticket_notes").insert({
+    ticket_id: ticketId,
+    author_id: null,
+    author_email: `${name} (website visitor)`,
+    body: message,
+    internal: false,
+    sender_kind: "visitor",
+  });
+  if (!enhanced.error) return;
+
+  const fallback = await admin.from("support_ticket_notes").insert({
+    ticket_id: ticketId,
+    author_id: null,
+    author_email: `${name} (website visitor)`,
+    body: message,
+    internal: false,
+  });
+  if (fallback.error) throw fallback.error;
 }
 
 export const Route = createFileRoute("/api/public/live-chat")({
@@ -103,13 +197,13 @@ export const Route = createFileRoute("/api/public/live-chat")({
           const ip = forwarded.split(",")[0]?.trim() || "unknown";
           const ipHash = await hashValue(ip);
           const tenMinutesAgo = new Date(Date.now() - 10 * 60_000).toISOString();
-          const { count } = await admin
+          const recent = await admin
             .from("support_tickets")
             .select("id", { count: "exact", head: true })
             .eq("source", "website_live_chat")
             .eq("visitor_ip_hash", ipHash)
             .gte("created_at", tenMinutesAgo);
-          if ((count ?? 0) >= 5) {
+          if (!recent.error && (recent.count ?? 0) >= 5) {
             return json(
               { error: "Too many chat requests. Please wait a few minutes and try again." },
               429,
@@ -120,39 +214,19 @@ export const Route = createFileRoute("/api/public/live-chat")({
           const token = randomBytes(32).toString("hex");
           const tokenHash = await hashValue(token);
           const now = new Date().toISOString();
-          const { data: ticket, error: ticketError } = await admin
-            .from("support_tickets")
-            .insert({
-              subject: `Website live chat  -  ${name}`,
-              category: "website",
-              priority: "normal",
-              status: "open",
-              chat_status: "waiting",
-              last_message_at: now,
-              visitor_name: name,
-              visitor_phone: phone,
-              guest_token_hash: tokenHash,
-              visitor_ip_hash: ipHash,
-              source: "website_live_chat",
-            })
-            .select("id,ticket_number,chat_status,status,visitor_name")
-            .single();
-          if (ticketError || !ticket)
-            return json(
-              { error: "Live chat is temporarily unavailable. Please try again shortly." },
-              503,
-            );
-
-          const { error: noteError } = await admin.from("support_ticket_notes").insert({
-            ticket_id: ticket.id,
-            author_id: null,
-            author_email: `${name} (website visitor)`,
-            body: message,
-            internal: false,
-            sender_kind: "visitor",
-          });
-          if (noteError) {
-            await admin.from("support_tickets").delete().eq("id", ticket.id);
+          let ticket: any;
+          try {
+            ticket = await createPublicTicket(admin, {
+              name,
+              phone,
+              message,
+              tokenHash,
+              ipHash,
+              now,
+            });
+            await insertVisitorMessage(admin, ticket.id, name, message);
+          } catch {
+            if (ticket?.id) await admin.from("support_tickets").delete().eq("id", ticket.id);
             return json(
               { error: "Live chat is temporarily unavailable. Please try again shortly." },
               503,
@@ -164,7 +238,7 @@ export const Route = createFileRoute("/api/public/live-chat")({
             token,
             ticketId: ticket.id,
             ticketNumber: ticket.ticket_number,
-            chatStatus: ticket.chat_status,
+            chatStatus: ticket.chat_status ?? "waiting",
             visitorName: name,
             messages: [
               {
@@ -203,17 +277,17 @@ export const Route = createFileRoute("/api/public/live-chat")({
           const message = clean(body.message, 3000);
           if (!message) return json({ error: "Write a message first." }, 400);
           const now = new Date().toISOString();
-          const { error } = await admin.from("support_ticket_notes").insert({
-            ticket_id: ticket.id,
-            author_id: null,
-            author_email: `${ticket.visitor_name || "Website visitor"} (website visitor)`,
-            body: message,
-            internal: false,
-            sender_kind: "visitor",
-          });
-          if (error)
+          try {
+            await insertVisitorMessage(
+              admin,
+              ticket.id,
+              ticket.visitor_name || "Website visitor",
+              message,
+            );
+          } catch {
             return json({ error: "Your message could not be sent. Please try again." }, 503);
-          await admin
+          }
+          const enhancedUpdate = await admin
             .from("support_tickets")
             .update({
               chat_status: ticket.chat_status === "waiting" ? "waiting" : "active",
@@ -222,6 +296,9 @@ export const Route = createFileRoute("/api/public/live-chat")({
               updated_at: now,
             })
             .eq("id", ticket.id);
+          if (enhancedUpdate.error) {
+            await admin.from("support_tickets").update({ updated_at: now }).eq("id", ticket.id);
+          }
           return json({ ok: true, messages: await publicMessages(admin, ticket.id) });
         }
 

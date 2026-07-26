@@ -1414,14 +1414,24 @@ export const adminSendSupportMessage = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!ticket) throw new Error("Support case not found");
 
-    const { error } = await supabaseAdmin.from("support_ticket_notes").insert({
+    const enhancedMessage = await (supabaseAdmin.from as any)("support_ticket_notes").insert({
       ticket_id: data.ticketId,
       author_id: context.userId,
       author_email: identity.email || null,
       body,
       internal: Boolean(data.internal),
+      sender_kind: "admin",
     });
-    if (error) throw new Error(error.message);
+    if (enhancedMessage.error) {
+      const fallbackMessage = await supabaseAdmin.from("support_ticket_notes").insert({
+        ticket_id: data.ticketId,
+        author_id: context.userId,
+        author_email: identity.email || null,
+        body,
+        internal: Boolean(data.internal),
+      });
+      if (fallbackMessage.error) throw new Error(fallbackMessage.error.message);
+    }
 
     if (!data.internal) {
       const patch: Record<string, unknown> = {

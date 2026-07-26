@@ -77,6 +77,7 @@ import {
   purgeIfStoreChanged,
   cacheMeta,
   readMeta,
+  deleteMeta,
   OFFLINE_PAYLOAD_VERSION,
   type CachedProduct,
 } from "@/lib/offline/db";
@@ -202,6 +203,7 @@ export function PosPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const scannerBufferRef = useRef("");
   const scannerLastKeyAtRef = useRef(0);
+  const cartDraftReadyRef = useRef(false);
   const me = useMe();
   const perms = usePermissions();
   // Trusted permission system only  -  no role-name fallback. Owners and
@@ -250,6 +252,32 @@ export function PosPage() {
       }
     },
   });
+
+  useEffect(() => {
+    cartDraftReadyRef.current = false;
+    if (!store?.id) return;
+    let cancelled = false;
+    void readMeta<CartLine[]>(`cart_draft:${store.id}`)
+      .then((draft) => {
+        if (cancelled) return;
+        if (Array.isArray(draft) && draft.length > 0) setCart(draft);
+      })
+      .finally(() => {
+        if (!cancelled) cartDraftReadyRef.current = true;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store?.id]);
+
+  useEffect(() => {
+    if (!store?.id || !cartDraftReadyRef.current) return;
+    const timer = window.setTimeout(() => {
+      if (cart.length === 0) void deleteMeta(`cart_draft:${store.id}`);
+      else void cacheMeta(`cart_draft:${store.id}`, cart);
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [cart, store?.id]);
 
   const { data: profile } = useQuery<any>({
     queryKey: ["me-profile"],
@@ -472,6 +500,7 @@ export function PosPage() {
   const removeLine = (id: string) => setCart((cur) => cur.filter((l) => l.product.id !== id));
   const clearCart = () => {
     setCart([]);
+    if (store?.id) void deleteMeta(`cart_draft:${store.id}`);
     setAgeVerification(null);
     setDiscount(null);
     setLoyalty(null);
@@ -555,10 +584,12 @@ export function PosPage() {
           "Checkout is locked because this terminal has unsynced records from another store. Open Pending Sync or contact support.",
         );
       }
-      // ---- OFFLINE CASH PATH ---------------------------------------------
-      // When offline, only cash is allowed. Save to IndexedDB, mark
-      // Pending sync, and produce a local receipt. Never call the network.
-      if (!isOnlineNow() && payment.method === "cash") {
+      // ---- LOCAL-FIRST CASH PATH -----------------------------------------
+      // Cash checkout commits to the register first, even while online. The
+      // durable queue then synchronizes one atomic sale in the background.
+      // This keeps checkout fast and prevents a cloud interruption from
+      // losing an already accepted cash payment.
+      if (payment.method === "cash") {
         // getSession() reads from local storage (no network). getUser()
         // hits /auth/v1/user and stalls / fails while offline, which
         // previously prevented the sale from ever persisting.
@@ -618,7 +649,8 @@ export function PosPage() {
             id: localId,
             receipt_number: `LOCAL-${seq}`,
             created_at: new Date().toISOString(),
-            _offline: true,
+            _offline: !isOnlineNow(),
+            _localFirst: true,
           },
           payment,
         };
@@ -723,6 +755,7 @@ export function PosPage() {
     },
     onSuccess: ({ sale, payment }) => {
       const isOffline = (sale as any)._offline === true;
+      const isLocalFirst = (sale as any)._localFirst === true;
       const rd: ReceiptData = {
         store: store ?? {},
         receiptNumber: sale.receipt_number ?? sale.id.slice(0, 8),
@@ -745,9 +778,9 @@ export function PosPage() {
         changeDue: payment.changeDue,
         cardBrand: payment.cardBrand,
         last4: payment.last4,
-        reference: isOffline ? null : payment.reference,
+        reference: isLocalFirst ? null : payment.reference,
         paymentAllocations: payment.allocations,
-        pendingSync: isOffline,
+        pendingSync: isLocalFirst,
       };
       setReceipt(rd);
       setReceiptOpen(true);
@@ -780,8 +813,10 @@ export function PosPage() {
       window.setTimeout(() => setDisplayCompletion(null), 4_500);
       toast.success(
         isOffline
-          ? `Offline sale saved · ${fmtCurrency(total, currency)}  -  will sync when online`
-          : `Sale completed · ${fmtCurrency(total, currency)}`,
+          ? `Offline sale saved · ${fmtCurrency(total, currency)}. It will sync when online.`
+          : isLocalFirst
+            ? `Sale completed · ${fmtCurrency(total, currency)}. Syncing securely.`
+            : `Sale completed · ${fmtCurrency(total, currency)}`,
       );
       if (loyalty) {
         if (effectiveLoyaltyRedemption > 0) {
@@ -792,7 +827,7 @@ export function PosPage() {
           toast.info(`+${loyaltyEarn} loyalty points earned`);
         }
       }
-      if (!isOffline) {
+      if (!isLocalFirst) {
         // Fire-and-forget: audit log failure must NOT cancel the sale.
         void import("@/lib/audit-log")
           .then((m) =>

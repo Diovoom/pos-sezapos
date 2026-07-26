@@ -92,7 +92,7 @@ async function syncSale(sale: OfflineSale): Promise<void> {
       provider: null,
       provider_reference: null,
       status: "completed",
-      metadata: { offline: true, device_id: sale.device_id },
+      metadata: { local_first: true, device_id: sale.device_id },
     },
   ];
 

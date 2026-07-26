@@ -102,7 +102,8 @@ function SupportPage() {
   const countsQ = useQuery({
     queryKey: ["admin_ticket_counts"],
     queryFn: () => counts({}),
-    refetchInterval: 60_000,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
   });
   const agentsQ = useQuery({
     queryKey: ["admin_support_agents"],
@@ -124,6 +125,8 @@ function SupportPage() {
         },
       }),
     placeholderData: keepPreviousData,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
   });
 
   const [open, setOpen] = useState(false);

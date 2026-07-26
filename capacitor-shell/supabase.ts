@@ -27,6 +27,21 @@ if (SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_")) {
   );
 }
 
+
+export function assertNativeSupabaseConfiguration(): void {
+  if (!/^https:\/\//i.test(SUPABASE_URL)) {
+    throw new Error("SEZA Android configuration error: invalid Supabase URL.");
+  }
+  if (!SUPABASE_PUBLISHABLE_KEY) {
+    throw new Error("SEZA Android configuration error: missing Supabase publishable key.");
+  }
+  if (SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_")) {
+    throw new Error(
+      "SEZA Android security error: a secret Supabase key cannot be bundled in the APK.",
+    );
+  }
+}
+
 function isOpaqueKey(v: string) {
   return v.startsWith("sb_publishable_") || v.startsWith("sb_secret_");
 }

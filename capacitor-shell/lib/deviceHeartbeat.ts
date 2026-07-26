@@ -6,8 +6,13 @@ import { loadScannerConfig } from "./scannerConfig";
 import * as escposBle from "@/lib/hardware/escpos-ble";
 import * as stripeTerminal from "@/lib/hardware/terminal-stripe";
 
-let timer: ReturnType<typeof setInterval> | null = null;
+const FOREGROUND_INTERVAL_MS = 5 * 60_000;
+const MAX_SILENCE_MS = 15 * 60_000;
+let timer: ReturnType<typeof setTimeout> | null = null;
 let sending = false;
+let stopped = false;
+let lastSentAt = 0;
+let lastSnapshotKey = "";
 
 async function appVersion(): Promise<string> {
   try {
@@ -25,8 +30,16 @@ async function buildSnapshot() {
   const savedPrinter = escposBle.getSavedTarget();
   let terminalPlugin: boolean | null = null;
   let tapToPay: boolean | null = null;
-  try { terminalPlugin = await stripeTerminal.pluginAvailable(); } catch { /* noop */ }
-  try { tapToPay = await stripeTerminal.isTapToPaySupported(); } catch { /* noop */ }
+  try {
+    terminalPlugin = await stripeTerminal.pluginAvailable();
+  } catch {
+    // Optional native terminal plugin.
+  }
+  try {
+    tapToPay = await stripeTerminal.isTapToPaySupported();
+  } catch {
+    // Optional device capability.
+  }
   const activeTerminal = getActiveTerminal();
 
   return {
@@ -68,13 +81,27 @@ async function buildSnapshot() {
   };
 }
 
-export async function sendDeviceHeartbeat() {
-  if (sending) return;
+function stableSnapshotKey(snapshot: Awaited<ReturnType<typeof buildSnapshot>>): string {
+  const { captured_at: _capturedAt, ...stable } = snapshot;
+  return JSON.stringify(stable);
+}
+
+export async function sendDeviceHeartbeat(force = false) {
+  if (sending || stopped) return;
+  if (typeof document !== "undefined" && document.visibilityState === "hidden" && !force) return;
+  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+
   const pairing = getPairing();
   if (!pairing) return;
+
+  const snapshot = await buildSnapshot();
+  const key = stableSnapshotKey(snapshot);
+  const now = Date.now();
+  if (!force && key === lastSnapshotKey && now - lastSentAt < MAX_SILENCE_MS) return;
+
   sending = true;
   try {
-    await fetch(`${API_BASE_URL}/api/public/pos/device-heartbeat`, {
+    const response = await fetch(`${API_BASE_URL}/api/public/pos/device-heartbeat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -82,32 +109,60 @@ export async function sendDeviceHeartbeat() {
         device_id: pairing.deviceId,
         device_secret: pairing.deviceSecret,
         app_version: await appVersion(),
-        status_snapshot: await buildSnapshot(),
+        status_snapshot: snapshot,
       }),
     });
+    if (response.ok) {
+      lastSnapshotKey = key;
+      lastSentAt = now;
+    }
   } catch {
-    // Heartbeat is diagnostic only and must never block POS usage.
+    // Diagnostic only. Never block checkout.
   } finally {
     sending = false;
   }
 }
 
+function scheduleNext() {
+  if (stopped || typeof document === "undefined" || document.visibilityState === "hidden") return;
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(async () => {
+    await sendDeviceHeartbeat();
+    scheduleNext();
+  }, FOREGROUND_INTERVAL_MS);
+}
+
 export function startDeviceHeartbeat() {
   if (typeof window === "undefined") return () => {};
-  if (timer) clearInterval(timer);
-  void sendDeviceHeartbeat();
-  timer = setInterval(() => void sendDeviceHeartbeat(), 30_000);
-  const refresh = () => void sendDeviceHeartbeat();
-  window.addEventListener("online", refresh);
-  window.addEventListener("offline", refresh);
-  window.addEventListener("focus", refresh);
-  window.addEventListener("seza:device-config-changed", refresh as EventListener);
+  stopped = false;
+  void sendDeviceHeartbeat(true);
+  scheduleNext();
+
+  const onOnline = () => void sendDeviceHeartbeat(true);
+  const onFocus = () => void sendDeviceHeartbeat();
+  const onConfigChanged = () => void sendDeviceHeartbeat(true);
+  const onVisibility = () => {
+    if (document.visibilityState === "visible") {
+      void sendDeviceHeartbeat();
+      scheduleNext();
+    } else if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  window.addEventListener("online", onOnline);
+  window.addEventListener("focus", onFocus);
+  window.addEventListener("seza:device-config-changed", onConfigChanged as EventListener);
+  document.addEventListener("visibilitychange", onVisibility);
+
   return () => {
-    if (timer) clearInterval(timer);
+    stopped = true;
+    if (timer) clearTimeout(timer);
     timer = null;
-    window.removeEventListener("online", refresh);
-    window.removeEventListener("offline", refresh);
-    window.removeEventListener("focus", refresh);
-    window.removeEventListener("seza:device-config-changed", refresh as EventListener);
+    window.removeEventListener("online", onOnline);
+    window.removeEventListener("focus", onFocus);
+    window.removeEventListener("seza:device-config-changed", onConfigChanged as EventListener);
+    document.removeEventListener("visibilitychange", onVisibility);
   };
 }

@@ -112,25 +112,27 @@ function MenuGlyph({ open }: { open: boolean }) {
   );
 }
 
-function MorphingBrand({ expanded }: { expanded: boolean }) {
+function MorphingBrand({ progress }: { progress: number }) {
   return (
     <Link
       to="/"
       resetScroll
       aria-label="SEZA POS home"
-      className={cn(
-        "group flex h-12 items-center justify-center gap-2 overflow-hidden rounded-2xl px-1 transition-all duration-500 ease-out",
-        expanded ? "w-[148px]" : "w-12",
-      )}
+      className="group flex h-12 items-center justify-center gap-2 overflow-hidden rounded-2xl px-1"
+      style={{ width: `${48 + 100 * progress}px` }}
     >
       <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_28px_-14px_rgba(37,99,235,0.65)] transition-transform duration-500 group-hover:scale-[1.03] dark:border-white/10 dark:bg-slate-900">
         <Logo className="size-8" alt="SEZA POS" />
       </span>
       <span
         className={cn(
-          "whitespace-nowrap text-[16px] font-black tracking-[-0.035em] text-slate-950 transition-all duration-500 dark:text-white",
-          expanded ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-2 opacity-0",
+          "whitespace-nowrap text-[16px] font-black tracking-[-0.035em] text-slate-950 dark:text-white",
+          progress <= 0.02 && "pointer-events-none",
         )}
+        style={{
+          opacity: progress,
+          transform: `translateX(${(1 - progress) * -14}px)`,
+        }}
       >
         SEZA POS
       </span>
@@ -159,16 +161,42 @@ export function MarketingShell({ children }: { children: ReactNode }) {
   const locationHref = useRouterState({ select: (state) => state.location.href });
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const [homeScrollProgress, setHomeScrollProgress] = useState(0);
   const [supportVisible, setSupportVisible] = useState(true);
   const [supportOpen, setSupportOpen] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    if (pathname !== "/") {
+      setHomeScrollProgress(1);
+      return;
+    }
+
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const top = Math.max(
+        window.scrollY || 0,
+        document.documentElement.scrollTop || 0,
+        document.body.scrollTop || 0,
+      );
+      setHomeScrollProgress(Math.min(1, Math.max(0, top / 120)));
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", schedule, { passive: true });
+    document.addEventListener("scroll", schedule, { passive: true, capture: true });
+    window.visualViewport?.addEventListener("scroll", schedule, { passive: true });
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      document.removeEventListener("scroll", schedule, true);
+      window.visualViewport?.removeEventListener("scroll", schedule);
+    };
+  }, [pathname]);
 
   useBrowserLayoutEffect(() => {
     setMobileOpen(false);
@@ -249,7 +277,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="flex min-w-0 items-center justify-center">
-            <MorphingBrand expanded={scrolled} />
+            <MorphingBrand progress={homeScrollProgress} />
           </div>
 
           <div className="flex items-center justify-end gap-2">

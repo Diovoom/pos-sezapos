@@ -198,6 +198,11 @@ export async function readMeta<T = unknown>(key: string): Promise<T | undefined>
   return (await db.get("meta", key)) as T | undefined;
 }
 
+export async function deleteMeta(key: string) {
+  const db = await getDB();
+  await db.delete("meta", key);
+}
+
 /* ---------- sales queue ---------- */
 export async function saveOfflineSale(sale: OfflineSale) {
   const db = await getDB();
