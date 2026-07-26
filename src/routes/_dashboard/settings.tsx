@@ -1147,7 +1147,6 @@ function UnifiedReceiptPanel() {
   );
 }
 
-
 function PrinterCompatibilityPanel() {
   return (
     <div className="space-y-4 max-w-3xl">
@@ -1308,8 +1307,7 @@ function CameraPanel() {
 function CustomerDisplayPanel() {
   const { data: store } = useQuery({
     queryKey: ["store"],
-    queryFn: async () =>
-      (await supabase.from("stores").select("id").limit(1).maybeSingle()).data,
+    queryFn: async () => (await supabase.from("stores").select("id").limit(1).maybeSingle()).data,
   });
 
   const openCustomerDisplay = () => {
@@ -1328,9 +1326,7 @@ function CustomerDisplayPanel() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Button onClick={openCustomerDisplay}>
-            Open customer display window
-          </Button>
+          <Button onClick={openCustomerDisplay}>Open customer display window</Button>
           <p className="text-xs text-muted-foreground">
             Move the window to the customer-facing screen, then use fullscreen for the best view.
           </p>

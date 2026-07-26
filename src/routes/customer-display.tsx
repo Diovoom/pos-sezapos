@@ -147,7 +147,9 @@ function CustomerDisplayPage() {
           ) : null}
           <div>
             <h1 className="text-3xl md:text-5xl font-bold">{sale.storeName}</h1>
-            <p className="mt-2 text-sm uppercase tracking-[0.22em] text-white/55">Customer display</p>
+            <p className="mt-2 text-sm uppercase tracking-[0.22em] text-white/55">
+              Customer display
+            </p>
           </div>
         </div>
         <div className="text-right">
@@ -174,7 +176,9 @@ function CustomerDisplayPage() {
               </p>
               {sale.changeDue != null && sale.changeDue > 0 ? (
                 <div className="mt-6 rounded-xl border border-emerald-300/25 bg-emerald-300/10 px-8 py-4">
-                  <p className="text-sm uppercase tracking-[0.2em] text-emerald-200/70">Change due</p>
+                  <p className="text-sm uppercase tracking-[0.2em] text-emerald-200/70">
+                    Change due
+                  </p>
                   <p className="mt-1 text-4xl font-mono font-black text-emerald-200">
                     {fmtCurrency(sale.changeDue, sale.currency)}
                   </p>
@@ -190,7 +194,6 @@ function CustomerDisplayPage() {
             <div>
               <p className="text-3xl font-semibold">Welcome</p>
               <p className="mt-3 text-lg text-white/55">Your items will appear here.</p>
-
             </div>
           </div>
         ) : (
