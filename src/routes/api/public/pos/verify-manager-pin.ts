@@ -44,10 +44,17 @@ export const Route = createFileRoute("/api/public/pos/verify-manager-pin")({
         if (!token) return json({ error: "Unauthorized" }, 401);
 
         let body: { pin?: unknown; action?: unknown; details?: unknown };
-        try { body = await request.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400);
+        }
         const pin = typeof body.pin === "string" ? body.pin : "";
         const action = typeof body.action === "string" ? body.action : "";
-        const details = body.details && typeof body.details === "object" ? (body.details as Record<string, unknown>) : {};
+        const details =
+          body.details && typeof body.details === "object"
+            ? (body.details as Record<string, unknown>)
+            : {};
         if (!/^\d{4,8}$/.test(pin)) return json({ error: "Invalid PIN" }, 400);
         if (!action) return json({ error: "action is required" }, 400);
 
@@ -59,7 +66,11 @@ export const Route = createFileRoute("/api/public/pos/verify-manager-pin")({
         if (userErr || !userRes.user) return json({ error: "Unauthorized" }, 401);
         const callerId = userRes.user.id;
 
-        const { data: caller } = await admin.from("profiles").select("store_id").eq("id", callerId).maybeSingle();
+        const { data: caller } = await admin
+          .from("profiles")
+          .select("store_id")
+          .eq("id", callerId)
+          .maybeSingle();
         const storeId = caller?.store_id ?? null;
 
         const deny = async (reason: string) => {
@@ -70,14 +81,18 @@ export const Route = createFileRoute("/api/public/pos/verify-manager-pin")({
               entity: "manager_override",
               details: { requested_action: action, reason, channel: "native_shell", ...details },
             });
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
           return json({ error: reason }, 401);
         };
 
         const rolesQ = admin.from("user_roles").select("user_id, role").in("role", MANAGER_ROLES);
         if (storeId) rolesQ.eq("store_id", storeId);
         const { data: roleRows } = await rolesQ;
-        const managerIds = Array.from(new Set(((roleRows ?? []) as { user_id: string }[]).map((r) => r.user_id)));
+        const managerIds = Array.from(
+          new Set(((roleRows ?? []) as { user_id: string }[]).map((r) => r.user_id)),
+        );
         if (managerIds.length === 0) return deny("No managers configured for this store");
 
         const { data: managers } = await admin
@@ -105,7 +120,9 @@ export const Route = createFileRoute("/api/public/pos/verify-manager-pin")({
               ...details,
             },
           });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         return json({
           manager_id: match.id as string,

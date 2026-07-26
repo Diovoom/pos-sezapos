@@ -191,7 +191,10 @@ export async function enforceRateLimit(options: RateLimitOptions): Promise<RateL
 export function rateLimitResponse(error: unknown): Response | null {
   if (!(error instanceof RateLimitError)) return null;
   return Response.json(
-    { error: "Too many requests. Please try again later.", retry_after_seconds: error.retryAfterSeconds },
+    {
+      error: "Too many requests. Please try again later.",
+      retry_after_seconds: error.retryAfterSeconds,
+    },
     {
       status: 429,
       headers: {

@@ -89,7 +89,15 @@ export function useAdminPermissions() {
       }
       const has = (p: string) => isSuper || perms.has(p) || perms.has("*");
       const hasAny = (ps: string[]) => ps.some(has);
-      return { roles: myRoles, email, isSuperAdmin: isSuper, isFounder, permissions: perms, has, hasAny };
+      return {
+        roles: myRoles,
+        email,
+        isSuperAdmin: isSuper,
+        isFounder,
+        permissions: perms,
+        has,
+        hasAny,
+      };
     },
     staleTime: 60_000,
   });

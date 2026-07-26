@@ -10,7 +10,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
@@ -34,18 +40,19 @@ const DEFAULTS: BusinessesSearch = {
 
 export const Route = createFileRoute("/_adminApp/admin/businesses/")({
   head: () => ({
-    meta: [
-      { title: "Businesses — SEZA Admin" },
-      { name: "robots", content: "noindex, nofollow" },
-    ],
+    meta: [{ title: "Businesses — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   validateSearch: (raw: Record<string, unknown>): BusinessesSearch => ({
     q: typeof raw.q === "string" ? raw.q : DEFAULTS.q,
     filter: typeof raw.filter === "string" ? raw.filter : DEFAULTS.filter,
     sortBy: typeof raw.sortBy === "string" ? raw.sortBy : DEFAULTS.sortBy,
     sortDir: raw.sortDir === "asc" ? "asc" : "desc",
-    page: Number.isFinite(Number(raw.page)) ? Math.max(1, Math.floor(Number(raw.page))) : DEFAULTS.page,
-    pageSize: Number.isFinite(Number(raw.pageSize)) ? Math.floor(Number(raw.pageSize)) : DEFAULTS.pageSize,
+    page: Number.isFinite(Number(raw.page))
+      ? Math.max(1, Math.floor(Number(raw.page)))
+      : DEFAULTS.page,
+    pageSize: Number.isFinite(Number(raw.pageSize))
+      ? Math.floor(Number(raw.pageSize))
+      : DEFAULTS.pageSize,
   }),
   component: BusinessesPage,
 });
@@ -115,7 +122,9 @@ function BusinessesPage() {
 
   // Clamp/validate search-param values in the component per search-params rules.
   const filter = FILTERS.some((f) => f.value === rawSearch.filter) ? rawSearch.filter : "all";
-  const sortBy = SORT_COLUMNS.some((c) => c.key === rawSearch.sortBy) ? rawSearch.sortBy : "created_at";
+  const sortBy = SORT_COLUMNS.some((c) => c.key === rawSearch.sortBy)
+    ? rawSearch.sortBy
+    : "created_at";
   const sortDir: "asc" | "desc" = rawSearch.sortDir === "asc" ? "asc" : "desc";
   const page = Math.max(1, Math.min(9999, rawSearch.page || 1));
   const pageSize = PAGE_SIZES.includes(rawSearch.pageSize) ? rawSearch.pageSize : 25;
@@ -123,7 +132,9 @@ function BusinessesPage() {
 
   // Local input state so typing doesn't refetch on every keystroke.
   const [searchInput, setSearchInput] = useState(q);
-  useEffect(() => { setSearchInput(q); }, [q]);
+  useEffect(() => {
+    setSearchInput(q);
+  }, [q]);
   useEffect(() => {
     const t = window.setTimeout(() => {
       if (searchInput === q) return;
@@ -162,7 +173,10 @@ function BusinessesPage() {
   };
 
   const setFilter = (v: string) => {
-    navigate({ search: (prev: BusinessesSearch) => ({ ...prev, filter: v, page: 1 }), replace: true });
+    navigate({
+      search: (prev: BusinessesSearch) => ({ ...prev, filter: v, page: 1 }),
+      replace: true,
+    });
   };
 
   const setPage = (p: number) => {
@@ -170,13 +184,23 @@ function BusinessesPage() {
   };
 
   const setPageSize = (n: number) => {
-    navigate({ search: (prev: BusinessesSearch) => ({ ...prev, pageSize: n, page: 1 }), replace: true });
+    navigate({
+      search: (prev: BusinessesSearch) => ({ ...prev, pageSize: n, page: 1 }),
+      replace: true,
+    });
   };
 
   const clearAll = () => {
     setSearchInput("");
     navigate({
-      search: () => ({ q: "", filter: "all", sortBy: "created_at", sortDir: "desc", page: 1, pageSize: 25 }),
+      search: () => ({
+        q: "",
+        filter: "all",
+        sortBy: "created_at",
+        sortDir: "desc",
+        page: 1,
+        pageSize: 25,
+      }),
       replace: true,
     });
   };
@@ -189,10 +213,20 @@ function BusinessesPage() {
       return;
     }
     const header = [
-      "id", "name", "email", "phone", "city", "country",
-      "store_code", "plan_status", "plan_tier",
-      "trial_ends_at", "plan_period_end", "suspended_at",
-      "created_at", "updated_at",
+      "id",
+      "name",
+      "email",
+      "phone",
+      "city",
+      "country",
+      "store_code",
+      "plan_status",
+      "plan_tier",
+      "trial_ends_at",
+      "plan_period_end",
+      "suspended_at",
+      "created_at",
+      "updated_at",
     ];
     const esc = (v: unknown) => {
       const s = v == null ? "" : String(v);
@@ -283,9 +317,15 @@ function BusinessesPage() {
           </div>
 
           <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {FILTERS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+              {FILTERS.map((f) => (
+                <SelectItem key={f.value} value={f.value}>
+                  {f.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -294,24 +334,41 @@ function BusinessesPage() {
             onValueChange={(v) => {
               const [key, dir] = v.split(":");
               navigate({
-                search: (prev: BusinessesSearch) => ({ ...prev, sortBy: key, sortDir: dir as "asc" | "desc", page: 1 }),
+                search: (prev: BusinessesSearch) => ({
+                  ...prev,
+                  sortBy: key,
+                  sortDir: dir as "asc" | "desc",
+                  page: 1,
+                }),
                 replace: true,
               });
             }}
           >
-            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               {SORT_COLUMNS.flatMap((c) => [
-                <SelectItem key={`${c.key}:desc`} value={`${c.key}:desc`}>{c.label} ↓</SelectItem>,
-                <SelectItem key={`${c.key}:asc`} value={`${c.key}:asc`}>{c.label} ↑</SelectItem>,
+                <SelectItem key={`${c.key}:desc`} value={`${c.key}:desc`}>
+                  {c.label} ↓
+                </SelectItem>,
+                <SelectItem key={`${c.key}:asc`} value={`${c.key}:asc`}>
+                  {c.label} ↑
+                </SelectItem>,
               ])}
             </SelectContent>
           </Select>
 
           <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-            <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {PAGE_SIZES.map((n) => <SelectItem key={n} value={String(n)}>{n} / page</SelectItem>)}
+              {PAGE_SIZES.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n} / page
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -329,7 +386,9 @@ function BusinessesPage() {
           {query.isError ? (
             <div className="p-6 text-sm text-destructive space-y-2">
               <p>Failed to load businesses: {(query.error as Error).message}</p>
-              <Button size="sm" variant="outline" onClick={() => query.refetch()}>Retry</Button>
+              <Button size="sm" variant="outline" onClick={() => query.refetch()}>
+                Retry
+              </Button>
             </div>
           ) : query.isLoading && !query.data ? (
             <div className="p-4 space-y-2">
@@ -341,7 +400,9 @@ function BusinessesPage() {
             <div className="p-10 text-sm text-muted-foreground text-center space-y-2">
               <div>No businesses match your filters.</div>
               {anyFilter && (
-                <Button variant="outline" size="sm" onClick={clearAll}>Clear filters</Button>
+                <Button variant="outline" size="sm" onClick={clearAll}>
+                  Clear filters
+                </Button>
               )}
             </div>
           ) : (
@@ -417,7 +478,12 @@ function BusinessesPage() {
             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(1)}>
               First
             </Button>
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage(page - 1)}
+            >
               Previous
             </Button>
             <Button

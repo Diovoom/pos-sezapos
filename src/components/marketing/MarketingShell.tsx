@@ -18,12 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Logo } from "@/components/brand/Logo";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { dashboardUrl } from "@/lib/host";
@@ -44,7 +39,11 @@ const PRODUCT_ITEMS: NavItem[] = [
 const RESOURCE_ITEMS: NavItem[] = [
   { to: "/hardware", label: "Hardware", description: "Build a setup that fits your counter" },
   { to: "/security", label: "Security", description: "How SEZA protects merchant data" },
-  { to: "/guide", label: "User guide", description: "Learn the register, inventory, shifts and reports" },
+  {
+    to: "/guide",
+    label: "User guide",
+    description: "Learn the register, inventory, shifts and reports",
+  },
   { to: "/support", label: "Support", description: "Get help with your account or register" },
   { to: "/faq", label: "FAQ", description: "Answers before you get started" },
 ];
@@ -72,9 +71,13 @@ function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
         {items.map((item) => (
           <DropdownMenuItem asChild key={`${item.label}-${item.to}`} className="rounded-xl p-0">
             <Link to={item.to} resetScroll className="group block cursor-pointer px-3 py-3">
-              <span className="block text-sm font-semibold text-foreground group-hover:text-primary">{item.label}</span>
+              <span className="block text-sm font-semibold text-foreground group-hover:text-primary">
+                {item.label}
+              </span>
               {item.description && (
-                <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{item.description}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                  {item.description}
+                </span>
               )}
             </Link>
           </DropdownMenuItem>
@@ -87,9 +90,24 @@ function NavDropdown({ label, items }: { label: string; items: NavItem[] }) {
 function MenuGlyph({ open }: { open: boolean }) {
   return (
     <span className="relative block size-5" aria-hidden="true">
-      <span className={cn("absolute left-0 top-[3px] h-0.5 w-5 rounded-full bg-current transition-all duration-300", open && "top-[9px] rotate-45")} />
-      <span className={cn("absolute left-1 top-[9px] h-0.5 w-4 rounded-full bg-current transition-all duration-300", open && "translate-x-2 opacity-0")} />
-      <span className={cn("absolute bottom-[3px] left-0 h-0.5 w-5 rounded-full bg-current transition-all duration-300", open && "bottom-[9px] -rotate-45")} />
+      <span
+        className={cn(
+          "absolute left-0 top-[3px] h-0.5 w-5 rounded-full bg-current transition-all duration-300",
+          open && "top-[9px] rotate-45",
+        )}
+      />
+      <span
+        className={cn(
+          "absolute left-1 top-[9px] h-0.5 w-4 rounded-full bg-current transition-all duration-300",
+          open && "translate-x-2 opacity-0",
+        )}
+      />
+      <span
+        className={cn(
+          "absolute bottom-[3px] left-0 h-0.5 w-5 rounded-full bg-current transition-all duration-300",
+          open && "bottom-[9px] -rotate-45",
+        )}
+      />
     </span>
   );
 }
@@ -108,7 +126,9 @@ function MorphingBrand({ expanded }: { expanded: boolean }) {
       <span
         className={cn(
           "absolute left-0 grid size-12 place-items-center transition-all duration-700 ease-[cubic-bezier(.22,1,.36,1)]",
-          expanded ? "-translate-x-10 -rotate-[360deg] scale-75 opacity-0" : "translate-x-0 rotate-0 scale-100 opacity-100",
+          expanded
+            ? "-translate-x-10 -rotate-[360deg] scale-75 opacity-0"
+            : "translate-x-0 rotate-0 scale-100 opacity-100",
         )}
       >
         <span className="relative grid size-11 place-items-center rounded-2xl border border-slate-200/80 bg-white shadow-[0_10px_28px_-14px_rgba(37,99,235,0.65)] dark:border-white/10 dark:bg-slate-900">
@@ -209,20 +229,33 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         <div className="mx-auto grid h-[76px] max-w-7xl grid-cols-[76px_minmax(0,1fr)_76px] items-center px-2 sm:px-6 lg:grid-cols-[1fr_auto_1fr] lg:gap-3 lg:px-8">
           <div className="flex min-w-0 items-center justify-start">
             <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary navigation">
-              <Link resetScroll to="/hardware" className="inline-flex h-10 items-center gap-2 rounded-full bg-blue-50 px-3 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/15">
+              <Link
+                resetScroll
+                to="/hardware"
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-blue-50 px-3 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/15"
+              >
                 Shop now
-                <span className="hidden rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white xl:inline-flex">Soon</span>
+                <span className="hidden rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white xl:inline-flex">
+                  Soon
+                </span>
               </Link>
               <NavDropdown label="Product" items={PRODUCT_ITEMS} />
-              <Link resetScroll to="/industries" className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white">
+              <Link
+                resetScroll
+                to="/industries"
+                className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+              >
                 Industries
               </Link>
-              <Link resetScroll to="/pricing" className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white">
+              <Link
+                resetScroll
+                to="/pricing"
+                className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+              >
                 Pricing
               </Link>
               <NavDropdown label="Resources" items={RESOURCE_ITEMS} />
             </nav>
-
           </div>
 
           <div className="flex min-w-0 items-center justify-center">
@@ -230,7 +263,11 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <Button asChild size="sm" className="hidden rounded-full px-5 shadow-[0_10px_25px_-12px_rgba(37,99,235,0.8)] lg:inline-flex">
+            <Button
+              asChild
+              size="sm"
+              className="hidden rounded-full px-5 shadow-[0_10px_25px_-12px_rgba(37,99,235,0.8)] lg:inline-flex"
+            >
               <a href={dashboardUrl("/dashboard")}>Login</a>
             </Button>
 
@@ -248,11 +285,16 @@ export function MarketingShell({ children }: { children: ReactNode }) {
       </header>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="right" className="bottom-0 top-[76px] z-[60] h-[calc(100dvh-76px)] w-[min(92vw,390px)] overflow-y-auto border-l bg-background p-0 shadow-lg [&>button:first-of-type]:hidden">
+        <SheetContent
+          side="right"
+          className="bottom-0 top-[76px] z-[60] h-[calc(100dvh-76px)] w-[min(92vw,390px)] overflow-y-auto border-l bg-background p-0 shadow-lg [&>button:first-of-type]:hidden"
+        >
           <SheetHeader className="border-b px-6 py-5 text-left">
             <SheetTitle>
               <span className="block text-lg font-black tracking-tight">Explore SEZA POS</span>
-              <span className="mt-1 block text-xs font-normal text-muted-foreground">Everything you need, without repeating the homepage.</span>
+              <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                Everything you need, without repeating the homepage.
+              </span>
             </SheetTitle>
           </SheetHeader>
 
@@ -275,10 +317,16 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                     {index === 0 && <BookOpen className="size-4 text-primary" />}
                     <span className="text-sm font-bold">{item.label}</span>
                     {item.badge && (
-                      <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">{item.badge}</span>
+                      <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                        {item.badge}
+                      </span>
                     )}
                   </span>
-                  {item.description && <span className="mt-1 block text-xs leading-5 text-muted-foreground">{item.description}</span>}
+                  {item.description && (
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      {item.description}
+                    </span>
+                  )}
                 </span>
                 <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
               </Link>
@@ -292,8 +340,12 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               className="group flex w-full items-center justify-between rounded-2xl border border-blue-200 bg-blue-700 px-4 py-4 text-left text-white transition-all hover:bg-blue-800"
             >
               <span>
-                <span className="flex items-center gap-2 text-sm font-bold"><MessageCircle className="size-4" /> Contact us</span>
-                <span className="mt-1 block text-xs leading-5 text-blue-100">Start a live chat with SEZA Support</span>
+                <span className="flex items-center gap-2 text-sm font-bold">
+                  <MessageCircle className="size-4" /> Contact us
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-blue-100">
+                  Start a live chat with SEZA Support
+                </span>
               </span>
               <ArrowUpRight className="size-4" />
             </button>
@@ -307,7 +359,9 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         </SheetContent>
       </Sheet>
 
-      <main id="seza-page-top" tabIndex={-1}>{children}</main>
+      <main id="seza-page-top" tabIndex={-1}>
+        {children}
+      </main>
 
       <footer className="relative overflow-hidden border-t border-slate-200 bg-slate-950 text-white">
         <div className="pointer-events-none absolute -right-48 -top-48 size-[420px] rounded-full bg-blue-600/15 blur-3xl" />
@@ -326,95 +380,157 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 </div>
               </div>
               <p className="mt-5 max-w-sm text-sm leading-6 text-slate-400">
-                Modern point-of-sale software for independent stores that need fast checkout, clear inventory, accountable shifts and useful reports.
+                Modern point-of-sale software for independent stores that need fast checkout, clear
+                inventory, accountable shifts and useful reports.
               </p>
               <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300">
                 <LockKeyhole className="size-3.5 text-blue-300" />
                 Subscription payments securely processed by Stripe
               </div>
               <div className="mt-5">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Follow SEZA POS</div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Follow SEZA POS
+                </div>
                 <SocialLinks tone="dark" />
               </div>
             </div>
 
-            <FooterColumn title="Product" links={[
-              { to: "/guide", label: "User guide" },
-              { to: "/hardware", label: "Hardware compatibility" },
-              { to: "/features", label: "Features" },
-              { to: "/industries", label: "Industries" },
-              { to: "/pricing", label: "Pricing" },
-              { to: "/integrations", label: "Integrations" },
-            ]} />
+            <FooterColumn
+              title="Product"
+              links={[
+                { to: "/guide", label: "User guide" },
+                { to: "/hardware", label: "Hardware compatibility" },
+                { to: "/features", label: "Features" },
+                { to: "/industries", label: "Industries" },
+                { to: "/pricing", label: "Pricing" },
+                { to: "/integrations", label: "Integrations" },
+              ]}
+            />
 
-            <FooterColumn title="Company" links={[
-              { to: "/about", label: "About" },
-              { to: "/contact", label: "Contact" },
-              { to: "/status", label: "System status" },
-            ]} />
+            <FooterColumn
+              title="Company"
+              links={[
+                { to: "/about", label: "About" },
+                { to: "/contact", label: "Contact" },
+                { to: "/status", label: "System status" },
+              ]}
+            />
 
-            <FooterColumn title="Help & trust" links={[
-              { to: "/support", label: "Support" },
-              { to: "/faq", label: "FAQ" },
-              { to: "/security", label: "Security" },
-              { to: "/trust", label: "Trust center" },
-            ]} />
+            <FooterColumn
+              title="Help & trust"
+              links={[
+                { to: "/support", label: "Support" },
+                { to: "/faq", label: "FAQ" },
+                { to: "/security", label: "Security" },
+                { to: "/trust", label: "Trust center" },
+              ]}
+            />
 
-            <FooterColumn title="Legal" links={[
-              { to: "/legal", label: "Legal center" },
-              { to: "/legal/terms", label: "Terms of Service" },
-              { to: "/legal/privacy", label: "Privacy Policy" },
-              { to: "/legal/cookies", label: "Cookie Policy" },
-              { to: "/legal/refund", label: "Refund Policy" },
-              { to: "/legal/accessibility", label: "Accessibility" },
-            ]} />
+            <FooterColumn
+              title="Legal"
+              links={[
+                { to: "/legal", label: "Legal center" },
+                { to: "/legal/terms", label: "Terms of Service" },
+                { to: "/legal/privacy", label: "Privacy Policy" },
+                { to: "/legal/cookies", label: "Cookie Policy" },
+                { to: "/legal/refund", label: "Refund Policy" },
+                { to: "/legal/accessibility", label: "Accessibility" },
+              ]}
+            />
           </div>
 
           <div className="mt-12 grid gap-4 border-t border-white/10 pt-6 text-xs text-slate-400 md:grid-cols-[1fr_auto] md:items-center">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <span>© {new Date().getFullYear()} SEZA Technologies Inc. All rights reserved.</span>
-              <a href={`mailto:${LEGAL_CONFIG.supportEmail}`} className="transition-colors hover:text-white">{LEGAL_CONFIG.supportEmail}</a>
-              <a href={`tel:${LEGAL_CONFIG.phone}`} className="transition-colors hover:text-white">{LEGAL_CONFIG.phoneDisplay}</a>
+              <a
+                href={`mailto:${LEGAL_CONFIG.supportEmail}`}
+                className="transition-colors hover:text-white"
+              >
+                {LEGAL_CONFIG.supportEmail}
+              </a>
+              <a href={`tel:${LEGAL_CONFIG.phone}`} className="transition-colors hover:text-white">
+                {LEGAL_CONFIG.phoneDisplay}
+              </a>
             </div>
-            <button type="button" onClick={openCookieSettings} className="inline-flex items-center gap-2 justify-self-start rounded-full border border-white/10 px-3 py-2 transition-colors hover:border-white/25 hover:text-white md:justify-self-end">
+            <button
+              type="button"
+              onClick={openCookieSettings}
+              className="inline-flex items-center gap-2 justify-self-start rounded-full border border-white/10 px-3 py-2 transition-colors hover:border-white/25 hover:text-white md:justify-self-end"
+            >
               <Cookie className="size-3.5" /> Cookie settings
             </button>
           </div>
         </div>
       </footer>
 
-      <div className="fixed bottom-24 right-3 z-[65] sm:bottom-6 sm:right-5" aria-label="SEZA hardware cart">
+      <div
+        className="fixed bottom-24 right-3 z-[65] sm:bottom-6 sm:right-5"
+        aria-label="SEZA hardware cart"
+      >
         <HardwareCartButton />
       </div>
 
       {supportVisible && (
-        <div className="fixed bottom-24 left-3 z-[65] sm:bottom-6 sm:left-5" aria-label="SEZA customer service">
+        <div
+          className="fixed bottom-24 left-3 z-[65] sm:bottom-6 sm:left-5"
+          aria-label="SEZA customer service"
+        >
           {supportOpen && (
             <div className="absolute bottom-0 left-14 w-[min(78vw,300px)] overflow-hidden rounded-3xl border border-blue-200 bg-white shadow-[0_24px_70px_-24px_rgba(30,64,175,0.65)] dark:border-blue-400/20 dark:bg-slate-900">
               <div className="border-b border-blue-900 bg-blue-800 px-5 py-5 text-white">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-blue-100">Customer service</div>
+                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-blue-100">
+                      Customer service
+                    </div>
                     <div className="mt-1 text-lg font-black">Need help with SEZA?</div>
                   </div>
-                  <button type="button" onClick={hideSupport} aria-label="Hide customer service widget" className="grid size-8 shrink-0 place-items-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/25">
+                  <button
+                    type="button"
+                    onClick={hideSupport}
+                    aria-label="Hide customer service widget"
+                    className="grid size-8 shrink-0 place-items-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/25"
+                  >
                     <X className="size-4" />
                   </button>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-blue-50">Call customer service or start a live chat for help with sales, setup, hardware, pricing, or your account.</p>
+                <p className="mt-3 text-sm leading-6 text-blue-50">
+                  Call customer service or start a live chat for help with sales, setup, hardware,
+                  pricing, or your account.
+                </p>
               </div>
               <div className="space-y-3 p-4">
-                <a href={`tel:${LEGAL_CONFIG.phone}`} className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-3 text-blue-950 transition-colors hover:bg-blue-100 dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-100 dark:hover:bg-blue-500/15">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-600 text-white"><Phone className="size-5" /></span>
+                <a
+                  href={`tel:${LEGAL_CONFIG.phone}`}
+                  className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-3 text-blue-950 transition-colors hover:bg-blue-100 dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-100 dark:hover:bg-blue-500/15"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-600 text-white">
+                    <Phone className="size-5" />
+                  </span>
                   <span>
-                    <span className="block text-xs font-semibold text-blue-600 dark:text-blue-300">Tap to call</span>
+                    <span className="block text-xs font-semibold text-blue-600 dark:text-blue-300">
+                      Tap to call
+                    </span>
                     <span className="block text-sm font-black">{LEGAL_CONFIG.phoneDisplay}</span>
                   </span>
                 </a>
-                <button type="button" onClick={() => { setSupportOpen(false); openWebsiteLiveChat(); }} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-700 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSupportOpen(false);
+                    openWebsiteLiveChat();
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-700 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800"
+                >
                   <MessageCircle className="size-4" /> Start live chat
                 </button>
-                <Link to="/support" resetScroll className="block text-center text-xs font-semibold text-muted-foreground transition-colors hover:text-primary">Open Support Center</Link>
+                <Link
+                  to="/support"
+                  resetScroll
+                  className="block text-center text-xs font-semibold text-muted-foreground transition-colors hover:text-primary"
+                >
+                  Open Support Center
+                </Link>
               </div>
             </div>
           )}
@@ -424,13 +540,20 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               type="button"
               onClick={() => setSupportOpen((value) => !value)}
               aria-expanded={supportOpen}
-              aria-label={supportOpen ? "Close customer service details" : "Open customer service details"}
+              aria-label={
+                supportOpen ? "Close customer service details" : "Open customer service details"
+              }
               className="grid size-13 place-items-center rounded-full border-4 border-white bg-blue-600 text-white shadow-[0_15px_35px_-12px_rgba(37,99,235,0.85)] transition-all hover:-translate-y-0.5 hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 dark:border-slate-950"
             >
               <Headphones className="size-6" />
             </button>
             {!supportOpen && (
-              <button type="button" onClick={hideSupport} aria-label="Hide customer service widget" className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full border-2 border-white bg-slate-900 text-white shadow-sm transition-transform hover:scale-110 dark:border-slate-950">
+              <button
+                type="button"
+                onClick={hideSupport}
+                aria-label="Hide customer service widget"
+                className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full border-2 border-white bg-slate-900 text-white shadow-sm transition-transform hover:scale-110 dark:border-slate-950"
+              >
                 <X className="size-2.5" />
               </button>
             )}
@@ -444,14 +567,22 @@ export function MarketingShell({ children }: { children: ReactNode }) {
   );
 }
 
-function FooterColumn({ title, links }: { title: string; links: Array<{ to: string; label: string }> }) {
+function FooterColumn({
+  title,
+  links,
+}: {
+  title: string;
+  links: Array<{ to: string; label: string }>;
+}) {
   return (
     <div>
       <div className="text-sm font-semibold text-white">{title}</div>
       <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
         {links.map((link) => (
           <li key={`${title}-${link.to}-${link.label}`}>
-            <Link to={link.to} resetScroll className="transition-colors hover:text-white">{link.label}</Link>
+            <Link to={link.to} resetScroll className="transition-colors hover:text-white">
+              {link.label}
+            </Link>
           </li>
         ))}
       </ul>

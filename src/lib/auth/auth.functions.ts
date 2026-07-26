@@ -6,13 +6,14 @@ const emailSchema = z.string().trim().toLowerCase().email().max(320);
 const passwordSchema = z.string().min(8).max(128);
 const captchaSchema = z.string().trim().max(4096).optional();
 
-const sessionShape = (session: any) => session
-  ? {
-      access_token: String(session.access_token),
-      refresh_token: String(session.refresh_token),
-      expires_at: typeof session.expires_at === "number" ? session.expires_at : null,
-    }
-  : null;
+const sessionShape = (session: any) =>
+  session
+    ? {
+        access_token: String(session.access_token),
+        refresh_token: String(session.refresh_token),
+        expires_at: typeof session.expires_at === "number" ? session.expires_at : null,
+      }
+    : null;
 
 export type SecureAuthResult =
   | {
@@ -80,7 +81,11 @@ export const secureOwnerPasswordSignIn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<SecureAuthResult> => {
     const allowed = await limit("auth.owner.password", data.email, 5, 15 * 60, 30 * 60);
     if (!allowed.ok) {
-      return { ok: false, error: "Too many attempts. Please wait and try again.", retry_after_seconds: allowed.retry };
+      return {
+        ok: false,
+        error: "Too many attempts. Please wait and try again.",
+        retry_after_seconds: allowed.retry,
+      };
     }
 
     try {
@@ -113,7 +118,11 @@ export const secureAdminPasswordSignIn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<SecureAuthResult> => {
     const allowed = await limit("auth.admin.password", data.email, 3, 15 * 60, 60 * 60);
     if (!allowed.ok) {
-      return { ok: false, error: "Too many attempts. Please wait and try again.", retry_after_seconds: allowed.retry };
+      return {
+        ok: false,
+        error: "Too many attempts. Please wait and try again.",
+        retry_after_seconds: allowed.retry,
+      };
     }
 
     try {
@@ -157,7 +166,11 @@ export const secureMerchantSignUp = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<SecureAuthResult> => {
     const allowed = await limit("auth.merchant.signup", data.email, 3, 60 * 60, 6 * 60 * 60);
     if (!allowed.ok) {
-      return { ok: false, error: "Too many signup attempts. Please try again later.", retry_after_seconds: allowed.retry };
+      return {
+        ok: false,
+        error: "Too many signup attempts. Please try again later.",
+        retry_after_seconds: allowed.retry,
+      };
     }
 
     try {
@@ -187,7 +200,10 @@ export const secureMerchantSignUp = createServerFn({ method: "POST" })
       if (error) {
         // Keep the message generic so the endpoint does not become an account
         // enumeration tool.
-        return { ok: false, error: "We could not create the account. Check your information or try again later." };
+        return {
+          ok: false,
+          error: "We could not create the account. Check your information or try again later.",
+        };
       }
       return {
         ok: true,

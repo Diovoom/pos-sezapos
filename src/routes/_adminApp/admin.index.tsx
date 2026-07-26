@@ -47,7 +47,9 @@ function MetricCard({ label, value, description, icon: Icon, to, search, tone }:
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-2xl font-bold">{typeof value === "number" ? value.toLocaleString() : value}</div>
+              <div className="text-2xl font-bold">
+                {typeof value === "number" ? value.toLocaleString() : value}
+              </div>
               <div className="text-sm font-medium mt-0.5">{label}</div>
               <div className="text-xs text-muted-foreground mt-1">{description}</div>
             </div>
@@ -65,7 +67,9 @@ function MetricCard({ label, value, description, icon: Icon, to, search, tone }:
 }
 
 function money(cents: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((cents || 0) / 100);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+    (cents || 0) / 100,
+  );
 }
 
 function OperationsCenter() {
@@ -89,19 +93,45 @@ function OperationsCenter() {
             Live SEZA company operations—not merchant checkout activity.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => query.refetch()} disabled={query.isFetching}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => query.refetch()}
+          disabled={query.isFetching}
+        >
           <RefreshCw className={`mr-2 h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
 
       {query.isError ? (
-        <Card className="border-destructive"><CardContent className="p-8"><div className="text-sm text-destructive">{(query.error as any)?.message ?? "Could not load platform operations"}</div><Button className="mt-3" variant="outline" onClick={() => query.refetch()}>Retry</Button></CardContent></Card>
+        <Card className="border-destructive">
+          <CardContent className="p-8">
+            <div className="text-sm text-destructive">
+              {(query.error as any)?.message ?? "Could not load platform operations"}
+            </div>
+            <Button className="mt-3" variant="outline" onClick={() => query.refetch()}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       ) : !t ? (
-        <Card><CardContent className="p-8 text-sm text-muted-foreground">Loading platform operations… This now stops safely instead of hanging if one service is unavailable.</CardContent></Card>
+        <Card>
+          <CardContent className="p-8 text-sm text-muted-foreground">
+            Loading platform operations… This now stops safely instead of hanging if one service is
+            unavailable.
+          </CardContent>
+        </Card>
       ) : (
         <>
-          {data?.partial && <Card className="border-amber-400"><CardContent className="p-3 text-sm">Some service metrics were temporarily unavailable. The Operations Center loaded the available data instead of remaining stuck.</CardContent></Card>}
+          {data?.partial && (
+            <Card className="border-amber-400">
+              <CardContent className="p-3 text-sm">
+                Some service metrics were temporarily unavailable. The Operations Center loaded the
+                available data instead of remaining stuck.
+              </CardContent>
+            </Card>
+          )}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <MetricCard
               label="Businesses"
@@ -109,7 +139,14 @@ function OperationsCenter() {
               description="All merchant companies"
               icon={Building2}
               to="/admin/businesses"
-              search={{ q: "", filter: "all", sortBy: "created_at", sortDir: "desc", page: 1, pageSize: 25 }}
+              search={{
+                q: "",
+                filter: "all",
+                sortBy: "created_at",
+                sortDir: "desc",
+                page: 1,
+                pageSize: 25,
+              }}
             />
             <MetricCard
               label="Active merchants"
@@ -118,7 +155,14 @@ function OperationsCenter() {
               icon={CheckCircle2}
               tone="text-emerald-600"
               to="/admin/businesses"
-              search={{ q: "", filter: "active", sortBy: "updated_at", sortDir: "desc", page: 1, pageSize: 25 }}
+              search={{
+                q: "",
+                filter: "active",
+                sortBy: "updated_at",
+                sortDir: "desc",
+                page: 1,
+                pageSize: 25,
+              }}
             />
             <MetricCard
               label="Free trials"
@@ -127,7 +171,14 @@ function OperationsCenter() {
               icon={Clock3}
               tone="text-blue-600"
               to="/admin/businesses"
-              search={{ q: "", filter: "trial", sortBy: "trial_ends_at", sortDir: "asc", page: 1, pageSize: 25 }}
+              search={{
+                q: "",
+                filter: "trial",
+                sortBy: "trial_ends_at",
+                sortDir: "asc",
+                page: 1,
+                pageSize: 25,
+              }}
             />
             <MetricCard
               label="Past due"
@@ -168,7 +219,15 @@ function OperationsCenter() {
               icon={LifeBuoy}
               tone={t.urgent_cases ? "text-red-600" : "text-primary"}
               to="/admin/support"
-              search={{ status: "active", priority: "all", assignee: "any", q: "", sort: "updated_at", dir: "desc", page: 1 }}
+              search={{
+                status: "active",
+                priority: "all",
+                assignee: "any",
+                q: "",
+                sort: "updated_at",
+                dir: "desc",
+                page: 1,
+              }}
             />
             <MetricCard
               label="Active live chats"
@@ -186,31 +245,42 @@ function OperationsCenter() {
                   <CardTitle>Cases requiring attention</CardTitle>
                   <CardDescription>Newest support work across every merchant.</CardDescription>
                 </div>
-                <Button asChild variant="ghost" size="sm"><Link to="/admin/support">View all</Link></Button>
+                <Button asChild variant="ghost" size="sm">
+                  <Link to="/admin/support">View all</Link>
+                </Button>
               </CardHeader>
               <CardContent className="space-y-2">
                 {(data.recent_cases ?? []).length === 0 ? (
-                  <div className="py-8 text-center text-sm text-muted-foreground">No support cases.</div>
-                ) : data.recent_cases.map((ticket: any) => (
-                  <Link
-                    key={ticket.id}
-                    to="/admin/support/$ticketId"
-                    params={{ ticketId: ticket.id }}
-                    className="flex items-center justify-between gap-3 rounded-lg border p-3 hover:bg-muted/40"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">#{ticket.ticket_number} · {ticket.subject}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {ticket.store_name ?? "No business"} · {formatDistanceToNow(new Date(ticket.updated_at), { addSuffix: true })}
+                  <div className="py-8 text-center text-sm text-muted-foreground">
+                    No support cases.
+                  </div>
+                ) : (
+                  data.recent_cases.map((ticket: any) => (
+                    <Link
+                      key={ticket.id}
+                      to="/admin/support/$ticketId"
+                      params={{ ticketId: ticket.id }}
+                      className="flex items-center justify-between gap-3 rounded-lg border p-3 hover:bg-muted/40"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">
+                          #{ticket.ticket_number} · {ticket.subject}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {ticket.store_name ?? "No business"} ·{" "}
+                          {formatDistanceToNow(new Date(ticket.updated_at), { addSuffix: true })}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex shrink-0 gap-1">
-                      {ticket.priority === "urgent" && <Badge variant="destructive">urgent</Badge>}
-                      <Badge variant="outline">{ticket.status}</Badge>
-                      {ticket.chat_status !== "ended" && <Badge>chat live</Badge>}
-                    </div>
-                  </Link>
-                ))}
+                      <div className="flex shrink-0 gap-1">
+                        {ticket.priority === "urgent" && (
+                          <Badge variant="destructive">urgent</Badge>
+                        )}
+                        <Badge variant="outline">{ticket.status}</Badge>
+                        {ticket.chat_status !== "ended" && <Badge>chat live</Badge>}
+                      </div>
+                    </Link>
+                  ))
+                )}
               </CardContent>
             </Card>
 
@@ -220,27 +290,38 @@ function OperationsCenter() {
                   <CardTitle>Latest merchant payments</CardTitle>
                   <CardDescription>Subscription money paid to SEZA.</CardDescription>
                 </div>
-                <Button asChild variant="ghost" size="sm"><Link to="/admin/payments">View all</Link></Button>
+                <Button asChild variant="ghost" size="sm">
+                  <Link to="/admin/payments">View all</Link>
+                </Button>
               </CardHeader>
               <CardContent className="space-y-2">
                 {(data.recent_payments ?? []).length === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground">
                     No Stripe invoice payments recorded yet. New webhook payments will appear here.
                   </div>
-                ) : data.recent_payments.map((payment: any) => (
-                  <div key={payment.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">{payment.store_name ?? "Unmatched Stripe customer"}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(payment.occurred_at).toLocaleString()} · {payment.environment}
+                ) : (
+                  data.recent_payments.map((payment: any) => (
+                    <div
+                      key={payment.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border p-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">
+                          {payment.store_name ?? "Unmatched Stripe customer"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(payment.occurred_at).toLocaleString()} · {payment.environment}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{money(payment.amount_paid_cents)}</div>
+                        <Badge variant={payment.status === "paid" ? "default" : "outline"}>
+                          {payment.status}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold">{money(payment.amount_paid_cents)}</div>
-                      <Badge variant={payment.status === "paid" ? "default" : "outline"}>{payment.status}</Badge>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>

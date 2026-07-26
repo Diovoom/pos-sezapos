@@ -43,7 +43,11 @@ export const Route = createFileRoute("/api/public/pos/set-my-pin")({
         if (!token) return json({ error: "Missing bearer token" }, 401);
 
         let body: Body;
-        try { body = (await request.json()) as Body; } catch { return json({ error: "Invalid JSON" }, 400); }
+        try {
+          body = (await request.json()) as Body;
+        } catch {
+          return json({ error: "Invalid JSON" }, 400);
+        }
         const raw = body.pin;
         const pin: string | null =
           raw === null || raw === "" ? null : typeof raw === "string" ? raw : "";
@@ -56,8 +60,11 @@ export const Route = createFileRoute("/api/public/pos/set-my-pin")({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const admin: any = supabaseAdmin;
 
-        const { data: prof, error: profileError } = await admin.from("profiles")
-          .select("store_id").eq("id", userId).maybeSingle();
+        const { data: prof, error: profileError } = await admin
+          .from("profiles")
+          .select("store_id")
+          .eq("id", userId)
+          .maybeSingle();
         if (profileError) return json({ error: "Unable to verify store assignment" }, 500);
         if (!prof?.store_id) return json({ error: "You are not assigned to a store" }, 400);
 
@@ -73,11 +80,14 @@ export const Route = createFileRoute("/api/public/pos/set-my-pin")({
         const mayManagePin = (roleRows ?? []).some((row: { role?: string }) =>
           ["owner", "admin", "manager", "super_admin"].includes(String(row.role ?? "")),
         );
-        if (!mayManagePin) return json({ error: "Ask a manager or owner to reset your employee PIN" }, 403);
+        if (!mayManagePin)
+          return json({ error: "Ask a manager or owner to reset your employee PIN" }, 403);
 
         if (pin === null) {
-          const { error } = await admin.from("profiles")
-            .update({ pin_hash: null, pin_fingerprint: null }).eq("id", userId);
+          const { error } = await admin
+            .from("profiles")
+            .update({ pin_hash: null, pin_fingerprint: null })
+            .eq("id", userId);
           if (error) return json({ error: error.message }, 500);
           try {
             await admin.from("audit_log").insert({
@@ -88,20 +98,35 @@ export const Route = createFileRoute("/api/public/pos/set-my-pin")({
               entity_id: userId,
               details: { channel: "native_shell" },
             });
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
           return json({ ok: true });
         }
         if (!/^\d{6}$/.test(pin)) return json({ error: "PIN must be exactly 6 digits" }, 400);
 
         const { hashPin } = await import("@/lib/pin.server");
         const { isWeakPin, pinFingerprint } = await import("@/lib/pos/fingerprint.server");
-        if (isWeakPin(pin)) return json({ error: "That PIN is too easy to guess. Pick a less obvious 6-digit code." }, 400);
+        if (isWeakPin(pin))
+          return json(
+            { error: "That PIN is too easy to guess. Pick a less obvious 6-digit code." },
+            400,
+          );
 
         const fp = pinFingerprint(prof.store_id, pin);
         const { data: conflict } = await admin.rpc("pos_pin_conflict_check", {
-          _store_id: prof.store_id, _fingerprint: fp, _exclude_user: userId,
+          _store_id: prof.store_id,
+          _fingerprint: fp,
+          _exclude_user: userId,
         });
-        if (conflict) return json({ error: "Another active employee at this register already uses that PIN. Pick a different one." }, 409);
+        if (conflict)
+          return json(
+            {
+              error:
+                "Another active employee at this register already uses that PIN. Pick a different one.",
+            },
+            409,
+          );
 
         const { error } = await admin
           .from("profiles")
@@ -118,7 +143,9 @@ export const Route = createFileRoute("/api/public/pos/set-my-pin")({
             entity_id: userId,
             details: { channel: "native_shell" },
           });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         return json({ ok: true });
       },

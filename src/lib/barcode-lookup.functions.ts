@@ -15,9 +15,12 @@ const inputSchema = z.object({ barcode: z.string().trim().min(4).max(32) });
 
 async function lookupOpenFoodFacts(barcode: string): Promise<BarcodeLookupResult | null> {
   try {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`, {
-      headers: { "User-Agent": "SEZAPOS/1.0 (+https://sezapos.com)" },
-    });
+    const res = await fetch(
+      `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`,
+      {
+        headers: { "User-Agent": "SEZAPOS/1.0 (+https://sezapos.com)" },
+      },
+    );
     if (!res.ok) return null;
     const json = (await res.json()) as {
       status?: number;
@@ -46,7 +49,9 @@ async function lookupOpenFoodFacts(barcode: string): Promise<BarcodeLookupResult
 
 async function lookupUpcItemDb(barcode: string): Promise<BarcodeLookupResult | null> {
   try {
-    const res = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(barcode)}`);
+    const res = await fetch(
+      `https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(barcode)}`,
+    );
     if (!res.ok) return null;
     const json = (await res.json()) as {
       items?: Array<{ title?: string; brand?: string; images?: string[]; description?: string }>;

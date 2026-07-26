@@ -13,7 +13,13 @@ import { supabaseAdminAuth } from "@/integrations/supabase/admin-client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ExternalLink, MessageCircle, Minus, PhoneOff, Send, X } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -47,9 +53,7 @@ export function rememberAdminChat(ticketId: string | null) {
   if (typeof window === "undefined") return;
   if (ticketId) window.localStorage.setItem(ADMIN_ACTIVE_CHAT_KEY, ticketId);
   else window.localStorage.removeItem(ADMIN_ACTIVE_CHAT_KEY);
-  window.dispatchEvent(
-    new CustomEvent(ADMIN_CHAT_SELECTION_EVENT, { detail: { ticketId } }),
-  );
+  window.dispatchEvent(new CustomEvent(ADMIN_CHAT_SELECTION_EVENT, { detail: { ticketId } }));
 }
 
 export function AdminPersistentChat() {
@@ -157,11 +161,7 @@ export function AdminPersistentChat() {
             internal?: boolean;
           };
           refresh();
-          if (
-            !note.ticket_id ||
-            note.internal ||
-            (adminUserId && note.author_id === adminUserId)
-          ) {
+          if (!note.ticket_id || note.internal || (adminUserId && note.author_id === adminUserId)) {
             return;
           }
           const popupKey = `${note.ticket_id}:${note.created_at ?? note.body ?? ""}`;
@@ -223,7 +223,8 @@ export function AdminPersistentChat() {
     rememberAdminChat(next.id);
     setOpen(true);
     toast.message("New merchant support message", {
-      description: next.last_message?.body?.slice(0, 120) || next.subject || "A merchant sent a new message.",
+      description:
+        next.last_message?.body?.slice(0, 120) || next.subject || "A merchant sent a new message.",
       action: {
         label: "Open case",
         onClick: () =>
@@ -244,7 +245,9 @@ export function AdminPersistentChat() {
 
   async function endSelectedChat() {
     if (!selectedId) return;
-    const confirmed = window.confirm("End this live chat? The support case and transcript will stay available in Admin.");
+    const confirmed = window.confirm(
+      "End this live chat? The support case and transcript will stay available in Admin.",
+    );
     if (!confirmed) return;
     setBusy(true);
     try {
@@ -289,7 +292,12 @@ export function AdminPersistentChat() {
                 <MessageCircle className="h-4 w-4" /> Merchant support
               </div>
               <div className="truncate text-xs text-primary-foreground/80" data-no-translate>
-                {selected?.ticket?.visitor_name ?? selectedRow?.visitor_name ?? selected?.store?.name ?? selectedRow?.store?.name ?? selected?.ticket?.requester_email ?? "Merchant"}
+                {selected?.ticket?.visitor_name ??
+                  selectedRow?.visitor_name ??
+                  selected?.store?.name ??
+                  selectedRow?.store?.name ??
+                  selected?.ticket?.requester_email ??
+                  "Merchant"}
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -330,7 +338,10 @@ export function AdminPersistentChat() {
               <SelectContent>
                 {activeRows.map((row: any) => (
                   <SelectItem key={row.id} value={row.id}>
-                    <span data-no-translate>{row.visitor_name ?? row.store?.name ?? row.requester_email ?? "Merchant"} — {row.subject}</span>
+                    <span data-no-translate>
+                      {row.visitor_name ?? row.store?.name ?? row.requester_email ?? "Merchant"} —{" "}
+                      {row.subject}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -340,7 +351,9 @@ export function AdminPersistentChat() {
                 {selected?.ticket?.ticket_number && (
                   <Badge variant="outline">#{selected.ticket.ticket_number}</Badge>
                 )}
-                <Badge variant="outline">{selected?.ticket?.status ?? selectedRow?.status ?? "active"}</Badge>
+                <Badge variant="outline">
+                  {selected?.ticket?.status ?? selectedRow?.status ?? "active"}
+                </Badge>
               </div>
               {selectedId && (
                 <div className="flex shrink-0 gap-2">
@@ -382,7 +395,10 @@ export function AdminPersistentChat() {
               messages.map((item: any) => {
                 const merchant = !item.author_is_platform;
                 return (
-                  <div key={item.id} className={`flex ${merchant ? "justify-start" : "justify-end"}`}>
+                  <div
+                    key={item.id}
+                    className={`flex ${merchant ? "justify-start" : "justify-end"}`}
+                  >
                     <div
                       className={`max-w-[86%] rounded-xl px-3 py-2 ${
                         merchant ? "bg-muted" : "bg-primary text-primary-foreground"

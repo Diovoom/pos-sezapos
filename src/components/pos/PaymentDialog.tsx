@@ -79,16 +79,29 @@ type Props = {
 // Once cash or card is selected we lock the payment flow — cashiers cannot
 // silently back out. A manager PIN is required to cancel. Cash panel handles
 // its own gate; TerminalPanel gates cancel unless the provider is missing.
-export function PaymentDialog({ open, onOpenChange, method, total, currency, onComplete, bypassCancelApproval = false }: Props) {
+export function PaymentDialog({
+  open,
+  onOpenChange,
+  method,
+  total,
+  currency,
+  onComplete,
+  bypassCancelApproval = false,
+}: Props) {
   const isCash = method === "cash";
   const isSplit = method === "split";
   const [managerOpen, setManagerOpen] = useState(false);
   const requestCancel = () => {
-    if (bypassCancelApproval) { onOpenChange(false); return; }
+    if (bypassCancelApproval) {
+      onOpenChange(false);
+      return;
+    }
     setManagerOpen(true);
   };
-  const approveCancel = () => { setManagerOpen(false); onOpenChange(false); };
-
+  const approveCancel = () => {
+    setManagerOpen(false);
+    onOpenChange(false);
+  };
 
   return (
     <>
@@ -114,9 +127,19 @@ export function PaymentDialog({ open, onOpenChange, method, total, currency, onC
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
           {isCash ? (
-            <CashPanel total={total} currency={currency} onComplete={onComplete} onCancel={requestCancel} />
+            <CashPanel
+              total={total}
+              currency={currency}
+              onComplete={onComplete}
+              onCancel={requestCancel}
+            />
           ) : isSplit ? (
-            <SplitPanel total={total} currency={currency} onComplete={onComplete} onCancel={requestCancel} />
+            <SplitPanel
+              total={total}
+              currency={currency}
+              onComplete={onComplete}
+              onCancel={requestCancel}
+            />
           ) : (
             <TerminalPanel
               key={String(open)}
@@ -141,7 +164,6 @@ export function PaymentDialog({ open, onOpenChange, method, total, currency, onC
     </>
   );
 }
-
 
 /* -------- Cash -------- */
 
@@ -171,7 +193,10 @@ function CashPanel({
           <Banknote className="size-5 text-primary" /> Cash payment
         </DialogTitle>
         <DialogDescription>
-          Total due <span className="font-mono font-semibold text-foreground">{fmtCurrency(total, currency)}</span>
+          Total due{" "}
+          <span className="font-mono font-semibold text-foreground">
+            {fmtCurrency(total, currency)}
+          </span>
         </DialogDescription>
       </DialogHeader>
 
@@ -203,10 +228,16 @@ function CashPanel({
           <Button variant="outline" onClick={() => setTenderedStr(total.toFixed(2))}>
             Exact
           </Button>
-          <Button variant="outline" onClick={() => setTenderedStr(String(Math.ceil(total / 5) * 5))}>
+          <Button
+            variant="outline"
+            onClick={() => setTenderedStr(String(Math.ceil(total / 5) * 5))}
+          >
             Next $5
           </Button>
-          <Button variant="outline" onClick={() => setTenderedStr(String(Math.ceil(total / 10) * 10))}>
+          <Button
+            variant="outline"
+            onClick={() => setTenderedStr(String(Math.ceil(total / 10) * 10))}
+          >
             Next $10
           </Button>
         </div>
@@ -216,11 +247,20 @@ function CashPanel({
             <div className="text-xs text-muted-foreground uppercase tracking-wider">
               {ok ? "Change due" : "Amount short"}
             </div>
-            <div className={cn("text-3xl font-mono font-bold", ok ? "text-success" : "text-destructive")}>
+            <div
+              className={cn(
+                "text-3xl font-mono font-bold",
+                ok ? "text-success" : "text-destructive",
+              )}
+            >
               {fmtCurrency(ok ? change : short, currency)}
             </div>
           </div>
-          {ok ? <CheckCircle2 className="size-8 text-success" /> : <AlertTriangle className="size-8 text-muted-foreground" />}
+          {ok ? (
+            <CheckCircle2 className="size-8 text-success" />
+          ) : (
+            <AlertTriangle className="size-8 text-muted-foreground" />
+          )}
         </div>
       </div>
 
@@ -250,7 +290,6 @@ function CashPanel({
   );
 }
 
-
 /* -------- Split cash + card -------- */
 
 function SplitPanel({
@@ -266,7 +305,10 @@ function SplitPanel({
 }) {
   const provider = getActiveProvider();
   const [cashText, setCashText] = useState("");
-  const [event, setEvent] = useState<PaymentEvent>({ status: "idle", message: "Choose the cash amount" });
+  const [event, setEvent] = useState<PaymentEvent>({
+    status: "idle",
+    message: "Choose the cash amount",
+  });
   const [result, setResult] = useState<PaymentResult | null>(null);
   const [charging, setCharging] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -279,7 +321,10 @@ function SplitPanel({
   const chargeRemaining = async () => {
     if (remaining <= 0 || !provider || charging) return;
     if (!isOnlineNow()) {
-      setEvent({ status: "network_error", message: "Card portion requires an internet connection" });
+      setEvent({
+        status: "network_error",
+        message: "Card portion requires an internet connection",
+      });
       return;
     }
     const controller = new AbortController();
@@ -302,14 +347,15 @@ function SplitPanel({
     if (!approved) return;
     const allocations: PaymentAllocation[] = [];
     if (cash > 0) allocations.push({ method: "cash", amount: cash });
-    if (remaining > 0 && result) allocations.push({
-      method: "card",
-      amount: remaining,
-      provider: provider?.id,
-      reference: result.reference,
-      cardBrand: result.cardBrand,
-      last4: result.last4,
-    });
+    if (remaining > 0 && result)
+      allocations.push({
+        method: "card",
+        amount: remaining,
+        provider: provider?.id,
+        reference: result.reference,
+        cardBrand: result.cardBrand,
+        last4: result.last4,
+      });
     onComplete({
       method: "split",
       amountTendered: total,
@@ -324,45 +370,104 @@ function SplitPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <DialogHeader className="shrink-0 border-b p-6 pb-4">
-        <DialogTitle className="flex items-center gap-2"><SplitSquareHorizontal className="size-5 text-primary" /> Split payment</DialogTitle>
-        <DialogDescription>Take part in cash, then charge the exact remaining balance to card.</DialogDescription>
+        <DialogTitle className="flex items-center gap-2">
+          <SplitSquareHorizontal className="size-5 text-primary" /> Split payment
+        </DialogTitle>
+        <DialogDescription>
+          Take part in cash, then charge the exact remaining balance to card.
+        </DialogDescription>
       </DialogHeader>
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-6">
         <div className="grid grid-cols-2 gap-3 rounded-2xl border bg-muted/30 p-4">
-          <div><div className="text-xs uppercase tracking-wide text-muted-foreground">Total due</div><div className="mt-1 text-2xl font-bold font-mono">{fmtCurrency(total, currency)}</div></div>
-          <div className="text-right"><div className="text-xs uppercase tracking-wide text-muted-foreground">Card balance</div><div className="mt-1 text-2xl font-bold font-mono text-primary">{fmtCurrency(remaining, currency)}</div></div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Total due</div>
+            <div className="mt-1 text-2xl font-bold font-mono">{fmtCurrency(total, currency)}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              Card balance
+            </div>
+            <div className="mt-1 text-2xl font-bold font-mono text-primary">
+              {fmtCurrency(remaining, currency)}
+            </div>
+          </div>
         </div>
         <div className="space-y-2">
           <Label>Cash amount</Label>
-          <Input type="number" inputMode="decimal" min="0" max={total} step="0.01" value={cashText} onChange={(e) => { setCashText(e.target.value); setResult(null); setEvent({ status: "idle", message: "Ready" }); }} placeholder="0.00" className="h-14 text-right text-2xl font-mono" />
+          <Input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            max={total}
+            step="0.01"
+            value={cashText}
+            onChange={(e) => {
+              setCashText(e.target.value);
+              setResult(null);
+              setEvent({ status: "idle", message: "Ready" });
+            }}
+            placeholder="0.00"
+            className="h-14 text-right text-2xl font-mono"
+          />
           <div className="grid grid-cols-4 gap-2">
-            {[0.25, 0.5, 0.75].map((portion) => <Button key={portion} type="button" variant="outline" onClick={() => setCashText((total * portion).toFixed(2))}>{portion * 100}%</Button>)}
-            <Button type="button" variant="outline" onClick={() => setCashText(total.toFixed(2))}>All cash</Button>
+            {[0.25, 0.5, 0.75].map((portion) => (
+              <Button
+                key={portion}
+                type="button"
+                variant="outline"
+                onClick={() => setCashText((total * portion).toFixed(2))}
+              >
+                {portion * 100}%
+              </Button>
+            ))}
+            <Button type="button" variant="outline" onClick={() => setCashText(total.toFixed(2))}>
+              All cash
+            </Button>
           </div>
         </div>
         {remaining > 0 && (
           <div className="rounded-2xl border p-4">
             <div className="flex items-center justify-between gap-3">
-              <div><div className="font-semibold">Card portion</div><div className="text-sm text-muted-foreground">{provider ? `Ready through ${provider.name}` : "Connect Stripe Terminal or another provider in Settings"}</div></div>
+              <div>
+                <div className="font-semibold">Card portion</div>
+                <div className="text-sm text-muted-foreground">
+                  {provider
+                    ? `Ready through ${provider.name}`
+                    : "Connect Stripe Terminal or another provider in Settings"}
+                </div>
+              </div>
               <CreditCard className="size-6 text-primary" />
             </div>
             <div className="mt-3 text-sm font-medium">{event.message}</div>
-            {result?.finalStatus === "declined" && <p className="mt-1 text-sm text-destructive">Card declined. Retry or change the cash amount.</p>}
-            <Button className="mt-4 w-full" onClick={chargeRemaining} disabled={!provider || charging || result?.finalStatus === "approved"}>
+            {result?.finalStatus === "declined" && (
+              <p className="mt-1 text-sm text-destructive">
+                Card declined. Retry or change the cash amount.
+              </p>
+            )}
+            <Button
+              className="mt-4 w-full"
+              onClick={chargeRemaining}
+              disabled={!provider || charging || result?.finalStatus === "approved"}
+            >
               {charging && <Loader2 className="mr-2 size-4 animate-spin" />}
-              {result?.finalStatus === "approved" ? "Card approved" : `Charge ${fmtCurrency(remaining, currency)}`}
+              {result?.finalStatus === "approved"
+                ? "Card approved"
+                : `Charge ${fmtCurrency(remaining, currency)}`}
             </Button>
           </div>
         )}
       </div>
       <div className="flex shrink-0 gap-2 border-t bg-surface/40 p-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
-        <Button variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
-        <Button className="flex-1" disabled={!approved || total <= 0} onClick={finish}>Complete split sale</Button>
+        <Button variant="outline" className="flex-1" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button className="flex-1" disabled={!approved || total <= 0} onClick={finish}>
+          Complete split sale
+        </Button>
       </div>
     </div>
   );
 }
-
 
 /* -------- Terminal -------- */
 
@@ -466,8 +571,8 @@ function TerminalPanel({
               Terminal not connected
             </div>
             <p className="text-base font-semibold max-w-xs">
-              No payment terminal is connected. Please connect a payment terminal
-              in Settings before accepting card payments.
+              No payment terminal is connected. Please connect a payment terminal in Settings before
+              accepting card payments.
             </p>
           </div>
         </div>
@@ -482,7 +587,6 @@ function TerminalPanel({
       </div>
     );
   }
-
 
   const status: PaymentStatus = result?.finalStatus ?? event.status;
   const isTerminal =
@@ -500,7 +604,11 @@ function TerminalPanel({
           <CreditCard className="size-5 text-primary" /> Card payment
         </DialogTitle>
         <DialogDescription>
-          Charging <span className="font-mono font-semibold text-foreground">{fmtCurrency(total, currency)}</span> via {method.replace("_", " ")}
+          Charging{" "}
+          <span className="font-mono font-semibold text-foreground">
+            {fmtCurrency(total, currency)}
+          </span>{" "}
+          via {method.replace("_", " ")}
         </DialogDescription>
       </DialogHeader>
 
@@ -572,24 +680,35 @@ function TerminalPanel({
         )}
       </div>
     </div>
-
   );
 }
 
 function statusLabel(s: PaymentStatus) {
   switch (s) {
-    case "payment_requested": return "Payment requested";
-    case "connecting": return "Connecting to terminal";
-    case "waiting_for_customer": return "Waiting for customer";
-    case "card_presented": return "Card presented";
-    case "processing": return "Processing payment";
-    case "approved": return "Approved";
-    case "declined": return "Declined";
-    case "timeout": return "Timeout";
-    case "cancelled": return "Cancelled";
-    case "network_error": return "Network error";
-    case "error": return "Error";
-    default: return "Ready";
+    case "payment_requested":
+      return "Payment requested";
+    case "connecting":
+      return "Connecting to terminal";
+    case "waiting_for_customer":
+      return "Waiting for customer";
+    case "card_presented":
+      return "Card presented";
+    case "processing":
+      return "Processing payment";
+    case "approved":
+      return "Approved";
+    case "declined":
+      return "Declined";
+    case "timeout":
+      return "Timeout";
+    case "cancelled":
+      return "Cancelled";
+    case "network_error":
+      return "Network error";
+    case "error":
+      return "Error";
+    default:
+      return "Ready";
   }
 }
 
@@ -627,7 +746,11 @@ function StatusIcon({ status }: { status: PaymentStatus }) {
     default:
       return (
         <div className={cn(base, "bg-primary/10 text-primary")}>
-          {status === "connecting" ? <Wifi className="size-10 animate-pulse" /> : <Loader2 className="size-10 animate-spin" />}
+          {status === "connecting" ? (
+            <Wifi className="size-10 animate-pulse" />
+          ) : (
+            <Loader2 className="size-10 animate-spin" />
+          )}
         </div>
       );
   }

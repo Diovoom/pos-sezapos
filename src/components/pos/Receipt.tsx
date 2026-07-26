@@ -8,7 +8,12 @@ export type ReceiptLine = {
   line_total: number;
 };
 
-export type ReceiptPaymentAllocation = { method: string; amount: number; cardBrand?: string; last4?: string };
+export type ReceiptPaymentAllocation = {
+  method: string;
+  amount: number;
+  cardBrand?: string;
+  last4?: string;
+};
 
 export type ReceiptData = {
   store: {
@@ -67,18 +72,23 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
 
       <Divider />
 
-      {data.refund && (
-        <div className="text-center font-bold text-[14px] mb-1">*** REFUND ***</div>
-      )}
+      {data.refund && <div className="text-center font-bold text-[14px] mb-1">*** REFUND ***</div>}
       {data.pendingSync && (
-        <div className="text-center font-bold text-[13px] mb-1">*** PENDING SYNCHRONIZATION ***</div>
+        <div className="text-center font-bold text-[13px] mb-1">
+          *** PENDING SYNCHRONIZATION ***
+        </div>
       )}
 
       <Row l="Receipt #" r={String(data.receiptNumber)} />
       <Row l="Txn" r={data.transactionId.slice(0, 8).toUpperCase()} />
       <Row l="Date" r={dt.toLocaleDateString()} />
       <Row l="Time" r={dt.toLocaleTimeString()} />
-      {data.cashierName && <Row l="Cashier" r={`${data.cashierName}${data.employeeId ? ` (#${data.employeeId})` : ""}`} />}
+      {data.cashierName && (
+        <Row
+          l="Cashier"
+          r={`${data.cashierName}${data.employeeId ? ` (#${data.employeeId})` : ""}`}
+        />
+      )}
       {data.customerName && <Row l="Customer" r={data.customerName} />}
 
       <Divider />
@@ -109,11 +119,19 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
 
       <Row l="Method" r={data.paymentMethod.replaceAll("_", " ").toUpperCase()} />
       {data.paymentAllocations?.map((allocation, index) => (
-        <Row key={`${allocation.method}-${index}`} l={allocation.method.replaceAll("_", " ").toUpperCase()} r={`${fmtCurrency(allocation.amount, cur)}${allocation.cardBrand && allocation.last4 ? ` · ${allocation.cardBrand} ••${allocation.last4}` : ""}`} />
+        <Row
+          key={`${allocation.method}-${index}`}
+          l={allocation.method.replaceAll("_", " ").toUpperCase()}
+          r={`${fmtCurrency(allocation.amount, cur)}${allocation.cardBrand && allocation.last4 ? ` · ${allocation.cardBrand} ••${allocation.last4}` : ""}`}
+        />
       ))}
-      {data.cardBrand && data.last4 && !data.paymentAllocations?.length && <Row l="Card" r={`${data.cardBrand} ••${data.last4}`} />}
+      {data.cardBrand && data.last4 && !data.paymentAllocations?.length && (
+        <Row l="Card" r={`${data.cardBrand} ••${data.last4}`} />
+      )}
       {data.reference && <Row l="Ref" r={data.reference} />}
-      {data.amountTendered != null && <Row l="Tendered" r={fmtCurrency(data.amountTendered, cur)} />}
+      {data.amountTendered != null && (
+        <Row l="Tendered" r={fmtCurrency(data.amountTendered, cur)} />
+      )}
       {data.changeDue != null && data.changeDue > 0 && (
         <Row l="Change" r={fmtCurrency(data.changeDue, cur)} />
       )}
@@ -121,9 +139,7 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
       <Divider />
 
       <div className="text-center">
-        <div className="my-2 tracking-[0.3em]">
-          {"|| ||| || || ||||| || |||"}
-        </div>
+        <div className="my-2 tracking-[0.3em]">{"|| ||| || || ||||| || |||"}</div>
         <div className="text-[10px]">{data.transactionId}</div>
       </div>
 

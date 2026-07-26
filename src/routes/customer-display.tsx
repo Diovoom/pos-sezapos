@@ -62,14 +62,14 @@ function CustomerDisplayPage() {
       try {
         localStorage.setItem("pos.hw.display.status", "connected");
         localStorage.setItem("pos.hw.display.lastSeen", String(Date.now()));
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
     };
 
     const refreshFromStorage = () => {
       const next = readSavedSale();
-      setSale((current) =>
-        current.updatedAt === next.updatedAt ? current : next,
-      );
+      setSale((current) => (current.updatedAt === next.updatedAt ? current : next));
     };
 
     markDisplayConnected();
@@ -113,7 +113,11 @@ function CustomerDisplayPage() {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("focus", refreshFromStorage);
       document.removeEventListener("visibilitychange", onVisible);
-      try { localStorage.setItem("pos.hw.display.status", "disconnected"); } catch { /* ignore */ }
+      try {
+        localStorage.setItem("pos.hw.display.status", "disconnected");
+      } catch {
+        /* ignore */
+      }
     };
   }, []);
 
@@ -141,7 +145,10 @@ function CustomerDisplayPage() {
         ) : (
           <div className="space-y-3">
             {sale.lines.map((line) => (
-              <div key={line.id} className="grid grid-cols-[1fr_auto] gap-6 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-4">
+              <div
+                key={line.id}
+                className="grid grid-cols-[1fr_auto] gap-6 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-4"
+              >
                 <div className="min-w-0">
                   <p className="truncate text-xl md:text-2xl font-semibold">{line.name}</p>
                   <p className="mt-1 text-sm md:text-base text-white/55">
@@ -160,7 +167,9 @@ function CustomerDisplayPage() {
       <footer className="border-t border-white/15 pt-6">
         <div className="ml-auto max-w-xl space-y-2 text-lg">
           <MoneyRow label="Subtotal" value={fmtCurrency(sale.subtotal, sale.currency)} />
-          {sale.discount > 0 && <MoneyRow label="Discount" value={`− ${fmtCurrency(sale.discount, sale.currency)}`} />}
+          {sale.discount > 0 && (
+            <MoneyRow label="Discount" value={`− ${fmtCurrency(sale.discount, sale.currency)}`} />
+          )}
           <MoneyRow label="Tax" value={fmtCurrency(sale.tax, sale.currency)} />
           <div className="mt-4 flex items-end justify-between border-t border-dashed border-white/25 pt-5">
             <span className="text-2xl md:text-3xl font-bold">Total</span>

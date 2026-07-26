@@ -14,9 +14,17 @@ export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
       { title: "Pricing — SEZA POS" },
-      { name: "description", content: "Simple pricing for SEZA POS. Starter $29, Pro $59, Business $89. 14-day free trial. No credit card required. Cancel anytime." },
+      {
+        name: "description",
+        content:
+          "Simple pricing for SEZA POS. Starter $29, Pro $59, Business $89. 14-day free trial. No credit card required. Cancel anytime.",
+      },
       { property: "og:title", content: "Simple pricing. Start free, choose later. — SEZA POS" },
-      { property: "og:description", content: "Three plans for retail businesses of every size. Start with a 14-day free trial. No credit card required." },
+      {
+        property: "og:description",
+        content:
+          "Three plans for retail businesses of every size. Start with a 14-day free trial. No credit card required.",
+      },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://sezapos.com/pricing" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -36,9 +44,13 @@ function PricingPage() {
     <MarketingShell>
       <section className="max-w-6xl mx-auto px-6 py-16">
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Simple pricing. Start free, choose later.</h1>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+            Simple pricing. Start free, choose later.
+          </h1>
           <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">
-            Try SEZA for 14 days with the tools you need to test your store. No credit card required. Choose the plan that best fits your business—you can change it before billing begins.
+            Try SEZA for 14 days with the tools you need to test your store. No credit card
+            required. Choose the plan that best fits your business—you can change it before billing
+            begins.
           </p>
         </div>
 
@@ -52,8 +64,8 @@ function PricingPage() {
                   plan.highlight
                     ? "border-primary shadow-lg ring-1 ring-primary/20 relative"
                     : isSelected
-                    ? "border-primary/60 ring-1 ring-primary/10"
-                    : ""
+                      ? "border-primary/60 ring-1 ring-primary/10"
+                      : ""
                 }`}
               >
                 {plan.highlight && (
@@ -75,7 +87,11 @@ function PricingPage() {
                     </li>
                   ))}
                 </ul>
-                <Button asChild className="mt-6 w-full" variant={plan.highlight ? "default" : "outline"}>
+                <Button
+                  asChild
+                  className="mt-6 w-full"
+                  variant={plan.highlight ? "default" : "outline"}
+                >
                   <Link to="/signup" search={{ plan: plan.id }}>{`Start ${plan.name} trial`}</Link>
                 </Button>
               </div>
@@ -85,7 +101,9 @@ function PricingPage() {
 
         <p className="text-center text-xs text-muted-foreground mt-8">
           14-day free trial. No credit card required. Cancel anytime. Prices in USD.{" "}
-          <Link to="/contact" className="text-primary hover:underline">Need something custom?</Link>
+          <Link to="/contact" className="text-primary hover:underline">
+            Need something custom?
+          </Link>
         </p>
       </section>
     </MarketingShell>

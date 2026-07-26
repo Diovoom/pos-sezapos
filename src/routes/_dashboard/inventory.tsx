@@ -6,20 +6,51 @@ import { PageHeader } from "@/components/pos/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Search, Package, AlertTriangle, XCircle, Tags, Plus, Upload, Download,
-  MoreVertical, ImageIcon, ArrowUpDown, Loader2, Pencil, Trash2,
+  Search,
+  Package,
+  AlertTriangle,
+  XCircle,
+  Tags,
+  Plus,
+  Upload,
+  Download,
+  MoreVertical,
+  ImageIcon,
+  ArrowUpDown,
+  Loader2,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtCurrency } from "@/lib/format";
@@ -30,7 +61,10 @@ export const Route = createFileRoute("/_dashboard/inventory")({
   head: () => ({
     meta: [
       { title: "Inventory — SEZA POS" },
-      { name: "description", content: "Manage products, stock levels, categories, and inventory in real time." },
+      {
+        name: "description",
+        content: "Manage products, stock levels, categories, and inventory in real time.",
+      },
     ],
   }),
   component: InventoryPage,
@@ -95,7 +129,12 @@ function StatusBadge({ status }: { status: "in" | "low" | "out" }) {
   } as const;
   const label = status === "in" ? "In Stock" : status === "low" ? "Low Stock" : "Out of Stock";
   return (
-    <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border", map[status])}>
+    <span
+      className={cn(
+        "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border",
+        map[status],
+      )}
+    >
       {label}
     </span>
   );
@@ -114,10 +153,16 @@ function Thumb({ path }: { path: string | null }) {
 }
 
 function SummaryCard({
-  icon: Icon, label, value, tone = "primary", href,
+  icon: Icon,
+  label,
+  value,
+  tone = "primary",
+  href,
 }: {
   icon: React.ComponentType<{ className?: string }>;
-  label: string; value: string | number; tone?: "primary" | "warning" | "destructive" | "success";
+  label: string;
+  value: string | number;
+  tone?: "primary" | "warning" | "destructive" | "success";
   href?: string;
 }) {
   const toneMap = {
@@ -133,9 +178,15 @@ function SummaryCard({
           <Icon className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">{label}</div>
+          <div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+            {label}
+          </div>
           <div className="text-2xl font-bold mt-0.5 tabular-nums">{value}</div>
-          {href && <Link to={href} className="text-xs text-primary hover:underline">View →</Link>}
+          {href && (
+            <Link to={href} className="text-xs text-primary hover:underline">
+              View →
+            </Link>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -169,8 +220,10 @@ function InventoryPage() {
       const stock = Number(editForm.stock);
       const minStock = Number(editForm.min_stock);
       if (!editForm.name.trim()) throw new Error("Product name is required");
-      if (![price, cost, stock, minStock].every(Number.isFinite)) throw new Error("Enter valid numbers");
-      if (price < 0 || cost < 0 || stock < 0 || minStock < 0) throw new Error("Price, cost, stock, and low-stock alert cannot be negative");
+      if (![price, cost, stock, minStock].every(Number.isFinite))
+        throw new Error("Enter valid numbers");
+      if (price < 0 || cost < 0 || stock < 0 || minStock < 0)
+        throw new Error("Price, cost, stock, and low-stock alert cannot be negative");
       const { error } = await supabase
         .from("products")
         .update({
@@ -211,7 +264,8 @@ function InventoryPage() {
 
   const { data: store } = useQuery({
     queryKey: ["store"],
-    queryFn: async () => (await supabase.from("stores").select("id,currency").limit(1).maybeSingle()).data,
+    queryFn: async () =>
+      (await supabase.from("stores").select("id,currency").limit(1).maybeSingle()).data,
   });
   const currency = store?.currency ?? "USD";
 
@@ -228,7 +282,9 @@ function InventoryPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id,name,sku,barcode,price,cost,stock,min_stock,image_url,category_id,updated_at,created_at")
+        .select(
+          "id,name,sku,barcode,price,cost,stock,min_stock,image_url,category_id,updated_at,created_at",
+        )
         .order("name");
       return (data as ProductRow[]) ?? [];
     },
@@ -241,7 +297,9 @@ function InventoryPage() {
   }, [categories]);
 
   const summary = useMemo(() => {
-    let total = 0, low = 0, out = 0;
+    let total = 0,
+      low = 0,
+      out = 0;
     for (const p of products) {
       total++;
       const s = statusOf(p);
@@ -266,12 +324,19 @@ function InventoryPage() {
     rows = [...rows].sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
-        case "name": cmp = a.name.localeCompare(b.name); break;
-        case "stock": cmp = Number(a.stock) - Number(b.stock); break;
-        case "price": cmp = Number(a.price) - Number(b.price); break;
+        case "name":
+          cmp = a.name.localeCompare(b.name);
+          break;
+        case "stock":
+          cmp = Number(a.stock) - Number(b.stock);
+          break;
+        case "price":
+          cmp = Number(a.price) - Number(b.price);
+          break;
         case "updated":
-          cmp = new Date(a.updated_at ?? a.created_at ?? 0).getTime() -
-                new Date(b.updated_at ?? b.created_at ?? 0).getTime();
+          cmp =
+            new Date(a.updated_at ?? a.created_at ?? 0).getTime() -
+            new Date(b.updated_at ?? b.created_at ?? 0).getTime();
           break;
       }
       return sortDir === "asc" ? cmp : -cmp;
@@ -284,29 +349,45 @@ function InventoryPage() {
 
   const toggleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(k); setSortDir("asc"); }
+    else {
+      setSortKey(k);
+      setSortDir("asc");
+    }
   };
 
   const exportCsv = () => {
-    const header = ["Name", "SKU", "Barcode", "Category", "Cost", "Price", "Stock", "Min Stock", "Status"];
+    const header = [
+      "Name",
+      "SKU",
+      "Barcode",
+      "Category",
+      "Cost",
+      "Price",
+      "Stock",
+      "Min Stock",
+      "Status",
+    ];
     const lines = [header.join(",")];
     for (const p of filtered) {
-      lines.push([
-        JSON.stringify(p.name),
-        JSON.stringify(p.sku ?? ""),
-        JSON.stringify(p.barcode ?? ""),
-        JSON.stringify(p.category_id ? (categoryMap.get(p.category_id) ?? "") : ""),
-        Number(p.cost).toFixed(2),
-        Number(p.price).toFixed(2),
-        Number(p.stock),
-        Number(p.min_stock ?? 0),
-        statusOf(p),
-      ].join(","));
+      lines.push(
+        [
+          JSON.stringify(p.name),
+          JSON.stringify(p.sku ?? ""),
+          JSON.stringify(p.barcode ?? ""),
+          JSON.stringify(p.category_id ? (categoryMap.get(p.category_id) ?? "") : ""),
+          Number(p.cost).toFixed(2),
+          Number(p.price).toFixed(2),
+          Number(p.stock),
+          Number(p.min_stock ?? 0),
+          statusOf(p),
+        ].join(","),
+      );
     }
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `inventory-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.href = url;
+    a.download = `inventory-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -319,10 +400,14 @@ function InventoryPage() {
         actions={
           <>
             <Button asChild size="sm">
-              <Link to="/products"><Plus className="size-4 mr-1.5" /> Add Product</Link>
+              <Link to="/products">
+                <Plus className="size-4 mr-1.5" /> Add Product
+              </Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
-              <Link to="/products"><Upload className="size-4 mr-1.5" /> Import</Link>
+              <Link to="/products">
+                <Upload className="size-4 mr-1.5" /> Import
+              </Link>
             </Button>
             <Button variant="outline" size="sm" onClick={exportCsv}>
               <Download className="size-4 mr-1.5" /> Export
@@ -343,20 +428,38 @@ function InventoryPage() {
         {/* Search + Filters */}
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Search
+              className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Input
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               placeholder="Search products, SKU, or barcode"
               aria-label="Search products"
               className="pl-10 h-11 rounded-xl"
             />
           </div>
-          <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setPage(1); }}>
-            <SelectTrigger className="h-11 rounded-xl lg:w-56"><SelectValue placeholder="All Categories" /></SelectTrigger>
+          <Select
+            value={categoryId}
+            onValueChange={(v) => {
+              setCategoryId(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="h-11 rounded-xl lg:w-56">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -366,7 +469,10 @@ function InventoryPage() {
           {(["all", "in", "low", "out"] as StockFilter[]).map((f) => (
             <button
               key={f}
-              onClick={() => { setStockFilter(f); setPage(1); }}
+              onClick={() => {
+                setStockFilter(f);
+                setPage(1);
+              }}
               className={cn(
                 "px-4 py-1.5 rounded-full text-sm font-medium border transition-colors",
                 stockFilter === f
@@ -374,7 +480,13 @@ function InventoryPage() {
                   : "bg-background text-muted-foreground hover:bg-accent border-border",
               )}
             >
-              {f === "all" ? "All" : f === "in" ? "In Stock" : f === "low" ? "Low Stock" : "Out of Stock"}
+              {f === "all"
+                ? "All"
+                : f === "in"
+                  ? "In Stock"
+                  : f === "low"
+                    ? "Low Stock"
+                    : "Out of Stock"}
             </button>
           ))}
           <div className="ml-auto text-xs text-muted-foreground">
@@ -383,7 +495,13 @@ function InventoryPage() {
               onClick={() => toggleSort(sortKey)}
               className="inline-flex items-center gap-1 font-medium text-foreground hover:text-primary"
             >
-              {sortKey === "name" ? "Name" : sortKey === "stock" ? "Stock" : sortKey === "price" ? "Price" : "Updated"}
+              {sortKey === "name"
+                ? "Name"
+                : sortKey === "stock"
+                  ? "Stock"
+                  : sortKey === "price"
+                    ? "Price"
+                    : "Updated"}
               <ArrowUpDown className="size-3" />
             </button>
           </div>
@@ -396,15 +514,29 @@ function InventoryPage() {
               <TableHeader>
                 <TableRow className="bg-surface/50">
                   <TableHead className="w-14"></TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => toggleSort("name")}>Product</TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => toggleSort("name")}>
+                    Product
+                  </TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead>Barcode</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead className="text-right cursor-pointer" onClick={() => toggleSort("price")}>Cost</TableHead>
+                  <TableHead
+                    className="text-right cursor-pointer"
+                    onClick={() => toggleSort("price")}
+                  >
+                    Cost
+                  </TableHead>
                   <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right cursor-pointer" onClick={() => toggleSort("stock")}>Stock</TableHead>
+                  <TableHead
+                    className="text-right cursor-pointer"
+                    onClick={() => toggleSort("stock")}
+                  >
+                    Stock
+                  </TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => toggleSort("updated")}>Updated</TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => toggleSort("updated")}>
+                    Updated
+                  </TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -428,17 +560,37 @@ function InventoryPage() {
                     const updated = p.updated_at ?? p.created_at;
                     return (
                       <TableRow key={p.id} className="hover:bg-surface/50">
-                        <TableCell><Thumb path={p.image_url} /></TableCell>
+                        <TableCell>
+                          <Thumb path={p.image_url} />
+                        </TableCell>
                         <TableCell className="font-medium">{p.name}</TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{p.sku ?? "—"}</TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{p.barcode ?? "—"}</TableCell>
-                        <TableCell className="text-sm">{catName ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{fmtCurrency(Number(p.cost), currency)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm font-semibold">{fmtCurrency(Number(p.price), currency)}</TableCell>
-                        <TableCell className={cn("text-right font-mono font-semibold", status === "out" && "text-destructive", status === "low" && "text-warning")}>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {p.sku ?? "—"}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {p.barcode ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {catName ?? <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {fmtCurrency(Number(p.cost), currency)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm font-semibold">
+                          {fmtCurrency(Number(p.price), currency)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right font-mono font-semibold",
+                            status === "out" && "text-destructive",
+                            status === "low" && "text-warning",
+                          )}
+                        >
                           {Number(p.stock)}
                         </TableCell>
-                        <TableCell><StatusBadge status={status} /></TableCell>
+                        <TableCell>
+                          <StatusBadge status={status} />
+                        </TableCell>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                           {updated ? new Date(updated).toLocaleDateString() : "—"}
                         </TableCell>
@@ -480,12 +632,29 @@ function InventoryPage() {
         {filtered.length > 0 && (
           <div className="flex items-center justify-between text-sm">
             <div className="text-muted-foreground">
-              Showing {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} results
+              Showing {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, filtered.length)}{" "}
+              of {filtered.length} results
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
-              <span className="px-3 text-sm font-medium">{page} / {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Previous
+              </Button>
+              <span className="px-3 text-sm font-medium">
+                {page} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
             </div>
           </div>
         )}
@@ -503,38 +672,73 @@ function InventoryPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit inventory item</DialogTitle>
-            <DialogDescription>Change the product details, price, or current stock without leaving inventory.</DialogDescription>
+            <DialogDescription>
+              Change the product details, price, or current stock without leaving inventory.
+            </DialogDescription>
           </DialogHeader>
           {editForm && (
             <div className="grid gap-4 py-2">
               <div className="space-y-1.5">
                 <Label htmlFor="inventory-edit-name">Product name</Label>
-                <Input id="inventory-edit-name" value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} />
+                <Input
+                  id="inventory-edit-name"
+                  value={editForm.name}
+                  onChange={(event) => setEditForm({ ...editForm, name: event.target.value })}
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="inventory-edit-sku">SKU</Label>
-                  <Input id="inventory-edit-sku" value={editForm.sku} onChange={(event) => setEditForm({ ...editForm, sku: event.target.value })} />
+                  <Input
+                    id="inventory-edit-sku"
+                    value={editForm.sku}
+                    onChange={(event) => setEditForm({ ...editForm, sku: event.target.value })}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="inventory-edit-barcode">Barcode</Label>
-                  <Input id="inventory-edit-barcode" value={editForm.barcode} onChange={(event) => setEditForm({ ...editForm, barcode: event.target.value })} />
+                  <Input
+                    id="inventory-edit-barcode"
+                    value={editForm.barcode}
+                    onChange={(event) => setEditForm({ ...editForm, barcode: event.target.value })}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="inventory-edit-cost">Cost</Label>
-                  <Input id="inventory-edit-cost" type="number" min="0" step="0.01" value={editForm.cost} onChange={(event) => setEditForm({ ...editForm, cost: event.target.value })} />
+                  <Input
+                    id="inventory-edit-cost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editForm.cost}
+                    onChange={(event) => setEditForm({ ...editForm, cost: event.target.value })}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="inventory-edit-price">Selling price</Label>
-                  <Input id="inventory-edit-price" type="number" min="0" step="0.01" value={editForm.price} onChange={(event) => setEditForm({ ...editForm, price: event.target.value })} />
+                  <Input
+                    id="inventory-edit-price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editForm.price}
+                    onChange={(event) => setEditForm({ ...editForm, price: event.target.value })}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="inventory-edit-stock">Current stock</Label>
-                  <Input id="inventory-edit-stock" type="number" min="0" step="1" value={editForm.stock} onChange={(event) => setEditForm({ ...editForm, stock: event.target.value })} />
+                  <Input
+                    id="inventory-edit-stock"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={editForm.stock}
+                    onChange={(event) => setEditForm({ ...editForm, stock: event.target.value })}
+                  />
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {[1, 5, 10, 25].map((amount) => (
                       <Button
@@ -543,7 +747,12 @@ function InventoryPage() {
                         size="sm"
                         variant="outline"
                         className="h-7 px-2 text-xs"
-                        onClick={() => setEditForm({ ...editForm, stock: String(Math.max(0, Number(editForm.stock || 0)) + amount) })}
+                        onClick={() =>
+                          setEditForm({
+                            ...editForm,
+                            stock: String(Math.max(0, Number(editForm.stock || 0)) + amount),
+                          })
+                        }
                       >
                         +{amount}
                       </Button>
@@ -552,32 +761,67 @@ function InventoryPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="inventory-edit-min-stock">Low-stock alert</Label>
-                  <Input id="inventory-edit-min-stock" type="number" min="0" step="1" value={editForm.min_stock} onChange={(event) => setEditForm({ ...editForm, min_stock: event.target.value })} />
+                  <Input
+                    id="inventory-edit-min-stock"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={editForm.min_stock}
+                    onChange={(event) =>
+                      setEditForm({ ...editForm, min_stock: event.target.value })
+                    }
+                  />
                 </div>
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setEditingProduct(null); setEditForm(null); }} disabled={updateProduct.isPending}>Cancel</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditingProduct(null);
+                setEditForm(null);
+              }}
+              disabled={updateProduct.isPending}
+            >
+              Cancel
+            </Button>
             <Button onClick={() => updateProduct.mutate()} disabled={updateProduct.isPending}>
-              {updateProduct.isPending && <Loader2 className="mr-2 size-4 animate-spin" />} Save changes
+              {updateProduct.isPending && <Loader2 className="mr-2 size-4 animate-spin" />} Save
+              changes
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(deletingProduct)} onOpenChange={(open) => !open && !deleteProduct.isPending && setDeletingProduct(null)}>
+      <Dialog
+        open={Boolean(deletingProduct)}
+        onOpenChange={(open) => !open && !deleteProduct.isPending && setDeletingProduct(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete product?</DialogTitle>
             <DialogDescription>
-              {deletingProduct ? `This permanently removes “${deletingProduct.name}” from the product catalog.` : "This permanently removes the selected product."}
+              {deletingProduct
+                ? `This permanently removes “${deletingProduct.name}” from the product catalog.`
+                : "This permanently removes the selected product."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletingProduct(null)} disabled={deleteProduct.isPending}>Cancel</Button>
-            <Button variant="destructive" onClick={() => deleteProduct.mutate()} disabled={deleteProduct.isPending}>
-              {deleteProduct.isPending && <Loader2 className="mr-2 size-4 animate-spin" />} Delete product
+            <Button
+              variant="outline"
+              onClick={() => setDeletingProduct(null)}
+              disabled={deleteProduct.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteProduct.mutate()}
+              disabled={deleteProduct.isPending}
+            >
+              {deleteProduct.isPending && <Loader2 className="mr-2 size-4 animate-spin" />} Delete
+              product
             </Button>
           </DialogFooter>
         </DialogContent>

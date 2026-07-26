@@ -23,17 +23,34 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import {
-  Loader2, Plus, KeyRound, Ban, Check, Copy,
-} from "lucide-react";
+import { Loader2, Plus, KeyRound, Ban, Check, Copy } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/employees")({
-  head: () => ({ meta: [{ title: "Employees — SEZA POS" }, { name: "description", content: "Manage store employees, roles, and 6-digit PIN sign-in credentials." }] }),
+  head: () => ({
+    meta: [
+      { title: "Employees — SEZA POS" },
+      {
+        name: "description",
+        content: "Manage store employees, roles, and 6-digit PIN sign-in credentials.",
+      },
+    ],
+  }),
   component: EmployeesPage,
 });
 
@@ -81,7 +98,9 @@ function EmployeesPage() {
         reason = window.prompt("Reason for disabling this employee? (min 4 chars)") ?? "";
         if (reason.trim().length < 4) throw new Error("Reason is required");
       }
-      return toggleStatus({ data: { user_id: row.id, status: nextStatus, reason: reason ?? undefined } });
+      return toggleStatus({
+        data: { user_id: row.id, status: nextStatus, reason: reason ?? undefined },
+      });
     },
     onSuccess: () => {
       toast.success("Employee status updated");
@@ -127,9 +146,13 @@ function EmployeesPage() {
         <Card>
           <CardContent className="p-0">
             {isLoading ? (
-              <div className="p-12 grid place-items-center"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
+              <div className="p-12 grid place-items-center">
+                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              </div>
             ) : employees.length === 0 ? (
-              <div className="p-10 text-center text-sm text-muted-foreground">No employees yet.</div>
+              <div className="p-10 text-center text-sm text-muted-foreground">
+                No employees yet.
+              </div>
             ) : (
               <>
                 {/* Mobile: card list */}
@@ -146,17 +169,27 @@ function EmployeesPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="font-semibold text-sm truncate">
-                            {row.full_name || `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || "—"}
+                            {row.full_name ||
+                              `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() ||
+                              "—"}
                           </div>
                           <div className="text-xs text-muted-foreground truncate">
                             ID {row.employee_id ?? "—"} · {row.email ?? "no email"}
                           </div>
                           <div className="mt-1 flex flex-wrap gap-1">
-                            <Badge variant={row.status === "active" ? "default" : "secondary"} className="text-[10px]">
+                            <Badge
+                              variant={row.status === "active" ? "default" : "secondary"}
+                              className="text-[10px]"
+                            >
                               {row.status}
                             </Badge>
                             {row.must_change_password && (
-                              <Badge variant="outline" className="text-[10px] border-warning text-warning">First login pending</Badge>
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] border-warning text-warning"
+                              >
+                                First login pending
+                              </Badge>
                             )}
                           </div>
                         </div>
@@ -192,10 +225,14 @@ function EmployeesPage() {
                               </div>
                               <div>
                                 <div className="font-semibold text-sm">
-                                  {row.full_name || `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || "—"}
+                                  {row.full_name ||
+                                    `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() ||
+                                    "—"}
                                 </div>
                                 {row.must_change_password && (
-                                  <div className="text-[10px] text-warning uppercase tracking-wider">First login pending</div>
+                                  <div className="text-[10px] text-warning uppercase tracking-wider">
+                                    First login pending
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -215,13 +252,19 @@ function EmployeesPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => navigate({ to: "/employees/$id", params: { id: row.id } })}
+                                onClick={() =>
+                                  navigate({ to: "/employees/$id", params: { id: row.id } })
+                                }
                               >
                                 Edit
                               </Button>
                               {isOwner && me.data?.user.id !== row.id && (
                                 <>
-                                  <Button size="sm" variant="outline" onClick={() => resetM.mutate(row)}>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => resetM.mutate(row)}
+                                  >
                                     <KeyRound className="size-3.5 mr-1" /> Reset
                                   </Button>
                                   <Button
@@ -229,7 +272,17 @@ function EmployeesPage() {
                                     variant={row.status === "active" ? "outline" : "default"}
                                     onClick={() => disableM.mutate(row)}
                                   >
-                                    {row.status === "active" ? <><Ban className="size-3.5 mr-1" />Disable</> : <><Check className="size-3.5 mr-1" />Enable</>}
+                                    {row.status === "active" ? (
+                                      <>
+                                        <Ban className="size-3.5 mr-1" />
+                                        Disable
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Check className="size-3.5 mr-1" />
+                                        Enable
+                                      </>
+                                    )}
                                   </Button>
                                 </>
                               )}
@@ -246,7 +299,6 @@ function EmployeesPage() {
         </Card>
       </div>
 
-
       <CreateEmployeeDialog open={createOpen} onOpenChange={setCreateOpen} />
 
       <Dialog open={!!resetInfo} onOpenChange={(v) => !v && setResetInfo(null)}>
@@ -257,7 +309,9 @@ function EmployeesPage() {
               Share this with the employee. They'll be asked to set a new password on next sign-in.
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-md bg-muted p-4 font-mono text-lg text-center">{resetInfo?.temp}</div>
+          <div className="rounded-md bg-muted p-4 font-mono text-lg text-center">
+            {resetInfo?.temp}
+          </div>
           <div className="text-xs text-muted-foreground text-center">Email: {resetInfo?.email}</div>
           <DialogFooter>
             <CopyBtn value={resetInfo?.temp ?? ""} />
@@ -278,21 +332,33 @@ function CopyBtn({ value }: { value: string }) {
         toast.success("Copied");
       }}
     >
-      <Copy className="size-4 mr-2" />Copy
+      <Copy className="size-4 mr-2" />
+      Copy
     </Button>
   );
 }
 
-function CreateEmployeeDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+function CreateEmployeeDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
   const qc = useQueryClient();
   const create = useServerFn(createEmployee);
   const [form, setForm] = useState({
-    first_name: "", last_name: "", email: "", phone: "",
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
     role: "cashier" as "manager" | "cashier",
     hire_date: new Date().toISOString().slice(0, 10),
   });
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ employee_id: string; email: string; temp: string } | null>(null);
+  const [result, setResult] = useState<{ employee_id: string; email: string; temp: string } | null>(
+    null,
+  );
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -301,7 +367,14 @@ function CreateEmployeeDialog({ open, onOpenChange }: { open: boolean; onOpenCha
       const r = await create({ data: form });
       setResult({ employee_id: r.employee_id, email: r.email, temp: r.temp_password });
       qc.invalidateQueries({ queryKey: ["employees"] });
-      setForm({ first_name: "", last_name: "", email: "", phone: "", role: "cashier", hire_date: new Date().toISOString().slice(0, 10) });
+      setForm({
+        first_name: "",
+        last_name: "",
+        email: "",
+        phone: "",
+        role: "cashier",
+        hire_date: new Date().toISOString().slice(0, 10),
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not create employee");
     } finally {
@@ -327,18 +400,58 @@ function CreateEmployeeDialog({ open, onOpenChange }: { open: boolean; onOpenCha
             </DialogHeader>
             <form onSubmit={submit} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2"><Label>First name</Label><Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} required /></div>
-                <div className="space-y-2"><Label>Last name</Label><Input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} required /></div>
+                <div className="space-y-2">
+                  <Label>First name</Label>
+                  <Input
+                    value={form.first_name}
+                    onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Last name</Label>
+                  <Input
+                    value={form.last_name}
+                    onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
-              <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  required
+                />
+              </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Hire date</Label><Input type="date" value={form.hire_date} onChange={(e) => setForm({ ...form, hire_date: e.target.value })} /></div>
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Hire date</Label>
+                  <Input
+                    type="date"
+                    value={form.hire_date}
+                    onChange={(e) => setForm({ ...form, hire_date: e.target.value })}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Role</Label>
-                <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as "manager" | "cashier" })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={form.role}
+                  onValueChange={(v) => setForm({ ...form, role: v as "manager" | "cashier" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cashier">Cashier</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
@@ -346,7 +459,9 @@ function CreateEmployeeDialog({ open, onOpenChange }: { open: boolean; onOpenCha
                 </Select>
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={close}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={close}>
+                  Cancel
+                </Button>
                 <Button type="submit" disabled={busy}>
                   {busy && <Loader2 className="size-4 animate-spin mr-2" />}
                   Create employee
@@ -359,7 +474,8 @@ function CreateEmployeeDialog({ open, onOpenChange }: { open: boolean; onOpenCha
             <DialogHeader>
               <DialogTitle>Employee created</DialogTitle>
               <DialogDescription>
-                Share these credentials with the employee. They'll set a permanent password and PIN on first sign-in.
+                Share these credentials with the employee. They'll set a permanent password and PIN
+                on first sign-in.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
@@ -377,13 +493,34 @@ function CreateEmployeeDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   );
 }
 
-function Field({ label, value, mono, big }: { label: string; value: string; mono?: boolean; big?: boolean }) {
+function Field({
+  label,
+  value,
+  mono,
+  big,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  big?: boolean;
+}) {
   return (
     <div>
       <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
       <div className="flex items-center gap-2">
-        <div className={`flex-1 rounded-md border bg-muted/40 px-3 py-2 ${mono ? "font-mono" : ""} ${big ? "text-2xl text-center tracking-widest" : ""}`}>{value}</div>
-        <Button size="icon" variant="outline" onClick={() => { navigator.clipboard.writeText(value); toast.success("Copied"); }}>
+        <div
+          className={`flex-1 rounded-md border bg-muted/40 px-3 py-2 ${mono ? "font-mono" : ""} ${big ? "text-2xl text-center tracking-widest" : ""}`}
+        >
+          {value}
+        </div>
+        <Button
+          size="icon"
+          variant="outline"
+          onClick={() => {
+            navigator.clipboard.writeText(value);
+            toast.success("Copied");
+          }}
+        >
           <Copy className="size-4" />
         </Button>
       </div>

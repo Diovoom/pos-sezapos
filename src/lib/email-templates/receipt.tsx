@@ -92,12 +92,8 @@ const ReceiptEmail = (props: ReceiptEmailData) => {
                 </Text>
               </Column>
             </Row>
-            {props.cashierName ? (
-              <Text style={muted}>Cashier: {props.cashierName}</Text>
-            ) : null}
-            {props.customerName ? (
-              <Text style={muted}>Customer: {props.customerName}</Text>
-            ) : null}
+            {props.cashierName ? <Text style={muted}>Cashier: {props.cashierName}</Text> : null}
+            {props.customerName ? <Text style={muted}>Customer: {props.customerName}</Text> : null}
           </Section>
 
           <Hr style={hr} />
@@ -173,9 +169,7 @@ const ReceiptEmail = (props: ReceiptEmailData) => {
             </Section>
           )}
 
-          <Text style={footer}>
-            Transaction {props.transactionId ?? ""}
-          </Text>
+          <Text style={footer}>Transaction {props.transactionId ?? ""}</Text>
         </Container>
       </Body>
     </Html>
@@ -197,8 +191,7 @@ function TotalsRow({ label, value }: { label: string; value: string }) {
 
 export const template = {
   component: ReceiptEmail,
-  subject: (data: Record<string, any>) =>
-    `Your receipt from ${data.storeName ?? "our store"}`,
+  subject: (data: Record<string, any>) => `Your receipt from ${data.storeName ?? "our store"}`,
   displayName: "Customer receipt",
   previewData: {
     storeName: "Corner Market",
@@ -226,13 +219,42 @@ export const template = {
   } satisfies ReceiptEmailData,
 } satisfies TemplateEntry;
 
-const main = { backgroundColor: "#ffffff", fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif" };
-const container = { maxWidth: "560px", margin: "0 auto", backgroundColor: "#ffffff", border: "1px solid #e5e7eb", borderRadius: "12px", overflow: "hidden" };
+const main = {
+  backgroundColor: "#ffffff",
+  fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif",
+};
+const container = {
+  maxWidth: "560px",
+  margin: "0 auto",
+  backgroundColor: "#ffffff",
+  border: "1px solid #e5e7eb",
+  borderRadius: "12px",
+  overflow: "hidden",
+};
 const header = { padding: "24px 24px 8px 24px", textAlign: "center" as const };
-const h1 = { margin: 0, fontSize: "22px", fontWeight: 700, color: "#111827", letterSpacing: "-0.01em" };
-const heading2 = { fontSize: "13px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase" as const, letterSpacing: "0.08em", margin: "16px 0 8px 0" };
+const h1 = {
+  margin: 0,
+  fontSize: "22px",
+  fontWeight: 700,
+  color: "#111827",
+  letterSpacing: "-0.01em",
+};
+const heading2 = {
+  fontSize: "13px",
+  fontWeight: 600,
+  color: "#6b7280",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.08em",
+  margin: "16px 0 8px 0",
+};
 const muted = { fontSize: "13px", color: "#6b7280", margin: "2px 0" };
-const metaLabel = { fontSize: "11px", color: "#9ca3af", textTransform: "uppercase" as const, letterSpacing: "0.06em", margin: "0 0 2px 0" };
+const metaLabel = {
+  fontSize: "11px",
+  color: "#9ca3af",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.06em",
+  margin: "0 0 2px 0",
+};
 const metaValue = { fontSize: "14px", color: "#111827", margin: "2px 0" };
 const itemName = { fontSize: "14px", color: "#111827", margin: 0, fontWeight: 500 };
 const itemMeta = { fontSize: "12px", color: "#6b7280", margin: "2px 0 0 0" };
@@ -241,5 +263,17 @@ const hr = { borderColor: "#e5e7eb", margin: "16px 0" };
 const grandLabel = { fontSize: "16px", color: "#111827", fontWeight: 700, margin: 0 };
 const grandValue = { fontSize: "18px", color: "#111827", fontWeight: 700, margin: 0 };
 const policy = { fontSize: "12px", color: "#6b7280", textAlign: "center" as const, margin: 0 };
-const thanks = { fontSize: "14px", color: "#111827", textAlign: "center" as const, fontWeight: 600, margin: "16px 0" };
-const footer = { fontSize: "11px", color: "#9ca3af", textAlign: "center" as const, padding: "0 24px 24px 24px", margin: 0 };
+const thanks = {
+  fontSize: "14px",
+  color: "#111827",
+  textAlign: "center" as const,
+  fontWeight: 600,
+  margin: "16px 0",
+};
+const footer = {
+  fontSize: "11px",
+  color: "#9ca3af",
+  textAlign: "center" as const,
+  padding: "0 24px 24px 24px",
+  margin: 0,
+};

@@ -33,7 +33,10 @@ async function assertOwnerAdminOrManager(context: { supabase: SupabaseCtx; userI
   if (error || !data) throw new Error("Forbidden: owner, admin or manager role required");
 }
 
-async function isOwnerOrAdmin(context: { supabase: SupabaseCtx; userId: string }): Promise<boolean> {
+async function isOwnerOrAdmin(context: {
+  supabase: SupabaseCtx;
+  userId: string;
+}): Promise<boolean> {
   const { data } = await context.supabase.rpc("has_any_role", {
     _user_id: context.userId,
     _roles: ["owner", "admin"],
@@ -68,10 +71,7 @@ async function assertCanManage(
   if (error || !data) throw new Error("Forbidden: you cannot manage this employee");
 }
 
-async function assertNotLastOwner(
-  context: { supabase: SupabaseCtx },
-  targetUserId: string,
-) {
+async function assertNotLastOwner(context: { supabase: SupabaseCtx }, targetUserId: string) {
   const { data } = await context.supabase.rpc("is_last_owner", {
     _user_id: targetUserId,
   });
@@ -131,14 +131,16 @@ type SupabaseCtx = {
   rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 };
 
-
 /* ---------------- reliable employee time clock ---------------- */
 
 export type EmployeeTimeClockAction = "clock_in" | "clock_out" | "start_break" | "end_break";
 
 export const updateMyTimeClock = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator((data: { action: EmployeeTimeClockAction; occurredAt?: string; idempotencyKey?: string }) => data)
+  .inputValidator(
+    (data: { action: EmployeeTimeClockAction; occurredAt?: string; idempotencyKey?: string }) =>
+      data,
+  )
   .handler(async ({ data, context }) => {
     const ctx = context as { userId: string };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -147,8 +149,10 @@ export const updateMyTimeClock = createServerFn({ method: "POST" })
     const requested = data.occurredAt ? new Date(data.occurredAt) : new Date();
     if (Number.isNaN(requested.getTime())) throw new Error("Invalid time-clock timestamp");
     const now = Date.now();
-    if (requested.getTime() > now + 5 * 60_000) throw new Error("Time-clock timestamp is in the future");
-    if (requested.getTime() < now - 14 * 24 * 60 * 60_000) throw new Error("Time-clock action is too old to synchronize automatically");
+    if (requested.getTime() > now + 5 * 60_000)
+      throw new Error("Time-clock timestamp is in the future");
+    if (requested.getTime() < now - 14 * 24 * 60 * 60_000)
+      throw new Error("Time-clock action is too old to synchronize automatically");
     const at = requested.toISOString();
 
     const { data: profile, error: profileError } = await admin
@@ -189,7 +193,10 @@ export const updateMyTimeClock = createServerFn({ method: "POST" })
     const patch: Record<string, unknown> = {};
     if (data.action === "clock_out") {
       const breakStart = existing.break_start ? new Date(existing.break_start).getTime() : null;
-      const extraBreak = breakStart == null ? 0 : Math.max(0, Math.round((requested.getTime() - breakStart) / 60000));
+      const extraBreak =
+        breakStart == null
+          ? 0
+          : Math.max(0, Math.round((requested.getTime() - breakStart) / 60000));
       patch.clock_out = at;
       patch.break_start = null;
       patch.break_minutes = Number(existing.break_minutes ?? 0) + extraBreak;
@@ -198,7 +205,10 @@ export const updateMyTimeClock = createServerFn({ method: "POST" })
       patch.break_start = at;
     } else if (data.action === "end_break") {
       if (!existing.break_start) return { ok: true, entry: existing, alreadyApplied: true };
-      const mins = Math.max(0, Math.round((requested.getTime() - new Date(existing.break_start).getTime()) / 60000));
+      const mins = Math.max(
+        0,
+        Math.round((requested.getTime() - new Date(existing.break_start).getTime()) / 60000),
+      );
       patch.break_start = null;
       patch.break_minutes = Number(existing.break_minutes ?? 0) + mins;
     }
@@ -211,7 +221,8 @@ export const updateMyTimeClock = createServerFn({ method: "POST" })
       .select("*")
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!updated && data.action !== "clock_out") throw new Error("Time-clock entry could not be updated");
+    if (!updated && data.action !== "clock_out")
+      throw new Error("Time-clock entry could not be updated");
     return { ok: true, entry: updated ?? null, alreadyApplied: false };
   });
 
@@ -281,10 +292,7 @@ export const createEmployee = createServerFn({ method: "POST" })
     if (profileErr) throw new Error(profileErr.message);
 
     if (data.role === "manager") {
-      await admin
-        .from("user_roles")
-        .update({ role: "manager" })
-        .eq("user_id", created.user.id);
+      await admin.from("user_roles").update({ role: "manager" }).eq("user_id", created.user.id);
     }
 
     const { data: profile } = await admin
@@ -306,11 +314,8 @@ export const createEmployee = createServerFn({ method: "POST" })
 export const setEmployeeStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
-    (data: {
-      user_id: string;
-      status: "active" | "disabled" | "suspended";
-      reason?: string;
-    }) => data,
+    (data: { user_id: string; status: "active" | "disabled" | "suspended"; reason?: string }) =>
+      data,
   )
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
@@ -430,23 +435,30 @@ export const completeFirstLogin = createServerFn({ method: "POST" })
     const patch: Record<string, unknown> = { must_change_password: false };
     if (data.pin) {
       const { isWeakPin, pinFingerprint } = await import("./pos/fingerprint.server");
-      if (isWeakPin(data.pin)) throw new Error("That PIN is too easy to guess. Pick a less obvious 6-digit code.");
-      const { data: prof } = await admin.from("profiles").select("store_id").eq("id", ctx.userId).maybeSingle();
+      if (isWeakPin(data.pin))
+        throw new Error("That PIN is too easy to guess. Pick a less obvious 6-digit code.");
+      const { data: prof } = await admin
+        .from("profiles")
+        .select("store_id")
+        .eq("id", ctx.userId)
+        .maybeSingle();
       if (!prof?.store_id) throw new Error("You are not assigned to a store");
       const fp = pinFingerprint(prof.store_id, data.pin);
       const { data: conflict } = await admin.rpc("pos_pin_conflict_check", {
-        _store_id: prof.store_id, _fingerprint: fp, _exclude_user: ctx.userId,
+        _store_id: prof.store_id,
+        _fingerprint: fp,
+        _exclude_user: ctx.userId,
       });
-      if (conflict) throw new Error("Another active employee at this store already uses that PIN. Pick a different one.");
+      if (conflict)
+        throw new Error(
+          "Another active employee at this store already uses that PIN. Pick a different one.",
+        );
       patch.pin_hash = hashPin(data.pin);
       patch.pin_fingerprint = fp;
       patch.must_change_pin = false;
     }
 
-    const { error: profErr } = await admin
-      .from("profiles")
-      .update(patch)
-      .eq("id", ctx.userId);
+    const { error: profErr } = await admin.from("profiles").update(patch).eq("id", ctx.userId);
     if (profErr) throw new Error(profErr.message);
 
     return { ok: true };
@@ -466,29 +478,45 @@ export const setMyPin = createServerFn({ method: "POST" })
     // Cashiers cannot change or clear their own quick-login PIN from the
     // register. A manager/owner must reset it from employee management so an
     // unattended register cannot silently replace an employee credential.
-    const { data: roleRows } = await admin.from("user_roles").select("role").eq("user_id", ctx.userId);
+    const { data: roleRows } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", ctx.userId);
     const managerRole = (roleRows ?? []).some((row: { role?: string }) =>
       ["owner", "admin", "manager", "super_admin"].includes(String(row.role ?? "")),
     );
     if (!managerRole) throw new Error("Ask a manager or owner to reset your employee PIN");
 
     if (data.pin === null || data.pin === "") {
-      await admin.from("profiles").update({ pin_hash: null, pin_fingerprint: null }).eq("id", ctx.userId);
+      await admin
+        .from("profiles")
+        .update({ pin_hash: null, pin_fingerprint: null })
+        .eq("id", ctx.userId);
       return { ok: true };
     }
     if (!/^\d{6}$/.test(data.pin)) throw new Error("PIN must be exactly 6 digits");
 
     const { hashPin } = await import("./pin.server");
     const { isWeakPin, pinFingerprint } = await import("./pos/fingerprint.server");
-    if (isWeakPin(data.pin)) throw new Error("That PIN is too easy to guess. Pick a less obvious 6-digit code.");
+    if (isWeakPin(data.pin))
+      throw new Error("That PIN is too easy to guess. Pick a less obvious 6-digit code.");
 
-    const { data: prof } = await admin.from("profiles").select("store_id").eq("id", ctx.userId).maybeSingle();
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("store_id")
+      .eq("id", ctx.userId)
+      .maybeSingle();
     if (!prof?.store_id) throw new Error("You are not assigned to a store");
     const fp = pinFingerprint(prof.store_id, data.pin);
     const { data: conflict } = await admin.rpc("pos_pin_conflict_check", {
-      _store_id: prof.store_id, _fingerprint: fp, _exclude_user: ctx.userId,
+      _store_id: prof.store_id,
+      _fingerprint: fp,
+      _exclude_user: ctx.userId,
     });
-    if (conflict) throw new Error("Another active employee at this store already uses that PIN. Pick a different one.");
+    if (conflict)
+      throw new Error(
+        "Another active employee at this store already uses that PIN. Pick a different one.",
+      );
 
     await admin
       .from("profiles")
@@ -524,7 +552,9 @@ export const signInWithEmployeePin = createServerFn({ method: "POST" })
     if (!profile.email) throw new Error("Employee has no email on file");
     if (profile.status !== "active") throw new Error("Account is disabled");
     if (!profile.pin_hash) {
-      throw new Error("No PIN set. Sign in with email/password first, then set a PIN in your profile.");
+      throw new Error(
+        "No PIN set. Sign in with email/password first, then set a PIN in your profile.",
+      );
     }
 
     const { verifyPin } = await import("./pin.server");
@@ -558,9 +588,7 @@ export const signInWithPin = createServerFn({ method: "POST" })
   .inputValidator((data: { pin: string }) => data)
   .handler(async ({ data }) => {
     if (!/^\d{6}$/.test(data.pin)) throw new Error("PIN must be exactly 6 digits");
-    throw new Error(
-      "MULTIPLE_MATCHES:Please also enter your 6-digit Employee ID to sign in.",
-    );
+    throw new Error("MULTIPLE_MATCHES:Please also enter your 6-digit Employee ID to sign in.");
   });
 
 /* ---------------------- update employee (admin edit) ------------------- */
@@ -613,14 +641,20 @@ export const updateEmployee = createServerFn({ method: "POST" })
       if (data[k] !== undefined) patch[k] = data[k];
     }
     if (data.first_name !== undefined || data.last_name !== undefined) {
-      const { data: cur } = await admin.from("profiles").select("first_name,last_name").eq("id", data.user_id).maybeSingle();
+      const { data: cur } = await admin
+        .from("profiles")
+        .select("first_name,last_name")
+        .eq("id", data.user_id)
+        .maybeSingle();
       const first = data.first_name ?? cur?.first_name ?? "";
       const last = data.last_name ?? cur?.last_name ?? "";
       patch.full_name = `${first} ${last}`.trim() || null;
     }
     if (data.email !== undefined && data.email !== null) {
       const email = data.email.trim().toLowerCase();
-      const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, { email });
+      const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
+        email,
+      });
       if (authErr) throw new Error(authErr.message);
       patch.email = email;
     }
@@ -631,7 +665,12 @@ export const updateEmployee = createServerFn({ method: "POST" })
     }
 
     if (data.role) {
-      const { data: existing } = await admin.from("user_roles").select("id").eq("user_id", data.user_id).limit(1).maybeSingle();
+      const { data: existing } = await admin
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", data.user_id)
+        .limit(1)
+        .maybeSingle();
       if (existing) {
         await admin.from("user_roles").update({ role: data.role }).eq("user_id", data.user_id);
       } else {
@@ -664,9 +703,17 @@ export const setEmployeeCode = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
-    const { data: dup } = await admin.from("profiles").select("id").eq("employee_id", data.employee_id).neq("id", data.user_id).maybeSingle();
+    const { data: dup } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("employee_id", data.employee_id)
+      .neq("id", data.user_id)
+      .maybeSingle();
     if (dup) throw new Error("That Employee ID is already taken");
-    const { error } = await admin.from("profiles").update({ employee_id: data.employee_id }).eq("id", data.user_id);
+    const { error } = await admin
+      .from("profiles")
+      .update({ employee_id: data.employee_id })
+      .eq("id", data.user_id);
     if (error) throw new Error(error.message);
     await auditMerchant(ctx.userId, {
       action: "employee.update",
@@ -688,9 +735,16 @@ export const regenerateEmployeeCode = createServerFn({ method: "POST" })
     const admin: any = supabaseAdmin;
     for (let i = 0; i < 20; i++) {
       const candidate = generateSixDigitId();
-      const { data: dup } = await admin.from("profiles").select("id").eq("employee_id", candidate).maybeSingle();
+      const { data: dup } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("employee_id", candidate)
+        .maybeSingle();
       if (!dup) {
-        const { error } = await admin.from("profiles").update({ employee_id: candidate }).eq("id", data.user_id);
+        const { error } = await admin
+          .from("profiles")
+          .update({ employee_id: candidate })
+          .eq("id", data.user_id);
         if (error) throw new Error(error.message);
         await auditMerchant(ctx.userId, {
           action: "employee.update",
@@ -710,7 +764,13 @@ export const regenerateEmployeeCode = createServerFn({ method: "POST" })
 export const adminResetPin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
-    (data: { user_id: string; pin?: string | null; force_change?: boolean; clear?: boolean; reason?: string }) => data,
+    (data: {
+      user_id: string;
+      pin?: string | null;
+      force_change?: boolean;
+      clear?: boolean;
+      reason?: string;
+    }) => data,
   )
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
@@ -723,7 +783,8 @@ export const adminResetPin = createServerFn({ method: "POST" })
     const admin: any = supabaseAdmin;
 
     if (data.clear) {
-      await admin.from("profiles")
+      await admin
+        .from("profiles")
         .update({ pin_hash: null, pin_fingerprint: null, must_change_pin: !!data.force_change })
         .eq("id", data.user_id);
       await auditMerchant(ctx.userId, {
@@ -738,14 +799,24 @@ export const adminResetPin = createServerFn({ method: "POST" })
     const pin = data.pin && /^\d{6}$/.test(data.pin) ? data.pin : generatePin();
     const { hashPin } = await import("./pin.server");
     const { isWeakPin, pinFingerprint } = await import("./pos/fingerprint.server");
-    if (isWeakPin(pin)) throw new Error("That PIN is too easy to guess. Pick a less obvious 6-digit code.");
-    const { data: prof } = await admin.from("profiles").select("store_id").eq("id", data.user_id).maybeSingle();
+    if (isWeakPin(pin))
+      throw new Error("That PIN is too easy to guess. Pick a less obvious 6-digit code.");
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("store_id")
+      .eq("id", data.user_id)
+      .maybeSingle();
     if (!prof?.store_id) throw new Error("Employee has no store assignment");
     const fp = pinFingerprint(prof.store_id, pin);
     const { data: conflict } = await admin.rpc("pos_pin_conflict_check", {
-      _store_id: prof.store_id, _fingerprint: fp, _exclude_user: data.user_id,
+      _store_id: prof.store_id,
+      _fingerprint: fp,
+      _exclude_user: data.user_id,
     });
-    if (conflict) throw new Error("Another active employee at this store already uses that PIN. Pick a different one.");
+    if (conflict)
+      throw new Error(
+        "Another active employee at this store already uses that PIN. Pick a different one.",
+      );
     const { error } = await admin
       .from("profiles")
       .update({ pin_hash: hashPin(pin), pin_fingerprint: fp, must_change_pin: !!data.force_change })
@@ -764,9 +835,7 @@ export const adminResetPin = createServerFn({ method: "POST" })
 
 export const deleteEmployee = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator(
-    (data: { user_id: string; reason: string; confirm: true }) => data,
-  )
+  .inputValidator((data: { user_id: string; reason: string; confirm: true }) => data)
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
     await assertOwner(ctx);
@@ -783,11 +852,26 @@ export const deleteEmployee = createServerFn({ method: "POST" })
     // Preserve historical integrity: if the employee has any linked history,
     // deactivate the account and mark it removed instead of hard-deleting.
     const historyChecks = await Promise.all([
-      admin.from("sales").select("id", { count: "exact", head: true }).eq("cashier_id", data.user_id),
-      admin.from("refunds").select("id", { count: "exact", head: true }).eq("cashier_id", data.user_id),
-      admin.from("time_entries").select("id", { count: "exact", head: true }).eq("user_id", data.user_id),
-      admin.from("cash_movements").select("id", { count: "exact", head: true }).eq("actor_id", data.user_id),
-      admin.from("audit_log").select("id", { count: "exact", head: true }).eq("actor_id", data.user_id),
+      admin
+        .from("sales")
+        .select("id", { count: "exact", head: true })
+        .eq("cashier_id", data.user_id),
+      admin
+        .from("refunds")
+        .select("id", { count: "exact", head: true })
+        .eq("cashier_id", data.user_id),
+      admin
+        .from("time_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", data.user_id),
+      admin
+        .from("cash_movements")
+        .select("id", { count: "exact", head: true })
+        .eq("actor_id", data.user_id),
+      admin
+        .from("audit_log")
+        .select("id", { count: "exact", head: true })
+        .eq("actor_id", data.user_id),
     ]);
     const hasHistory = historyChecks.some((r) => (r.count ?? 0) > 0);
 
@@ -807,7 +891,9 @@ export const deleteEmployee = createServerFn({ method: "POST" })
       try {
         await supabaseAdmin.auth.admin.updateUserById(data.user_id, { ban_duration: "876000h" });
         await supabaseAdmin.auth.admin.signOut(data.user_id, "global");
-      } catch { /* best effort */ }
+      } catch {
+        /* best effort */
+      }
       const correlationId = await auditMerchant(ctx.userId, {
         action: "employee.disable",
         entity_id: data.user_id,
@@ -828,9 +914,6 @@ export const deleteEmployee = createServerFn({ method: "POST" })
     });
     return { ok: true, soft_deleted: false, correlation_id: correlationId };
   });
-
-
-
 
 /* ------------------------- pay & schedule ------------------------------ */
 
@@ -854,7 +937,12 @@ export const updateEmployeePay = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
     const patch: Record<string, unknown> = {};
-    for (const k of ["hourly_wage", "scheduled_start_time", "scheduled_end_time", "late_threshold_minutes"] as const) {
+    for (const k of [
+      "hourly_wage",
+      "scheduled_start_time",
+      "scheduled_end_time",
+      "late_threshold_minutes",
+    ] as const) {
       if (data[k] !== undefined) patch[k] = data[k];
     }
     if (Object.keys(patch).length === 0) return { ok: true };
@@ -883,11 +971,16 @@ export const adjustTimeEntry = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data, context }) => {
-    await assertOwnerAdminOrManager(context as unknown as { supabase: SupabaseCtx; userId: string });
+    await assertOwnerAdminOrManager(
+      context as unknown as { supabase: SupabaseCtx; userId: string },
+    );
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const admin: any = supabaseAdmin;
-    const patch: Record<string, unknown> = { adjusted_at: new Date().toISOString(), adjusted_by: (context as { userId: string }).userId };
+    const patch: Record<string, unknown> = {
+      adjusted_at: new Date().toISOString(),
+      adjusted_by: (context as { userId: string }).userId,
+    };
     if (data.clock_in !== undefined) patch.clock_in = data.clock_in;
     if (data.clock_out !== undefined) patch.clock_out = data.clock_out;
     if (data.break_minutes !== undefined) patch.break_minutes = data.break_minutes;

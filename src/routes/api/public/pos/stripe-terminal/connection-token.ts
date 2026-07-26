@@ -12,7 +12,8 @@ const CORS: Record<string, string> = {
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
-    status, headers: { "content-type": "application/json", ...CORS },
+    status,
+    headers: { "content-type": "application/json", ...CORS },
   });
 }
 
@@ -48,7 +49,9 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/connection
           const ct = await stripe.terminal.connectionTokens.create();
           return json({ secret: ct.secret });
         } catch (e) {
-          const { getStripeErrorMessage } = await import("@/lib/stripe.server").catch(() => ({ getStripeErrorMessage: () => "Stripe error" }));
+          const { getStripeErrorMessage } = await import("@/lib/stripe.server").catch(() => ({
+            getStripeErrorMessage: () => "Stripe error",
+          }));
           return json({ error: getStripeErrorMessage(e) }, 500);
         }
       },

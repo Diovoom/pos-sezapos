@@ -16,7 +16,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Search, Send, UserCheck, ExternalLink, RefreshCw, PhoneOff } from "lucide-react";
+import {
+  MessageSquare,
+  Search,
+  Send,
+  UserCheck,
+  ExternalLink,
+  RefreshCw,
+  PhoneOff,
+} from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { ADMIN_ACTIVE_CHAT_KEY, rememberAdminChat } from "@/components/admin/AdminPersistentChat";
@@ -62,7 +70,12 @@ function CommunicationsPage() {
       rememberAdminChat(rows[0].id);
       return;
     }
-    if (selectedId && rows.length && !rows.some((row: any) => row.id === selectedId) && view !== "all") {
+    if (
+      selectedId &&
+      rows.length &&
+      !rows.some((row: any) => row.id === selectedId) &&
+      view !== "all"
+    ) {
       const next = rows[0]?.id ?? null;
       setSelectedId(next);
       rememberAdminChat(next);
@@ -90,11 +103,19 @@ function CommunicationsPage() {
     const suffix = crypto.randomUUID();
     const notes = supabaseAdminAuth
       .channel(`admin-communications-notes-${suffix}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_ticket_notes" }, refresh)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "support_ticket_notes" },
+        refresh,
+      )
       .subscribe();
     const tickets = supabaseAdminAuth
       .channel(`admin-communications-tickets-${suffix}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "support_tickets" }, refresh)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "support_tickets" },
+        refresh,
+      )
       .subscribe();
     return () => {
       void supabaseAdminAuth.removeChannel(notes);
@@ -105,12 +126,17 @@ function CommunicationsPage() {
 
   useEffect(() => {
     if (!selectedId) return;
-    void markRead({ data: { ticketId: selectedId } }).then(refresh).catch(() => undefined);
+    void markRead({ data: { ticketId: selectedId } })
+      .then(refresh)
+      .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, caseQuery.data?.ticket?.last_message_at]);
 
   const selected = caseQuery.data;
-  const firstProblem = useMemo(() => selected?.problem_message?.body ?? selected?.messages?.[0]?.body ?? null, [selected?.problem_message, selected?.messages]);
+  const firstProblem = useMemo(
+    () => selected?.problem_message?.body ?? selected?.messages?.[0]?.body ?? null,
+    [selected?.problem_message, selected?.messages],
+  );
 
   async function sendReply() {
     if (!selectedId || !message.trim()) return;
@@ -125,7 +151,6 @@ function CommunicationsPage() {
       setBusy(false);
     }
   }
-
 
   async function endSelectedChat() {
     if (!selectedId || !selected) return;
@@ -163,11 +188,20 @@ function CommunicationsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Live Communications</h1>
           <p className="text-sm text-muted-foreground">
-            Real-time chat with register users and website visitors. An admin can end the live chat without deleting the support case or transcript.
+            Real-time chat with register users and website visitors. An admin can end the live chat
+            without deleting the support case or transcript.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => { listQuery.refetch(); caseQuery.refetch(); }}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${listQuery.isFetching ? "animate-spin" : ""}`} /> Refresh
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            listQuery.refetch();
+            caseQuery.refetch();
+          }}
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${listQuery.isFetching ? "animate-spin" : ""}`} />{" "}
+          Refresh
         </Button>
       </div>
 
@@ -176,11 +210,24 @@ function CommunicationsPage() {
           <div className="space-y-3 border-b p-3">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search merchant or subject…" />
+              <Input
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search merchant or subject…"
+              />
             </div>
             <div className="grid grid-cols-3 gap-1">
               {(["active", "ended", "all"] as const).map((value) => (
-                <Button key={value} size="sm" variant={view === value ? "default" : "outline"} onClick={() => { setView(value); setSelectedId(null); }}>
+                <Button
+                  key={value}
+                  size="sm"
+                  variant={view === value ? "default" : "outline"}
+                  onClick={() => {
+                    setView(value);
+                    setSelectedId(null);
+                  }}
+                >
                   {value === "active" ? "Active" : value === "ended" ? "Ended" : "All"}
                 </Button>
               ))}
@@ -191,34 +238,53 @@ function CommunicationsPage() {
               <div className="p-6 text-sm text-muted-foreground">Loading live conversations…</div>
             ) : rows.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
-                {view === "active" ? "No active chats. New merchant messages will appear here." : "No conversations match."}
+                {view === "active"
+                  ? "No active chats. New merchant messages will appear here."
+                  : "No conversations match."}
               </div>
-            ) : rows.map((row: any) => (
-              <button
-                key={row.id}
-                type="button"
-                onClick={() => { setSelectedId(row.id); rememberAdminChat(row.id); }}
-                className={`w-full border-b p-3 text-left transition-colors ${selectedId === row.id ? "bg-primary/5" : "hover:bg-muted/40"}`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="truncate font-medium" data-no-translate>{row.visitor_name ?? row.store?.name ?? row.requester_email ?? "Merchant"}</div>
-                    <div className="truncate text-sm" data-no-translate>{row.subject}</div>
+            ) : (
+              rows.map((row: any) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(row.id);
+                    rememberAdminChat(row.id);
+                  }}
+                  className={`w-full border-b p-3 text-left transition-colors ${selectedId === row.id ? "bg-primary/5" : "hover:bg-muted/40"}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium" data-no-translate>
+                        {row.visitor_name ?? row.store?.name ?? row.requester_email ?? "Merchant"}
+                      </div>
+                      <div className="truncate text-sm" data-no-translate>
+                        {row.subject}
+                      </div>
+                    </div>
+                    {row.unread && (
+                      <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
+                    )}
                   </div>
-                  {row.unread && <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />}
-                </div>
-                <div className="mt-1 truncate text-xs text-muted-foreground" data-no-translate>{row.last_message?.body ?? "Ticket opened—waiting for the first message"}</div>
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="flex gap-1">
-                    <Badge variant={row.chat_status === "ended" ? "secondary" : "default"}>{row.chat_status}</Badge>
-                    <Badge variant="outline">{row.status}</Badge>
+                  <div className="mt-1 truncate text-xs text-muted-foreground" data-no-translate>
+                    {row.last_message?.body ?? "Ticket opened—waiting for the first message"}
                   </div>
-                  <span className="text-[11px] text-muted-foreground">
-                    {row.last_message_at ? formatDistanceToNow(new Date(row.last_message_at), { addSuffix: true }) : formatDistanceToNow(new Date(row.created_at), { addSuffix: true })}
-                  </span>
-                </div>
-              </button>
-            ))}
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <div className="flex gap-1">
+                      <Badge variant={row.chat_status === "ended" ? "secondary" : "default"}>
+                        {row.chat_status}
+                      </Badge>
+                      <Badge variant="outline">{row.status}</Badge>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      {row.last_message_at
+                        ? formatDistanceToNow(new Date(row.last_message_at), { addSuffix: true })
+                        : formatDistanceToNow(new Date(row.created_at), { addSuffix: true })}
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </div>
 
@@ -235,41 +301,79 @@ function CommunicationsPage() {
             <>
               <div className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
                 <div>
-                  <div className="font-semibold" data-no-translate>{selected.ticket.visitor_name ?? selected.store?.name ?? selected.ticket.requester_email ?? "Merchant"}</div>
-                  <div className="text-sm" data-no-translate>{selected.ticket.subject}</div>
+                  <div className="font-semibold" data-no-translate>
+                    {selected.ticket.visitor_name ??
+                      selected.store?.name ??
+                      selected.ticket.requester_email ??
+                      "Merchant"}
+                  </div>
+                  <div className="text-sm" data-no-translate>
+                    {selected.ticket.subject}
+                  </div>
                   <div className="mt-1 flex flex-wrap gap-1">
                     <Badge variant="outline">#{selected.ticket.ticket_number}</Badge>
-                    <Badge variant={selected.ticket.chat_status === "ended" ? "secondary" : "default"}>{selected.ticket.chat_status}</Badge>
+                    <Badge
+                      variant={selected.ticket.chat_status === "ended" ? "secondary" : "default"}
+                    >
+                      {selected.ticket.chat_status}
+                    </Badge>
                     <Badge variant="outline">{selected.ticket.status}</Badge>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   {!selected.ticket.assigned_admin_id && (
-                    <Button size="sm" variant="outline" onClick={claimSelected} disabled={busy}><UserCheck className="mr-1 h-4 w-4" /> Claim</Button>
+                    <Button size="sm" variant="outline" onClick={claimSelected} disabled={busy}>
+                      <UserCheck className="mr-1 h-4 w-4" /> Claim
+                    </Button>
                   )}
                   {selected.ticket.chat_status !== "ended" && (
-                    <Button size="sm" variant="destructive" onClick={() => void endSelectedChat()} disabled={busy}><PhoneOff className="mr-1 h-4 w-4" /> End chat</Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => void endSelectedChat()}
+                      disabled={busy}
+                    >
+                      <PhoneOff className="mr-1 h-4 w-4" /> End chat
+                    </Button>
                   )}
                   <Button asChild size="sm" variant="outline">
-                    <Link to="/admin/support/$ticketId" params={{ ticketId: selected.ticket.id }}>Full case <ExternalLink className="ml-1 h-3 w-3" /></Link>
+                    <Link to="/admin/support/$ticketId" params={{ ticketId: selected.ticket.id }}>
+                      Full case <ExternalLink className="ml-1 h-3 w-3" />
+                    </Link>
                   </Button>
                 </div>
               </div>
 
               <div className="border-b bg-muted/20 p-3 text-sm">
-                <span className="font-medium">Original problem: </span><span data-no-translate>{firstProblem || "No opening description."}</span>
+                <span className="font-medium">Original problem: </span>
+                <span data-no-translate>{firstProblem || "No opening description."}</span>
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
                 {selected.messages.map((item: any) => {
                   const merchant = !item.author_is_platform;
                   return (
-                    <div key={item.id} className={`flex ${merchant ? "justify-start" : "justify-end"}`}>
-                      <div className={`max-w-[78%] rounded-xl px-3 py-2 ${merchant ? "bg-muted" : "bg-primary text-primary-foreground"}`}>
-                        <div className={`mb-1 text-[11px] ${merchant ? "text-muted-foreground" : "text-primary-foreground/70"}`}>
-                          {merchant ? (item.author_name || selected.ticket.visitor_name || selected.requester?.full_name || "Merchant") : (item.author_name || item.author_email || "SEZA Support")} · {format(new Date(item.created_at), "MMM d, h:mm a")}
+                    <div
+                      key={item.id}
+                      className={`flex ${merchant ? "justify-start" : "justify-end"}`}
+                    >
+                      <div
+                        className={`max-w-[78%] rounded-xl px-3 py-2 ${merchant ? "bg-muted" : "bg-primary text-primary-foreground"}`}
+                      >
+                        <div
+                          className={`mb-1 text-[11px] ${merchant ? "text-muted-foreground" : "text-primary-foreground/70"}`}
+                        >
+                          {merchant
+                            ? item.author_name ||
+                              selected.ticket.visitor_name ||
+                              selected.requester?.full_name ||
+                              "Merchant"
+                            : item.author_name || item.author_email || "SEZA Support"}{" "}
+                          · {format(new Date(item.created_at), "MMM d, h:mm a")}
                         </div>
-                        <div className="whitespace-pre-wrap text-sm" data-no-translate>{item.body}</div>
+                        <div className="whitespace-pre-wrap text-sm" data-no-translate>
+                          {item.body}
+                        </div>
                       </div>
                     </div>
                   );
@@ -277,12 +381,23 @@ function CommunicationsPage() {
               </div>
 
               <div className="border-t p-4">
-                {selected.ticket.chat_status === "ended" || ["resolved", "closed"].includes(selected.ticket.status) ? (
-                  <div className="rounded-lg bg-muted p-4 text-sm">This live chat has ended and the transcript is read-only. Reopen the full case to continue.</div>
+                {selected.ticket.chat_status === "ended" ||
+                ["resolved", "closed"].includes(selected.ticket.status) ? (
+                  <div className="rounded-lg bg-muted p-4 text-sm">
+                    This live chat has ended and the transcript is read-only. Reopen the full case
+                    to continue.
+                  </div>
                 ) : (
                   <div className="flex items-end gap-2">
-                    <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} placeholder="Reply live to the merchant…" />
-                    <Button onClick={sendReply} disabled={busy || !message.trim()}><Send className="mr-2 h-4 w-4" /> Send</Button>
+                    <Textarea
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      rows={3}
+                      placeholder="Reply live to the merchant…"
+                    />
+                    <Button onClick={sendReply} disabled={busy || !message.trim()}>
+                      <Send className="mr-2 h-4 w-4" /> Send
+                    </Button>
                   </div>
                 )}
               </div>
@@ -290,8 +405,6 @@ function CommunicationsPage() {
           )}
         </div>
       </div>
-
-
     </div>
   );
 }

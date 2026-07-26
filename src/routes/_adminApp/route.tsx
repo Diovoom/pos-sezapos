@@ -1,4 +1,11 @@
-import { createFileRoute, Outlet, redirect, Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  Link,
+  useRouterState,
+  useNavigate,
+} from "@tanstack/react-router";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabaseAdminAuth as supabase } from "@/integrations/supabase/admin-client";
@@ -7,7 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { logAudit } from "@/lib/audit-log";
-import { adminGlobalSearch, adminMyActiveSupportSession, adminEndSupportSession, adminCancelSupportRequest } from "@/lib/admin/admin.functions";
+import {
+  adminGlobalSearch,
+  adminMyActiveSupportSession,
+  adminEndSupportSession,
+  adminCancelSupportRequest,
+} from "@/lib/admin/admin.functions";
 import { useAdminPermissions } from "@/lib/admin/permissions";
 import { AdminScreenViewer } from "@/components/support/AdminScreenViewer";
 import { AdminDiagnosticsPanel } from "@/components/support/AdminDiagnosticsPanel";
@@ -41,7 +53,9 @@ import { PLATFORM_ROLES } from "@/lib/platform-roles";
 
 export const Route = createFileRoute("/_adminApp")({
   ssr: false,
-  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }, { title: "SEZA Admin" }] }),
+  head: () => ({
+    meta: [{ name: "robots", content: "noindex, nofollow" }, { title: "SEZA Admin" }],
+  }),
   beforeLoad: async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/admin/auth" });
@@ -50,9 +64,14 @@ export const Route = createFileRoute("/_adminApp")({
       .select("role")
       .eq("user_id", data.user.id);
     const isPlatform =
-      !rolesErr && (roles ?? []).some((r) => (PLATFORM_ROLES as readonly string[]).includes(r.role as string));
+      !rolesErr &&
+      (roles ?? []).some((r) => (PLATFORM_ROLES as readonly string[]).includes(r.role as string));
     if (!isPlatform) {
-      await logAudit({ action: "override.denied", entity: "admin", details: { path: "/admin", reason: "not_platform_staff" } }).catch(() => {});
+      await logAudit({
+        action: "override.denied",
+        entity: "admin",
+        details: { path: "/admin", reason: "not_platform_staff" },
+      }).catch(() => {});
       await supabase.auth.signOut();
       throw redirect({ to: "/admin/auth" });
     }
@@ -76,18 +95,48 @@ const NAV: NavItem[] = [
   { to: "/admin/registers", label: "POS Registers", icon: Monitor, permission: "devices.view" },
   { to: "/admin/devices", label: "Card Readers", icon: CreditCard, permission: "devices.view" },
   { to: "/admin/support", label: "Support Cases", icon: LifeBuoy, permission: "support.view" },
-  { to: "/admin/communications", label: "Live Communications", icon: MessageSquare, permission: "support.manage" },
-  { to: "/admin/sales", label: "New Merchant Sales", icon: BriefcaseBusiness, permission: "billing.view" },
-  { to: "/admin/payments", label: "Merchant Payments", icon: CreditCard, permission: "billing.view" },
-  { to: "/admin/subscriptions", label: "Subscriptions", icon: CreditCard, permission: "billing.view" },
+  {
+    to: "/admin/communications",
+    label: "Live Communications",
+    icon: MessageSquare,
+    permission: "support.manage",
+  },
+  {
+    to: "/admin/sales",
+    label: "New Merchant Sales",
+    icon: BriefcaseBusiness,
+    permission: "billing.view",
+  },
+  {
+    to: "/admin/payments",
+    label: "Merchant Payments",
+    icon: CreditCard,
+    permission: "billing.view",
+  },
+  {
+    to: "/admin/subscriptions",
+    label: "Subscriptions",
+    icon: CreditCard,
+    permission: "billing.view",
+  },
   { to: "/admin/offline-sync", label: "Offline Sync", icon: Monitor, permission: "sync.manage" },
   { to: "/admin/incidents", label: "Incidents", icon: AlertTriangle, permission: "incidents.view" },
   { to: "/admin/audit-logs", label: "Audit Logs", icon: ScrollText, permission: "audit.view" },
-  { to: "/admin/team", label: "Admin Team", icon: ShieldCheck, permission: "admin_users.view", founderOnly: true },
-  { to: "/admin/platform-health", label: "Platform Health", icon: Activity, permission: "platform_settings.view" },
+  {
+    to: "/admin/team",
+    label: "Admin Team",
+    icon: ShieldCheck,
+    permission: "admin_users.view",
+    founderOnly: true,
+  },
+  {
+    to: "/admin/platform-health",
+    label: "Platform Health",
+    icon: Activity,
+    permission: "platform_settings.view",
+  },
   { to: "/admin/settings", label: "Settings", icon: SettingsIcon },
 ];
-
 
 function AdminLayout() {
   const location = useRouterState({ select: (s) => s.location });
@@ -101,7 +150,6 @@ function AdminLayout() {
   const getSession = useServerFn(adminMyActiveSupportSession);
   const endSession = useServerFn(adminEndSupportSession);
   const cancelReq = useServerFn(adminCancelSupportRequest);
-
 
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -135,15 +183,22 @@ function AdminLayout() {
         client_metadata_json: string | null;
         channel_token: string;
         store?: { id: string; name: string; store_code: string | null } | null;
-        accepted_by?: { full_name: string | null; email: string | null; employee_id: string | null } | null;
+        accepted_by?: {
+          full_name: string | null;
+          email: string | null;
+          employee_id: string | null;
+        } | null;
       }
     | null
     | undefined;
 
   const activeSessionMetadata = useMemo<Record<string, unknown> | null>(() => {
     if (!activeSession?.client_metadata_json) return null;
-    try { return JSON.parse(activeSession.client_metadata_json) as Record<string, unknown>; }
-    catch { return null; }
+    try {
+      return JSON.parse(activeSession.client_metadata_json) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
   }, [activeSession?.client_metadata_json]);
 
   // Live-updating duration timer for the accepted support session.
@@ -156,13 +211,15 @@ function AdminLayout() {
 
   const duration = useMemo(() => {
     if (!activeSession?.started_at) return null;
-    const s = Math.max(0, Math.floor((Date.now() - new Date(activeSession.started_at).getTime()) / 1000));
+    const s = Math.max(
+      0,
+      Math.floor((Date.now() - new Date(activeSession.started_at).getTime()) / 1000),
+    );
     const mm = String(Math.floor(s / 60)).padStart(2, "0");
     const ss = String(s % 60).padStart(2, "0");
     return `${mm}:${ss}`;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSession?.started_at, tick]);
-
 
   async function handleSignOut() {
     await logAudit({ action: "logout", entity: "admin" }).catch(() => {});
@@ -188,7 +245,6 @@ function AdminLayout() {
     }
   }
 
-
   return (
     <div className="min-h-screen flex bg-surface text-foreground">
       <aside
@@ -209,7 +265,9 @@ function AdminLayout() {
             if (item.founderOnly && !perms?.isFounder) return false;
             return !item.permission || !perms || perms.has(item.permission);
           }).map((item) => {
-            const active = item.exact ? pathname === item.to : pathname === item.to || pathname.startsWith(item.to + "/");
+            const active = item.exact
+              ? pathname === item.to
+              : pathname === item.to || pathname.startsWith(item.to + "/");
             const Icon = item.icon;
             return (
               <Link
@@ -230,7 +288,9 @@ function AdminLayout() {
           })}
         </nav>
         <div className="border-t p-2">
-          <div className="mb-2 px-1"><LanguageSwitcher compact /></div>
+          <div className="mb-2 px-1">
+            <LanguageSwitcher compact />
+          </div>
           <Button variant="ghost" className="w-full justify-start gap-3" onClick={handleSignOut}>
             <LogOut className="h-4 w-4" /> Sign Out
           </Button>
@@ -238,12 +298,20 @@ function AdminLayout() {
       </aside>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)} />
+        <div
+          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="border-b bg-background px-4 py-2 flex items-center gap-2 sticky top-0 z-20">
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setMobileOpen(true)}
+          >
             <Menu className="h-5 w-5" />
           </Button>
           <div className="flex-1 max-w-2xl relative">
@@ -260,7 +328,9 @@ function AdminLayout() {
             />
             {open && debounced.length >= 1 && (
               <div className="absolute top-full mt-1 left-0 right-0 bg-background border rounded-md shadow-lg max-h-96 overflow-y-auto z-30">
-                {searchQuery.isFetching && <div className="p-3 text-sm text-muted-foreground">Searching…</div>}
+                {searchQuery.isFetching && (
+                  <div className="p-3 text-sm text-muted-foreground">Searching…</div>
+                )}
                 {!searchQuery.isFetching && (searchQuery.data?.results?.length ?? 0) === 0 && (
                   <div className="p-3 text-sm text-muted-foreground">No results.</div>
                 )}
@@ -285,7 +355,9 @@ function AdminLayout() {
                         <div className="font-medium truncate">{r.label}</div>
                         <div className="text-xs text-muted-foreground truncate">{r.sublabel}</div>
                       </div>
-                      <span className="text-xs uppercase tracking-wide text-primary shrink-0">{r.kind}</span>
+                      <span className="text-xs uppercase tracking-wide text-primary shrink-0">
+                        {r.kind}
+                      </span>
                     </div>
                     <div className="text-[10px] font-mono text-muted-foreground mt-0.5 truncate">
                       store {r.store_id ?? "—"}
@@ -295,27 +367,42 @@ function AdminLayout() {
               </div>
             )}
           </div>
-          <div className="hidden sm:block"><LanguageSwitcher compact /></div>
+          <div className="hidden sm:block">
+            <LanguageSwitcher compact />
+          </div>
           {open && (
-            <Button variant="ghost" size="icon" onClick={() => { setOpen(false); setQ(""); }}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setOpen(false);
+                setQ("");
+              }}
+            >
               <X className="h-4 w-4" />
             </Button>
           )}
         </header>
 
         {activeSession && (
-          <div className={cn(
-            "border-b px-4 py-2 flex flex-wrap items-center justify-between gap-3",
-            activeSession.status === "pending"
-              ? "bg-blue-500/15 border-blue-500/40"
-              : "bg-amber-500/15 border-amber-500/40",
-          )}>
+          <div
+            className={cn(
+              "border-b px-4 py-2 flex flex-wrap items-center justify-between gap-3",
+              activeSession.status === "pending"
+                ? "bg-blue-500/15 border-blue-500/40"
+                : "bg-amber-500/15 border-amber-500/40",
+            )}
+          >
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               <div className="flex items-center gap-2">
-                <Eye className={cn(
-                  "h-4 w-4",
-                  activeSession.status === "pending" ? "text-blue-700 dark:text-blue-300" : "text-amber-700 dark:text-amber-300",
-                )} />
+                <Eye
+                  className={cn(
+                    "h-4 w-4",
+                    activeSession.status === "pending"
+                      ? "text-blue-700 dark:text-blue-300"
+                      : "text-amber-700 dark:text-amber-300",
+                  )}
+                />
                 <span className="font-medium">
                   {activeSession.status === "pending"
                     ? "Waiting for merchant to accept…"
@@ -325,19 +412,27 @@ function AdminLayout() {
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                 <span>
                   <span className="uppercase tracking-wide mr-1">Business</span>
-                  <span className="text-foreground font-medium">{activeSession.store?.name ?? "—"}</span>
+                  <span className="text-foreground font-medium">
+                    {activeSession.store?.name ?? "—"}
+                  </span>
                 </span>
                 <span>
                   <span className="uppercase tracking-wide mr-1">Store</span>
-                  <span className="font-mono text-foreground">{activeSession.store?.store_code ?? activeSession.store_id.slice(0, 8)}</span>
+                  <span className="font-mono text-foreground">
+                    {activeSession.store?.store_code ?? activeSession.store_id.slice(0, 8)}
+                  </span>
                 </span>
                 {activeSession.status === "active" && (
                   <>
                     <span>
                       <span className="uppercase tracking-wide mr-1">Employee</span>
                       <span className="text-foreground">
-                        {activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? "—"}
-                        {activeSession.accepted_by?.employee_id ? ` · #${activeSession.accepted_by.employee_id}` : ""}
+                        {activeSession.accepted_by?.full_name ??
+                          activeSession.accepted_by?.email ??
+                          "—"}
+                        {activeSession.accepted_by?.employee_id
+                          ? ` · #${activeSession.accepted_by.employee_id}`
+                          : ""}
                       </span>
                     </span>
                     <span>
@@ -345,14 +440,19 @@ function AdminLayout() {
                       <span className="font-mono text-foreground">{duration ?? "00:00"}</span>
                     </span>
                     <span className="inline-flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" aria-hidden />
+                      <span
+                        className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"
+                        aria-hidden
+                      />
                       <span>Connected · read-only</span>
                     </span>
                   </>
                 )}
                 <span>
                   <span className="uppercase tracking-wide mr-1">Expires</span>
-                  <span className="text-foreground">{new Date(activeSession.expires_at).toLocaleTimeString()}</span>
+                  <span className="text-foreground">
+                    {new Date(activeSession.expires_at).toLocaleTimeString()}
+                  </span>
                 </span>
               </div>
             </div>
@@ -361,8 +461,9 @@ function AdminLayout() {
             </Button>
           </div>
         )}
-        {activeSession && activeSession.status === "active" && (
-          activeSession.client_capability === "web_screen_share" ||
+        {activeSession &&
+          activeSession.status === "active" &&
+          (activeSession.client_capability === "web_screen_share" ||
           activeSession.client_capability === "android_screen_share" ? (
             <AdminScreenViewer
               key={activeSession.id}
@@ -371,7 +472,9 @@ function AdminLayout() {
               startedAt={activeSession.started_at}
               businessName={activeSession.store?.name}
               storeCode={activeSession.store?.store_code}
-              employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
+              employeeName={
+                activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null
+              }
               capability={activeSession.client_capability}
               onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
             />
@@ -383,19 +486,19 @@ function AdminLayout() {
               expiresAt={activeSession.expires_at}
               businessName={activeSession.store?.name}
               storeCode={activeSession.store?.store_code}
-              employeeName={activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null}
+              employeeName={
+                activeSession.accepted_by?.full_name ?? activeSession.accepted_by?.email ?? null
+              }
               metadata={activeSessionMetadata}
               onClosed={() => qc.invalidateQueries({ queryKey: ["admin_support_session_active"] })}
             />
-          )
-        )}
+          ))}
 
         <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
           <Outlet />
         </main>
         <AdminPersistentChat />
       </div>
-
     </div>
   );
 }

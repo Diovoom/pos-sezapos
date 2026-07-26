@@ -2,9 +2,9 @@
 // All screens should route through these instead of hard-coded en-US/USD.
 
 export type LocaleContext = {
-  locale: string;               // e.g. "en-US", "fr-FR", "ar-SA"
-  currency: string;             // ISO 4217, e.g. "USD"
-  currencySymbol?: string;      // display override
+  locale: string; // e.g. "en-US", "fr-FR", "ar-SA"
+  currency: string; // ISO 4217, e.g. "USD"
+  currencySymbol?: string; // display override
   symbolPosition?: "before" | "after";
   decimalPrecision?: number;
   thousandsSep?: string;
@@ -58,7 +58,10 @@ export function formatNumber(value: number, ctx: Partial<LocaleContext> = {}): s
   }
 }
 
-export function formatDate(value: Date | string | number, ctx: Partial<LocaleContext> = {}): string {
+export function formatDate(
+  value: Date | string | number,
+  ctx: Partial<LocaleContext> = {},
+): string {
   const c = { ...DEFAULT_CTX, ...ctx };
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return "";
@@ -72,7 +75,10 @@ export function formatDate(value: Date | string | number, ctx: Partial<LocaleCon
   }
 }
 
-export function formatTime(value: Date | string | number, ctx: Partial<LocaleContext> = {}): string {
+export function formatTime(
+  value: Date | string | number,
+  ctx: Partial<LocaleContext> = {},
+): string {
   const c = { ...DEFAULT_CTX, ...ctx };
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return "";
@@ -86,7 +92,10 @@ export function formatTime(value: Date | string | number, ctx: Partial<LocaleCon
   }
 }
 
-export function formatDateTime(value: Date | string | number, ctx: Partial<LocaleContext> = {}): string {
+export function formatDateTime(
+  value: Date | string | number,
+  ctx: Partial<LocaleContext> = {},
+): string {
   return `${formatDate(value, ctx)} ${formatTime(value, ctx)}`;
 }
 
@@ -99,7 +108,14 @@ export function formatPhone(value: string | null | undefined, format?: string): 
 }
 
 export function formatAddress(
-  parts: { line1?: string; line2?: string; city?: string; region?: string; postal?: string; country?: string },
+  parts: {
+    line1?: string;
+    line2?: string;
+    city?: string;
+    region?: string;
+    postal?: string;
+    country?: string;
+  },
   template?: string[],
 ): string {
   const t = template ?? ["{line1}", "{line2}", "{city}, {region} {postal}", "{country}"];

@@ -90,7 +90,9 @@ export function PosShell({ children }: { children: ReactNode }) {
   // legitimate refund or reach the time clock.
   const visibleNav = POS_NAV.filter((item) => {
     if (item.to === "/register") {
-      return permissions.isSuper || permissions.has("register.open") || permissions.has("register.close");
+      return (
+        permissions.isSuper || permissions.has("register.open") || permissions.has("register.close")
+      );
     }
     return true;
   });
@@ -128,8 +130,9 @@ export function PosShell({ children }: { children: ReactNode }) {
 
   // Native APK exposes Support + Settings in the mobile menu. Web POS is
   // unchanged — those live in the merchant dashboard on the web.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isNativeShell = typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.();
+
+  const isNativeShell =
+    typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.();
 
   const doSignOut = async () => {
     await qc.cancelQueries();
@@ -167,10 +170,11 @@ export function PosShell({ children }: { children: ReactNode }) {
         <div className="h-16 px-4 border-b flex items-center gap-3">
           <StoreLogo className="size-8 rounded-lg" />
 
-
           <div className="hidden lg:flex flex-col leading-tight">
             <span className="font-semibold tracking-tight text-sm">POS Register</span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">{me?.store?.name ?? "Store"}</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
+              {me?.store?.name ?? "Store"}
+            </span>
           </div>
         </div>
 
@@ -185,7 +189,9 @@ export function PosShell({ children }: { children: ReactNode }) {
                 aria-label={t(item.labelKey)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                  active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  active
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
                 <Icon className="size-4 shrink-0" aria-hidden="true" />
@@ -233,11 +239,24 @@ export function PosShell({ children }: { children: ReactNode }) {
                     role={role}
                     className="size-9 text-sm"
                   />
-                  <span className={cn("absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-background", roleDotClass(role))} aria-hidden="true" />
+                  <span
+                    className={cn(
+                      "absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-background",
+                      roleDotClass(role),
+                    )}
+                    aria-hidden="true"
+                  />
                 </div>
                 <div className="hidden lg:flex flex-col min-w-0 flex-1">
-                  <span className="text-xs font-semibold truncate">{me?.profile?.full_name ?? me?.user?.email}</span>
-                  <span className={cn("text-[10px] font-medium uppercase tracking-wider", roleTextClass(role))}>
+                  <span className="text-xs font-semibold truncate">
+                    {me?.profile?.full_name ?? me?.user?.email}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium uppercase tracking-wider",
+                      roleTextClass(role),
+                    )}
+                  >
                     {role ?? "cashier"} · {openShift.data ? "On shift" : "Off shift"}
                   </span>
                 </div>
@@ -305,124 +324,167 @@ export function PosShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex items-center gap-2">
           <OfflineIndicator />
-        <Sheet open={mobileMenu} onOpenChange={setMobileMenu}>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-2 px-2"
-              aria-label="Open cashier menu"
-            >
-              <UserAvatar
-                name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
-                photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
-                role={role}
-                className="size-7 text-[11px]"
-              />
-              <Menu className="size-4" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-[86%] max-w-sm p-0 flex flex-col">
-            <SheetHeader className="p-4 border-b text-left">
-              <SheetTitle className="flex items-center gap-3">
-                <div className="relative shrink-0">
-                  <UserAvatar
-                    name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
-                    photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
-                    role={role}
-                    className="size-10"
-                  />
-                  <span className={cn("absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-background", roleDotClass(role))} aria-hidden="true" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold truncate">{me?.profile?.full_name ?? me?.user?.email}</div>
-                  <div className={cn("text-[10px] font-medium uppercase tracking-wider", roleTextClass(role))}>
-                    {role ?? "cashier"}
+          <Sheet open={mobileMenu} onOpenChange={setMobileMenu}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 px-2"
+                aria-label="Open cashier menu"
+              >
+                <UserAvatar
+                  name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
+                  photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
+                  role={role}
+                  className="size-7 text-[11px]"
+                />
+                <Menu className="size-4" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[86%] max-w-sm p-0 flex flex-col">
+              <SheetHeader className="p-4 border-b text-left">
+                <SheetTitle className="flex items-center gap-3">
+                  <div className="relative shrink-0">
+                    <UserAvatar
+                      name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
+                      photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
+                      role={role}
+                      className="size-10"
+                    />
+                    <span
+                      className={cn(
+                        "absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-background",
+                        roleDotClass(role),
+                      )}
+                      aria-hidden="true"
+                    />
                   </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate">
+                      {me?.profile?.full_name ?? me?.user?.email}
+                    </div>
+                    <div
+                      className={cn(
+                        "text-[10px] font-medium uppercase tracking-wider",
+                        roleTextClass(role),
+                      )}
+                    >
+                      {role ?? "cashier"}
+                    </div>
+                  </div>
+                </SheetTitle>
+                <SheetDescription className="sr-only">
+                  Cashier menu with shift and sign-out actions
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="p-4 space-y-3 text-sm">
+                <div className="rounded-lg border bg-surface/40 p-3 space-y-1">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Register
+                  </div>
+                  <div className="font-medium">{me?.store?.name ?? "Store"}</div>
                 </div>
-              </SheetTitle>
-              <SheetDescription className="sr-only">Cashier menu with shift and sign-out actions</SheetDescription>
-            </SheetHeader>
-
-            <div className="p-4 space-y-3 text-sm">
-              <div className="rounded-lg border bg-surface/40 p-3 space-y-1">
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Register</div>
-                <div className="font-medium">{me?.store?.name ?? "Store"}</div>
+                <div
+                  className={cn(
+                    "rounded-lg border p-3 space-y-1",
+                    openShift.data ? "bg-success/10 border-success/30" : "bg-surface/40",
+                  )}
+                >
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Shift status
+                  </div>
+                  <div className="font-medium">{shiftStatus}</div>
+                </div>
               </div>
-              <div className={cn(
-                "rounded-lg border p-3 space-y-1",
-                openShift.data ? "bg-success/10 border-success/30" : "bg-surface/40",
-              )}>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Shift status</div>
-                <div className="font-medium">{shiftStatus}</div>
-              </div>
-            </div>
 
-            <nav className="flex-1 overflow-y-auto px-2 pb-2">
-              {openShift.data && (
+              <nav className="flex-1 overflow-y-auto px-2 pb-2">
+                {openShift.data && (
+                  <MobileMenuRow
+                    icon={DoorOpen}
+                    label={t("posNav.open_drawer")}
+                    onClick={() => {
+                      setMobileMenu(false);
+                      setDrawerDialog(true);
+                    }}
+                  />
+                )}
                 <MobileMenuRow
-                  icon={DoorOpen}
-                  label={t("posNav.open_drawer")}
-                  onClick={() => { setMobileMenu(false); setDrawerDialog(true); }}
+                  icon={Wallet}
+                  label={t("posNav.close_shift")}
+                  onClick={() => {
+                    setMobileMenu(false);
+                    navigate({ to: "/register" });
+                  }}
                 />
-              )}
-              <MobileMenuRow
-                icon={Wallet}
-                label={t("posNav.close_shift")}
-                onClick={() => { setMobileMenu(false); navigate({ to: "/register" }); }}
-              />
-              <MobileMenuRow
-                icon={Clock}
-                label={t("posNav.timeclock")}
-                onClick={() => { setMobileMenu(false); navigate({ to: "/timeclock" }); }}
-              />
-              {canDashboard && !isNativeShell && (
                 <MobileMenuRow
-                  icon={LayoutDashboard}
-                  label="Dashboard"
-                  onClick={() => { setMobileMenu(false); window.location.href = dashboardUrl("/dashboard"); }}
+                  icon={Clock}
+                  label={t("posNav.timeclock")}
+                  onClick={() => {
+                    setMobileMenu(false);
+                    navigate({ to: "/timeclock" });
+                  }}
                 />
-              )}
-              {isNativeShell && (
-                <>
+                {canDashboard && !isNativeShell && (
                   <MobileMenuRow
-                    icon={ArrowLeftRight}
-                    label={t("posNav.pending_sync")}
-                    onClick={() => { setMobileMenu(false); navigate({ to: "/pending-sync" }); }}
+                    icon={LayoutDashboard}
+                    label="Dashboard"
+                    onClick={() => {
+                      setMobileMenu(false);
+                      window.location.href = dashboardUrl("/dashboard");
+                    }}
                   />
-                  <MobileMenuRow
-                    icon={LifeBuoy}
-                    label={t("posNav.support")}
-                    onClick={() => { setMobileMenu(false); navigate({ to: "/support" }); }}
-                  />
-                  <MobileMenuRow
-                    icon={ChevronRight}
-                    label={t("posNav.settings")}
-                    onClick={() => { setMobileMenu(false); navigate({ to: "/settings" }); }}
-                  />
-                </>
-              )}
-              <div className="h-px bg-border my-2" />
-              <MobileMenuRow
-                icon={ArrowLeftRight}
-                label={t("posNav.switch_employee")}
-                onClick={handleSwitchEmployee}
-              />
-              <MobileMenuRow
-                icon={LogOut}
-                label={t("posNav.sign_out")}
-                destructive
-                onClick={requestSignOut}
-              />
-            </nav>
-          </SheetContent>
-        </Sheet>
+                )}
+                {isNativeShell && (
+                  <>
+                    <MobileMenuRow
+                      icon={ArrowLeftRight}
+                      label={t("posNav.pending_sync")}
+                      onClick={() => {
+                        setMobileMenu(false);
+                        navigate({ to: "/pending-sync" });
+                      }}
+                    />
+                    <MobileMenuRow
+                      icon={LifeBuoy}
+                      label={t("posNav.support")}
+                      onClick={() => {
+                        setMobileMenu(false);
+                        navigate({ to: "/support" });
+                      }}
+                    />
+                    <MobileMenuRow
+                      icon={ChevronRight}
+                      label={t("posNav.settings")}
+                      onClick={() => {
+                        setMobileMenu(false);
+                        navigate({ to: "/settings" });
+                      }}
+                    />
+                  </>
+                )}
+                <div className="h-px bg-border my-2" />
+                <MobileMenuRow
+                  icon={ArrowLeftRight}
+                  label={t("posNav.switch_employee")}
+                  onClick={handleSwitchEmployee}
+                />
+                <MobileMenuRow
+                  icon={LogOut}
+                  label={t("posNav.sign_out")}
+                  destructive
+                  onClick={requestSignOut}
+                />
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
       </header>
 
       <SupportRequestListener />
-      <main className="flex-1 min-w-0 flex flex-col overflow-hidden pt-12 md:pt-0 pb-14 md:pb-0">{children}</main>
-
+      <main className="flex-1 min-w-0 flex flex-col overflow-hidden pt-12 md:pt-0 pb-14 md:pb-0">
+        {children}
+      </main>
 
       {/* Mobile POS bottom nav */}
       <nav
@@ -455,20 +517,26 @@ export function PosShell({ children }: { children: ReactNode }) {
           <AlertDialogHeader>
             <AlertDialogTitle>You still have an open shift.</AlertDialogTitle>
             <AlertDialogDescription>
-              Closing the shift records your drawer count and safe drop. Signing out without
-              closing keeps the shift open for you or a manager to close later.
+              Closing the shift records your drawer count and safe drop. Signing out without closing
+              keeps the shift open for you or a manager to close later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel className="mt-0">Cancel</AlertDialogCancel>
             <Button
               variant="outline"
-              onClick={() => { setOpenShiftWarn(false); setManagerGate(true); }}
+              onClick={() => {
+                setOpenShiftWarn(false);
+                setManagerGate(true);
+              }}
             >
               Sign out without closing
             </Button>
             <AlertDialogAction
-              onClick={() => { setOpenShiftWarn(false); navigate({ to: "/register" }); }}
+              onClick={() => {
+                setOpenShiftWarn(false);
+                navigate({ to: "/register" });
+              }}
             >
               Review &amp; close shift
             </AlertDialogAction>
@@ -486,7 +554,10 @@ export function PosShell({ children }: { children: ReactNode }) {
           cashier_id: me?.profile?.id,
           store_id: storeId,
         }}
-        onApprove={() => { setManagerGate(false); void doSignOut(); }}
+        onApprove={() => {
+          setManagerGate(false);
+          void doSignOut();
+        }}
       />
 
       <OpenDrawerDialog
@@ -496,7 +567,9 @@ export function PosShell({ children }: { children: ReactNode }) {
         storeId={storeId}
         cashierId={me?.user?.id}
         onCountShift={() => navigate({ to: "/register" })}
-        onSafeDropRecorded={() => { qc.invalidateQueries({ queryKey: ["register"] }); }}
+        onSafeDropRecorded={() => {
+          qc.invalidateQueries({ queryKey: ["register"] });
+        }}
       />
     </div>
   );

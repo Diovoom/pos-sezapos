@@ -25,7 +25,9 @@ function sectionMatches(section: LegalSection, q: string): boolean {
   const inBody =
     typeof section.body === "string"
       ? section.body.toLowerCase().includes(lower)
-      : JSON.stringify(section.body ?? "").toLowerCase().includes(lower);
+      : JSON.stringify(section.body ?? "")
+          .toLowerCase()
+          .includes(lower);
   const inChildren = section.children?.some((c) => sectionMatches(c, q)) ?? false;
   return inTitle || inBody || inChildren;
 }
@@ -38,7 +40,7 @@ export function LegalDocumentView({ doc }: Props) {
   const allSections = useMemo(() => flatten(doc.sections), [doc.sections]);
   const filteredTopLevel = useMemo(
     () => doc.sections.filter((s) => sectionMatches(s, query)),
-    [doc.sections, query]
+    [doc.sections, query],
   );
 
   // Scroll-spy for active TOC highlight
@@ -50,7 +52,7 @@ export function LegalDocumentView({ doc }: Props) {
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
         if (visible[0]) setActiveId(visible[0].target.id);
       },
-      { rootMargin: "-96px 0px -70% 0px", threshold: 0 }
+      { rootMargin: "-96px 0px -70% 0px", threshold: 0 },
     );
     allSections.forEach((s) => {
       const el = document.getElementById(s.id);
@@ -78,9 +80,13 @@ export function LegalDocumentView({ doc }: Props) {
       <div className="print-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
         {/* Breadcrumb */}
         <nav className="no-print flex items-center gap-2 text-sm text-muted-foreground mb-6">
-          <Link to="/" className="hover:text-foreground">Home</Link>
+          <Link to="/" className="hover:text-foreground">
+            Home
+          </Link>
           <ChevronRight className="h-3.5 w-3.5" />
-          <Link to="/legal" className="hover:text-foreground">Legal Center</Link>
+          <Link to="/legal" className="hover:text-foreground">
+            Legal Center
+          </Link>
           <ChevronRight className="h-3.5 w-3.5" />
           <span className="text-foreground">{doc.shortTitle}</span>
         </nav>
@@ -167,11 +173,14 @@ export function LegalDocumentView({ doc }: Props) {
                 Questions about this document? Contact us at{" "}
                 <a className="text-foreground underline" href={`mailto:${LEGAL_CONFIG.legalEmail}`}>
                   {LEGAL_CONFIG.legalEmail}
-                </a>. Electronic legal notices are accepted at the address above.
+                </a>
+                . Electronic legal notices are accepted at the address above.
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <Button asChild variant="outline" size="sm">
-                  <Link to="/legal"><ArrowLeft className="h-4 w-4" /> Back to Legal Center</Link>
+                  <Link to="/legal">
+                    <ArrowLeft className="h-4 w-4" /> Back to Legal Center
+                  </Link>
                 </Button>
                 <Button variant="ghost" size="sm" onClick={handlePrint}>
                   <Printer className="h-4 w-4" /> Print / Save PDF
@@ -209,7 +218,7 @@ function TocLink({
           "flex items-start gap-2 rounded-md px-2 py-1.5 leading-snug transition-colors",
           isActive
             ? "bg-primary/10 text-primary font-medium"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
       >
         <span className="tabular-nums text-xs pt-0.5 opacity-70">{number}.</span>
@@ -218,7 +227,13 @@ function TocLink({
       {section.children && section.children.length > 0 && (
         <div className="ml-4 mt-1 space-y-1 border-l pl-2">
           {section.children.map((c, i) => (
-            <TocLink key={c.id} section={c} index={i + 1} activeId={activeId} parentNumber={number} />
+            <TocLink
+              key={c.id}
+              section={c}
+              index={i + 1}
+              activeId={activeId}
+              parentNumber={number}
+            />
           ))}
         </div>
       )}
@@ -240,7 +255,9 @@ function SectionBlock({
   return (
     <section id={section.id} className="scroll-mt-24">
       <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-baseline gap-3">
-        <span className="text-muted-foreground tabular-nums text-base font-semibold">{number}.</span>
+        <span className="text-muted-foreground tabular-nums text-base font-semibold">
+          {number}.
+        </span>
         <span>{section.title}</span>
       </h2>
       <div className="mt-4 space-y-4 text-[15px] leading-relaxed text-foreground/90 [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-2 [&_a]:text-primary [&_a]:underline [&_strong]:text-foreground">

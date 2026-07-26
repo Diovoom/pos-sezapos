@@ -11,9 +11,16 @@ export const Route = createFileRoute("/legal/")({
   head: () => ({
     meta: [
       { title: "Legal Center — SEZA POS" },
-      { name: "description", content: "Terms, privacy, security, compliance, and other legal documents for the SEZA POS platform." },
+      {
+        name: "description",
+        content:
+          "Terms, privacy, security, compliance, and other legal documents for the SEZA POS platform.",
+      },
       { property: "og:title", content: "Legal Center — SEZA POS" },
-      { property: "og:description", content: "Every legal document that governs the SEZA POS platform in one place." },
+      {
+        property: "og:description",
+        content: "Every legal document that governs the SEZA POS platform in one place.",
+      },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://sezapos.com/legal" },
     ],
@@ -22,7 +29,10 @@ export const Route = createFileRoute("/legal/")({
   component: LegalCenterPage,
 });
 
-const CATEGORY_ICON: Record<LegalDocument["category"], React.ComponentType<{ className?: string }>> = {
+const CATEGORY_ICON: Record<
+  LegalDocument["category"],
+  React.ComponentType<{ className?: string }>
+> = {
   Terms: Scale,
   Privacy: Lock,
   Policies: FileText,
@@ -39,7 +49,7 @@ function LegalCenterPage() {
       (d) =>
         d.title.toLowerCase().includes(q) ||
         d.summary.toLowerCase().includes(q) ||
-        d.category.toLowerCase().includes(q)
+        d.category.toLowerCase().includes(q),
     );
   }, [query]);
 
@@ -54,8 +64,9 @@ function LegalCenterPage() {
             Everything legal, in one place.
           </h1>
           <p className="mt-5 text-lg text-muted-foreground max-w-2xl">
-            The agreements, policies, and trust documentation that govern how {LEGAL_CONFIG.productName} is built,
-            operated, and used. Effective {LEGAL_CONFIG.effectiveDate}.
+            The agreements, policies, and trust documentation that govern how{" "}
+            {LEGAL_CONFIG.productName} is built, operated, and used. Effective{" "}
+            {LEGAL_CONFIG.effectiveDate}.
           </p>
           <div className="mt-8 relative max-w-xl">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

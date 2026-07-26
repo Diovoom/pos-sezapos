@@ -6,20 +6,32 @@ import { PageHeader } from "@/components/pos/AppShell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { fmtCurrency } from "@/lib/format";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 
 export const Route = createFileRoute("/_dashboard/payroll")({
-  head: () => ({ meta: [{ title: "Payroll — SEZA POS" }, { name: "description", content: "Hours worked and estimated pay per employee for the current pay period." }] }),
+  head: () => ({
+    meta: [
+      { title: "Payroll — SEZA POS" },
+      {
+        name: "description",
+        content: "Hours worked and estimated pay per employee for the current pay period.",
+      },
+    ],
+  }),
   beforeLoad: async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) throw redirect({ to: "/auth" });
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", u.user.id);
+    const { data } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
     const roles = (data ?? []).map((r) => r.role as string);
     if (!roles.some((r) => ["owner", "admin", "manager"].includes(r))) {
       throw redirect({ to: "/dashboard" });
@@ -60,7 +72,9 @@ function PayrollPage() {
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase.from as any)("profiles")
-        .select("id, full_name, first_name, last_name, email, employee_id, hourly_wage, scheduled_start_time, scheduled_end_time")
+        .select(
+          "id, full_name, first_name, last_name, email, employee_id, hourly_wage, scheduled_start_time, scheduled_end_time",
+        )
         .eq("status", "active");
       return (data ?? []) as Profile[];
     },
@@ -88,12 +102,21 @@ function PayrollPage() {
   });
 
   const rows = useMemo(() => {
-    const byUser = new Map<string, { hours: number; breakMins: number; lateCount: number; lateMins: number; shifts: number }>();
+    const byUser = new Map<
+      string,
+      { hours: number; breakMins: number; lateCount: number; lateMins: number; shifts: number }
+    >();
     for (const e of entries) {
       const inMs = new Date(e.clock_in).getTime();
       const outMs = e.clock_out ? new Date(e.clock_out).getTime() : Date.now();
       const worked = Math.max(0, (outMs - inMs) / 60000 - (e.break_minutes ?? 0));
-      const cur = byUser.get(e.user_id) ?? { hours: 0, breakMins: 0, lateCount: 0, lateMins: 0, shifts: 0 };
+      const cur = byUser.get(e.user_id) ?? {
+        hours: 0,
+        breakMins: 0,
+        lateCount: 0,
+        lateMins: 0,
+        shifts: 0,
+      };
       cur.hours += worked / 60;
       cur.breakMins += e.break_minutes ?? 0;
       cur.lateCount += e.late ? 1 : 0;
@@ -102,7 +125,13 @@ function PayrollPage() {
       byUser.set(e.user_id, cur);
     }
     return profiles.map((p) => {
-      const t = byUser.get(p.id) ?? { hours: 0, breakMins: 0, lateCount: 0, lateMins: 0, shifts: 0 };
+      const t = byUser.get(p.id) ?? {
+        hours: 0,
+        breakMins: 0,
+        lateCount: 0,
+        lateMins: 0,
+        shifts: 0,
+      };
       const wage = Number(p.hourly_wage ?? 0);
       const pay = Math.round(t.hours * wage * 100) / 100;
       const name = p.full_name || `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || p.email;
@@ -122,7 +151,9 @@ function PayrollPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Pay period</CardTitle>
-            <CardDescription>Hours × hourly wage. Breaks are subtracted automatically.</CardDescription>
+            <CardDescription>
+              Hours × hourly wage. Breaks are subtracted automatically.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -155,16 +186,24 @@ function PayrollPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="font-semibold text-sm truncate">{r.name}</div>
-                      <div className="text-xs text-muted-foreground font-mono truncate">ID {r.employee_id ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground font-mono truncate">
+                        ID {r.employee_id ?? "—"}
+                      </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-base font-mono font-bold">{fmtCurrency(r.pay, currency)}</div>
-                      <div className="text-[10px] text-muted-foreground">{r.hours.toFixed(2)} h</div>
+                      <div className="text-base font-mono font-bold">
+                        {fmtCurrency(r.pay, currency)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {r.hours.toFixed(2)} h
+                      </div>
                     </div>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                    <div className="text-muted-foreground">Shifts</div><div className="text-right font-mono">{r.shifts}</div>
-                    <div className="text-muted-foreground">Breaks</div><div className="text-right font-mono">{r.breakMins}m</div>
+                    <div className="text-muted-foreground">Shifts</div>
+                    <div className="text-right font-mono">{r.shifts}</div>
+                    <div className="text-muted-foreground">Breaks</div>
+                    <div className="text-right font-mono">{r.breakMins}m</div>
                     <div className="text-muted-foreground">Wage</div>
                     <div className="text-right font-mono">
                       {r.hourly_wage == null ? (
@@ -175,9 +214,13 @@ function PayrollPage() {
                     </div>
                     <div className="text-muted-foreground">Late</div>
                     <div className="text-right">
-                      {r.lateCount > 0
-                        ? <span className="text-warning">{r.lateCount} · {r.lateMins}m</span>
-                        : <span className="text-muted-foreground">On time</span>}
+                      {r.lateCount > 0 ? (
+                        <span className="text-warning">
+                          {r.lateCount} · {r.lateMins}m
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">On time</span>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -201,7 +244,11 @@ function PayrollPage() {
                 </TableHeader>
                 <TableBody>
                   {rows.length === 0 && (
-                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No employees.</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                        No employees.
+                      </TableCell>
+                    </TableRow>
                   )}
                   {rows.map((r) => (
                     <TableRow key={r.id}>
@@ -220,11 +267,15 @@ function PayrollPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {r.hourly_wage == null
-                          ? <span className="text-warning text-xs">Not set</span>
-                          : `${fmtCurrency(r.wage, currency)}/h`}
+                        {r.hourly_wage == null ? (
+                          <span className="text-warning text-xs">Not set</span>
+                        ) : (
+                          `${fmtCurrency(r.wage, currency)}/h`
+                        )}
                       </TableCell>
-                      <TableCell className="text-right font-mono font-bold">{fmtCurrency(r.pay, currency)}</TableCell>
+                      <TableCell className="text-right font-mono font-bold">
+                        {fmtCurrency(r.pay, currency)}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

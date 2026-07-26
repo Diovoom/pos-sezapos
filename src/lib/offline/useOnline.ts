@@ -18,7 +18,9 @@ export function setNativeOnline(state: boolean) {
   // also gets a chance to re-render.
   try {
     window.dispatchEvent(new Event(state ? "online" : "offline"));
-  } catch { /* SSR */ }
+  } catch {
+    /* SSR */
+  }
   overrideListeners.forEach((l) => l());
 }
 
@@ -50,7 +52,11 @@ export function useOnline(): boolean {
 }
 
 /* Simple event bus for sync progress */
-type SyncEvent = { type: "start" | "progress" | "done" | "error"; pending?: number; message?: string };
+type SyncEvent = {
+  type: "start" | "progress" | "done" | "error";
+  pending?: number;
+  message?: string;
+};
 type Listener = (e: SyncEvent) => void;
 const listeners = new Set<Listener>();
 export function emitSync(e: SyncEvent) {
@@ -61,7 +67,9 @@ export function useSyncEvents() {
   useEffect(() => {
     const l: Listener = (e) => setLast(e);
     listeners.add(l);
-    return () => { listeners.delete(l); };
+    return () => {
+      listeners.delete(l);
+    };
   }, []);
   return last;
 }

@@ -14,10 +14,7 @@ import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/a
 
 export const Route = createFileRoute("/admin/auth")({
   head: () => ({
-    meta: [
-      { title: "SEZA Admin — Sign in" },
-      { name: "robots", content: "noindex, nofollow" },
-    ],
+    meta: [{ title: "SEZA Admin — Sign in" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: AdminAuthPage,
 });
@@ -27,10 +24,7 @@ import { PLATFORM_ROLES } from "@/lib/platform-roles";
 const GENERIC_ERROR = "Invalid credentials or insufficient permissions.";
 
 async function isPlatformStaff(userId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId);
+  const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
   if (error) return false;
   return (data ?? []).some((r) => (PLATFORM_ROLES as readonly string[]).includes(r.role as string));
 }
@@ -166,7 +160,15 @@ function AdminAuthPage() {
               className="w-full"
               disabled={loading || cooldown.active || (authCaptchaEnabled && !captchaToken)}
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : cooldown.active ? `Try again in ${cooldown.seconds}s` : forgotMode ? "Send reset link" : "Sign In"}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : cooldown.active ? (
+                `Try again in ${cooldown.seconds}s`
+              ) : forgotMode ? (
+                "Send reset link"
+              ) : (
+                "Sign In"
+              )}
             </Button>
 
             <div className="text-center text-sm">

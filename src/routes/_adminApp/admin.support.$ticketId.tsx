@@ -16,8 +16,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   ArrowLeft,
   UserCheck,
@@ -98,7 +111,9 @@ function SupportCasePage() {
     void supabaseAdminAuth.auth.getUser().then(({ data }) => {
       if (active) setAdminUserId(data.user?.id ?? null);
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   const refresh = () => {
@@ -115,7 +130,12 @@ function SupportCasePage() {
       .channel(`admin-support-messages-${suffix}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "support_ticket_notes", filter: `ticket_id=eq.${ticketId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "support_ticket_notes",
+          filter: `ticket_id=eq.${ticketId}`,
+        },
         refresh,
       )
       .subscribe();
@@ -123,7 +143,12 @@ function SupportCasePage() {
       .channel(`admin-support-ticket-${suffix}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "support_tickets", filter: `id=eq.${ticketId}` },
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "support_tickets",
+          filter: `id=eq.${ticketId}`,
+        },
         refresh,
       )
       .subscribe();
@@ -135,12 +160,17 @@ function SupportCasePage() {
   }, [ticketId]);
 
   const data = query.data;
-  const problem = useMemo(() => data?.problem_message ?? data?.messages?.[0] ?? null, [data?.problem_message, data?.messages]);
-
+  const problem = useMemo(
+    () => data?.problem_message ?? data?.messages?.[0] ?? null,
+    [data?.problem_message, data?.messages],
+  );
 
   useEffect(() => {
     if (!data?.ticket?.id) return;
-    if (data.ticket.chat_status === "ended" || ["resolved", "closed"].includes(String(data.ticket.status))) {
+    if (
+      data.ticket.chat_status === "ended" ||
+      ["resolved", "closed"].includes(String(data.ticket.status))
+    ) {
       rememberAdminChat(null);
       return;
     }
@@ -163,7 +193,9 @@ function SupportCasePage() {
   async function release() {
     setBusy(true);
     try {
-      await releaseCase({ data: { ticketId, reason: statusReason.trim() || "Released for another support admin." } });
+      await releaseCase({
+        data: { ticketId, reason: statusReason.trim() || "Released for another support admin." },
+      });
       toast.success("Case released to the support queue");
       rememberAdminChat(null);
       setStatusReason("");
@@ -179,7 +211,13 @@ function SupportCasePage() {
     setBusy(true);
     try {
       await transition({ data: { ticketId, status, reason: statusReason, ...extras } as any });
-      toast.success(status === "resolved" ? "Case resolved" : status === "closed" ? "Case closed" : `Case moved to ${STATUS_LABELS[status] ?? status}`);
+      toast.success(
+        status === "resolved"
+          ? "Case resolved"
+          : status === "closed"
+            ? "Case closed"
+            : `Case moved to ${STATUS_LABELS[status] ?? status}`,
+      );
       setStatusReason("");
       setResolveOpen(false);
       refresh();
@@ -190,13 +228,16 @@ function SupportCasePage() {
     }
   }
 
-
   async function endChat() {
-    const confirmed = window.confirm("End this live chat? The case and transcript will remain available for follow-up.");
+    const confirmed = window.confirm(
+      "End this live chat? The case and transcript will remain available for follow-up.",
+    );
     if (!confirmed) return;
     setBusy(true);
     try {
-      await endSupportChat({ data: { ticketId, reason: statusReason.trim() || "Live chat ended by SEZA Support." } });
+      await endSupportChat({
+        data: { ticketId, reason: statusReason.trim() || "Live chat ended by SEZA Support." },
+      });
       toast.success("Live chat ended");
       rememberAdminChat(null);
       setStatusReason("");
@@ -223,8 +264,10 @@ function SupportCasePage() {
     }
   }
 
-  if (query.isLoading) return <div className="text-sm text-muted-foreground">Loading support case…</div>;
-  if (query.isError || !data) return <div className="text-sm text-destructive">Could not load this support case.</div>;
+  if (query.isLoading)
+    return <div className="text-sm text-muted-foreground">Loading support case…</div>;
+  if (query.isError || !data)
+    return <div className="text-sm text-destructive">Could not load this support case.</div>;
 
   const { ticket, messages, internal_notes, events, store, requester, assignee, device } = data;
   const isFinal = ticket.status === "resolved" || ticket.status === "closed";
@@ -234,28 +277,57 @@ function SupportCasePage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/admin/support" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        to="/admin/support"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="h-4 w-4" /> Back to active support
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="font-mono text-xs text-muted-foreground">CASE #{ticket.ticket_number}</div>
-          <h1 className="text-2xl font-bold" data-no-translate>{ticket.subject}</h1>
+          <div className="font-mono text-xs text-muted-foreground">
+            CASE #{ticket.ticket_number}
+          </div>
+          <h1 className="text-2xl font-bold" data-no-translate>
+            {ticket.subject}
+          </h1>
           <div className="mt-2 flex flex-wrap gap-2">
             {!isFinal && (
-              <Badge variant={ticket.priority === "urgent" ? "destructive" : "outline"}>{PRIORITY_LABELS[ticket.priority] ?? ticket.priority}</Badge>
+              <Badge variant={ticket.priority === "urgent" ? "destructive" : "outline"}>
+                {PRIORITY_LABELS[ticket.priority] ?? ticket.priority}
+              </Badge>
             )}
-            <Badge variant={ticket.status === "resolved" ? "default" : "outline"}>{STATUS_LABELS[ticket.status] ?? ticket.status}</Badge>
-            <Badge variant={chatEnded ? "secondary" : "default"}>{chatEnded ? "Chat ended" : "Live chat active"}</Badge>
-            {assignee ? <Badge variant="secondary">Assigned to {assignee.full_name || assignee.email}</Badge> : <Badge variant="outline">Unassigned</Badge>}
+            <Badge variant={ticket.status === "resolved" ? "default" : "outline"}>
+              {STATUS_LABELS[ticket.status] ?? ticket.status}
+            </Badge>
+            <Badge variant={chatEnded ? "secondary" : "default"}>
+              {chatEnded ? "Chat ended" : "Live chat active"}
+            </Badge>
+            {assignee ? (
+              <Badge variant="secondary">Assigned to {assignee.full_name || assignee.email}</Badge>
+            ) : (
+              <Badge variant="outline">Unassigned</Badge>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="ghost" size="icon" aria-label="Close case workspace" title="Close case workspace">
-            <Link to="/admin/support"><X className="h-5 w-5" /></Link>
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            aria-label="Close case workspace"
+            title="Close case workspace"
+          >
+            <Link to="/admin/support">
+              <X className="h-5 w-5" />
+            </Link>
           </Button>
-          {!ticket.assigned_admin_id && <Button onClick={claim} disabled={busy}><UserCheck className="mr-2 h-4 w-4" /> Claim case</Button>}
+          {!ticket.assigned_admin_id && (
+            <Button onClick={claim} disabled={busy}>
+              <UserCheck className="mr-2 h-4 w-4" /> Claim case
+            </Button>
+          )}
           {!isFinal && assignedToMe && (
             <Button variant="outline" onClick={() => void release()} disabled={busy}>
               <UserMinus className="mr-2 h-4 w-4" /> Release to queue
@@ -267,26 +339,66 @@ function SupportCasePage() {
             </Button>
           )}
           {!isFinal && assignedToMe && ticket.status !== "waiting_for_merchant" && (
-            <Button variant="outline" onClick={() => changeStatus("waiting_for_merchant")} disabled={busy}>
+            <Button
+              variant="outline"
+              onClick={() => changeStatus("waiting_for_merchant")}
+              disabled={busy}
+            >
               <Clock3 className="mr-2 h-4 w-4" /> Wait for merchant
             </Button>
           )}
-          {!chatEnded && assignedToMe && <Button variant="destructive" onClick={() => void endChat()} disabled={busy}><PhoneOff className="mr-2 h-4 w-4" /> End chat</Button>}
-          {!isFinal && assignedToMe && <Button onClick={() => { setResolutionSummary(ticket.resolution_summary || ticket.resolution || ""); setResolveOpen(true); }}><CircleCheck className="mr-2 h-4 w-4" /> Resolve</Button>}
-          {ticket.status === "resolved" && chatEnded && <Button variant="outline" onClick={() => changeStatus("closed", { resolutionSummary: ticket.resolution_summary || ticket.resolution })}><Archive className="mr-2 h-4 w-4" /> Close case</Button>}
-          {isFinal && <Button variant="outline" onClick={() => changeStatus("open")}><RotateCcw className="mr-2 h-4 w-4" /> Reopen</Button>}
+          {!chatEnded && assignedToMe && (
+            <Button variant="destructive" onClick={() => void endChat()} disabled={busy}>
+              <PhoneOff className="mr-2 h-4 w-4" /> End chat
+            </Button>
+          )}
+          {!isFinal && assignedToMe && (
+            <Button
+              onClick={() => {
+                setResolutionSummary(ticket.resolution_summary || ticket.resolution || "");
+                setResolveOpen(true);
+              }}
+            >
+              <CircleCheck className="mr-2 h-4 w-4" /> Resolve
+            </Button>
+          )}
+          {ticket.status === "resolved" && chatEnded && (
+            <Button
+              variant="outline"
+              onClick={() =>
+                changeStatus("closed", {
+                  resolutionSummary: ticket.resolution_summary || ticket.resolution,
+                })
+              }
+            >
+              <Archive className="mr-2 h-4 w-4" /> Close case
+            </Button>
+          )}
+          {isFinal && (
+            <Button variant="outline" onClick={() => changeStatus("open")}>
+              <RotateCcw className="mr-2 h-4 w-4" /> Reopen
+            </Button>
+          )}
         </div>
       </div>
 
       <Card className="border-primary/30 bg-primary/5">
         <CardHeader>
           <CardTitle className="text-base">Problem reported by the merchant</CardTitle>
-          <CardDescription>The original issue stays visible throughout the entire investigation.</CardDescription>
+          <CardDescription>
+            The original issue stays visible throughout the entire investigation.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="whitespace-pre-wrap text-sm" data-no-translate>{problem?.body || "The merchant did not include an opening message."}</div>
+          <div className="whitespace-pre-wrap text-sm" data-no-translate>
+            {problem?.body || "The merchant did not include an opening message."}
+          </div>
           <div className="mt-3 text-xs text-muted-foreground">
-            Reported {format(new Date(ticket.created_at), "MMM d, yyyy 'at' h:mm a")} by {ticket.visitor_name || requester?.full_name || ticket.requester_email || "merchant user"}
+            Reported {format(new Date(ticket.created_at), "MMM d, yyyy 'at' h:mm a")} by{" "}
+            {ticket.visitor_name ||
+              requester?.full_name ||
+              ticket.requester_email ||
+              "merchant user"}
           </div>
         </CardContent>
       </Card>
@@ -297,49 +409,88 @@ function SupportCasePage() {
             <CardHeader className="flex flex-row items-start justify-between gap-3">
               <div>
                 <CardTitle>Live merchant conversation</CardTitle>
-                <CardDescription>Updates in real time and stays connected while you work anywhere in Admin.</CardDescription>
+                <CardDescription>
+                  Updates in real time and stays connected while you work anywhere in Admin.
+                </CardDescription>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {messages.length === 0 ? (
-                <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">No public messages yet.</div>
-              ) : messages.map((item: any) => {
-                const merchant = !item.author_is_platform;
-                return (
-                  <div key={item.id} className={`flex ${merchant ? "justify-start" : "justify-end"}`}>
-                    <div className={`max-w-[85%] rounded-xl px-3 py-2 ${merchant ? "bg-muted" : "bg-primary text-primary-foreground"}`}>
-                      <div className={`mb-1 text-[11px] ${merchant ? "text-muted-foreground" : "text-primary-foreground/75"}`}>
-                        {merchant ? (item.author_name || ticket.visitor_name || requester?.full_name || item.author_email || "Merchant") : (item.author_name || item.author_email || "SEZA Support")} · {format(new Date(item.created_at), "MMM d, h:mm a")}
+                <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  No public messages yet.
+                </div>
+              ) : (
+                messages.map((item: any) => {
+                  const merchant = !item.author_is_platform;
+                  return (
+                    <div
+                      key={item.id}
+                      className={`flex ${merchant ? "justify-start" : "justify-end"}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-xl px-3 py-2 ${merchant ? "bg-muted" : "bg-primary text-primary-foreground"}`}
+                      >
+                        <div
+                          className={`mb-1 text-[11px] ${merchant ? "text-muted-foreground" : "text-primary-foreground/75"}`}
+                        >
+                          {merchant
+                            ? item.author_name ||
+                              ticket.visitor_name ||
+                              requester?.full_name ||
+                              item.author_email ||
+                              "Merchant"
+                            : item.author_name || item.author_email || "SEZA Support"}{" "}
+                          · {format(new Date(item.created_at), "MMM d, h:mm a")}
+                        </div>
+                        <div className="whitespace-pre-wrap text-sm" data-no-translate>
+                          {item.body}
+                        </div>
                       </div>
-                      <div className="whitespace-pre-wrap text-sm" data-no-translate>{item.body}</div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
 
               {chatEnded && (
                 <div className="rounded-lg border bg-muted/40 p-4 text-sm">
                   <div className="font-medium">This live chat has ended</div>
-                  <div className="text-muted-foreground">The transcript and support case remain saved. Reopen the case to continue the conversation.</div>
+                  <div className="text-muted-foreground">
+                    The transcript and support case remain saved. Reopen the case to continue the
+                    conversation.
+                  </div>
                 </div>
               )}
               {!chatEnded && (
                 <div className="space-y-2 border-t pt-3">
                   <Label>Reply to merchant</Label>
                   {!ticket.assigned_admin_id && (
-                    <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">Claim this case to connect directly with the merchant.</div>
+                    <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                      Claim this case to connect directly with the merchant.
+                    </div>
                   )}
                   {assignedToOther && (
-                    <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">This conversation is currently owned by {assignee?.full_name || assignee?.email || "another admin"}.</div>
+                    <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                      This conversation is currently owned by{" "}
+                      {assignee?.full_name || assignee?.email || "another admin"}.
+                    </div>
                   )}
                   <Textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     rows={4}
                     disabled={!assignedToMe}
-                    placeholder={assignedToMe ? "Write a clear update, ask a question, or explain the fix…" : "Claim the case before replying"}
+                    placeholder={
+                      assignedToMe
+                        ? "Write a clear update, ask a question, or explain the fix…"
+                        : "Claim the case before replying"
+                    }
                   />
-                  <Button onClick={() => send(message, false)} disabled={busy || !message.trim() || !assignedToMe}><Send className="mr-2 h-4 w-4" /> Send live message</Button>
+                  <Button
+                    onClick={() => send(message, false)}
+                    disabled={busy || !message.trim() || !assignedToMe}
+                  >
+                    <Send className="mr-2 h-4 w-4" /> Send live message
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -347,62 +498,143 @@ function SupportCasePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><LockKeyhole className="h-4 w-4" /> Internal investigation notes</CardTitle>
-              <CardDescription>Only SEZA company staff can see these notes. Merchants cannot access them.</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <LockKeyhole className="h-4 w-4" /> Internal investigation notes
+              </CardTitle>
+              <CardDescription>
+                Only SEZA company staff can see these notes. Merchants cannot access them.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {internal_notes.map((item: any) => (
-                <div key={item.id} className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                  <div className="text-xs text-muted-foreground">{item.author_email || "SEZA staff"} · {format(new Date(item.created_at), "MMM d, h:mm a")}</div>
-                  <div className="mt-1 whitespace-pre-wrap text-sm" data-no-translate>{item.body}</div>
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3"
+                >
+                  <div className="text-xs text-muted-foreground">
+                    {item.author_email || "SEZA staff"} ·{" "}
+                    {format(new Date(item.created_at), "MMM d, h:mm a")}
+                  </div>
+                  <div className="mt-1 whitespace-pre-wrap text-sm" data-no-translate>
+                    {item.body}
+                  </div>
                 </div>
               ))}
-              <Textarea value={internalNote} onChange={(e) => setInternalNote(e.target.value)} rows={3} placeholder="Diagnostics, suspected cause, next steps…" />
-              <Button variant="outline" onClick={() => send(internalNote, true)} disabled={busy || !internalNote.trim()}>Add internal note</Button>
+              <Textarea
+                value={internalNote}
+                onChange={(e) => setInternalNote(e.target.value)}
+                rows={3}
+                placeholder="Diagnostics, suspected cause, next steps…"
+              />
+              <Button
+                variant="outline"
+                onClick={() => send(internalNote, true)}
+                disabled={busy || !internalNote.trim()}
+              >
+                Add internal note
+              </Button>
             </CardContent>
           </Card>
         </div>
 
         <div className="space-y-4">
           <Card>
-            <CardHeader><CardTitle>Case context</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Case context</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <ContextRow icon={Building2} label="Business" value={store?.name || "—"} />
-              {store && <Button asChild variant="outline" size="sm" className="w-full"><Link to="/admin/businesses/$storeId" params={{ storeId: store.id }}>Open business workspace</Link></Button>}
-              <ContextRow icon={User} label="Requester" value={ticket.visitor_name || requester?.full_name || ticket.requester_email || "—"} note={ticket.visitor_phone || (requester?.employee_id ? `Employee ${requester.employee_id}` : undefined)} />
-              <ContextRow icon={Smartphone} label="POS register" value={device?.label || "Not attached"} note={device?.last_seen_at ? `Last seen ${formatDistanceToNow(new Date(device.last_seen_at), { addSuffix: true })}` : undefined} />
-              <ContextRow icon={Activity} label="Last message" value={ticket.last_message_at ? formatDistanceToNow(new Date(ticket.last_message_at), { addSuffix: true }) : "No messages"} />
+              {store && (
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link to="/admin/businesses/$storeId" params={{ storeId: store.id }}>
+                    Open business workspace
+                  </Link>
+                </Button>
+              )}
+              <ContextRow
+                icon={User}
+                label="Requester"
+                value={ticket.visitor_name || requester?.full_name || ticket.requester_email || "—"}
+                note={
+                  ticket.visitor_phone ||
+                  (requester?.employee_id ? `Employee ${requester.employee_id}` : undefined)
+                }
+              />
+              <ContextRow
+                icon={Smartphone}
+                label="POS register"
+                value={device?.label || "Not attached"}
+                note={
+                  device?.last_seen_at
+                    ? `Last seen ${formatDistanceToNow(new Date(device.last_seen_at), { addSuffix: true })}`
+                    : undefined
+                }
+              />
+              <ContextRow
+                icon={Activity}
+                label="Last message"
+                value={
+                  ticket.last_message_at
+                    ? formatDistanceToNow(new Date(ticket.last_message_at), { addSuffix: true })
+                    : "No messages"
+                }
+              />
               <div className="rounded-lg border p-3">
                 <Label>Status reason / handoff note</Label>
-                <Textarea className="mt-2" rows={2} value={statusReason} onChange={(e) => setStatusReason(e.target.value)} placeholder="Optional context for the audit timeline…" />
+                <Textarea
+                  className="mt-2"
+                  rows={2}
+                  value={statusReason}
+                  onChange={(e) => setStatusReason(e.target.value)}
+                  placeholder="Optional context for the audit timeline…"
+                />
               </div>
             </CardContent>
           </Card>
 
           {ticket.resolution_summary && (
             <Card className="border-emerald-500/30">
-              <CardHeader><CardTitle className="text-base">Resolution</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Resolution</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <Badge>{ticket.resolution_code || "fixed"}</Badge>
                 <div className="whitespace-pre-wrap">{ticket.resolution_summary}</div>
-                {ticket.resolved_at && <div className="text-xs text-muted-foreground">Resolved {format(new Date(ticket.resolved_at), "MMM d, yyyy h:mm a")}</div>}
+                {ticket.resolved_at && (
+                  <div className="text-xs text-muted-foreground">
+                    Resolved {format(new Date(ticket.resolved_at), "MMM d, yyyy h:mm a")}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
 
           <Card>
-            <CardHeader><CardTitle>Activity timeline</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Activity timeline</CardTitle>
+            </CardHeader>
             <CardContent>
               {events.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No lifecycle events recorded yet.</div>
+                <div className="text-sm text-muted-foreground">
+                  No lifecycle events recorded yet.
+                </div>
               ) : (
                 <div className="space-y-4">
                   {events.map((event: any) => (
                     <div key={event.id} className="relative border-l pl-4 text-sm">
                       <div className="absolute -left-1.5 top-1 h-3 w-3 rounded-full border bg-background" />
-                      <div className="font-medium">{String(event.event_type).replaceAll("_", " ")}</div>
-                      <div className="text-xs text-muted-foreground">{event.actor_email || "system"} · {format(new Date(event.created_at), "MMM d, h:mm a")}</div>
-                      {event.from_status !== event.to_status && event.to_status && <div className="mt-1 text-xs">{event.from_status || "—"} → {event.to_status}</div>}
+                      <div className="font-medium">
+                        {String(event.event_type).replaceAll("_", " ")}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {event.actor_email || "system"} ·{" "}
+                        {format(new Date(event.created_at), "MMM d, h:mm a")}
+                      </div>
+                      {event.from_status !== event.to_status && event.to_status && (
+                        <div className="mt-1 text-xs">
+                          {event.from_status || "—"} → {event.to_status}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -416,13 +648,17 @@ function SupportCasePage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Resolve support case</DialogTitle>
-            <DialogDescription>A real resolution summary is required. The case stays in history and can be reopened.</DialogDescription>
+            <DialogDescription>
+              A real resolution summary is required. The case stays in history and can be reopened.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label>Resolution type</Label>
               <Select value={resolutionCode} onValueChange={setResolutionCode}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="fixed">Fixed</SelectItem>
                   <SelectItem value="merchant_guidance">Merchant guidance</SelectItem>
@@ -435,22 +671,42 @@ function SupportCasePage() {
             </div>
             <div className="space-y-1.5">
               <Label>What was wrong and how was it fixed?</Label>
-              <Textarea rows={6} value={resolutionSummary} onChange={(e) => setResolutionSummary(e.target.value)} placeholder="Root cause, exact fix, verification performed, and anything the merchant must know…" />
+              <Textarea
+                rows={6}
+                value={resolutionSummary}
+                onChange={(e) => setResolutionSummary(e.target.value)}
+                placeholder="Root cause, exact fix, verification performed, and anything the merchant must know…"
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResolveOpen(false)}>Cancel</Button>
-            <Button disabled={busy || resolutionSummary.trim().length < 5} onClick={() => changeStatus("resolved", { resolutionSummary, resolutionCode })}>Save resolution</Button>
+            <Button variant="outline" onClick={() => setResolveOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={busy || resolutionSummary.trim().length < 5}
+              onClick={() => changeStatus("resolved", { resolutionSummary, resolutionCode })}
+            >
+              Save resolution
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-
     </div>
   );
 }
 
-function ContextRow({ icon: Icon, label, value, note }: { icon: any; label: string; value: string; note?: string }) {
+function ContextRow({
+  icon: Icon,
+  label,
+  value,
+  note,
+}: {
+  icon: any;
+  label: string;
+  value: string;
+  note?: string;
+}) {
   return (
     <div className="flex items-start gap-2 rounded-lg border p-3">
       <Icon className="mt-0.5 h-4 w-4 text-muted-foreground" />

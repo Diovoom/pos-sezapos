@@ -39,9 +39,7 @@ export type PublicReceipt = {
 
 export const getPublicReceipt = createServerFn({ method: "GET" })
   .middleware([publicReadRateLimit])
-  .inputValidator((data: unknown) =>
-    z.object({ id: z.string().uuid() }).parse(data),
-  )
+  .inputValidator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
   .handler(async ({ data }): Promise<PublicReceipt | null> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 

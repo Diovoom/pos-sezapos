@@ -36,28 +36,35 @@ async function callApi<T>(path: string, body?: unknown): Promise<T> {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(String(payload?.error || `SEZA payment service error ${response.status}`));
+  if (!response.ok)
+    throw new Error(String(payload?.error || `SEZA payment service error ${response.status}`));
   return payload as T;
 }
 
 async function fetchConnectionToken() {
-  const result = await callApi<{ secret: string }>("/api/public/pos/stripe-terminal/connection-token");
+  const result = await callApi<{ secret: string }>(
+    "/api/public/pos/stripe-terminal/connection-token",
+  );
   if (!result.secret) throw new Error("Stripe Terminal connection token was empty");
   return result.secret;
 }
 
 async function createPaymentIntent(amountCents: number, currency: string, description?: string) {
-  const result = await callApi<{ id: string; client_secret: string }>("/api/public/pos/stripe-terminal/payment-intent", {
-    amount: amountCents,
-    currency,
-    description,
-  });
+  const result = await callApi<{ id: string; client_secret: string }>(
+    "/api/public/pos/stripe-terminal/payment-intent",
+    {
+      amount: amountCents,
+      currency,
+      description,
+    },
+  );
   if (!result.client_secret) throw new Error("Stripe Terminal PaymentIntent was not created");
   return result;
 }
 
 async function loadModule(): Promise<StripeModule> {
-  if (!isNativeMode()) throw new Error("Stripe Terminal payments are available in the SEZA Android POS app");
+  if (!isNativeMode())
+    throw new Error("Stripe Terminal payments are available in the SEZA Android POS app");
   modulePromise ??= import("@capacitor-community/stripe-terminal");
   return modulePromise;
 }
@@ -72,10 +79,16 @@ async function activeConfiguration(preferred?: TerminalDriverId): Promise<Termin
     .maybeSingle();
   if (error) throw error;
   const config = (data?.config ?? {}) as Record<string, unknown>;
-  const driver = (preferred && preferred !== "none" ? preferred : (config.reader_type || data?.provider)) as TerminalDriverId;
+  const driver = (
+    preferred && preferred !== "none" ? preferred : config.reader_type || data?.provider
+  ) as TerminalDriverId;
   const locationId = String(config.location_id || "").trim();
-  if (!data || !driver || driver === "none") throw new Error("Activate a Stripe Terminal in Owner Dashboard → Settings → Payment terminals");
-  if (!locationId) throw new Error("Add the Stripe Terminal Location ID (tml_…) to the active terminal configuration");
+  if (!data || !driver || driver === "none")
+    throw new Error("Activate a Stripe Terminal in Owner Dashboard → Settings → Payment terminals");
+  if (!locationId)
+    throw new Error(
+      "Add the Stripe Terminal Location ID (tml_…) to the active terminal configuration",
+    );
   return {
     driver: (driver as string) === "stripe" ? "stripe-tap-to-pay" : driver,
     locationId,
@@ -93,18 +106,25 @@ function connectionType(mod: StripeModule, driver: TerminalDriverId) {
 async function initialize(testMode: boolean) {
   const mod = await loadModule();
   if (!tokenListenerInstalled) {
-    await mod.StripeTerminal.addListener(mod.TerminalEventsEnum.RequestedConnectionToken, async () => {
-      try {
-        await mod.StripeTerminal.setConnectionToken({ token: await fetchConnectionToken() });
-      } catch (error) {
-        console.error("[SEZA Terminal] connection token failed", error);
-      }
-    });
+    await mod.StripeTerminal.addListener(
+      mod.TerminalEventsEnum.RequestedConnectionToken,
+      async () => {
+        try {
+          await mod.StripeTerminal.setConnectionToken({ token: await fetchConnectionToken() });
+        } catch (error) {
+          console.error("[SEZA Terminal] connection token failed", error);
+        }
+      },
+    );
     tokenListenerInstalled = true;
   }
   if (initializedMode !== testMode) {
     if (initializedMode !== null) {
-      try { await mod.StripeTerminal.disconnectReader(); } catch { /* no active reader */ }
+      try {
+        await mod.StripeTerminal.disconnectReader();
+      } catch {
+        /* no active reader */
+      }
       connected = null;
     }
     await mod.StripeTerminal.initialize({ isTest: testMode });
@@ -113,10 +133,14 @@ async function initialize(testMode: boolean) {
   return mod;
 }
 
-async function ensureReader(configuration: TerminalConfiguration, onStatus?: (message: string) => void) {
+async function ensureReader(
+  configuration: TerminalConfiguration,
+  onStatus?: (message: string) => void,
+) {
   const mod = await initialize(configuration.testMode);
   const current = await mod.StripeTerminal.getConnectedReader().catch(() => ({ reader: null }));
-  if (current.reader && connected?.driver === configuration.driver) return { mod, reader: current.reader };
+  if (current.reader && connected?.driver === configuration.driver)
+    return { mod, reader: current.reader };
 
   onStatus?.("Discovering Stripe reader…");
   const result = await mod.StripeTerminal.discoverReaders({
@@ -124,9 +148,13 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
     locationId: configuration.locationId,
   });
   const reader = configuration.serial
-    ? result.readers.find((item) => item.serialNumber === configuration.serial) ?? result.readers[0]
+    ? (result.readers.find((item) => item.serialNumber === configuration.serial) ??
+      result.readers[0])
     : result.readers[0];
-  if (!reader) throw new Error("No Stripe reader was found. Confirm Bluetooth, NFC, location permission, and the Stripe Location ID.");
+  if (!reader)
+    throw new Error(
+      "No Stripe reader was found. Confirm Bluetooth, NFC, location permission, and the Stripe Location ID.",
+    );
 
   onStatus?.(`Connecting ${reader.label || reader.serialNumber}…`);
   await mod.StripeTerminal.connectReader({ reader, autoReconnectOnUnexpectedDisconnect: true });
@@ -135,17 +163,30 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
 }
 
 export async function pluginAvailable() {
-  try { await loadModule(); return true; } catch { return false; }
+  try {
+    await loadModule();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function discoverReaders(driver: TerminalDriverId) {
   const configuration = await activeConfiguration(driver);
   const mod = await initialize(configuration.testMode);
-  const result = await mod.StripeTerminal.discoverReaders({ type: connectionType(mod, configuration.driver), locationId: configuration.locationId });
-  return result.readers.map((reader) => ({ id: reader.serialNumber, label: reader.label || reader.serialNumber }));
+  const result = await mod.StripeTerminal.discoverReaders({
+    type: connectionType(mod, configuration.driver),
+    locationId: configuration.locationId,
+  });
+  return result.readers.map((reader) => ({
+    id: reader.serialNumber,
+    label: reader.label || reader.serialNumber,
+  }));
 }
 
-export function connectedReader() { return connected?.driver ?? null; }
+export function connectedReader() {
+  return connected?.driver ?? null;
+}
 
 export async function isReady(driver: TerminalDriverId) {
   try {
@@ -153,7 +194,9 @@ export async function isReady(driver: TerminalDriverId) {
     const mod = await initialize(configuration.testMode);
     const result = await mod.StripeTerminal.getConnectedReader();
     return !!result.reader;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 export async function charge(
@@ -173,7 +216,10 @@ export async function charge(
     onStatus?.("Payment approved");
     return { ok: true, ref: intent.id };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Stripe Terminal payment failed" };
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Stripe Terminal payment failed",
+    };
   }
 }
 
@@ -181,6 +227,8 @@ export async function disconnect() {
   try {
     const mod = await loadModule();
     await mod.StripeTerminal.disconnectReader();
-  } catch { /* safe disconnect */ }
+  } catch {
+    /* safe disconnect */
+  }
   connected = null;
 }

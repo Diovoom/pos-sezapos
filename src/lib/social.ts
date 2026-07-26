@@ -1,9 +1,4 @@
-export type SocialPlatform =
-  | "facebook"
-  | "instagram"
-  | "x"
-  | "linkedin"
-  | "tiktok";
+export type SocialPlatform = "facebook" | "instagram" | "x" | "linkedin" | "tiktok";
 
 export type SocialLink = {
   platform: SocialPlatform;

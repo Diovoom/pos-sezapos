@@ -18,7 +18,9 @@ export function MerchantScreenShare({
 }) {
   const onEndedRef = useRef(onEnded);
   const endedRef = useRef(false);
-  useEffect(() => { onEndedRef.current = onEnded; }, [onEnded]);
+  useEffect(() => {
+    onEndedRef.current = onEnded;
+  }, [onEnded]);
 
   useEffect(() => {
     let disposed = false;
@@ -26,7 +28,8 @@ export function MerchantScreenShare({
     let makingOffer = false;
     const pc = new RTCPeerConnection(RTC_CONFIG);
     const signaling = openSignalingChannel(supabase, channelToken, (msg) => {
-      if (!disposed) void handleSignal(msg).catch((error) => console.error("[merchant-rtc]", error));
+      if (!disposed)
+        void handleSignal(msg).catch((error) => console.error("[merchant-rtc]", error));
     });
 
     const end = (reason: string, notify = true) => {
@@ -34,7 +37,11 @@ export function MerchantScreenShare({
       endedRef.current = true;
       if (notify) signaling.send({ kind: "bye", from: "merchant", reason }).catch(() => {});
       signaling.close();
-      try { pc.close(); } catch { /* noop */ }
+      try {
+        pc.close();
+      } catch {
+        /* noop */
+      }
       if (notify) onEndedRef.current(reason);
     };
 
@@ -49,16 +56,25 @@ export function MerchantScreenShare({
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        await signaling.send({ kind: "offer", from: "merchant", sdp: pc.localDescription!.toJSON() });
+        await signaling.send({
+          kind: "offer",
+          from: "merchant",
+          sdp: pc.localDescription!.toJSON(),
+        });
       } finally {
         makingOffer = false;
       }
     }
 
     pc.onicecandidate = (event) => {
-      if (event.candidate) signaling.send({ kind: "ice", from: "merchant", candidate: event.candidate.toJSON() }).catch(() => {});
+      if (event.candidate)
+        signaling
+          .send({ kind: "ice", from: "merchant", candidate: event.candidate.toJSON() })
+          .catch(() => {});
     };
-    pc.onnegotiationneeded = () => { if (seenAdminHello) void sendOffer(); };
+    pc.onnegotiationneeded = () => {
+      if (seenAdminHello) void sendOffer();
+    };
     pc.onconnectionstatechange = () => {
       // A brief WebRTC "disconnected" state is normal on mobile network
       // changes. Only fail the session when the peer connection says failed.
@@ -73,7 +89,11 @@ export function MerchantScreenShare({
       } else if (msg.kind === "answer" && pc.signalingState === "have-local-offer") {
         await pc.setRemoteDescription(msg.sdp);
       } else if (msg.kind === "ice") {
-        try { await pc.addIceCandidate(msg.candidate); } catch { /* candidate can arrive early */ }
+        try {
+          await pc.addIceCandidate(msg.candidate);
+        } catch {
+          /* candidate can arrive early */
+        }
       } else if (msg.kind === "bye") {
         end("admin_ended");
       }

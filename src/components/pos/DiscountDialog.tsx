@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,11 +31,18 @@ type Props = {
 // Simple built-in coupon table. Real stores would fetch from the DB.
 const COUPONS: Record<string, { mode: "percent" | "amount"; value: number; label: string }> = {
   WELCOME10: { mode: "percent", value: 10, label: "10% off (WELCOME10)" },
-  SAVE5:     { mode: "amount",  value: 5,  label: "$5 off (SAVE5)" },
-  VIP20:     { mode: "percent", value: 20, label: "20% off (VIP20)" },
+  SAVE5: { mode: "amount", value: 5, label: "$5 off (SAVE5)" },
+  VIP20: { mode: "percent", value: 20, label: "20% off (VIP20)" },
 };
 
-export function DiscountDialog({ open, onOpenChange, subtotal, currency, current, onApply }: Props) {
+export function DiscountDialog({
+  open,
+  onOpenChange,
+  subtotal,
+  currency,
+  current,
+  onApply,
+}: Props) {
   const [mode, setMode] = useState<"percent" | "amount">(current?.mode ?? "percent");
   const [value, setValue] = useState<string>(current ? String(current.value) : "");
   const [code, setCode] = useState<string>(current?.code ?? "");
@@ -42,22 +56,28 @@ export function DiscountDialog({ open, onOpenChange, subtotal, currency, current
   }, [open, current]);
 
   const num = Number(value) || 0;
-  const preview = mode === "percent"
-    ? Math.min(subtotal, (subtotal * num) / 100)
-    : Math.min(subtotal, num);
+  const preview =
+    mode === "percent" ? Math.min(subtotal, (subtotal * num) / 100) : Math.min(subtotal, num);
 
   const applyCoupon = () => {
     const key = code.trim().toUpperCase();
     if (!key) return;
     const c = COUPONS[key];
-    if (!c) { toast.error("Invalid coupon code"); return; }
+    if (!c) {
+      toast.error("Invalid coupon code");
+      return;
+    }
     setMode(c.mode);
     setValue(String(c.value));
     toast.success(`Applied ${c.label}`);
   };
 
   const apply = () => {
-    if (num <= 0) { onApply(null); onOpenChange(false); return; }
+    if (num <= 0) {
+      onApply(null);
+      onOpenChange(false);
+      return;
+    }
     onApply({ mode, value: num, code: code.trim().toUpperCase() || null });
     onOpenChange(false);
   };
@@ -67,12 +87,24 @@ export function DiscountDialog({ open, onOpenChange, subtotal, currency, current
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Apply discount</DialogTitle>
-          <DialogDescription>Percentage, amount, or coupon code. Applies to the cart subtotal.</DialogDescription>
+          <DialogDescription>
+            Percentage, amount, or coupon code. Applies to the cart subtotal.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-2">
-          <Button variant={mode === "percent" ? "default" : "outline"} onClick={() => setMode("percent")}>Percentage %</Button>
-          <Button variant={mode === "amount" ? "default" : "outline"} onClick={() => setMode("amount")}>Amount $</Button>
+          <Button
+            variant={mode === "percent" ? "default" : "outline"}
+            onClick={() => setMode("percent")}
+          >
+            Percentage %
+          </Button>
+          <Button
+            variant={mode === "amount" ? "default" : "outline"}
+            onClick={() => setMode("amount")}
+          >
+            Amount $
+          </Button>
         </div>
 
         <div className="space-y-1">
@@ -100,16 +132,22 @@ export function DiscountDialog({ open, onOpenChange, subtotal, currency, current
         </div>
 
         <div className="space-y-1 pt-1 border-t">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Coupon code</Label>
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            Coupon code
+          </Label>
           <div className="flex gap-2">
             <Input
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="e.g. WELCOME10"
               className="uppercase"
-              onKeyDown={(e) => { if (e.key === "Enter") applyCoupon(); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyCoupon();
+              }}
             />
-            <Button variant="outline" onClick={applyCoupon}>Apply</Button>
+            <Button variant="outline" onClick={applyCoupon}>
+              Apply
+            </Button>
           </div>
         </div>
 
@@ -120,7 +158,15 @@ export function DiscountDialog({ open, onOpenChange, subtotal, currency, current
 
         <DialogFooter className="gap-2 sm:gap-2">
           {current && (
-            <Button variant="ghost" onClick={() => { onApply(null); onOpenChange(false); }}>Remove discount</Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                onApply(null);
+                onOpenChange(false);
+              }}
+            >
+              Remove discount
+            </Button>
           )}
           <Button onClick={apply}>Apply</Button>
         </DialogFooter>
@@ -128,4 +174,3 @@ export function DiscountDialog({ open, onOpenChange, subtotal, currency, current
     </Dialog>
   );
 }
-

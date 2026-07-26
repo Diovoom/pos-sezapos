@@ -7,8 +7,19 @@ export default defineTool({
   title: "Search products",
   description: "Search inventory for the signed-in user's store. Matches name, SKU, or barcode.",
   inputSchema: {
-    query: z.string().trim().min(1).describe("Search text — matches product name, SKU, or barcode.").optional(),
-    limit: z.number().int().min(1).max(100).default(20).describe("Maximum number of products to return."),
+    query: z
+      .string()
+      .trim()
+      .min(1)
+      .describe("Search text — matches product name, SKU, or barcode.")
+      .optional(),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(20)
+      .describe("Maximum number of products to return."),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ query, limit }, ctx) => {

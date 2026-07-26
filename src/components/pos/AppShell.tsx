@@ -104,12 +104,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const role = me?.roles?.[0];
 
-  const PRIMARY = NAV.filter((n) =>
-    ["/dashboard", "/sales", "/employees"].includes(n.to),
-  );
-  const MORE = NAV.filter(
-    (n) => !["/dashboard", "/sales", "/employees"].includes(n.to),
-  );
+  const PRIMARY = NAV.filter((n) => ["/dashboard", "/sales", "/employees"].includes(n.to));
+  const MORE = NAV.filter((n) => !["/dashboard", "/sales", "/employees"].includes(n.to));
 
   return (
     <div className="flex h-[100dvh] w-full bg-background text-foreground overflow-hidden">
@@ -118,18 +114,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="h-16 px-4 border-b flex items-center gap-3">
           <StoreLogo className="size-8 rounded-lg" />
           <div className="hidden lg:flex flex-col leading-tight">
-            <span className="font-semibold tracking-tight text-sm">
-              SEZA Dashboard
-            </span>
+            <span className="font-semibold tracking-tight text-sm">SEZA Dashboard</span>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
               {me?.store?.name ?? "Store"}
             </span>
           </div>
         </div>
-        <nav
-          aria-label="Primary navigation"
-          className="flex-1 p-2 space-y-0.5 overflow-y-auto"
-        >
+        <nav aria-label="Primary navigation" className="flex-1 p-2 space-y-0.5 overflow-y-auto">
           {NAV.map((item) => {
             const Icon = item.icon;
             const wantSection = item.search?.section;
@@ -138,8 +129,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               active = pathname === "/settings";
             } else {
               active =
-                pathname === item.to ||
-                (item.to !== "/pos" && pathname.startsWith(item.to + "/"));
+                pathname === item.to || (item.to !== "/pos" && pathname.startsWith(item.to + "/"));
             }
             return (
               <Link
@@ -199,9 +189,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
-                <div className="text-xs font-normal text-muted-foreground">
-                  Signed in as
-                </div>
+                <div className="text-xs font-normal text-muted-foreground">Signed in as</div>
                 <div>{me?.user?.email}</div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -209,10 +197,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Settings className="size-4 mr-2" /> Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleSignOut}
-                className="text-destructive"
-              >
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                 <LogOut className="size-4 mr-2" /> Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -246,28 +231,21 @@ export function AppShell({ children }: { children: ReactNode }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
-                <div className="text-xs font-normal text-muted-foreground">
-                  Signed in as
-                </div>
+                <div className="text-xs font-normal text-muted-foreground">Signed in as</div>
                 <div className="truncate">{me?.user?.email}</div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
                 <Settings className="size-4 mr-2" /> Settings
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleSignOut}
-                className="text-destructive"
-              >
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                 <LogOut className="size-4 mr-2" /> Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden pb-16 md:pb-0">
-          {children}
-        </div>
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden pb-16 md:pb-0">{children}</div>
 
         {/* Mobile bottom nav */}
         <nav
@@ -275,24 +253,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           className="md:hidden fixed bottom-0 inset-x-0 z-40 h-16 border-t bg-background/95 backdrop-blur grid grid-cols-4"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
-          <MobileNavItem
-            to="/dashboard"
-            label="Home"
-            icon={LayoutDashboard}
-            pathname={pathname}
-          />
-          <MobileNavItem
-            to="/sales"
-            label="Sales"
-            icon={Receipt}
-            pathname={pathname}
-          />
-          <MobileNavItem
-            to="/employees"
-            label="Staff"
-            icon={UserPlus}
-            pathname={pathname}
-          />
+          <MobileNavItem to="/dashboard" label="Home" icon={LayoutDashboard} pathname={pathname} />
+          <MobileNavItem to="/sales" label="Sales" icon={Receipt} pathname={pathname} />
+          <MobileNavItem to="/employees" label="Staff" icon={UserPlus} pathname={pathname} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium text-muted-foreground hover:text-primary">
@@ -365,12 +328,8 @@ export function PageHeader({
   return (
     <header className="border-b px-4 md:px-6 py-3 shrink-0 flex flex-wrap items-center gap-3 justify-between">
       <div className="min-w-0 flex-1">
-        <h1 className="text-base md:text-lg font-semibold tracking-tight truncate">
-          {title}
-        </h1>
-        {subtitle && (
-          <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
-        )}
+        <h1 className="text-base md:text-lg font-semibold tracking-tight truncate">{title}</h1>
+        {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-2 flex-wrap justify-end">
         {actions}
@@ -390,10 +349,7 @@ type DeviceRow = {
 };
 
 function readDeviceStatuses(online: boolean): DeviceRow[] {
-  const read = (
-    k: string,
-    fallback: StatusLevel = "disconnected",
-  ): StatusLevel => {
+  const read = (k: string, fallback: StatusLevel = "disconnected"): StatusLevel => {
     try {
       const raw = localStorage.getItem(`pos.hw.${k}.status`);
       const lastSeen = Number(localStorage.getItem(`pos.hw.${k}.lastSeen`) ?? "0");
@@ -401,8 +357,7 @@ function readDeviceStatuses(online: boolean): DeviceRow[] {
       // remembered because browsers cannot continuously enumerate USB devices.
       if (k === "display" && raw === "connected" && Date.now() - lastSeen > 8_000)
         return "disconnected";
-      if (raw === "connected" || raw === "warning" || raw === "disconnected")
-        return raw;
+      if (raw === "connected" || raw === "warning" || raw === "disconnected") return raw;
     } catch {
       /* ignore */
     }
@@ -464,17 +419,9 @@ function readDeviceStatuses(online: boolean): DeviceRow[] {
 
 function StatusDot({ status }: { status: StatusLevel }) {
   const cls =
-    status === "connected"
-      ? "bg-success"
-      : status === "warning"
-        ? "bg-warning"
-        : "bg-destructive";
+    status === "connected" ? "bg-success" : status === "warning" ? "bg-warning" : "bg-destructive";
   const label =
-    status === "connected"
-      ? "Connected"
-      : status === "warning"
-        ? "Warning"
-        : "Disconnected";
+    status === "connected" ? "Connected" : status === "warning" ? "Warning" : "Disconnected";
   return (
     <span className="flex items-center gap-1.5 text-xs">
       <span className={cn("size-2.5 rounded-full", cls)} aria-hidden="true" />
@@ -485,16 +432,11 @@ function StatusDot({ status }: { status: StatusLevel }) {
 
 function DeviceStatusMenu() {
   const [open, setOpen] = useState(false);
-  const [online, setOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true,
-  );
-  const [rows, setRows] = useState<DeviceRow[]>(() =>
-    readDeviceStatuses(online),
-  );
+  const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [rows, setRows] = useState<DeviceRow[]>(() => readDeviceStatuses(online));
 
   const refresh = () => {
-    const nextOnline =
-      typeof navigator !== "undefined" ? navigator.onLine : true;
+    const nextOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
     setOnline(nextOnline);
     setRows(readDeviceStatuses(nextOnline));
   };
@@ -541,10 +483,7 @@ function DeviceStatusMenu() {
         <DropdownMenuSeparator />
         <div className="max-h-80 overflow-y-auto py-1">
           {rows.map((r) => (
-            <div
-              key={r.key}
-              className="flex items-center justify-between px-2 py-2 text-sm"
-            >
+            <div key={r.key} className="flex items-center justify-between px-2 py-2 text-sm">
               <span className="flex items-center gap-2">
                 <r.icon className="size-4 text-muted-foreground" />
                 {r.label}
@@ -558,13 +497,7 @@ function DeviceStatusMenu() {
   );
 }
 
-export function PlaceholderPage({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+export function PlaceholderPage({ title, description }: { title: string; description: string }) {
   return (
     <>
       <PageHeader title={title} />

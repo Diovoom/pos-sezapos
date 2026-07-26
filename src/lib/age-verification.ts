@@ -72,7 +72,10 @@ export function loadAgeSettings(): AgeVerificationSettings {
     return {
       ...DEFAULT_AGE_SETTINGS,
       ...parsed,
-      categoryMinAges: { ...DEFAULT_AGE_SETTINGS.categoryMinAges, ...(parsed.categoryMinAges ?? {}) },
+      categoryMinAges: {
+        ...DEFAULT_AGE_SETTINGS.categoryMinAges,
+        ...(parsed.categoryMinAges ?? {}),
+      },
     };
   } catch {
     return DEFAULT_AGE_SETTINGS;
@@ -125,7 +128,10 @@ export function parseIdBarcode(raw: string): ParsedID {
   if (!isAamva) return { format: "unknown", raw: s };
 
   // Extract subfile — split on newlines, entries like "DAA...", "DBB..." etc.
-  const lines = s.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
+  const lines = s
+    .split(/[\r\n]+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
   const field = (code: string): string | undefined => {
     const hit = lines.find((l) => l.startsWith(code));
     return hit ? hit.slice(code.length).trim() : undefined;
@@ -174,7 +180,11 @@ export type VerificationOutcome =
   | { ok: true; ageYears: number }
   | { ok: false; reason: "underage" | "expired_id" | "invalid_dob"; ageYears?: number };
 
-export function evaluateId(parsed: ParsedID, minAge: number, now: Date = new Date()): VerificationOutcome {
+export function evaluateId(
+  parsed: ParsedID,
+  minAge: number,
+  now: Date = new Date(),
+): VerificationOutcome {
   if (!parsed.dob) return { ok: false, reason: "invalid_dob" };
   if (parsed.expires && parsed.expires.getTime() < now.getTime()) {
     return { ok: false, reason: "expired_id", ageYears: ageAt(parsed.dob, now) };
@@ -184,7 +194,11 @@ export function evaluateId(parsed: ParsedID, minAge: number, now: Date = new Dat
   return { ok: true, ageYears: years };
 }
 
-export function evaluateManualDob(dobIso: string, minAge: number, now: Date = new Date()): VerificationOutcome {
+export function evaluateManualDob(
+  dobIso: string,
+  minAge: number,
+  now: Date = new Date(),
+): VerificationOutcome {
   const dob = new Date(dobIso + "T00:00:00Z");
   if (isNaN(dob.getTime())) return { ok: false, reason: "invalid_dob" };
   const years = ageAt(dob, now);

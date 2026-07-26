@@ -8,12 +8,34 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useMe } from "@/hooks/useMe";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Wallet, LockOpen, ArrowUpFromLine, ArrowDownToLine, DoorOpen, Clock, Lock } from "lucide-react";
+import {
+  Loader2,
+  Wallet,
+  LockOpen,
+  ArrowUpFromLine,
+  ArrowDownToLine,
+  DoorOpen,
+  Clock,
+  Lock,
+} from "lucide-react";
 import { logAudit } from "@/lib/audit-log";
 import { openCashDrawer } from "@/lib/pos/hardware";
 import { CloseShiftDialog } from "@/components/pos/CloseShiftDialog";
@@ -29,7 +51,15 @@ import {
 import { isOnlineNow } from "@/lib/offline/useOnline";
 
 export const Route = createFileRoute("/_pos/register")({
-  head: () => ({ meta: [{ title: "Register — SEZA POS" }, { name: "description", content: "Open and close the cash register for the current shift with cash reconciliation." }] }),
+  head: () => ({
+    meta: [
+      { title: "Register — SEZA POS" },
+      {
+        name: "description",
+        content: "Open and close the cash register for the current shift with cash reconciliation.",
+      },
+    ],
+  }),
   component: RegisterPage,
 });
 
@@ -71,12 +101,7 @@ const PAYOUT_REASONS = [
   "Other",
 ];
 
-const DEPOSIT_REASONS = [
-  "Cash drop from safe",
-  "Owner deposit",
-  "Change fund top-up",
-  "Other",
-];
+const DEPOSIT_REASONS = ["Cash drop from safe", "Owner deposit", "Change fund top-up", "Other"];
 
 export function RegisterPage() {
   const { data: me } = useMe();
@@ -102,7 +127,6 @@ export function RegisterPage() {
     },
   });
 
-
   const history = useQuery({
     queryKey: ["register", "history", storeId],
     enabled: !!storeId,
@@ -126,11 +150,19 @@ export function RegisterPage() {
       <PageHeader title="Register" subtitle="Open and close the cash register for this shift" />
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {openSession.isLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Loading…</div>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Loading…
+          </div>
         ) : openSession.data ? (
-          <OpenSessionCard session={openSession.data} onChanged={() => qc.invalidateQueries({ queryKey: ["register"] })} />
+          <OpenSessionCard
+            session={openSession.data}
+            onChanged={() => qc.invalidateQueries({ queryKey: ["register"] })}
+          />
         ) : (
-          <OpenRegisterCard storeId={storeId} onOpened={() => qc.invalidateQueries({ queryKey: ["register"] })} />
+          <OpenRegisterCard
+            storeId={storeId}
+            onOpened={() => qc.invalidateQueries({ queryKey: ["register"] })}
+          />
         )}
 
         <HistoryCard sessions={history.data ?? []} />
@@ -182,32 +214,57 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
         });
         return local;
       }
-      const { data, error } = await sb.from("register_sessions").insert({
-        store_id: storeId,
-        opened_by: me.user.id,
-        opening_cash: amt,
-        notes: notes || null,
-        status: "open",
-      }).select().single();
+      const { data, error } = await sb
+        .from("register_sessions")
+        .insert({
+          store_id: storeId,
+          opened_by: me.user.id,
+          opening_cash: amt,
+          notes: notes || null,
+          status: "open",
+        })
+        .select()
+        .single();
       if (error) throw error;
       await cacheMeta("open_register_session", data).catch(() => {});
-      void logAudit({ action: "register.open", entity: "register_session", entity_id: data.id, details: { opening_cash: amt } });
+      void logAudit({
+        action: "register.open",
+        entity: "register_session",
+        entity_id: data.id,
+        details: { opening_cash: amt },
+      });
       return data;
     },
-    onSuccess: () => { toast.success(isOnlineNow() ? "Register opened" : "Register opened offline — changes will sync automatically"); onOpened(); },
+    onSuccess: () => {
+      toast.success(
+        isOnlineNow()
+          ? "Register opened"
+          : "Register opened offline — changes will sync automatically",
+      );
+      onOpened();
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to open register"),
   });
 
   return (
     <Card className="max-w-lg">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><LockOpen className="size-5" /> Open Register</CardTitle>
-        <CardDescription>Count the starting cash float in the drawer and open the shift.</CardDescription>
+        <CardTitle className="flex items-center gap-2">
+          <LockOpen className="size-5" /> Open Register
+        </CardTitle>
+        <CardDescription>
+          Count the starting cash float in the drawer and open the shift.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-2">
           <Label>Opening cash ($)</Label>
-          <Input type="number" step="0.01" value={opening} onChange={(e) => setOpening(e.target.value)} />
+          <Input
+            type="number"
+            step="0.01"
+            value={opening}
+            onChange={(e) => setOpening(e.target.value)}
+          />
         </div>
         <div className="space-y-2">
           <Label>Notes (optional)</Label>
@@ -234,7 +291,9 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
     queryKey: ["register", "totals", session.id],
     queryFn: async () => {
       if (!isOnlineNow()) {
-        const local = (await getAllOfflineSales()).filter((sale) => sale.register_session_id === session.id && sale.status !== "conflict");
+        const local = (await getAllOfflineSales()).filter(
+          (sale) => sale.register_session_id === session.id && sale.status !== "conflict",
+        );
         return {
           cashSales: local.reduce((sum, sale) => sum + Number(sale.total || 0), 0),
           cashRefunds: 0,
@@ -243,19 +302,31 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
         };
       }
       const [salesRes, refundRes] = await Promise.all([
-        sb.from("sales").select("total, payment_method, status").eq("register_session_id", session.id),
-        sb.from("refunds").select("total, payment_method, refund_type, sale_id, sales!inner(register_session_id)").eq("sales.register_session_id", session.id),
+        sb
+          .from("sales")
+          .select("total, payment_method, status")
+          .eq("register_session_id", session.id),
+        sb
+          .from("refunds")
+          .select("total, payment_method, refund_type, sale_id, sales!inner(register_session_id)")
+          .eq("sales.register_session_id", session.id),
       ]);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sales = (salesRes.data ?? []).filter((row: any) => row.status === "completed");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const refunds = (refundRes.data ?? []).filter((row: any) => row.refund_type !== "void");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cashSales = sales.filter((row: any) => row.payment_method === "cash").reduce((sum: number, row: any) => sum + Number(row.total || 0), 0);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cardSales = sales.filter((row: any) => row.payment_method !== "cash").reduce((sum: number, row: any) => sum + Number(row.total || 0), 0);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cashRefunds = refunds.filter((row: any) => row.payment_method === "cash").reduce((sum: number, row: any) => sum + Number(row.total || 0), 0);
+
+      const cashSales = sales
+        .filter((row: any) => row.payment_method === "cash")
+        .reduce((sum: number, row: any) => sum + Number(row.total || 0), 0);
+
+      const cardSales = sales
+        .filter((row: any) => row.payment_method !== "cash")
+        .reduce((sum: number, row: any) => sum + Number(row.total || 0), 0);
+
+      const cashRefunds = refunds
+        .filter((row: any) => row.payment_method === "cash")
+        .reduce((sum: number, row: any) => sum + Number(row.total || 0), 0);
       return { cashSales, cashRefunds, cardSales, salesCount: sales.length };
     },
   });
@@ -293,9 +364,13 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
     queryFn: async () => {
       if (!isOnlineNow()) {
         const local = await getAllOfflineCashMovements();
-        return local.filter((movement) => movement.register_session_id === session.id && movement.type === "no_sale").length;
+        return local.filter(
+          (movement) => movement.register_session_id === session.id && movement.type === "no_sale",
+        ).length;
       }
-      const { count } = await sb.from("audit_log").select("id", { count: "exact", head: true })
+      const { count } = await sb
+        .from("audit_log")
+        .select("id", { count: "exact", head: true })
         .eq("action", "drawer.no_sale_open")
         .eq("entity_id", session.id);
       return count ?? 0;
@@ -325,128 +400,167 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
 
   return (
     <>
-    <Card className="max-w-3xl">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between flex-wrap gap-2">
-          <span className="flex items-center gap-2"><Wallet className="size-5" /> Current Shift</span>
-          <Badge className="bg-success/15 text-success border-success/30" variant="outline">
-            Opened {new Date(session.opened_at).toLocaleString()}
-          </Badge>
-        </CardTitle>
-        <CardDescription>
-          {me?.profile?.full_name || me?.user?.email} · {me?.store?.name ?? "Register"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <Stat label="Opening float" value={fmt(session.opening_cash)} />
-          <Stat label="Time worked" value={`${Math.floor(workedMin / 60)}h ${workedMin % 60}m`} />
-          <Stat label="Sales" value={String(totals.data?.salesCount ?? 0)} />
-          <Stat label="Cash sales" value={fmt(totals.data?.cashSales ?? 0)} />
-          <Stat label="Card / other" value={fmt(totals.data?.cardSales ?? 0)} muted />
-          <Stat label="No-sale opens" value={String(noSaleCount.data ?? 0)} />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setCloseOpen(true)} className="flex-1 min-w-[220px]" variant="destructive">
-            <Lock className="size-4 mr-2" /> Review &amp; Close Shift
-          </Button>
-          <Button variant="outline" onClick={() => setDrawerOpen(true)}>
-            <DoorOpen className="size-4 mr-2" /> Open Cash Drawer
-          </Button>
-          <Button variant="outline" onClick={() => setPayoutOpen(true)}>
-            <ArrowUpFromLine className="size-4 mr-2" /> Payout
-          </Button>
-          <Button variant="outline" onClick={() => setDepositOpen(true)}>
-            <ArrowDownToLine className="size-4 mr-2" /> Deposit
-          </Button>
-        </div>
-
-        {safeDropRows.length > 0 && (
-          <div>
-            <div className="text-sm font-medium mb-2">Safe drops this shift · {fmt(safeDropTotal)}</div>
-            <div className="rounded-md border divide-y">
-              {safeDropRows.map((m) => (
-                <div key={m.id} className="p-2 flex items-center justify-between text-sm">
-                  <div>
-                    <div className="font-medium">{m.reason}</div>
-                    {m.notes && <div className="text-xs text-muted-foreground">{m.notes}</div>}
-                    <div className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleString()}</div>
-                  </div>
-                  <div className="font-mono text-destructive">-{fmt(Number(m.amount))}</div>
-                </div>
-              ))}
-            </div>
+      <Card className="max-w-3xl">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between flex-wrap gap-2">
+            <span className="flex items-center gap-2">
+              <Wallet className="size-5" /> Current Shift
+            </span>
+            <Badge className="bg-success/15 text-success border-success/30" variant="outline">
+              Opened {new Date(session.opened_at).toLocaleString()}
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            {me?.profile?.full_name || me?.user?.email} · {me?.store?.name ?? "Register"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <Stat label="Opening float" value={fmt(session.opening_cash)} />
+            <Stat label="Time worked" value={`${Math.floor(workedMin / 60)}h ${workedMin % 60}m`} />
+            <Stat label="Sales" value={String(totals.data?.salesCount ?? 0)} />
+            <Stat label="Cash sales" value={fmt(totals.data?.cashSales ?? 0)} />
+            <Stat label="Card / other" value={fmt(totals.data?.cardSales ?? 0)} muted />
+            <Stat label="No-sale opens" value={String(noSaleCount.data ?? 0)} />
           </div>
-        )}
 
-        {(payouts.length > 0 || deposits.length > 0) && (
-          <div>
-            <div className="text-sm font-medium mb-2">Cash movements · +{fmt(depositsTotal)} / -{fmt(payoutsTotal)}</div>
-            <div className="rounded-md border divide-y">
-              {movements.data!.filter((m) => m.type !== "safe_drop").map((m) => (
-                <div key={m.id} className="p-2 flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    {m.type === "payout"
-                      ? <ArrowUpFromLine className="size-4 text-destructive" />
-                      : <ArrowDownToLine className="size-4 text-success" />}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => setCloseOpen(true)}
+              className="flex-1 min-w-[220px]"
+              variant="destructive"
+            >
+              <Lock className="size-4 mr-2" /> Review &amp; Close Shift
+            </Button>
+            <Button variant="outline" onClick={() => setDrawerOpen(true)}>
+              <DoorOpen className="size-4 mr-2" /> Open Cash Drawer
+            </Button>
+            <Button variant="outline" onClick={() => setPayoutOpen(true)}>
+              <ArrowUpFromLine className="size-4 mr-2" /> Payout
+            </Button>
+            <Button variant="outline" onClick={() => setDepositOpen(true)}>
+              <ArrowDownToLine className="size-4 mr-2" /> Deposit
+            </Button>
+          </div>
+
+          {safeDropRows.length > 0 && (
+            <div>
+              <div className="text-sm font-medium mb-2">
+                Safe drops this shift · {fmt(safeDropTotal)}
+              </div>
+              <div className="rounded-md border divide-y">
+                {safeDropRows.map((m) => (
+                  <div key={m.id} className="p-2 flex items-center justify-between text-sm">
                     <div>
-                      <div className="font-medium capitalize">{m.type} — {m.reason}</div>
+                      <div className="font-medium">{m.reason}</div>
                       {m.notes && <div className="text-xs text-muted-foreground">{m.notes}</div>}
-                      <div className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleString()}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(m.created_at).toLocaleString()}
+                      </div>
                     </div>
+                    <div className="font-mono text-destructive">-{fmt(Number(m.amount))}</div>
                   </div>
-                  <div className={`font-mono ${m.type === "payout" ? "text-destructive" : "text-success"}`}>
-                    {m.type === "payout" ? "-" : "+"}{fmt(Number(m.amount))}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          )}
 
-    <CloseShiftDialog
-      open={closeOpen}
-      onOpenChange={setCloseOpen}
-      session={session}
-      store={me?.store ?? null}
-      cashierUserId={me?.user?.id}
-      onClosed={() => {
-        setCloseOpen(false);
-        onChanged();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        navigate({ to: "/auth", search: { mode: "pin" } as any, replace: true });
-      }}
-    />
+          {(payouts.length > 0 || deposits.length > 0) && (
+            <div>
+              <div className="text-sm font-medium mb-2">
+                Cash movements · +{fmt(depositsTotal)} / -{fmt(payoutsTotal)}
+              </div>
+              <div className="rounded-md border divide-y">
+                {movements
+                  .data!.filter((m) => m.type !== "safe_drop")
+                  .map((m) => (
+                    <div key={m.id} className="p-2 flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        {m.type === "payout" ? (
+                          <ArrowUpFromLine className="size-4 text-destructive" />
+                        ) : (
+                          <ArrowDownToLine className="size-4 text-success" />
+                        )}
+                        <div>
+                          <div className="font-medium capitalize">
+                            {m.type} — {m.reason}
+                          </div>
+                          {m.notes && (
+                            <div className="text-xs text-muted-foreground">{m.notes}</div>
+                          )}
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(m.created_at).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        className={`font-mono ${m.type === "payout" ? "text-destructive" : "text-success"}`}
+                      >
+                        {m.type === "payout" ? "-" : "+"}
+                        {fmt(Number(m.amount))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-    <OpenDrawerDialog
-      open={drawerOpen}
-      onOpenChange={setDrawerOpen}
-      session={{ id: session.id, store_id: session.store_id }}
-      storeId={session.store_id}
-      cashierId={me?.user?.id}
-      onCountShift={() => setCloseOpen(true)}
-      onSafeDropRecorded={invalidate}
-    />
+      <CloseShiftDialog
+        open={closeOpen}
+        onOpenChange={setCloseOpen}
+        session={session}
+        store={me?.store ?? null}
+        cashierUserId={me?.user?.id}
+        onClosed={() => {
+          setCloseOpen(false);
+          onChanged();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          navigate({ to: "/auth", search: { mode: "pin" } as any, replace: true });
+        }}
+      />
 
-    <CashMovementDialog
-      open={payoutOpen}
-      onOpenChange={setPayoutOpen}
-      type="payout"
-      session={session}
-      currentBalance={Number(session.opening_cash) + (totals.data?.cashSales ?? 0) - (totals.data?.cashRefunds ?? 0) - payoutsTotal + depositsTotal - safeDropTotal}
-      onDone={invalidate}
-    />
-    <CashMovementDialog
-      open={depositOpen}
-      onOpenChange={setDepositOpen}
-      type="deposit"
-      session={session}
-      currentBalance={Number(session.opening_cash) + (totals.data?.cashSales ?? 0) - (totals.data?.cashRefunds ?? 0) - payoutsTotal + depositsTotal - safeDropTotal}
-      onDone={invalidate}
-    />
+      <OpenDrawerDialog
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        session={{ id: session.id, store_id: session.store_id }}
+        storeId={session.store_id}
+        cashierId={me?.user?.id}
+        onCountShift={() => setCloseOpen(true)}
+        onSafeDropRecorded={invalidate}
+      />
+
+      <CashMovementDialog
+        open={payoutOpen}
+        onOpenChange={setPayoutOpen}
+        type="payout"
+        session={session}
+        currentBalance={
+          Number(session.opening_cash) +
+          (totals.data?.cashSales ?? 0) -
+          (totals.data?.cashRefunds ?? 0) -
+          payoutsTotal +
+          depositsTotal -
+          safeDropTotal
+        }
+        onDone={invalidate}
+      />
+      <CashMovementDialog
+        open={depositOpen}
+        onOpenChange={setDepositOpen}
+        type="deposit"
+        session={session}
+        currentBalance={
+          Number(session.opening_cash) +
+          (totals.data?.cashSales ?? 0) -
+          (totals.data?.cashRefunds ?? 0) -
+          payoutsTotal +
+          depositsTotal -
+          safeDropTotal
+        }
+        onDone={invalidate}
+      />
     </>
   );
 }
@@ -514,15 +628,19 @@ function CashMovementDialog({
         openCashDrawer(`cash.${type}`);
         return { id: localId };
       }
-      const { data, error } = await sb.from("cash_movements").insert({
-        register_session_id: session.id,
-        store_id: session.store_id,
-        user_id: me.user.id,
-        type,
-        amount: rounded,
-        reason: effectiveReason,
-        notes: notes || null,
-      }).select().single();
+      const { data, error } = await sb
+        .from("cash_movements")
+        .insert({
+          register_session_id: session.id,
+          store_id: session.store_id,
+          user_id: me.user.id,
+          type,
+          amount: rounded,
+          reason: effectiveReason,
+          notes: notes || null,
+        })
+        .select()
+        .single();
       if (error) throw error;
 
       const drawer = openCashDrawer(`cash.${type}`);
@@ -542,7 +660,9 @@ function CashMovementDialog({
       return data;
     },
     onSuccess: () => {
-      toast.success(isOnlineNow() ? `${label} recorded` : `${label} recorded offline — will sync automatically`);
+      toast.success(
+        isOnlineNow() ? `${label} recorded` : `${label} recorded offline — will sync automatically`,
+      );
       reset();
       onOpenChange(false);
       onDone();
@@ -551,11 +671,21 @@ function CashMovementDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        onOpenChange(v);
+        if (!v) reset();
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {isPayout ? <ArrowUpFromLine className="size-5 text-destructive" /> : <ArrowDownToLine className="size-5 text-success" />}
+            {isPayout ? (
+              <ArrowUpFromLine className="size-5 text-destructive" />
+            ) : (
+              <ArrowDownToLine className="size-5 text-success" />
+            )}
             {label}
           </DialogTitle>
           <DialogDescription>
@@ -569,9 +699,15 @@ function CashMovementDialog({
           <div className="space-y-1">
             <Label>Reason {isPayout && <span className="text-destructive">*</span>}</Label>
             <Select value={reason} onValueChange={setReason}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {reasons.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                {reasons.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             {reason === "Other" && (
@@ -587,7 +723,10 @@ function CashMovementDialog({
           <div className="space-y-1">
             <Label>Amount ($)</Label>
             <Input
-              type="number" step="0.01" min="0" autoFocus
+              type="number"
+              step="0.01"
+              min="0"
+              autoFocus
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
@@ -602,26 +741,38 @@ function CashMovementDialog({
             <div className="flex justify-between">
               <span className="text-muted-foreground">{isPayout ? "Payout" : "Deposit"}</span>
               <span className={`font-mono ${isPayout ? "text-destructive" : "text-success"}`}>
-                {isPayout ? "-" : "+"}{fmt(valid ? amt : 0)}
+                {isPayout ? "-" : "+"}
+                {fmt(valid ? amt : 0)}
               </span>
             </div>
             <div className="flex justify-between border-t pt-1 font-semibold">
               <span>Expected after {isPayout ? "payout" : "deposit"}</span>
-              <span className={`font-mono ${projected < 0 ? "text-destructive" : ""}`}>{fmt(projected)}</span>
+              <span className={`font-mono ${projected < 0 ? "text-destructive" : ""}`}>
+                {fmt(projected)}
+              </span>
             </div>
           </div>
 
           <div className="space-y-1">
             <Label>Notes (optional)</Label>
-            <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Invoice #, recipient, etc." />
+            <Textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Invoice #, recipient, etc."
+            />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>
+            Cancel
+          </Button>
           <Button
             onClick={() => mut.mutate()}
-            disabled={mut.isPending || !valid || !effectiveReason || (isPayout && amt > currentBalance)}
+            disabled={
+              mut.isPending || !valid || !effectiveReason || (isPayout && amt > currentBalance)
+            }
             variant={isPayout ? "destructive" : "default"}
           >
             {mut.isPending && <Loader2 className="size-4 animate-spin mr-2" />}
@@ -666,19 +817,34 @@ function HistoryCard({ sessions }: { sessions: Session[] }) {
                     <td>{s.closed_at ? new Date(s.closed_at).toLocaleString() : "—"}</td>
                     <td className="text-right tabular-nums">{fmt(s.opening_cash)}</td>
                     <td className="text-right tabular-nums">{fmt(s.cash_sales)}</td>
-                    <td className="text-right tabular-nums">{s.expected_cash != null ? fmt(s.expected_cash) : "—"}</td>
-                    <td className="text-right tabular-nums">{s.closing_cash != null ? fmt(s.closing_cash) : "—"}</td>
-                    <td className={`text-right tabular-nums ${s.variance == null ? "" : s.variance === 0 ? "" : s.variance > 0 ? "text-success" : "text-destructive"}`}>
+                    <td className="text-right tabular-nums">
+                      {s.expected_cash != null ? fmt(s.expected_cash) : "—"}
+                    </td>
+                    <td className="text-right tabular-nums">
+                      {s.closing_cash != null ? fmt(s.closing_cash) : "—"}
+                    </td>
+                    <td
+                      className={`text-right tabular-nums ${s.variance == null ? "" : s.variance === 0 ? "" : s.variance > 0 ? "text-success" : "text-destructive"}`}
+                    >
                       {s.variance != null ? `${s.variance > 0 ? "+" : ""}${fmt(s.variance)}` : "—"}
                     </td>
                     <td>
-                      <Badge variant="outline" className={s.status === "open" ? "text-success border-success/30" : "text-muted-foreground"}>
+                      <Badge
+                        variant="outline"
+                        className={
+                          s.status === "open"
+                            ? "text-success border-success/30"
+                            : "text-muted-foreground"
+                        }
+                      >
                         {s.status}
                       </Badge>
                     </td>
                     <td className="text-right">
                       <Button asChild variant="ghost" size="sm">
-                        <Link to="/shifts" search={{ session: s.id }}>Report</Link>
+                        <Link to="/shifts" search={{ session: s.id }}>
+                          Report
+                        </Link>
                       </Button>
                     </td>
                   </tr>

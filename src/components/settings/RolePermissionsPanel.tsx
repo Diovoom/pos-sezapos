@@ -23,18 +23,39 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
   }, [rows]);
 
   const toggle = useMutation({
-    mutationFn: async ({ role, permission, enabled }: { role: Role; permission: string; enabled: boolean }) => {
+    mutationFn: async ({
+      role,
+      permission,
+      enabled,
+    }: {
+      role: Role;
+      permission: string;
+      enabled: boolean;
+    }) => {
       if (!storeId) throw new Error("No store context");
       if (enabled) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase.from as any)("role_permissions").insert({ role, permission, store_id: storeId });
+        const { error } = await (supabase.from as any)("role_permissions").insert({
+          role,
+          permission,
+          store_id: storeId,
+        });
         if (error && !String(error.message).includes("duplicate")) throw error;
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase.from as any)("role_permissions").delete().eq("role", role).eq("permission", permission).eq("store_id", storeId);
+        const { error } = await (supabase.from as any)("role_permissions")
+          .delete()
+          .eq("role", role)
+          .eq("permission", permission)
+          .eq("store_id", storeId);
         if (error) throw error;
       }
-      void logAudit({ action: "role_permissions.update", entity: "role", entity_id: role, details: { permission, enabled } });
+      void logAudit({
+        action: "role_permissions.update",
+        entity: "role",
+        entity_id: role,
+        details: { permission, enabled },
+      });
     },
     onSuccess: (_data, vars) => {
       toast.success(`${vars.role} permission ${vars.enabled ? "enabled" : "removed"}`);
@@ -50,8 +71,13 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
       <CardHeader>
         <CardTitle>Roles &amp; Permissions</CardTitle>
         <CardDescription>
-          Grant fine-grained abilities to each role. Owner and Admin have <Badge variant="outline">*</Badge> — full access.
-          {!canEdit && <span className="block text-warning mt-1">Read-only: only owners and admins can edit.</span>}
+          Grant fine-grained abilities to each role. Owner and Admin have{" "}
+          <Badge variant="outline">*</Badge> — full access.
+          {!canEdit && (
+            <span className="block text-warning mt-1">
+              Read-only: only owners and admins can edit.
+            </span>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -64,7 +90,9 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
                 <tr className="border-b">
                   <th className="text-left p-2">Permission</th>
                   {ROLES.map((r) => (
-                    <th key={r} className="p-2 text-center capitalize">{r}</th>
+                    <th key={r} className="p-2 text-center capitalize">
+                      {r}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -72,7 +100,12 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
                 {groups.map((group) => (
                   <Fragment key={group}>
                     <tr key={`g-${group}`} className="bg-muted/30">
-                      <td colSpan={ROLES.length + 1} className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">{group}</td>
+                      <td
+                        colSpan={ROLES.length + 1}
+                        className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground"
+                      >
+                        {group}
+                      </td>
                     </tr>
                     {ALL_PERMISSIONS.filter((p) => p.group === group).map((p) => (
                       <tr key={p.key} className="border-b last:border-b-0">
@@ -90,7 +123,9 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
                               <Checkbox
                                 checked={enabled}
                                 disabled={!canEdit || isSuper || toggle.isPending}
-                                onCheckedChange={(v) => toggle.mutate({ role, permission: p.key, enabled: !!v })}
+                                onCheckedChange={(v) =>
+                                  toggle.mutate({ role, permission: p.key, enabled: !!v })
+                                }
                               />
                             </td>
                           );

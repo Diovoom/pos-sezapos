@@ -1,11 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { authenticatedWriteRateLimit } from "@/lib/security/rate-limit";
-import {
-  createStripeClient,
-  getStripeErrorMessage,
-  type StripeEnv,
-} from "@/lib/stripe.server";
+import { createStripeClient, getStripeErrorMessage, type StripeEnv } from "@/lib/stripe.server";
 
 // ============================================================================
 // Shared helpers
@@ -57,7 +53,8 @@ async function ensureSupportStaff(context: {
   if (error) throw new Error("Authorization check failed");
   const roles = (data ?? []).map((r: { role: string }) => r.role);
   const allowed = ["super_admin", "operations_admin", "support_admin"];
-  if (!roles.some((r: string) => allowed.includes(r))) throw new Error("Forbidden: support staff required");
+  if (!roles.some((r: string) => allowed.includes(r)))
+    throw new Error("Forbidden: support staff required");
   const { data: user } = await context.supabase.auth.getUser();
   return { email: user?.user?.email ?? null, roles };
 }
@@ -113,16 +110,34 @@ export const adminOverviewStats = createServerFn({ method: "GET" })
       recentErrors,
     ] = await Promise.all([
       supabaseAdmin.from("stores").select("*", { count: "exact", head: true }),
-      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }).eq("plan_status", "trialing"),
-      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }).eq("plan_status", "active"),
-      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }).eq("plan_status", "past_due"),
-      supabaseAdmin.from("stores").select("*", { count: "exact", head: true }).not("suspended_at", "is", null),
+      supabaseAdmin
+        .from("stores")
+        .select("*", { count: "exact", head: true })
+        .eq("plan_status", "trialing"),
+      supabaseAdmin
+        .from("stores")
+        .select("*", { count: "exact", head: true })
+        .eq("plan_status", "active"),
+      supabaseAdmin
+        .from("stores")
+        .select("*", { count: "exact", head: true })
+        .eq("plan_status", "past_due"),
+      supabaseAdmin
+        .from("stores")
+        .select("*", { count: "exact", head: true })
+        .not("suspended_at", "is", null),
       supabaseAdmin.from("payment_terminals").select("*", { count: "exact", head: true }),
       supabaseAdmin
         .from("payment_terminals")
         .select("*", { count: "exact", head: true })
-        .or("last_seen_at.is.null,last_seen_at.lt." + new Date(Date.now() - 24 * 3600_000).toISOString()),
-      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).in("status", ["open", "investigating"]),
+        .or(
+          "last_seen_at.is.null,last_seen_at.lt." +
+            new Date(Date.now() - 24 * 3600_000).toISOString(),
+        ),
+      supabaseAdmin
+        .from("support_tickets")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["open", "investigating"]),
       supabaseAdmin
         .from("audit_log")
         .select("*", { count: "exact", head: true })
@@ -280,16 +295,37 @@ export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
     const monthAgo = new Date(Date.now() - 30 * 24 * 3600_000).toISOString();
 
     const [
-      store, employees, products, terminals, openShifts, recentShifts, sub, sales,
-      recentActivity, recentIssues, tickets, refunds, salesToday, sales7d, sales30d,
-      refunds30d, offlineSales, supportSessions, cashMoves,
+      store,
+      employees,
+      products,
+      terminals,
+      openShifts,
+      recentShifts,
+      sub,
+      sales,
+      recentActivity,
+      recentIssues,
+      tickets,
+      refunds,
+      salesToday,
+      sales7d,
+      sales30d,
+      refunds30d,
+      offlineSales,
+      supportSessions,
+      cashMoves,
     ] = await Promise.all([
       supabaseAdmin.from("stores").select("*").eq("id", storeId).maybeSingle(),
       supabaseAdmin
         .from("profiles")
-        .select("id, full_name, email, phone, status, employee_id, created_at, updated_at, last_sign_in_at")
+        .select(
+          "id, full_name, email, phone, status, employee_id, created_at, updated_at, last_sign_in_at",
+        )
         .eq("store_id", storeId),
-      supabaseAdmin.from("products").select("*", { count: "exact", head: true }).eq("store_id", storeId),
+      supabaseAdmin
+        .from("products")
+        .select("*", { count: "exact", head: true })
+        .eq("store_id", storeId),
       supabaseAdmin
         .from("payment_terminals")
         .select("*")
@@ -297,62 +333,102 @@ export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
         .order("created_at", { ascending: false }),
       supabaseAdmin
         .from("register_sessions")
-        .select("id, opened_at, opened_by, closed_at, terminal_id, status, opening_cash, expected_cash, counted_cash, variance")
+        .select(
+          "id, opened_at, opened_by, closed_at, terminal_id, status, opening_cash, expected_cash, counted_cash, variance",
+        )
         .eq("store_id", storeId)
         .eq("status", "open"),
       supabaseAdmin
         .from("register_sessions")
-        .select("id, opened_at, closed_at, opened_by, closed_by, terminal_id, status, opening_cash, expected_cash, counted_cash, variance")
+        .select(
+          "id, opened_at, closed_at, opened_by, closed_by, terminal_id, status, opening_cash, expected_cash, counted_cash, variance",
+        )
         .eq("store_id", storeId)
         .order("opened_at", { ascending: false })
         .limit(15),
       supabaseAdmin
-        .from("subscriptions").select("*").eq("store_id", storeId)
+        .from("subscriptions")
+        .select("*")
+        .eq("store_id", storeId)
         .order("created_at", { ascending: false }),
       supabaseAdmin
         .from("sales")
-        .select("id, total, status, created_at, payment_method, receipt_number, refund_status, synced_from_offline")
+        .select(
+          "id, total, status, created_at, payment_method, receipt_number, refund_status, synced_from_offline",
+        )
         .eq("store_id", storeId)
-        .order("created_at", { ascending: false }).limit(20),
+        .order("created_at", { ascending: false })
+        .limit(20),
       supabaseAdmin
         .from("audit_log")
         .select("id, action, actor_email, entity, entity_id, created_at, details")
         .eq("store_id", storeId)
-        .order("created_at", { ascending: false }).limit(100),
+        .order("created_at", { ascending: false })
+        .limit(100),
       supabaseAdmin
         .from("payment_attempts")
         .select("id, method, status, message, amount, created_at")
         .eq("store_id", storeId)
         .in("status", ["declined", "failed", "error"])
-        .order("created_at", { ascending: false }).limit(20),
+        .order("created_at", { ascending: false })
+        .limit(20),
       supabaseAdmin
         .from("support_tickets")
         .select("id, ticket_number, subject, status, priority, created_at, updated_at")
         .eq("store_id", storeId)
-        .order("created_at", { ascending: false }).limit(20),
+        .order("created_at", { ascending: false })
+        .limit(20),
       supabaseAdmin
         .from("refunds")
-        .select("id, sale_id, refund_type, reason, total, payment_method, status, created_at, cashier_id")
+        .select(
+          "id, sale_id, refund_type, reason, total, payment_method, status, created_at, cashier_id",
+        )
         .eq("store_id", storeId)
-        .order("created_at", { ascending: false }).limit(20),
-      supabaseAdmin.from("sales").select("total, refunded_amount", { count: "exact" })
-        .eq("store_id", storeId).gte("created_at", dayAgo).neq("status", "voided"),
-      supabaseAdmin.from("sales").select("total, refunded_amount", { count: "exact" })
-        .eq("store_id", storeId).gte("created_at", weekAgo).neq("status", "voided"),
-      supabaseAdmin.from("sales").select("total, refunded_amount", { count: "exact" })
-        .eq("store_id", storeId).gte("created_at", monthAgo).neq("status", "voided"),
-      supabaseAdmin.from("refunds").select("total", { count: "exact" })
-        .eq("store_id", storeId).gte("created_at", monthAgo),
-      supabaseAdmin.from("sales").select("id", { count: "exact", head: true })
-        .eq("store_id", storeId).eq("synced_from_offline", true).gte("created_at", weekAgo),
-      supabaseAdmin.from("admin_support_sessions")
-        .select("id, admin_id, admin_email, reason, status, requested_at, decided_at, started_at, ended_at, expires_at, client_capability")
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabaseAdmin
+        .from("sales")
+        .select("total, refunded_amount", { count: "exact" })
         .eq("store_id", storeId)
-        .order("requested_at", { ascending: false }).limit(10),
-      supabaseAdmin.from("cash_movements")
+        .gte("created_at", dayAgo)
+        .neq("status", "voided"),
+      supabaseAdmin
+        .from("sales")
+        .select("total, refunded_amount", { count: "exact" })
+        .eq("store_id", storeId)
+        .gte("created_at", weekAgo)
+        .neq("status", "voided"),
+      supabaseAdmin
+        .from("sales")
+        .select("total, refunded_amount", { count: "exact" })
+        .eq("store_id", storeId)
+        .gte("created_at", monthAgo)
+        .neq("status", "voided"),
+      supabaseAdmin
+        .from("refunds")
+        .select("total", { count: "exact" })
+        .eq("store_id", storeId)
+        .gte("created_at", monthAgo),
+      supabaseAdmin
+        .from("sales")
+        .select("id", { count: "exact", head: true })
+        .eq("store_id", storeId)
+        .eq("synced_from_offline", true)
+        .gte("created_at", weekAgo),
+      supabaseAdmin
+        .from("admin_support_sessions")
+        .select(
+          "id, admin_id, admin_email, reason, status, requested_at, decided_at, started_at, ended_at, expires_at, client_capability",
+        )
+        .eq("store_id", storeId)
+        .order("requested_at", { ascending: false })
+        .limit(10),
+      supabaseAdmin
+        .from("cash_movements")
         .select("id, type, amount, reason, created_at, user_id, register_session_id")
         .eq("store_id", storeId)
-        .order("created_at", { ascending: false }).limit(20),
+        .order("created_at", { ascending: false })
+        .limit(20),
     ]);
 
     if (!store.data) throw new Error("Business not found");
@@ -365,7 +441,10 @@ export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
     const ownerIds = (ownerRoles.data ?? []).map((r: any) => r.user_id);
     const ownerProfiles =
       ownerIds.length > 0
-        ? await supabaseAdmin.from("profiles").select("id, full_name, email, phone").in("id", ownerIds)
+        ? await supabaseAdmin
+            .from("profiles")
+            .select("id, full_name, email, phone")
+            .in("id", ownerIds)
         : { data: [] };
 
     // Resolve names for shifts / cash movements
@@ -379,14 +458,22 @@ export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
     const nameMap: Record<string, string> = {};
     if (userIds.size > 0) {
       const { data: names } = await supabaseAdmin
-        .from("profiles").select("id, full_name, email").in("id", Array.from(userIds));
-      (names ?? []).forEach((p: any) => { nameMap[p.id] = p.full_name || p.email || p.id.slice(0, 8); });
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", Array.from(userIds));
+      (names ?? []).forEach((p: any) => {
+        nameMap[p.id] = p.full_name || p.email || p.id.slice(0, 8);
+      });
     }
 
-    const sumTotals = (rows: any[]) => rows.reduce((acc, r) => ({
-      gross: acc.gross + Number(r.total ?? 0),
-      refunded: acc.refunded + Number(r.refunded_amount ?? 0),
-    }), { gross: 0, refunded: 0 });
+    const sumTotals = (rows: any[]) =>
+      rows.reduce(
+        (acc, r) => ({
+          gross: acc.gross + Number(r.total ?? 0),
+          refunded: acc.refunded + Number(r.refunded_amount ?? 0),
+        }),
+        { gross: 0, refunded: 0 },
+      );
 
     const lastSale = sales.data?.[0]?.created_at ?? null;
     const lastAudit = recentActivity.data?.[0]?.created_at ?? null;
@@ -397,10 +484,12 @@ export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
       (t: any) => !t.last_seen_at || new Date(t.last_seen_at).getTime() < now - 24 * 3600_000,
     );
 
-    const active_support_session = (supportSessions.data ?? []).find(
-      (s: any) => (s.status === "pending" || s.status === "accepted") &&
-        (!s.expires_at || new Date(s.expires_at).getTime() > now),
-    ) ?? null;
+    const active_support_session =
+      (supportSessions.data ?? []).find(
+        (s: any) =>
+          (s.status === "pending" || s.status === "accepted") &&
+          (!s.expires_at || new Date(s.expires_at).getTime() > now),
+      ) ?? null;
 
     const t7 = sumTotals(sales7d.data ?? []);
     const t30 = sumTotals(sales30d.data ?? []);
@@ -426,19 +515,31 @@ export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
       tickets: tickets.data ?? [],
       last_activity: lastActivity,
       // Phase 2 additions
-      open_shifts: (openShifts.data ?? []).map((s: any) => ({ ...s, opened_by_name: nameMap[s.opened_by] ?? null })),
+      open_shifts: (openShifts.data ?? []).map((s: any) => ({
+        ...s,
+        opened_by_name: nameMap[s.opened_by] ?? null,
+      })),
       recent_shifts: (recentShifts.data ?? []).map((s: any) => ({
         ...s,
         opened_by_name: nameMap[s.opened_by] ?? null,
-        closed_by_name: s.closed_by ? nameMap[s.closed_by] ?? null : null,
+        closed_by_name: s.closed_by ? (nameMap[s.closed_by] ?? null) : null,
       })),
-      refunds: (refunds.data ?? []).map((r: any) => ({ ...r, cashier_name: r.cashier_id ? nameMap[r.cashier_id] ?? null : null })),
-      cash_movements: (cashMoves.data ?? []).map((c: any) => ({ ...c, user_name: c.user_id ? nameMap[c.user_id] ?? null : null })),
+      refunds: (refunds.data ?? []).map((r: any) => ({
+        ...r,
+        cashier_name: r.cashier_id ? (nameMap[r.cashier_id] ?? null) : null,
+      })),
+      cash_movements: (cashMoves.data ?? []).map((c: any) => ({
+        ...c,
+        user_name: c.user_id ? (nameMap[c.user_id] ?? null) : null,
+      })),
       sales_summary: {
         today: { count: salesToday.count ?? 0, ...tToday },
         last_7d: { count: sales7d.count ?? 0, ...t7 },
         last_30d: { count: sales30d.count ?? 0, ...t30 },
-        refunds_30d: { count: refunds30d.count ?? 0, total: (refunds30d.data ?? []).reduce((a: number, r: any) => a + Number(r.total ?? 0), 0) },
+        refunds_30d: {
+          count: refunds30d.count ?? 0,
+          total: (refunds30d.data ?? []).reduce((a: number, r: any) => a + Number(r.total ?? 0), 0),
+        },
         offline_sales_7d: offlineSales.count ?? 0,
       },
       support_sessions: supportSessions.data ?? [],
@@ -446,7 +547,6 @@ export const adminGetBusinessWorkspace = createServerFn({ method: "POST" })
       generated_at: nowIso,
     };
   });
-
 
 // ============================================================================
 // Businesses — safe mutations
@@ -531,11 +631,23 @@ export const adminUpdateBusinessContact = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await loadStoreOrThrow(supabaseAdmin, data.storeId);
     const patch: Record<string, any> = {};
-    for (const k of ["name", "email", "phone", "website", "address", "city", "state", "zip"] as const) {
+    for (const k of [
+      "name",
+      "email",
+      "phone",
+      "website",
+      "address",
+      "city",
+      "state",
+      "zip",
+    ] as const) {
       if (data[k] !== undefined) patch[k] = data[k];
     }
     if (Object.keys(patch).length === 0) throw new Error("Nothing to update");
-    const { error } = await supabaseAdmin.from("stores").update(patch as any).eq("id", data.storeId);
+    const { error } = await supabaseAdmin
+      .from("stores")
+      .update(patch as any)
+      .eq("id", data.storeId);
     if (error) throw new Error(error.message);
     await writeAudit(supabaseAdmin, {
       actor_id: context.userId,
@@ -567,7 +679,9 @@ export const adminExtendTrial = createServerFn({ method: "POST" })
       .eq("id", data.storeId);
     if (error) throw new Error(error.message);
     // Recompute plan derived state
-    try { await supabaseAdmin.rpc("recompute_store_plan", { _store_id: data.storeId }); } catch {}
+    try {
+      await supabaseAdmin.rpc("recompute_store_plan", { _store_id: data.storeId });
+    } catch {}
     await writeAudit(supabaseAdmin, {
       actor_id: context.userId,
       actor_email: admin.email,
@@ -589,9 +703,14 @@ export const adminEndTrial = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await loadStoreOrThrow(supabaseAdmin, data.storeId);
     const past = new Date(Date.now() - 60_000).toISOString();
-    const { error } = await supabaseAdmin.from("stores").update({ trial_ends_at: past }).eq("id", data.storeId);
+    const { error } = await supabaseAdmin
+      .from("stores")
+      .update({ trial_ends_at: past })
+      .eq("id", data.storeId);
     if (error) throw new Error(error.message);
-    try { await supabaseAdmin.rpc("recompute_store_plan", { _store_id: data.storeId }); } catch {}
+    try {
+      await supabaseAdmin.rpc("recompute_store_plan", { _store_id: data.storeId });
+    } catch {}
     await writeAudit(supabaseAdmin, {
       actor_id: context.userId,
       actor_email: admin.email,
@@ -718,7 +837,6 @@ export const adminChangeEmployeeRole = createServerFn({ method: "POST" })
     throw new Error(NOT_PERMITTED_EMPLOYEE_MGMT);
   });
 
-
 // ============================================================================
 // Devices / terminals
 // ============================================================================
@@ -731,7 +849,11 @@ export const adminRenameTerminal = createServerFn({ method: "POST" })
     const reason = requireReason(data.reason);
     if (!data.label.trim()) throw new Error("Label is required");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: term } = await supabaseAdmin.from("payment_terminals").select("store_id").eq("id", data.terminalId).maybeSingle();
+    const { data: term } = await supabaseAdmin
+      .from("payment_terminals")
+      .select("store_id")
+      .eq("id", data.terminalId)
+      .maybeSingle();
     const { error } = await supabaseAdmin
       .from("payment_terminals")
       .update({ label: data.label.trim() })
@@ -751,13 +873,19 @@ export const adminRenameTerminal = createServerFn({ method: "POST" })
 
 export const adminSetTerminalStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator((data: { terminalId: string; status: "active" | "inactive"; reason: string }) => data)
+  .inputValidator(
+    (data: { terminalId: string; status: "active" | "inactive"; reason: string }) => data,
+  )
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
     const reason = requireReason(data.reason);
     if (data.status !== "active" && data.status !== "inactive") throw new Error("Invalid status");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: term } = await supabaseAdmin.from("payment_terminals").select("store_id").eq("id", data.terminalId).maybeSingle();
+    const { data: term } = await supabaseAdmin
+      .from("payment_terminals")
+      .select("store_id")
+      .eq("id", data.terminalId)
+      .maybeSingle();
     const { error } = await supabaseAdmin
       .from("payment_terminals")
       .update({ status: data.status })
@@ -782,7 +910,11 @@ export const adminRevokeTerminal = createServerFn({ method: "POST" })
     const admin = await ensureSuperAdmin(context);
     const reason = requireReason(data.reason);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: term } = await supabaseAdmin.from("payment_terminals").select("store_id, label").eq("id", data.terminalId).maybeSingle();
+    const { data: term } = await supabaseAdmin
+      .from("payment_terminals")
+      .select("store_id, label")
+      .eq("id", data.terminalId)
+      .maybeSingle();
     const { error } = await supabaseAdmin
       .from("payment_terminals")
       .update({ status: "revoked", config: {} })
@@ -840,7 +972,11 @@ export const adminListDevices = createServerFn({ method: "POST" })
     } else if (data.filter === "online") {
       const cutoff = new Date(Date.now() - 24 * 3600_000).toISOString();
       q = q.gte("last_seen_at", cutoff);
-    } else if (data.filter === "active" || data.filter === "inactive" || data.filter === "revoked") {
+    } else if (
+      data.filter === "active" ||
+      data.filter === "inactive" ||
+      data.filter === "revoked"
+    ) {
       q = q.eq("status", data.filter);
     }
     if (data.provider && data.provider !== "all") {
@@ -858,7 +994,10 @@ export const adminListDevices = createServerFn({ method: "POST" })
     const storeIds = Array.from(new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean)));
     const storesMap = new Map<string, string>();
     if (storeIds.length) {
-      const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
+      const { data: stores } = await supabaseAdmin
+        .from("stores")
+        .select("id, name")
+        .in("id", storeIds);
       (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
     }
 
@@ -888,10 +1027,22 @@ export const adminDeviceCounts = createServerFn({ method: "GET" })
     const cutoff = new Date(Date.now() - 24 * 3600_000).toISOString();
     const [all, active, inactive, revoked, online, offline] = await Promise.all([
       supabaseAdmin.from("payment_terminals").select("*", { count: "exact", head: true }),
-      supabaseAdmin.from("payment_terminals").select("*", { count: "exact", head: true }).eq("status", "active"),
-      supabaseAdmin.from("payment_terminals").select("*", { count: "exact", head: true }).eq("status", "inactive"),
-      supabaseAdmin.from("payment_terminals").select("*", { count: "exact", head: true }).eq("status", "revoked"),
-      supabaseAdmin.from("payment_terminals").select("*", { count: "exact", head: true }).gte("last_seen_at", cutoff),
+      supabaseAdmin
+        .from("payment_terminals")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "active"),
+      supabaseAdmin
+        .from("payment_terminals")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "inactive"),
+      supabaseAdmin
+        .from("payment_terminals")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "revoked"),
+      supabaseAdmin
+        .from("payment_terminals")
+        .select("*", { count: "exact", head: true })
+        .gte("last_seen_at", cutoff),
       supabaseAdmin
         .from("payment_terminals")
         .select("*", { count: "exact", head: true })
@@ -944,7 +1095,10 @@ export const adminListSubscriptions = createServerFn({ method: "POST" })
     const storeIds = Array.from(new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean)));
     const storesMap = new Map<string, { name: string; email: string | null }>();
     if (storeIds.length) {
-      const { data: stores } = await supabaseAdmin.from("stores").select("id, name, email").in("id", storeIds);
+      const { data: stores } = await supabaseAdmin
+        .from("stores")
+        .select("id, name, email")
+        .in("id", storeIds);
       (stores ?? []).forEach((s: any) => storesMap.set(s.id, { name: s.name, email: s.email }));
     }
     return {
@@ -988,7 +1142,9 @@ export const adminRefreshSubscription = createServerFn({ method: "POST" })
         })
         .eq("id", data.subscriptionId);
       if (sub.store_id) {
-        try { await supabaseAdmin.rpc("recompute_store_plan", { _store_id: sub.store_id }); } catch {}
+        try {
+          await supabaseAdmin.rpc("recompute_store_plan", { _store_id: sub.store_id });
+        } catch {}
       }
       await writeAudit(supabaseAdmin, {
         actor_id: context.userId,
@@ -1007,7 +1163,14 @@ export const adminRefreshSubscription = createServerFn({ method: "POST" })
 
 export const adminCancelSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator((data: { subscriptionId: string; environment: StripeEnv; reason: string; atPeriodEnd: boolean }) => data)
+  .inputValidator(
+    (data: {
+      subscriptionId: string;
+      environment: StripeEnv;
+      reason: string;
+      atPeriodEnd: boolean;
+    }) => data,
+  )
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
     const reason = requireReason(data.reason);
@@ -1021,7 +1184,9 @@ export const adminCancelSubscription = createServerFn({ method: "POST" })
     try {
       const stripe = createStripeClient(data.environment);
       const updated = data.atPeriodEnd
-        ? await stripe.subscriptions.update(sub.stripe_subscription_id, { cancel_at_period_end: true })
+        ? await stripe.subscriptions.update(sub.stripe_subscription_id, {
+            cancel_at_period_end: true,
+          })
         : await stripe.subscriptions.cancel(sub.stripe_subscription_id);
       await supabaseAdmin
         .from("subscriptions")
@@ -1035,7 +1200,9 @@ export const adminCancelSubscription = createServerFn({ method: "POST" })
         actor_id: context.userId,
         actor_email: admin.email,
         store_id: sub.store_id ?? null,
-        action: data.atPeriodEnd ? "admin.subscription.cancel_at_period_end" : "admin.subscription.cancel_now",
+        action: data.atPeriodEnd
+          ? "admin.subscription.cancel_at_period_end"
+          : "admin.subscription.cancel_now",
         entity: "subscription",
         entity_id: data.subscriptionId,
         details: { reason },
@@ -1048,7 +1215,9 @@ export const adminCancelSubscription = createServerFn({ method: "POST" })
 
 export const adminRestoreSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator((data: { subscriptionId: string; environment: StripeEnv; reason: string }) => data)
+  .inputValidator(
+    (data: { subscriptionId: string; environment: StripeEnv; reason: string }) => data,
+  )
   .handler(async ({ data, context }) => {
     const admin = await ensureSuperAdmin(context);
     const reason = requireReason(data.reason);
@@ -1123,8 +1292,10 @@ export const adminListTickets = createServerFn({ method: "POST" })
       .order(sortCol, { ascending })
       .range(from, to);
     if (data.status === "active") q = q.not("status", "in", "(resolved,closed)");
-    else if (data.status === "investigating") q = q.in("status", ["investigating", "waiting_support", "in_progress"]);
-    else if (data.status === "waiting_for_merchant") q = q.in("status", ["waiting_for_merchant", "waiting_customer"]);
+    else if (data.status === "investigating")
+      q = q.in("status", ["investigating", "waiting_support", "in_progress"]);
+    else if (data.status === "waiting_for_merchant")
+      q = q.in("status", ["waiting_for_merchant", "waiting_customer"]);
     else if (data.status && data.status !== "all") q = q.eq("status", data.status);
     if (data.priority && data.priority !== "all") q = q.eq("priority", data.priority);
     if (data.storeId) q = q.eq("store_id", data.storeId);
@@ -1138,15 +1309,23 @@ export const adminListTickets = createServerFn({ method: "POST" })
     const { data: rows, count, error } = await q;
     if (error) throw new Error(error.message);
     const storeIds = Array.from(new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean)));
-    const assigneeIds = Array.from(new Set((rows ?? []).map((r: any) => r.assigned_admin_id).filter(Boolean)));
+    const assigneeIds = Array.from(
+      new Set((rows ?? []).map((r: any) => r.assigned_admin_id).filter(Boolean)),
+    );
     const storesMap = new Map<string, string>();
     const agentsMap = new Map<string, string>();
     if (storeIds.length) {
-      const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
+      const { data: stores } = await supabaseAdmin
+        .from("stores")
+        .select("id, name")
+        .in("id", storeIds);
       (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
     }
     if (assigneeIds.length) {
-      const { data: agents } = await supabaseAdmin.from("profiles").select("id, email, full_name").in("id", assigneeIds);
+      const { data: agents } = await supabaseAdmin
+        .from("profiles")
+        .select("id, email, full_name")
+        .in("id", assigneeIds);
       (agents ?? []).forEach((a: any) => agentsMap.set(a.id, a.full_name || a.email));
     }
     const ticketIds = (rows ?? []).map((r: any) => r.id);
@@ -1166,7 +1345,7 @@ export const adminListTickets = createServerFn({ method: "POST" })
       rows: (rows ?? []).map((r: any) => ({
         ...r,
         store_name: storesMap.get(r.store_id) ?? null,
-        assignee_name: r.assigned_admin_id ? agentsMap.get(r.assigned_admin_id) ?? null : null,
+        assignee_name: r.assigned_admin_id ? (agentsMap.get(r.assigned_admin_id) ?? null) : null,
         problem_preview: problemMap.get(r.id) ?? null,
       })),
       count: count ?? 0,
@@ -1182,26 +1361,55 @@ export const adminTicketCounts = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const statuses = ["open", "resolved", "closed"];
     const counts: Record<string, number> = {
-      all: 0, mine: 0, unassigned: 0, urgent: 0,
-      open: 0, investigating: 0, waiting_for_merchant: 0, resolved: 0, closed: 0,
+      all: 0,
+      mine: 0,
+      unassigned: 0,
+      urgent: 0,
+      open: 0,
+      investigating: 0,
+      waiting_for_merchant: 0,
+      resolved: 0,
+      closed: 0,
     };
-    const [{ count: total }, { count: mine }, { count: unassigned }, { count: urgent }] = await Promise.all([
-      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }),
-      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).eq("assigned_admin_id", context.userId).not("status", "in", "(resolved,closed)"),
-      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).is("assigned_admin_id", null).not("status", "in", "(resolved,closed)"),
-      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).eq("priority", "urgent").not("status", "in", "(resolved,closed)"),
-    ]);
+    const [{ count: total }, { count: mine }, { count: unassigned }, { count: urgent }] =
+      await Promise.all([
+        supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }),
+        supabaseAdmin
+          .from("support_tickets")
+          .select("*", { count: "exact", head: true })
+          .eq("assigned_admin_id", context.userId)
+          .not("status", "in", "(resolved,closed)"),
+        supabaseAdmin
+          .from("support_tickets")
+          .select("*", { count: "exact", head: true })
+          .is("assigned_admin_id", null)
+          .not("status", "in", "(resolved,closed)"),
+        supabaseAdmin
+          .from("support_tickets")
+          .select("*", { count: "exact", head: true })
+          .eq("priority", "urgent")
+          .not("status", "in", "(resolved,closed)"),
+      ]);
     counts.all = total ?? 0;
     counts.mine = mine ?? 0;
     counts.unassigned = unassigned ?? 0;
     counts.urgent = urgent ?? 0;
     for (const s of statuses) {
-      const { count } = await supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).eq("status", s);
+      const { count } = await supabaseAdmin
+        .from("support_tickets")
+        .select("*", { count: "exact", head: true })
+        .eq("status", s);
       counts[s] = count ?? 0;
     }
     const [{ count: investigating }, { count: waiting }] = await Promise.all([
-      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).in("status", ["investigating", "waiting_support", "in_progress"]),
-      supabaseAdmin.from("support_tickets").select("*", { count: "exact", head: true }).in("status", ["waiting_for_merchant", "waiting_customer"]),
+      supabaseAdmin
+        .from("support_tickets")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["investigating", "waiting_support", "in_progress"]),
+      supabaseAdmin
+        .from("support_tickets")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["waiting_for_merchant", "waiting_customer"]),
     ]);
     counts.investigating = investigating ?? 0;
     counts.waiting_for_merchant = waiting ?? 0;
@@ -1224,7 +1432,11 @@ export const adminListSupportAgents = createServerFn({ method: "GET" })
       .from("profiles")
       .select("id, email, full_name")
       .in("id", ids);
-    return (profs ?? []).map((p: any) => ({ id: p.id, email: p.email, name: p.full_name || p.email }));
+    return (profs ?? []).map((p: any) => ({
+      id: p.id,
+      email: p.email,
+      name: p.full_name || p.email,
+    }));
   });
 
 export const adminGetTicket = createServerFn({ method: "POST" })
@@ -1247,12 +1459,20 @@ export const adminGetTicket = createServerFn({ method: "POST" })
       .order("created_at", { ascending: true });
     let store = null;
     if (ticket.store_id) {
-      const { data: s } = await supabaseAdmin.from("stores").select("id, name, email").eq("id", ticket.store_id).maybeSingle();
+      const { data: s } = await supabaseAdmin
+        .from("stores")
+        .select("id, name, email")
+        .eq("id", ticket.store_id)
+        .maybeSingle();
       store = s ?? null;
     }
     let assignee = null;
     if (ticket.assigned_admin_id) {
-      const { data: a } = await supabaseAdmin.from("profiles").select("id, email, full_name").eq("id", ticket.assigned_admin_id).maybeSingle();
+      const { data: a } = await supabaseAdmin
+        .from("profiles")
+        .select("id, email, full_name")
+        .eq("id", ticket.assigned_admin_id)
+        .maybeSingle();
       assignee = a ?? null;
     }
     return { ticket, notes: notes ?? [], store, assignee };
@@ -1324,12 +1544,25 @@ export const adminUpdateTicket = createServerFn({ method: "POST" })
     const admin = await ensureSupportStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const patch: Record<string, any> = {};
-    for (const k of ["status", "priority", "category", "assigned_admin_id", "resolution"] as const) {
+    for (const k of [
+      "status",
+      "priority",
+      "category",
+      "assigned_admin_id",
+      "resolution",
+    ] as const) {
       if (data[k] !== undefined) patch[k] = data[k];
     }
     if (Object.keys(patch).length === 0) throw new Error("Nothing to update");
-    const { data: t } = await supabaseAdmin.from("support_tickets").select("store_id").eq("id", data.ticketId).maybeSingle();
-    const { error } = await supabaseAdmin.from("support_tickets").update(patch as any).eq("id", data.ticketId);
+    const { data: t } = await supabaseAdmin
+      .from("support_tickets")
+      .select("store_id")
+      .eq("id", data.ticketId)
+      .maybeSingle();
+    const { error } = await supabaseAdmin
+      .from("support_tickets")
+      .update(patch as any)
+      .eq("id", data.ticketId);
     if (error) throw new Error(error.message);
     await writeAudit(supabaseAdmin, {
       actor_id: context.userId,
@@ -1399,7 +1632,16 @@ export const adminAddTicketNote = createServerFn({ method: "POST" })
 export const adminListAuditLogs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
-    (data: { storeId?: string; action?: string; actorEmail?: string; entity?: string; from?: string; to?: string; page?: number; pageSize?: number }) => data,
+    (data: {
+      storeId?: string;
+      action?: string;
+      actorEmail?: string;
+      entity?: string;
+      from?: string;
+      to?: string;
+      page?: number;
+      pageSize?: number;
+    }) => data,
   )
   .handler(async ({ data, context }) => {
     await ensureSuperAdmin(context);
@@ -1435,15 +1677,26 @@ export const adminAuditFacets = createServerFn({ method: "GET" })
       .select("action, entity")
       .order("created_at", { ascending: false })
       .limit(2000);
-    const actions = Array.from(new Set((rows ?? []).map((r: any) => r.action).filter(Boolean))).sort();
-    const entities = Array.from(new Set((rows ?? []).map((r: any) => r.entity).filter(Boolean))).sort();
+    const actions = Array.from(
+      new Set((rows ?? []).map((r: any) => r.action).filter(Boolean)),
+    ).sort();
+    const entities = Array.from(
+      new Set((rows ?? []).map((r: any) => r.entity).filter(Boolean)),
+    ).sort();
     return { actions, entities };
   });
 
 export const adminExportAuditLogs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
-    (data: { storeId?: string; action?: string; actorEmail?: string; entity?: string; from?: string; to?: string }) => data,
+    (data: {
+      storeId?: string;
+      action?: string;
+      actorEmail?: string;
+      entity?: string;
+      from?: string;
+      to?: string;
+    }) => data,
   )
   .handler(async ({ data, context }) => {
     await ensureSuperAdmin(context);
@@ -1467,7 +1720,13 @@ export const adminExportAuditLogs = createServerFn({ method: "POST" })
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const header = "created_at,actor_email,action,entity,entity_id,store_id,details";
-    const body = (rows ?? []).map((r: any) => [r.created_at, r.actor_email, r.action, r.entity, r.entity_id, r.store_id, r.details].map(esc).join(",")).join("\n");
+    const body = (rows ?? [])
+      .map((r: any) =>
+        [r.created_at, r.actor_email, r.action, r.entity, r.entity_id, r.store_id, r.details]
+          .map(esc)
+          .join(","),
+      )
+      .join("\n");
     return { csv: `${header}\n${body}`, count: rows?.length ?? 0 };
   });
 
@@ -1478,14 +1737,20 @@ export const adminSubscriptionStats = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: subs } = await supabaseAdmin
       .from("subscriptions")
-      .select("id, store_id, status, price_id, environment, current_period_end, cancel_at_period_end, updated_at");
+      .select(
+        "id, store_id, status, price_id, environment, current_period_end, cancel_at_period_end, updated_at",
+      );
     const rows = subs ?? [];
     const counts: Record<string, number> = { total: rows.length };
     const byTier: Record<string, number> = {};
     const byEnv: Record<string, number> = { sandbox: 0, live: 0 };
     let mrrCents = 0;
     // Rough price mapping in USD cents; matches plan_tier_for_price mapping.
-    const priceMap: Record<string, number> = { starter_monthly: 2900, pro_monthly: 5900, business_monthly: 8900 };
+    const priceMap: Record<string, number> = {
+      starter_monthly: 2900,
+      pro_monthly: 5900,
+      business_monthly: 8900,
+    };
     for (const r of rows) {
       counts[r.status] = (counts[r.status] ?? 0) + 1;
       byEnv[r.environment] = (byEnv[r.environment] ?? 0) + 1;
@@ -1500,7 +1765,10 @@ export const adminSubscriptionStats = createServerFn({ method: "GET" })
     const storeIds = Array.from(new Set(pastDue.map((r: any) => r.store_id).filter(Boolean)));
     const storesMap = new Map<string, { name: string; email: string | null }>();
     if (storeIds.length) {
-      const { data: stores } = await supabaseAdmin.from("stores").select("id, name, email").in("id", storeIds);
+      const { data: stores } = await supabaseAdmin
+        .from("stores")
+        .select("id, name, email")
+        .in("id", storeIds);
       (stores ?? []).forEach((s: any) => storesMap.set(s.id, { name: s.name, email: s.email }));
     }
     return {
@@ -1518,8 +1786,6 @@ export const adminSubscriptionStats = createServerFn({ method: "GET" })
       })),
     };
   });
-
-
 
 // ============================================================================
 // Support view sessions
@@ -1648,7 +1914,9 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
     const admin: any = supabaseAdmin;
     const { data } = await admin
       .from("admin_support_sessions")
-      .select("id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at, decided_by, client_capability, client_metadata, channel_token")
+      .select(
+        "id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at, decided_by, client_capability, client_metadata, channel_token",
+      )
       .eq("admin_id", context.userId)
       .in("status", ["pending", "active"])
       .gt("expires_at", new Date().toISOString())
@@ -1659,9 +1927,17 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
 
     // Enrich with business + employee context for the admin banner.
     const [storeRes, employeeRes] = await Promise.all([
-      supabaseAdmin.from("stores").select("id, name, store_code").eq("id", data.store_id).maybeSingle(),
+      supabaseAdmin
+        .from("stores")
+        .select("id, name, store_code")
+        .eq("id", data.store_id)
+        .maybeSingle(),
       data.decided_by
-        ? supabaseAdmin.from("profiles").select("id, full_name, email, employee_id").eq("id", data.decided_by).maybeSingle()
+        ? supabaseAdmin
+            .from("profiles")
+            .select("id, full_name, email, employee_id")
+            .eq("id", data.decided_by)
+            .maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
 
@@ -1722,10 +1998,13 @@ export const merchantRespondSupportSession = createServerFn({ method: "POST" })
     if (sess.status !== "pending") throw new Error("Request already resolved");
 
     // Sanitize any client-supplied metadata — strip forbidden keys.
-    const FORBIDDEN = /(pin|password|token|secret|apikey|api_key|authorization|card|cvv|cvc|track|pan|refresh)/i;
+    const FORBIDDEN =
+      /(pin|password|token|secret|apikey|api_key|authorization|card|cvv|cvc|track|pan|refresh)/i;
     function scrub(v: unknown): unknown {
       if (v == null || typeof v !== "object") return v;
-      const out: Record<string, unknown> = Array.isArray(v) ? ([] as unknown as Record<string, unknown>) : {};
+      const out: Record<string, unknown> = Array.isArray(v)
+        ? ([] as unknown as Record<string, unknown>)
+        : {};
       for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
         if (FORBIDDEN.test(k)) continue;
         out[k] = typeof val === "object" && val !== null ? scrub(val) : val;
@@ -1828,8 +2107,6 @@ export const merchantEndSupportSession = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-
-
 // ============================================================================
 // Platform health
 // ============================================================================
@@ -1897,7 +2174,10 @@ export const adminListStores = createServerFn({ method: "POST" })
     const to = from + pageSize - 1;
     let q = supabaseAdmin
       .from("stores")
-      .select("id, name, store_code, email, phone, country, city, plan_tier, plan_status, plan_period_end, suspended_at, created_at", { count: "exact" })
+      .select(
+        "id, name, store_code, email, phone, country, city, plan_tier, plan_status, plan_period_end, suspended_at, created_at",
+        { count: "exact" },
+      )
       .order("created_at", { ascending: false })
       .range(from, to);
     if (data.q?.trim()) {
@@ -1911,7 +2191,9 @@ export const adminListStores = createServerFn({ method: "POST" })
 
 export const adminListEmployees = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator((data: { q?: string; storeId?: string; page?: number; pageSize?: number }) => data)
+  .inputValidator(
+    (data: { q?: string; storeId?: string; page?: number; pageSize?: number }) => data,
+  )
   .handler(async ({ data, context }) => {
     await ensurePlatformStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -1934,7 +2216,10 @@ export const adminListEmployees = createServerFn({ method: "POST" })
     const storeIds = Array.from(new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean)));
     const storesMap = new Map<string, string>();
     if (storeIds.length) {
-      const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
+      const { data: stores } = await supabaseAdmin
+        .from("stores")
+        .select("id, name")
+        .in("id", storeIds);
       (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
     }
     return {
@@ -1957,7 +2242,10 @@ export const adminListPairedDevices = createServerFn({ method: "POST" })
     const to = from + pageSize - 1;
     let q = supabaseAdmin
       .from("device_registrations")
-      .select("id, store_id, label, status, platform, app_version, last_seen_at, last_sync_at, paired_at, revoked_at", { count: "exact" })
+      .select(
+        "id, store_id, label, status, platform, app_version, last_seen_at, last_sync_at, paired_at, revoked_at",
+        { count: "exact" },
+      )
       .order("last_seen_at", { ascending: false, nullsFirst: false })
       .range(from, to);
     if (data.status && data.status !== "all") q = q.eq("status", data.status);
@@ -1970,7 +2258,10 @@ export const adminListPairedDevices = createServerFn({ method: "POST" })
     const storeIds = Array.from(new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean)));
     const storesMap = new Map<string, string>();
     if (storeIds.length) {
-      const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
+      const { data: stores } = await supabaseAdmin
+        .from("stores")
+        .select("id, name")
+        .in("id", storeIds);
       (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
     }
     const now = Date.now();
@@ -2016,7 +2307,10 @@ export const adminSalesOverview = createServerFn({ method: "POST" })
     const storeIds = [...byStore.keys()];
     const storesMap = new Map<string, string>();
     if (storeIds.length) {
-      const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
+      const { data: stores } = await supabaseAdmin
+        .from("stores")
+        .select("id, name")
+        .in("id", storeIds);
       (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
     }
     const topStores = [...byStore.entries()]
@@ -2041,17 +2335,27 @@ export const adminOfflineSyncOverview = createServerFn({ method: "GET" })
       .limit(200);
     if (error) throw new Error(error.message);
     const byStore = new Map<string, number>();
-    for (const r of rows ?? []) { const sid = r.store_id ?? ""; byStore.set(sid, (byStore.get(sid) ?? 0) + 1); }
+    for (const r of rows ?? []) {
+      const sid = r.store_id ?? "";
+      byStore.set(sid, (byStore.get(sid) ?? 0) + 1);
+    }
     const storeIds = [...byStore.keys()];
     const storesMap = new Map<string, string>();
     if (storeIds.length) {
-      const { data: stores } = await supabaseAdmin.from("stores").select("id, name").in("id", storeIds);
+      const { data: stores } = await supabaseAdmin
+        .from("stores")
+        .select("id, name")
+        .in("id", storeIds);
       (stores ?? []).forEach((s: any) => storesMap.set(s.id, s.name));
     }
     return {
       total: rows?.length ?? 0,
-      recent: (rows ?? []).slice(0, 50).map((r: any) => ({ ...r, store_name: storesMap.get(r.store_id) ?? "—" })),
-      byStore: [...byStore.entries()].map(([id, count]) => ({ id, name: storesMap.get(id) ?? "—", count })).sort((a, b) => b.count - a.count),
+      recent: (rows ?? [])
+        .slice(0, 50)
+        .map((r: any) => ({ ...r, store_name: storesMap.get(r.store_id) ?? "—" })),
+      byStore: [...byStore.entries()]
+        .map(([id, count]) => ({ id, name: storesMap.get(id) ?? "—", count }))
+        .sort((a, b) => b.count - a.count),
     };
   });
 
@@ -2073,8 +2377,10 @@ export const adminPaymentsOverview = createServerFn({ method: "POST" })
     const totals = { total: 0, succeeded: 0, failed: 0, gross: 0 };
     for (const a of attempts ?? []) {
       totals.total += 1;
-      if (a.status === "succeeded" || a.status === "completed") { totals.succeeded += 1; totals.gross += Number(a.amount ?? 0); }
-      else if (a.status === "failed" || a.status === "error") totals.failed += 1;
+      if (a.status === "succeeded" || a.status === "completed") {
+        totals.succeeded += 1;
+        totals.gross += Number(a.amount ?? 0);
+      } else if (a.status === "failed" || a.status === "error") totals.failed += 1;
     }
     return { totals, recent: (attempts ?? []).slice(0, 50), days };
   });
@@ -2084,7 +2390,16 @@ export const adminListAdmins = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await ensureSuperAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const platformRoles = ["super_admin", "operations_admin", "support_admin", "billing_admin", "analyst", "technical_support", "merchant_support", "compliance_support"] as const;
+    const platformRoles = [
+      "super_admin",
+      "operations_admin",
+      "support_admin",
+      "billing_admin",
+      "analyst",
+      "technical_support",
+      "merchant_support",
+      "compliance_support",
+    ] as const;
     const { data: roleRows, error } = await supabaseAdmin
       .from("user_roles")
       .select("user_id, role, created_at")
@@ -2092,12 +2407,24 @@ export const adminListAdmins = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     const ids = Array.from(new Set((roleRows ?? []).map((r: any) => r.user_id)));
     if (!ids.length) return { rows: [] };
-    const { data: profs } = await supabaseAdmin.from("profiles").select("id, email, full_name, status").in("id", ids);
+    const { data: profs } = await supabaseAdmin
+      .from("profiles")
+      .select("id, email, full_name, status")
+      .in("id", ids);
     const profMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
-    const byUser = new Map<string, { id: string; email: string; name: string; status: string; roles: string[] }>();
+    const byUser = new Map<
+      string,
+      { id: string; email: string; name: string; status: string; roles: string[] }
+    >();
     for (const r of roleRows ?? []) {
       const p = profMap.get(r.user_id) as any;
-      const cur = byUser.get(r.user_id) ?? { id: r.user_id, email: p?.email ?? "", name: p?.full_name ?? p?.email ?? "", status: p?.status ?? "active", roles: [] };
+      const cur = byUser.get(r.user_id) ?? {
+        id: r.user_id,
+        email: p?.email ?? "",
+        name: p?.full_name ?? p?.email ?? "",
+        status: p?.status ?? "active",
+        roles: [],
+      };
       (cur.roles as string[]).push(r.role as string);
       byUser.set(r.user_id, cur);
     }

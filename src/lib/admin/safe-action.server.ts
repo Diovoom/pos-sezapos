@@ -52,10 +52,7 @@ async function ensurePlatformStaff(ctx: { supabase: any; userId: string }) {
   return roles as string[];
 }
 
-async function ensurePermission(
-  ctx: { supabase: any; userId: string },
-  permission: string,
-) {
+async function ensurePermission(ctx: { supabase: any; userId: string }, permission: string) {
   const { data, error } = await ctx.supabase.rpc("has_admin_permission", {
     _user_id: ctx.userId,
     _permission: permission,

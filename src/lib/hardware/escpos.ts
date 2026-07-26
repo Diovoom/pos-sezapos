@@ -7,7 +7,13 @@ const GS = 0x1d;
 const LF = 0x0a;
 
 export type ReceiptLine =
-  | { kind: "text"; value: string; bold?: boolean; align?: "left" | "center" | "right"; size?: 1 | 2 }
+  | {
+      kind: "text";
+      value: string;
+      bold?: boolean;
+      align?: "left" | "center" | "right";
+      size?: 1 | 2;
+    }
   | { kind: "row"; left: string; right: string }
   | { kind: "sep" }
   | { kind: "feed"; lines?: number }
@@ -41,7 +47,10 @@ function bytes(...parts: Array<number | Uint8Array | string>): Uint8Array {
   const total = arrs.reduce((n, a) => n + a.length, 0);
   const out = new Uint8Array(total);
   let o = 0;
-  for (const a of arrs) { out.set(a, o); o += a.length; }
+  for (const a of arrs) {
+    out.set(a, o);
+    o += a.length;
+  }
   return out;
 }
 
@@ -107,7 +116,8 @@ export function buildReceipt(p: ReceiptPayload): Uint8Array {
     if (bold) parts.push(CMD.bold(false));
   };
   row("Subtotal", money(p.subtotal, currency));
-  if (typeof p.discount === "number" && p.discount > 0) row("Discount", "-" + money(p.discount, currency));
+  if (typeof p.discount === "number" && p.discount > 0)
+    row("Discount", "-" + money(p.discount, currency));
   if (typeof p.tax === "number" && p.tax > 0) row("Tax", money(p.tax, currency));
   row("TOTAL", money(p.total, currency), true);
   if (p.tender) row(p.tender.method, money(p.tender.amount, currency));
@@ -121,7 +131,10 @@ export function buildReceipt(p: ReceiptPayload): Uint8Array {
   const total = parts.reduce((n, a) => n + a.length, 0);
   const out = new Uint8Array(total);
   let o = 0;
-  for (const a of parts) { out.set(a, o); o += a.length; }
+  for (const a of parts) {
+    out.set(a, o);
+    o += a.length;
+  }
   return out;
 }
 

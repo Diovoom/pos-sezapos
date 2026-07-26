@@ -84,8 +84,7 @@ export function NativeLoadingOverlay() {
       <div
         style={{
           color: "#fff",
-          fontFamily:
-            'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           fontWeight: 700,
           fontSize: 22,
           letterSpacing: 0.5,

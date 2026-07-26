@@ -73,7 +73,9 @@ async function audit(
 }
 
 function cleanText(value: unknown, max = 500) {
-  return String(value ?? "").trim().slice(0, max);
+  return String(value ?? "")
+    .trim()
+    .slice(0, max);
 }
 
 function requireReason(value: unknown, label = "Reason", min = 4) {
@@ -84,11 +86,13 @@ function requireReason(value: unknown, label = "Reason", min = 4) {
 
 function isMissingRelationError(error: any, relation?: string) {
   const message = String(error?.message ?? error ?? "").toLowerCase();
-  return error?.code === "42P01"
-    || error?.code === "PGRST205"
-    || message.includes("schema cache")
-    || message.includes("does not exist")
-    || Boolean(relation && message.includes(relation.toLowerCase()) && message.includes("not find"));
+  return (
+    error?.code === "42P01" ||
+    error?.code === "PGRST205" ||
+    message.includes("schema cache") ||
+    message.includes("does not exist") ||
+    Boolean(relation && message.includes(relation.toLowerCase()) && message.includes("not find"))
+  );
 }
 
 function missingColumnName(error: any): string | null {
@@ -153,7 +157,9 @@ async function withTimeout<T>(promise: PromiseLike<T>, fallback: T, timeoutMs = 
   try {
     return await Promise.race([
       Promise.resolve(promise).catch(() => fallback),
-      new Promise<T>((resolve) => { timer = setTimeout(() => resolve(fallback), timeoutMs); }),
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback), timeoutMs);
+      }),
     ]);
   } finally {
     if (timer) clearTimeout(timer);
@@ -174,7 +180,9 @@ async function readOptionalStaffProfile(supabaseAdmin: any, userId: string) {
 async function readOptionalStaffProfiles(supabaseAdmin: any, userIds: string[]) {
   if (!userIds.length) return [];
   const result = await (supabaseAdmin.from as any)("admin_staff_profiles")
-    .select("user_id,title,department,employment_status,phone,started_on,manager_user_id,notification_preferences,notes,updated_at")
+    .select(
+      "user_id,title,department,employment_status,phone,started_on,manager_user_id,notification_preferences,notes,updated_at",
+    )
     .in("user_id", userIds);
   if (result.error && !isMissingRelationError(result.error, "admin_staff_profiles")) {
     throw new Error(result.error.message);
@@ -183,8 +191,9 @@ async function readOptionalStaffProfiles(supabaseAdmin: any, userIds: string[]) 
 }
 
 async function upsertOptionalStaffProfile(supabaseAdmin: any, row: Record<string, unknown>) {
-  const result = await (supabaseAdmin.from as any)("admin_staff_profiles")
-    .upsert(row, { onConflict: "user_id" });
+  const result = await (supabaseAdmin.from as any)("admin_staff_profiles").upsert(row, {
+    onConflict: "user_id",
+  });
   if (result.error && !isMissingRelationError(result.error, "admin_staff_profiles")) {
     throw new Error(result.error.message);
   }
@@ -203,7 +212,10 @@ async function ensureAdminProfile(supabaseAdmin: any, userId: string) {
   const authResult = await supabaseAdmin.auth.admin.getUserById(userId);
   const user = authResult?.data?.user;
   if (!user) throw new Error("Staff member not found");
-  const fullName = cleanText(user.user_metadata?.full_name || user.user_metadata?.name || user.email, 160);
+  const fullName = cleanText(
+    user.user_metadata?.full_name || user.user_metadata?.name || user.email,
+    160,
+  );
   const row = {
     id: user.id,
     email: user.email ?? null,
@@ -212,7 +224,11 @@ async function ensureAdminProfile(supabaseAdmin: any, userId: string) {
     store_id: null,
     status: "active",
   };
-  const saved = await supabaseAdmin.from("profiles").upsert(row, { onConflict: "id" }).select("id,email,full_name,phone,status,avatar_url,created_at").maybeSingle();
+  const saved = await supabaseAdmin
+    .from("profiles")
+    .upsert(row, { onConflict: "id" })
+    .select("id,email,full_name,phone,status,avatar_url,created_at")
+    .maybeSingle();
   if (saved.error) throw new Error(saved.error.message);
   return saved.data ?? row;
 }
@@ -224,21 +240,35 @@ async function companyStaffRows(supabaseAdmin: any) {
     .in("role", COMPANY_ROLES as unknown as any);
   if (error) throw new Error(error.message);
 
-  const userIds: string[] = Array.from(new Set<string>((roleRows ?? []).map((row: any) => String(row.user_id)).filter(Boolean)));
+  const userIds: string[] = Array.from(
+    new Set<string>((roleRows ?? []).map((row: any) => String(row.user_id)).filter(Boolean)),
+  );
   if (!userIds.length) return [];
 
   const [profilesResult, staff, activeCasesResult, auditsResult] = await Promise.all([
     withTimeout(
-      supabaseAdmin.from("profiles").select("id, full_name, email, phone, avatar_url, status, created_at").in("id", userIds),
+      supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, email, phone, avatar_url, status, created_at")
+        .in("id", userIds),
       { data: [], error: null } as any,
     ),
     readOptionalStaffProfiles(supabaseAdmin, userIds),
     withTimeout(
-      supabaseAdmin.from("support_tickets").select("assigned_admin_id").in("assigned_admin_id", userIds).not("status", "in", "(resolved,closed)"),
+      supabaseAdmin
+        .from("support_tickets")
+        .select("assigned_admin_id")
+        .in("assigned_admin_id", userIds)
+        .not("status", "in", "(resolved,closed)"),
       { data: [], error: null } as any,
     ),
     withTimeout(
-      supabaseAdmin.from("audit_log").select("actor_id, created_at, action").in("actor_id", userIds).order("created_at", { ascending: false }).limit(500),
+      supabaseAdmin
+        .from("audit_log")
+        .select("actor_id, created_at, action")
+        .in("actor_id", userIds)
+        .order("created_at", { ascending: false })
+        .limit(500),
       { data: [], error: null } as any,
     ),
   ]);
@@ -247,9 +277,15 @@ async function companyStaffRows(supabaseAdmin: any) {
   const existingIds = new Set(profiles.map((profile: any) => profile.id));
   const missingIds = userIds.filter((id) => !existingIds.has(id));
   if (missingIds.length) {
-    const recovered = await Promise.all(missingIds.map(async (id) => {
-      try { return await ensureAdminProfile(supabaseAdmin, id); } catch { return null; }
-    }));
+    const recovered = await Promise.all(
+      missingIds.map(async (id) => {
+        try {
+          return await ensureAdminProfile(supabaseAdmin, id);
+        } catch {
+          return null;
+        }
+      }),
+    );
     profiles.push(...recovered.filter(Boolean));
   }
 
@@ -263,38 +299,44 @@ async function companyStaffRows(supabaseAdmin: any) {
   }
   const workload = new Map<string, number>();
   for (const row of activeCasesResult.data ?? []) {
-    if (row.assigned_admin_id) workload.set(row.assigned_admin_id, (workload.get(row.assigned_admin_id) ?? 0) + 1);
+    if (row.assigned_admin_id)
+      workload.set(row.assigned_admin_id, (workload.get(row.assigned_admin_id) ?? 0) + 1);
   }
   const lastActivity = new Map<string, { created_at: string; action: string }>();
   for (const row of auditsResult.data ?? []) {
-    if (row.actor_id && !lastActivity.has(row.actor_id)) lastActivity.set(row.actor_id, { created_at: row.created_at, action: row.action });
+    if (row.actor_id && !lastActivity.has(row.actor_id))
+      lastActivity.set(row.actor_id, { created_at: row.created_at, action: row.action });
   }
 
-  return userIds.map((id) => {
-    const profile: any = profileMap.get(id) ?? {};
-    const meta: any = staffMap.get(id) ?? {};
-    const email = String(profile.email ?? "").toLowerCase();
-    const founder = email === FOUNDER_EMAIL;
-    return {
-      id,
-      full_name: profile.full_name || profile.email || (founder ? "Dave Marcelin" : "SEZA Staff"),
-      email: profile.email ?? null,
-      avatar_url: profile.avatar_url ?? null,
-      account_status: profile.status ?? "active",
-      title: founder ? "Founder & CEO" : meta.title ?? null,
-      department: founder ? "Executive" : meta.department ?? "Operations",
-      employment_status: founder ? "active" : meta.employment_status ?? "active",
-      phone: meta.phone ?? profile.phone ?? null,
-      started_on: meta.started_on ?? null,
-      roles: rolesMap.get(id) ?? [],
-      active_cases: workload.get(id) ?? 0,
-      last_activity_at: lastActivity.get(id)?.created_at ?? null,
-      last_action: lastActivity.get(id)?.action ?? null,
-      is_founder: founder,
-    };
-  }).sort((a, b) => Number(b.is_founder) - Number(a.is_founder) || a.full_name.localeCompare(b.full_name));
+  return userIds
+    .map((id) => {
+      const profile: any = profileMap.get(id) ?? {};
+      const meta: any = staffMap.get(id) ?? {};
+      const email = String(profile.email ?? "").toLowerCase();
+      const founder = email === FOUNDER_EMAIL;
+      return {
+        id,
+        full_name: profile.full_name || profile.email || (founder ? "Dave Marcelin" : "SEZA Staff"),
+        email: profile.email ?? null,
+        avatar_url: profile.avatar_url ?? null,
+        account_status: profile.status ?? "active",
+        title: founder ? "Founder & CEO" : (meta.title ?? null),
+        department: founder ? "Executive" : (meta.department ?? "Operations"),
+        employment_status: founder ? "active" : (meta.employment_status ?? "active"),
+        phone: meta.phone ?? profile.phone ?? null,
+        started_on: meta.started_on ?? null,
+        roles: rolesMap.get(id) ?? [],
+        active_cases: workload.get(id) ?? 0,
+        last_activity_at: lastActivity.get(id)?.created_at ?? null,
+        last_action: lastActivity.get(id)?.action ?? null,
+        is_founder: founder,
+      };
+    })
+    .sort(
+      (a, b) =>
+        Number(b.is_founder) - Number(a.is_founder) || a.full_name.localeCompare(b.full_name),
+    );
 }
-
 
 async function loadTrialConversionRows(supabaseAdmin: any) {
   const { data: payments, error } = await (supabaseAdmin.from as any)("merchant_billing_payments")
@@ -318,7 +360,9 @@ async function loadTrialConversionRows(supabaseAdmin: any) {
       .in("id", paymentStoreIds),
     supabaseAdmin
       .from("subscriptions")
-      .select("store_id,status,price_id,product_id,current_period_start,current_period_end,environment,stripe_subscription_id,created_at")
+      .select(
+        "store_id,status,price_id,product_id,current_period_start,current_period_end,environment,stripe_subscription_id,created_at",
+      )
       .in("store_id", paymentStoreIds)
       .order("created_at", { ascending: false }),
   ]);
@@ -371,53 +415,173 @@ export const adminOperationsOverview = createServerFn({ method: "GET" })
     const emptyCount = { count: 0, data: [], error: null } as any;
     const emptyRows = { data: [], error: null } as any;
 
-    const [businesses, active, trials, pastDue, registers, offlineRegisters, openCases, urgentCases, activeChats, paidThisMonth, conversions, recentCases, recentPayments] = await Promise.all([
+    const [
+      businesses,
+      active,
+      trials,
+      pastDue,
+      registers,
+      offlineRegisters,
+      openCases,
+      urgentCases,
+      activeChats,
+      paidThisMonth,
+      conversions,
+      recentCases,
+      recentPayments,
+    ] = await Promise.all([
       safe(supabaseAdmin.from("stores").select("id", { count: "exact", head: true }), emptyCount),
-      safe(supabaseAdmin.from("stores").select("id", { count: "exact", head: true }).eq("plan_status", "active"), emptyCount),
-      safe(supabaseAdmin.from("stores").select("id", { count: "exact", head: true }).eq("plan_status", "trialing"), emptyCount),
-      safe(supabaseAdmin.from("stores").select("id", { count: "exact", head: true }).eq("plan_status", "past_due"), emptyCount),
-      safe(supabaseAdmin.from("device_registrations").select("id", { count: "exact", head: true }).eq("status", "active"), emptyCount),
-      safe(supabaseAdmin.from("device_registrations").select("id", { count: "exact", head: true }).eq("status", "active").or(`last_seen_at.is.null,last_seen_at.lt.${offlineCutoff}`), emptyCount),
-      safe(supabaseAdmin.from("support_tickets").select("id", { count: "exact", head: true }).not("status", "in", "(resolved,closed)"), emptyCount),
-      safe(supabaseAdmin.from("support_tickets").select("id", { count: "exact", head: true }).eq("priority", "urgent").not("status", "in", "(resolved,closed)"), emptyCount),
-      safe(supabaseAdmin.from("support_tickets").select("id", { count: "exact", head: true }).neq("chat_status", "ended"), emptyCount),
-      safe((supabaseAdmin.from as any)("merchant_billing_payments").select("amount_paid_cents,status", { count: "exact" }).in("status", ["paid", "succeeded"]).gte("occurred_at", monthStart.toISOString()).limit(1000), emptyRows),
-      safe((supabaseAdmin.from as any)("merchant_billing_payments").select("store_id").in("status", ["paid", "succeeded"]).eq("billing_reason", "subscription_create").gte("occurred_at", thirtyDaysAgo).limit(1000), emptyRows),
-      safe(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,status,priority,store_id,assigned_admin_id,chat_status,visitor_name,updated_at").order("updated_at", { ascending: false }).limit(8), emptyRows),
-      safe((supabaseAdmin.from as any)("merchant_billing_payments").select("id,store_id,status,amount_paid_cents,currency,occurred_at,environment").order("occurred_at", { ascending: false }).limit(8), emptyRows),
+      safe(
+        supabaseAdmin
+          .from("stores")
+          .select("id", { count: "exact", head: true })
+          .eq("plan_status", "active"),
+        emptyCount,
+      ),
+      safe(
+        supabaseAdmin
+          .from("stores")
+          .select("id", { count: "exact", head: true })
+          .eq("plan_status", "trialing"),
+        emptyCount,
+      ),
+      safe(
+        supabaseAdmin
+          .from("stores")
+          .select("id", { count: "exact", head: true })
+          .eq("plan_status", "past_due"),
+        emptyCount,
+      ),
+      safe(
+        supabaseAdmin
+          .from("device_registrations")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "active"),
+        emptyCount,
+      ),
+      safe(
+        supabaseAdmin
+          .from("device_registrations")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "active")
+          .or(`last_seen_at.is.null,last_seen_at.lt.${offlineCutoff}`),
+        emptyCount,
+      ),
+      safe(
+        supabaseAdmin
+          .from("support_tickets")
+          .select("id", { count: "exact", head: true })
+          .not("status", "in", "(resolved,closed)"),
+        emptyCount,
+      ),
+      safe(
+        supabaseAdmin
+          .from("support_tickets")
+          .select("id", { count: "exact", head: true })
+          .eq("priority", "urgent")
+          .not("status", "in", "(resolved,closed)"),
+        emptyCount,
+      ),
+      safe(
+        supabaseAdmin
+          .from("support_tickets")
+          .select("id", { count: "exact", head: true })
+          .neq("chat_status", "ended"),
+        emptyCount,
+      ),
+      safe(
+        (supabaseAdmin.from as any)("merchant_billing_payments")
+          .select("amount_paid_cents,status", { count: "exact" })
+          .in("status", ["paid", "succeeded"])
+          .gte("occurred_at", monthStart.toISOString())
+          .limit(1000),
+        emptyRows,
+      ),
+      safe(
+        (supabaseAdmin.from as any)("merchant_billing_payments")
+          .select("store_id")
+          .in("status", ["paid", "succeeded"])
+          .eq("billing_reason", "subscription_create")
+          .gte("occurred_at", thirtyDaysAgo)
+          .limit(1000),
+        emptyRows,
+      ),
+      safe(
+        supabaseAdmin
+          .from("support_tickets")
+          .select(
+            "id,ticket_number,subject,status,priority,store_id,assigned_admin_id,chat_status,visitor_name,updated_at",
+          )
+          .order("updated_at", { ascending: false })
+          .limit(8),
+        emptyRows,
+      ),
+      safe(
+        (supabaseAdmin.from as any)("merchant_billing_payments")
+          .select("id,store_id,status,amount_paid_cents,currency,occurred_at,environment")
+          .order("occurred_at", { ascending: false })
+          .limit(8),
+        emptyRows,
+      ),
     ]);
 
     const paidRows = paidThisMonth.data ?? [];
-    const paymentVolumeCents = paidRows.reduce((sum: number, row: any) => sum + Number(row.amount_paid_cents ?? 0), 0);
-    const conversionStoreIds = new Set((conversions.data ?? []).map((row: any) => row.store_id).filter(Boolean));
-    const storeIds = Array.from(new Set([
-      ...(recentCases.data ?? []).map((row: any) => row.store_id),
-      ...(recentPayments.data ?? []).map((row: any) => row.store_id),
-    ].filter(Boolean)));
+    const paymentVolumeCents = paidRows.reduce(
+      (sum: number, row: any) => sum + Number(row.amount_paid_cents ?? 0),
+      0,
+    );
+    const conversionStoreIds = new Set(
+      (conversions.data ?? []).map((row: any) => row.store_id).filter(Boolean),
+    );
+    const storeIds = Array.from(
+      new Set(
+        [
+          ...(recentCases.data ?? []).map((row: any) => row.store_id),
+          ...(recentPayments.data ?? []).map((row: any) => row.store_id),
+        ].filter(Boolean),
+      ),
+    );
     const storeMap = new Map<string, string>();
     if (storeIds.length) {
-      const storesResult = await safe(supabaseAdmin.from("stores").select("id,name").in("id", storeIds), emptyRows);
+      const storesResult = await safe(
+        supabaseAdmin.from("stores").select("id,name").in("id", storeIds),
+        emptyRows,
+      );
       for (const store of storesResult.data ?? []) storeMap.set(store.id, store.name);
     }
 
     return {
       totals: {
-        businesses: businesses.count ?? 0, active: active.count ?? 0, trialing: trials.count ?? 0, past_due: pastDue.count ?? 0,
-        registers: registers.count ?? 0, offline_registers: offlineRegisters.count ?? 0, open_cases: openCases.count ?? 0,
-        urgent_cases: urgentCases.count ?? 0, active_chats: activeChats.count ?? 0, payments_this_month: paidThisMonth.count ?? paidRows.length,
-        payment_volume_cents: paymentVolumeCents, conversions_30d: conversionStoreIds.size,
+        businesses: businesses.count ?? 0,
+        active: active.count ?? 0,
+        trialing: trials.count ?? 0,
+        past_due: pastDue.count ?? 0,
+        registers: registers.count ?? 0,
+        offline_registers: offlineRegisters.count ?? 0,
+        open_cases: openCases.count ?? 0,
+        urgent_cases: urgentCases.count ?? 0,
+        active_chats: activeChats.count ?? 0,
+        payments_this_month: paidThisMonth.count ?? paidRows.length,
+        payment_volume_cents: paymentVolumeCents,
+        conversions_30d: conversionStoreIds.size,
       },
       recent_cases: (recentCases.data ?? []).map((row: any) => ({
         ...row,
         store_name: storeMap.get(row.store_id) ?? null,
-        chat_status: row.chat_status ?? (["resolved", "closed"].includes(String(row.status)) ? "ended" : "active"),
+        chat_status:
+          row.chat_status ??
+          (["resolved", "closed"].includes(String(row.status)) ? "ended" : "active"),
       })),
-      recent_payments: (recentPayments.data ?? []).map((row: any) => ({ ...row, store_name: storeMap.get(row.store_id) ?? null })),
-      partial: [businesses, active, trials, pastDue, registers, openCases].some((result: any) => result.error),
+      recent_payments: (recentPayments.data ?? []).map((row: any) => ({
+        ...row,
+        store_name: storeMap.get(row.store_id) ?? null,
+      })),
+      partial: [businesses, active, trials, pastDue, registers, openCases].some(
+        (result: any) => result.error,
+      ),
       generated_at: new Date().toISOString(),
     };
   });
-
 
 export const adminListCompanyEmployees = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -437,13 +601,15 @@ export const adminFounderTeam = createServerFn({ method: "GET" })
 
 export const adminInviteCompanyStaff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator((data: {
-    email: string;
-    fullName: string;
-    role: string;
-    title?: string;
-    department?: string;
-  }) => data)
+  .inputValidator(
+    (data: {
+      email: string;
+      fullName: string;
+      role: string;
+      title?: string;
+      department?: string;
+    }) => data,
+  )
   .handler(async ({ data, context }) => {
     const identity = await ensureFounder(context);
     const email = cleanText(data.email, 320).toLowerCase();
@@ -464,14 +630,21 @@ export const adminInviteCompanyStaff = createServerFn({ method: "POST" })
     const userId = invite.user?.id;
     if (!userId) throw new Error("Invite did not return a user");
 
-    await supabaseAdmin.from("profiles").upsert({
-      id: userId,
-      email,
-      full_name: fullName,
-      store_id: null,
-    }, { onConflict: "id" });
+    await supabaseAdmin.from("profiles").upsert(
+      {
+        id: userId,
+        email,
+        full_name: fullName,
+        store_id: null,
+      },
+      { onConflict: "id" },
+    );
 
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", userId).in("role", COMPANY_ROLES as unknown as any);
+    await supabaseAdmin
+      .from("user_roles")
+      .delete()
+      .eq("user_id", userId)
+      .in("role", COMPANY_ROLES as unknown as any);
     const { error: roleError } = await supabaseAdmin.from("user_roles").insert({
       user_id: userId,
       role: role as any,
@@ -497,16 +670,18 @@ export const adminInviteCompanyStaff = createServerFn({ method: "POST" })
 
 export const adminUpdateCompanyStaff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator((data: {
-    userId: string;
-    fullName?: string;
-    role?: string;
-    title?: string;
-    department?: string;
-    employmentStatus?: "invited" | "active" | "inactive";
-    phone?: string;
-    reason: string;
-  }) => data)
+  .inputValidator(
+    (data: {
+      userId: string;
+      fullName?: string;
+      role?: string;
+      title?: string;
+      department?: string;
+      employmentStatus?: "invited" | "active" | "inactive";
+      phone?: string;
+      reason: string;
+    }) => data,
+  )
   .handler(async ({ data, context }) => {
     const identity = await ensureFounder(context);
     const reason = requireReason(data.reason);
@@ -516,34 +691,52 @@ export const adminUpdateCompanyStaff = createServerFn({ method: "POST" })
     const isFounder = String(target.email ?? "").toLowerCase() === FOUNDER_EMAIL;
 
     const profilePatch: Record<string, unknown> = {};
-    if (data.fullName !== undefined) profilePatch.full_name = cleanText(data.fullName, 160) || target.full_name || target.email;
+    if (data.fullName !== undefined)
+      profilePatch.full_name = cleanText(data.fullName, 160) || target.full_name || target.email;
     if (data.phone !== undefined) profilePatch.phone = cleanText(data.phone, 80) || null;
     if (Object.keys(profilePatch).length) {
-      const profileUpdate = await supabaseAdmin.from("profiles").update(profilePatch as any).eq("id", data.userId);
+      const profileUpdate = await supabaseAdmin
+        .from("profiles")
+        .update(profilePatch as any)
+        .eq("id", data.userId);
       if (profileUpdate.error) throw new Error(profileUpdate.error.message);
     }
 
     const staffPatch: Record<string, unknown> = {};
-    if (data.title !== undefined) staffPatch.title = isFounder ? "Founder & CEO" : cleanText(data.title, 160) || null;
-    if (data.department !== undefined) staffPatch.department = isFounder ? "Executive" : cleanText(data.department, 120) || "Operations";
+    if (data.title !== undefined)
+      staffPatch.title = isFounder ? "Founder & CEO" : cleanText(data.title, 160) || null;
+    if (data.department !== undefined)
+      staffPatch.department = isFounder
+        ? "Executive"
+        : cleanText(data.department, 120) || "Operations";
     if (data.employmentStatus !== undefined) {
-      if (isFounder && data.employmentStatus !== "active") throw new Error("The founder account cannot be deactivated");
+      if (isFounder && data.employmentStatus !== "active")
+        throw new Error("The founder account cannot be deactivated");
       staffPatch.employment_status = data.employmentStatus;
     }
     if (data.phone !== undefined) staffPatch.phone = cleanText(data.phone, 80) || null;
     if (Object.keys(staffPatch).length) {
       await upsertOptionalStaffProfile(supabaseAdmin, { user_id: data.userId, ...staffPatch });
       if (data.employmentStatus === "active" && !isFounder) {
-        await supabaseAdmin.auth.admin.updateUserById(data.userId, { ban_duration: "none" }).catch(() => undefined);
+        await supabaseAdmin.auth.admin
+          .updateUserById(data.userId, { ban_duration: "none" })
+          .catch(() => undefined);
       }
     }
 
     if (data.role !== undefined) {
       if (isFounder) throw new Error("The founder role cannot be changed");
-      if (!(COMPANY_ROLES as readonly string[]).includes(data.role) || data.role === "super_admin") {
+      if (
+        !(COMPANY_ROLES as readonly string[]).includes(data.role) ||
+        data.role === "super_admin"
+      ) {
         throw new Error("Choose a valid staff role");
       }
-      await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId).in("role", COMPANY_ROLES as unknown as any);
+      await supabaseAdmin
+        .from("user_roles")
+        .delete()
+        .eq("user_id", data.userId)
+        .in("role", COMPANY_ROLES as unknown as any);
       const { error } = await supabaseAdmin.from("user_roles").insert({
         user_id: data.userId,
         role: data.role as any,
@@ -569,13 +762,25 @@ export const adminDeactivateCompanyStaff = createServerFn({ method: "POST" })
     const reason = requireReason(data.reason);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const target = await ensureAdminProfile(supabaseAdmin, data.userId);
-    if (String(target.email ?? "").toLowerCase() === FOUNDER_EMAIL || data.userId === context.userId) {
+    if (
+      String(target.email ?? "").toLowerCase() === FOUNDER_EMAIL ||
+      data.userId === context.userId
+    ) {
       throw new Error("The founder account cannot be deactivated");
     }
 
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId).in("role", COMPANY_ROLES as unknown as any);
-    await upsertOptionalStaffProfile(supabaseAdmin, { user_id: data.userId, employment_status: "inactive" });
-    await supabaseAdmin.auth.admin.updateUserById(data.userId, { ban_duration: "876000h" }).catch(() => undefined);
+    await supabaseAdmin
+      .from("user_roles")
+      .delete()
+      .eq("user_id", data.userId)
+      .in("role", COMPANY_ROLES as unknown as any);
+    await upsertOptionalStaffProfile(supabaseAdmin, {
+      user_id: data.userId,
+      employment_status: "inactive",
+    });
+    await supabaseAdmin.auth.admin
+      .updateUserById(data.userId, { ban_duration: "876000h" })
+      .catch(() => undefined);
 
     await audit(supabaseAdmin, context, identity, {
       action: "admin.staff.deactivate",
@@ -593,42 +798,62 @@ export const adminGetPlatformSettings = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const profile = await ensureAdminProfile(supabaseAdmin, context.userId);
     const staff = await readOptionalStaffProfile(supabaseAdmin, context.userId);
-    const settingsResult = await (supabaseAdmin.from as any)("platform_settings").select("*").eq("id", "global").maybeSingle();
-    if (settingsResult.error && !isMissingRelationError(settingsResult.error, "platform_settings")) throw new Error(settingsResult.error.message);
-    const auditFallback = settingsResult.data ? null : await readPlatformSettingsAuditFallback(supabaseAdmin);
+    const settingsResult = await (supabaseAdmin.from as any)("platform_settings")
+      .select("*")
+      .eq("id", "global")
+      .maybeSingle();
+    if (settingsResult.error && !isMissingRelationError(settingsResult.error, "platform_settings"))
+      throw new Error(settingsResult.error.message);
+    const auditFallback = settingsResult.data
+      ? null
+      : await readPlatformSettingsAuditFallback(supabaseAdmin);
     const defaultSettings = {
-      id: "global", company_name: "SEZA POS", support_email: "support@sezapos.com", billing_email: "billing@sezapos.com",
-      incident_email: FOUNDER_EMAIL, timezone: "America/New_York", default_trial_days: 14, support_sla_minutes: 60,
-      live_chat_enabled: true, maintenance_mode: false, maintenance_message: null, merchant_banner: null,
+      id: "global",
+      company_name: "SEZA POS",
+      support_email: "support@sezapos.com",
+      billing_email: "billing@sezapos.com",
+      incident_email: FOUNDER_EMAIL,
+      timezone: "America/New_York",
+      default_trial_days: 14,
+      support_sla_minutes: 60,
+      live_chat_enabled: true,
+      maintenance_mode: false,
+      maintenance_message: null,
+      merchant_banner: null,
     };
     const isFounder = identity.email === FOUNDER_EMAIL && identity.roles.includes("super_admin");
     return {
       settings: { ...defaultSettings, ...(auditFallback ?? {}), ...(settingsResult.data ?? {}) },
       profile,
-      staff: { ...(staff ?? {}), phone: staff?.phone ?? profile?.phone ?? null, title: isFounder ? "Founder & CEO" : staff?.title ?? null },
+      staff: {
+        ...(staff ?? {}),
+        phone: staff?.phone ?? profile?.phone ?? null,
+        title: isFounder ? "Founder & CEO" : (staff?.title ?? null),
+      },
       roles: identity.roles,
       is_founder: isFounder,
       schema_ready: Boolean(staff) && (!settingsResult.error || Boolean(auditFallback)),
     };
   });
 
-
 export const adminUpdatePlatformSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator((data: {
-    companyName: string;
-    supportEmail: string;
-    billingEmail: string;
-    incidentEmail: string;
-    timezone: string;
-    defaultTrialDays: number;
-    supportSlaMinutes: number;
-    liveChatEnabled: boolean;
-    maintenanceMode: boolean;
-    maintenanceMessage?: string;
-    merchantBanner?: string;
-    reason: string;
-  }) => data)
+  .inputValidator(
+    (data: {
+      companyName: string;
+      supportEmail: string;
+      billingEmail: string;
+      incidentEmail: string;
+      timezone: string;
+      defaultTrialDays: number;
+      supportSlaMinutes: number;
+      liveChatEnabled: boolean;
+      maintenanceMode: boolean;
+      maintenanceMessage?: string;
+      merchantBanner?: string;
+      reason: string;
+    }) => data,
+  )
   .handler(async ({ data, context }) => {
     const identity = await ensureFounder(context);
     const reason = requireReason(data.reason);
@@ -647,11 +872,15 @@ export const adminUpdatePlatformSettings = createServerFn({ method: "POST" })
       updated_by: context.userId,
     };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await (supabaseAdmin.from as any)("platform_settings").upsert({
-      id: "global",
-      ...patch,
-    }, { onConflict: "id" });
-    if (error && !isMissingRelationError(error, "platform_settings")) throw new Error(error.message);
+    const { error } = await (supabaseAdmin.from as any)("platform_settings").upsert(
+      {
+        id: "global",
+        ...patch,
+      },
+      { onConflict: "id" },
+    );
+    if (error && !isMissingRelationError(error, "platform_settings"))
+      throw new Error(error.message);
     await audit(supabaseAdmin, context, identity, {
       action: "admin.platform_settings.update",
       entity: "platform_settings",
@@ -663,13 +892,15 @@ export const adminUpdatePlatformSettings = createServerFn({ method: "POST" })
 
 export const adminListMerchantBillingPayments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator((data: {
-    status?: string;
-    environment?: string;
-    search?: string;
-    page?: number;
-    pageSize?: number;
-  }) => data)
+  .inputValidator(
+    (data: {
+      status?: string;
+      environment?: string;
+      search?: string;
+      page?: number;
+      pageSize?: number;
+    }) => data,
+  )
   .handler(async ({ data, context }) => {
     await ensurePlatformStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -683,28 +914,39 @@ export const adminListMerchantBillingPayments = createServerFn({ method: "POST" 
       .order("occurred_at", { ascending: false })
       .range(from, to);
     if (data.status && data.status !== "all") query = query.eq("status", data.status);
-    if (data.environment && data.environment !== "all") query = query.eq("environment", data.environment);
+    if (data.environment && data.environment !== "all")
+      query = query.eq("environment", data.environment);
     if (cleanText(data.search, 100)) {
       const term = cleanText(data.search, 100).replace(/[%,()]/g, "");
-      query = query.or(`stripe_invoice_id.ilike.%${term}%,stripe_customer_id.ilike.%${term}%,stripe_subscription_id.ilike.%${term}%`);
+      query = query.or(
+        `stripe_invoice_id.ilike.%${term}%,stripe_customer_id.ilike.%${term}%,stripe_subscription_id.ilike.%${term}%`,
+      );
     }
 
     const [{ data: rows, count, error }, { data: summary }] = await Promise.all([
       query,
-      (supabaseAdmin.from as any)("merchant_billing_payments")
-        .select("status,amount_paid_cents,currency,occurred_at"),
+      (supabaseAdmin.from as any)("merchant_billing_payments").select(
+        "status,amount_paid_cents,currency,occurred_at",
+      ),
     ]);
     if (error) throw new Error(error.message);
 
-    const storeIds = Array.from(new Set((rows ?? []).map((row: any) => row.store_id).filter(Boolean))) as string[];
+    const storeIds = Array.from(
+      new Set((rows ?? []).map((row: any) => row.store_id).filter(Boolean)),
+    ) as string[];
     const storeMap = new Map<string, any>();
     if (storeIds.length) {
-      const { data: stores } = await supabaseAdmin.from("stores").select("id,name,email,plan_tier,plan_status").in("id", storeIds);
+      const { data: stores } = await supabaseAdmin
+        .from("stores")
+        .select("id,name,email,plan_tier,plan_status")
+        .in("id", storeIds);
       for (const store of stores ?? []) storeMap.set(store.id, store);
     }
     const all = summary ?? [];
     const paid = all.filter((row: any) => ["paid", "succeeded"].includes(row.status));
-    const failed = all.filter((row: any) => ["failed", "uncollectible", "void"].includes(row.status));
+    const failed = all.filter((row: any) =>
+      ["failed", "uncollectible", "void"].includes(row.status),
+    );
     return {
       rows: (rows ?? []).map((row: any) => ({ ...row, store: storeMap.get(row.store_id) ?? null })),
       count: count ?? 0,
@@ -714,7 +956,10 @@ export const adminListMerchantBillingPayments = createServerFn({ method: "POST" 
         total: all.length,
         paid: paid.length,
         failed: failed.length,
-        collected_cents: paid.reduce((sum: number, row: any) => sum + Number(row.amount_paid_cents ?? 0), 0),
+        collected_cents: paid.reduce(
+          (sum: number, row: any) => sum + Number(row.amount_paid_cents ?? 0),
+          0,
+        ),
       },
     };
   });
@@ -734,12 +979,15 @@ export const adminListTrialConversions = createServerFn({ method: "POST" })
       .filter(
         (row: any) =>
           !term ||
-          String(row.store?.name ?? "").toLowerCase().includes(term) ||
-          String(row.store?.email ?? "").toLowerCase().includes(term),
+          String(row.store?.name ?? "")
+            .toLowerCase()
+            .includes(term) ||
+          String(row.store?.email ?? "")
+            .toLowerCase()
+            .includes(term),
       )
       .sort(
-        (a: any, b: any) =>
-          new Date(b.converted_at).getTime() - new Date(a.converted_at).getTime(),
+        (a: any, b: any) => new Date(b.converted_at).getTime() - new Date(a.converted_at).getTime(),
       );
 
     return {
@@ -757,7 +1005,13 @@ export const adminListTrialConversions = createServerFn({ method: "POST" })
     };
   });
 
-const CASE_STATUSES = ["open", "investigating", "waiting_for_merchant", "resolved", "closed"] as const;
+const CASE_STATUSES = [
+  "open",
+  "investigating",
+  "waiting_for_merchant",
+  "resolved",
+  "closed",
+] as const;
 
 async function insertCaseEvent(
   supabaseAdmin: any,
@@ -788,7 +1042,6 @@ async function insertCaseEvent(
     console.warn("Support event log unavailable", { ticketId, eventType, error });
   }
 }
-
 
 async function auditSupportBestEffort(
   supabaseAdmin: any,
@@ -825,12 +1078,43 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
       { data: requester },
       { data: device },
     ] = await Promise.all([
-      supabaseAdmin.from("support_ticket_notes").select("*").eq("ticket_id", data.ticketId).order("created_at", { ascending: true }),
-      (supabaseAdmin.from as any)("support_ticket_events").select("*").eq("ticket_id", data.ticketId).order("created_at", { ascending: true }),
-      ticket.store_id ? supabaseAdmin.from("stores").select("id,name,email,phone,store_code,plan_tier,plan_status").eq("id", ticket.store_id).maybeSingle() : Promise.resolve({ data: null }),
-      ticket.assigned_admin_id ? supabaseAdmin.from("profiles").select("id,email,full_name").eq("id", ticket.assigned_admin_id).maybeSingle() : Promise.resolve({ data: null }),
-      ticket.requester_id ? supabaseAdmin.from("profiles").select("id,email,full_name,employee_id,status").eq("id", ticket.requester_id).maybeSingle() : Promise.resolve({ data: null }),
-      ticket.device_registration_id ? supabaseAdmin.from("device_registrations").select("id,label,status,platform,last_seen_at").eq("id", ticket.device_registration_id).maybeSingle() : Promise.resolve({ data: null }),
+      supabaseAdmin
+        .from("support_ticket_notes")
+        .select("*")
+        .eq("ticket_id", data.ticketId)
+        .order("created_at", { ascending: true }),
+      (supabaseAdmin.from as any)("support_ticket_events")
+        .select("*")
+        .eq("ticket_id", data.ticketId)
+        .order("created_at", { ascending: true }),
+      ticket.store_id
+        ? supabaseAdmin
+            .from("stores")
+            .select("id,name,email,phone,store_code,plan_tier,plan_status")
+            .eq("id", ticket.store_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      ticket.assigned_admin_id
+        ? supabaseAdmin
+            .from("profiles")
+            .select("id,email,full_name")
+            .eq("id", ticket.assigned_admin_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      ticket.requester_id
+        ? supabaseAdmin
+            .from("profiles")
+            .select("id,email,full_name,employee_id,status")
+            .eq("id", ticket.requester_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      ticket.device_registration_id
+        ? supabaseAdmin
+            .from("device_registrations")
+            .select("id,label,status,platform,last_seen_at")
+            .eq("id", ticket.device_registration_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
 
     const noteAuthorIds = Array.from(
@@ -854,7 +1138,9 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
       const author: any = note.author_id ? authorProfileMap.get(note.author_id) : null;
       return {
         ...note,
-        author_is_platform: note.sender_kind === "admin" || Boolean(note.author_id && platformAuthorIds.has(note.author_id)),
+        author_is_platform:
+          note.sender_kind === "admin" ||
+          Boolean(note.author_id && platformAuthorIds.has(note.author_id)),
         author_name: author?.full_name || author?.email || note.author_email || null,
       };
     });
@@ -870,14 +1156,15 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
 
     const publicMessages = enrichedNotes.filter((note: any) => !note.internal);
     const problemMessage =
-      publicMessages.find((note: any) => !note.author_is_platform) ??
-      publicMessages[0] ??
-      null;
+      publicMessages.find((note: any) => !note.author_is_platform) ?? publicMessages[0] ?? null;
 
     const compatibleTicket = {
       ...ticket,
-      chat_status: ticket.chat_status ?? (["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active"),
-      last_message_at: ticket.last_message_at ?? publicMessages.at(-1)?.created_at ?? ticket.updated_at,
+      chat_status:
+        ticket.chat_status ??
+        (["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active"),
+      last_message_at:
+        ticket.last_message_at ?? publicMessages.at(-1)?.created_at ?? ticket.updated_at,
     };
 
     return {
@@ -918,9 +1205,18 @@ export const adminClaimSupportCase = createServerFn({ method: "POST" })
       updated_at: new Date().toISOString(),
     });
 
-    await insertCaseEvent(supabaseAdmin, data.ticketId, identity, context, "claimed", ticket.status, ticket.status, {
-      previous_assignee: ticket.assigned_admin_id,
-    });
+    await insertCaseEvent(
+      supabaseAdmin,
+      data.ticketId,
+      identity,
+      context,
+      "claimed",
+      ticket.status,
+      ticket.status,
+      {
+        previous_assignee: ticket.assigned_admin_id,
+      },
+    );
     await auditSupportBestEffort(supabaseAdmin, context, identity, {
       action: "admin.ticket.claim",
       entity: "ticket",
@@ -976,16 +1272,19 @@ export const adminReleaseSupportCase = createServerFn({ method: "POST" })
 
 export const adminTransitionSupportCase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator((data: {
-    ticketId: string;
-    status: string;
-    resolutionSummary?: string;
-    resolutionCode?: string;
-    reason?: string;
-  }) => data)
+  .inputValidator(
+    (data: {
+      ticketId: string;
+      status: string;
+      resolutionSummary?: string;
+      resolutionCode?: string;
+      reason?: string;
+    }) => data,
+  )
   .handler(async ({ data, context }) => {
     const identity = await ensureSupportStaff(context);
-    if (!(CASE_STATUSES as readonly string[]).includes(data.status)) throw new Error("Invalid support status");
+    if (!(CASE_STATUSES as readonly string[]).includes(data.status))
+      throw new Error("Invalid support status");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: ticket } = await (supabaseAdmin.from as any)("support_tickets")
       .select("*")
@@ -993,11 +1292,14 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!ticket) throw new Error("Support case not found");
 
-    const currentStatus = ({
-      waiting_support: "investigating",
-      in_progress: "investigating",
-      waiting_customer: "waiting_for_merchant",
-    } as Record<string, string>)[String(ticket.status)] ?? String(ticket.status);
+    const currentStatus =
+      (
+        {
+          waiting_support: "investigating",
+          in_progress: "investigating",
+          waiting_customer: "waiting_for_merchant",
+        } as Record<string, string>
+      )[String(ticket.status)] ?? String(ticket.status);
 
     const allowedTransitions: Record<string, string[]> = {
       open: ["investigating", "waiting_for_merchant", "resolved"],
@@ -1043,7 +1345,10 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
       if (currentStatus !== "resolved") {
         throw new Error("Resolve the case before closing it");
       }
-      const summary = cleanText(data.resolutionSummary || ticket.resolution_summary || ticket.resolution, 4000);
+      const summary = cleanText(
+        data.resolutionSummary || ticket.resolution_summary || ticket.resolution,
+        4000,
+      );
       if (summary.length < 5) throw new Error("Resolve the case with a summary before closing it");
       patch.resolution_summary = summary;
       patch.resolution = summary;
@@ -1067,17 +1372,31 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
     patch.updated_at = now;
     await updateSupportTicketCompat(supabaseAdmin, data.ticketId, patch);
 
-    await insertCaseEvent(supabaseAdmin, data.ticketId, identity, context, eventType, ticket.status, data.status, {
-      reason: reason || null,
-      resolution_summary: patch.resolution_summary ?? null,
-      resolution_code: patch.resolution_code ?? null,
-    });
+    await insertCaseEvent(
+      supabaseAdmin,
+      data.ticketId,
+      identity,
+      context,
+      eventType,
+      ticket.status,
+      data.status,
+      {
+        reason: reason || null,
+        resolution_summary: patch.resolution_summary ?? null,
+        resolution_code: patch.resolution_code ?? null,
+      },
+    );
     await auditSupportBestEffort(supabaseAdmin, context, identity, {
       action: `admin.ticket.${eventType}`,
       entity: "ticket",
       entityId: data.ticketId,
       storeId: ticket.store_id,
-      details: { from: ticket.status, to: data.status, reason, resolution: patch.resolution_summary ?? null },
+      details: {
+        from: ticket.status,
+        to: data.status,
+        reason,
+        resolution: patch.resolution_summary ?? null,
+      },
     });
     return { ok: true };
   });
@@ -1112,7 +1431,15 @@ export const adminSendSupportMessage = createServerFn({ method: "POST" })
       if (!ticket.first_response_at) patch.first_response_at = new Date().toISOString();
       patch.updated_at = new Date().toISOString();
       await updateSupportTicketCompat(supabaseAdmin, data.ticketId, patch);
-      await insertCaseEvent(supabaseAdmin, data.ticketId, identity, context, "message_sent", ticket.status, ticket.status);
+      await insertCaseEvent(
+        supabaseAdmin,
+        data.ticketId,
+        identity,
+        context,
+        "message_sent",
+        ticket.status,
+        ticket.status,
+      );
     }
     return { ok: true };
   });
@@ -1138,7 +1465,16 @@ export const adminEndSupportChat = createServerFn({ method: "POST" })
       updated_at: now,
     });
 
-    await insertCaseEvent(supabaseAdmin, data.ticketId, identity, context, "chat_ended", ticket.status, ticket.status, { reason });
+    await insertCaseEvent(
+      supabaseAdmin,
+      data.ticketId,
+      identity,
+      context,
+      "chat_ended",
+      ticket.status,
+      ticket.status,
+      { reason },
+    );
     await auditSupportBestEffort(supabaseAdmin, context, identity, {
       action: "admin.ticket.chat_end",
       entity: "ticket",
@@ -1163,18 +1499,30 @@ export const adminListCommunications = createServerFn({ method: "POST" })
     else if (data.view !== "all") query = query.neq("chat_status", "ended");
     if (cleanText(data.search, 100)) {
       const term = cleanText(data.search, 100).replace(/[%,()]/g, "");
-      query = query.or(`subject.ilike.%${term}%,requester_email.ilike.%${term}%,visitor_name.ilike.%${term}%,visitor_phone.ilike.%${term}%`);
+      query = query.or(
+        `subject.ilike.%${term}%,requester_email.ilike.%${term}%,visitor_name.ilike.%${term}%,visitor_phone.ilike.%${term}%`,
+      );
     }
     const { data: tickets, error } = await query;
     if (error) throw new Error(error.message);
 
     const ticketIds = (tickets ?? []).map((row: any) => row.id);
-    const storeIds = Array.from(new Set((tickets ?? []).map((row: any) => row.store_id).filter(Boolean))) as string[];
-    const assigneeIds = Array.from(new Set((tickets ?? []).map((row: any) => row.assigned_admin_id).filter(Boolean))) as string[];
+    const storeIds = Array.from(
+      new Set((tickets ?? []).map((row: any) => row.store_id).filter(Boolean)),
+    ) as string[];
+    const assigneeIds = Array.from(
+      new Set((tickets ?? []).map((row: any) => row.assigned_admin_id).filter(Boolean)),
+    ) as string[];
 
     const [{ data: notes }, { data: stores }, { data: assignees }] = await Promise.all([
       ticketIds.length
-        ? supabaseAdmin.from("support_ticket_notes").select("id,ticket_id,body,author_email,internal,created_at").in("ticket_id", ticketIds).eq("internal", false).order("created_at", { ascending: false }).limit(1000)
+        ? supabaseAdmin
+            .from("support_ticket_notes")
+            .select("id,ticket_id,body,author_email,internal,created_at")
+            .in("ticket_id", ticketIds)
+            .eq("internal", false)
+            .order("created_at", { ascending: false })
+            .limit(1000)
         : Promise.resolve({ data: [] }),
       storeIds.length
         ? supabaseAdmin.from("stores").select("id,name,email").in("id", storeIds)
@@ -1185,7 +1533,8 @@ export const adminListCommunications = createServerFn({ method: "POST" })
     ]);
 
     const lastMessage = new Map<string, any>();
-    for (const note of notes ?? []) if (!lastMessage.has(note.ticket_id)) lastMessage.set(note.ticket_id, note);
+    for (const note of notes ?? [])
+      if (!lastMessage.has(note.ticket_id)) lastMessage.set(note.ticket_id, note);
     const storeMap = new Map((stores ?? []).map((row: any) => [row.id, row]));
     const assigneeMap = new Map((assignees ?? []).map((row: any) => [row.id, row]));
 
@@ -1195,9 +1544,15 @@ export const adminListCommunications = createServerFn({ method: "POST" })
         store: storeMap.get(ticket.store_id) ?? null,
         assignee: assigneeMap.get(ticket.assigned_admin_id) ?? null,
         last_message: lastMessage.get(ticket.id) ?? null,
-        unread: Boolean(lastMessage.get(ticket.id)?.created_at) && (!ticket.last_admin_read_at || new Date(lastMessage.get(ticket.id).created_at) > new Date(ticket.last_admin_read_at)),
-        chat_status: ticket.chat_status ?? (["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active"),
-        last_message_at: lastMessage.get(ticket.id)?.created_at ?? ticket.last_message_at ?? ticket.updated_at,
+        unread:
+          Boolean(lastMessage.get(ticket.id)?.created_at) &&
+          (!ticket.last_admin_read_at ||
+            new Date(lastMessage.get(ticket.id).created_at) > new Date(ticket.last_admin_read_at)),
+        chat_status:
+          ticket.chat_status ??
+          (["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active"),
+        last_message_at:
+          lastMessage.get(ticket.id)?.created_at ?? ticket.last_message_at ?? ticket.updated_at,
       })),
     };
   });
@@ -1218,12 +1573,17 @@ export const adminMarkCommunicationRead = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-
 export const adminUpdateMyProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator((data: {
-    fullName: string; phone?: string; emailNotifications: boolean; urgentCaseNotifications: boolean; liveChatNotifications: boolean;
-  }) => data)
+  .inputValidator(
+    (data: {
+      fullName: string;
+      phone?: string;
+      emailNotifications: boolean;
+      urgentCaseNotifications: boolean;
+      liveChatNotifications: boolean;
+    }) => data,
+  )
   .handler(async ({ data, context }) => {
     const identity = await ensurePlatformStaff(context);
     const fullName = cleanText(data.fullName, 160);
@@ -1231,7 +1591,10 @@ export const adminUpdateMyProfile = createServerFn({ method: "POST" })
     const phone = cleanText(data.phone, 80) || null;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await ensureAdminProfile(supabaseAdmin, context.userId);
-    const profileUpdate = await supabaseAdmin.from("profiles").update({ full_name: fullName, phone }).eq("id", context.userId);
+    const profileUpdate = await supabaseAdmin
+      .from("profiles")
+      .update({ full_name: fullName, phone })
+      .eq("id", context.userId);
     if (profileUpdate.error) throw new Error(profileUpdate.error.message);
 
     await upsertOptionalStaffProfile(supabaseAdmin, {
@@ -1241,15 +1604,25 @@ export const adminUpdateMyProfile = createServerFn({ method: "POST" })
       employment_status: "active",
       phone,
       notification_preferences: {
-        email: Boolean(data.emailNotifications), urgent_cases: Boolean(data.urgentCaseNotifications), live_chat: Boolean(data.liveChatNotifications),
+        email: Boolean(data.emailNotifications),
+        urgent_cases: Boolean(data.urgentCaseNotifications),
+        live_chat: Boolean(data.liveChatNotifications),
       },
     });
 
     await audit(supabaseAdmin, context, identity, {
-      action: "admin.profile.update", entity: "admin_staff", entityId: context.userId,
-      details: { full_name: fullName, phone_updated: Boolean(phone), notification_preferences: {
-        email: Boolean(data.emailNotifications), urgent_cases: Boolean(data.urgentCaseNotifications), live_chat: Boolean(data.liveChatNotifications),
-      }},
+      action: "admin.profile.update",
+      entity: "admin_staff",
+      entityId: context.userId,
+      details: {
+        full_name: fullName,
+        phone_updated: Boolean(phone),
+        notification_preferences: {
+          email: Boolean(data.emailNotifications),
+          urgent_cases: Boolean(data.urgentCaseNotifications),
+          live_chat: Boolean(data.liveChatNotifications),
+        },
+      },
     });
     return { ok: true, full_name: fullName, phone };
   });
@@ -1266,20 +1639,106 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "POST" 
     const offlineCutoff = new Date(Date.now() - 5 * 60_000).toISOString();
     const emptyRows = { data: [], error: null } as any;
 
-    const [storeResult, rolesResult, devicesResult, subscriptionsResult, ticketsResult, activityResult, supportSessionsResult] = await Promise.all([
-      withTimeout(supabaseAdmin.from("stores").select("id,name,email,phone,address,city,state,zip,country,time_zone,store_code,plan_tier,plan_status,trial_ends_at,plan_period_end,suspended_at,suspended_reason,created_at,updated_at").eq("id", storeId).maybeSingle(), { data: null, error: null } as any, 7000),
-      withTimeout(supabaseAdmin.from("user_roles").select("user_id,role").eq("store_id", storeId).in("role", ["owner", "admin"]), emptyRows, 7000),
-      withTimeout(supabaseAdmin.from("device_registrations").select("id,label,status,platform,app_version,paired_at,last_seen_at,last_sync_at,revoked_at,revoke_reason").eq("store_id", storeId).order("paired_at", { ascending: false }), emptyRows, 7000),
-      withTimeout(supabaseAdmin.from("subscriptions").select("id,status,environment,stripe_customer_id,stripe_subscription_id,price_id,product_id,current_period_start,current_period_end,cancel_at_period_end,canceled_at,created_at,updated_at").eq("store_id", storeId).order("created_at", { ascending: false }), emptyRows, 7000),
-      withTimeout(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,status,priority,created_at,updated_at,assigned_admin_id").eq("store_id", storeId).order("updated_at", { ascending: false }).limit(30), emptyRows, 7000),
-      withTimeout(supabaseAdmin.from("audit_log").select("id,action,actor_email,entity,entity_id,created_at,details").eq("store_id", storeId).order("created_at", { ascending: false }).limit(100), emptyRows, 7000),
-      withTimeout(supabaseAdmin.from("admin_support_sessions").select("id,admin_id,admin_email,reason,status,requested_at,decided_at,started_at,ended_at,expires_at,client_capability").eq("store_id", storeId).order("requested_at", { ascending: false }).limit(10), emptyRows, 7000),
+    const [
+      storeResult,
+      rolesResult,
+      devicesResult,
+      subscriptionsResult,
+      ticketsResult,
+      activityResult,
+      supportSessionsResult,
+    ] = await Promise.all([
+      withTimeout(
+        supabaseAdmin
+          .from("stores")
+          .select(
+            "id,name,email,phone,address,city,state,zip,country,time_zone,store_code,plan_tier,plan_status,trial_ends_at,plan_period_end,suspended_at,suspended_reason,created_at,updated_at",
+          )
+          .eq("id", storeId)
+          .maybeSingle(),
+        { data: null, error: null } as any,
+        7000,
+      ),
+      withTimeout(
+        supabaseAdmin
+          .from("user_roles")
+          .select("user_id,role")
+          .eq("store_id", storeId)
+          .in("role", ["owner", "admin"]),
+        emptyRows,
+        7000,
+      ),
+      withTimeout(
+        supabaseAdmin
+          .from("device_registrations")
+          .select(
+            "id,label,status,platform,app_version,paired_at,last_seen_at,last_sync_at,revoked_at,revoke_reason",
+          )
+          .eq("store_id", storeId)
+          .order("paired_at", { ascending: false }),
+        emptyRows,
+        7000,
+      ),
+      withTimeout(
+        supabaseAdmin
+          .from("subscriptions")
+          .select(
+            "id,status,environment,stripe_customer_id,stripe_subscription_id,price_id,product_id,current_period_start,current_period_end,cancel_at_period_end,canceled_at,created_at,updated_at",
+          )
+          .eq("store_id", storeId)
+          .order("created_at", { ascending: false }),
+        emptyRows,
+        7000,
+      ),
+      withTimeout(
+        supabaseAdmin
+          .from("support_tickets")
+          .select(
+            "id,ticket_number,subject,status,priority,created_at,updated_at,assigned_admin_id",
+          )
+          .eq("store_id", storeId)
+          .order("updated_at", { ascending: false })
+          .limit(30),
+        emptyRows,
+        7000,
+      ),
+      withTimeout(
+        supabaseAdmin
+          .from("audit_log")
+          .select("id,action,actor_email,entity,entity_id,created_at,details")
+          .eq("store_id", storeId)
+          .order("created_at", { ascending: false })
+          .limit(100),
+        emptyRows,
+        7000,
+      ),
+      withTimeout(
+        supabaseAdmin
+          .from("admin_support_sessions")
+          .select(
+            "id,admin_id,admin_email,reason,status,requested_at,decided_at,started_at,ended_at,expires_at,client_capability",
+          )
+          .eq("store_id", storeId)
+          .order("requested_at", { ascending: false })
+          .limit(10),
+        emptyRows,
+        7000,
+      ),
     ]);
 
     if (!storeResult.data) throw new Error(storeResult.error?.message ?? "Business not found");
-    const ownerIds: string[] = (rolesResult.data ?? []).map((row: any) => String(row.user_id)).filter(Boolean);
+    const ownerIds: string[] = (rolesResult.data ?? [])
+      .map((row: any) => String(row.user_id))
+      .filter(Boolean);
     const ownersResult = ownerIds.length
-      ? await withTimeout(supabaseAdmin.from("profiles").select("id,full_name,email,phone,status,created_at").in("id", ownerIds), emptyRows, 5000)
+      ? await withTimeout(
+          supabaseAdmin
+            .from("profiles")
+            .select("id,full_name,email,phone,status,created_at")
+            .in("id", ownerIds),
+          emptyRows,
+          5000,
+        )
       : emptyRows;
 
     const devices = devicesResult.data ?? [];
@@ -1288,15 +1747,29 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "POST" 
       chat_status: ["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active",
     }));
     const now = Date.now();
-    const activeSupportSession = (supportSessionsResult.data ?? []).find((session: any) =>
-      ["pending", "accepted"].includes(session.status) && (!session.expires_at || new Date(session.expires_at).getTime() > now),
-    ) ?? null;
-    const offlineDevices = devices.filter((device: any) => device.status === "active" && (!device.last_seen_at || device.last_seen_at < offlineCutoff)).length;
-    const lastDevice = devices.map((device: any) => device.last_seen_at).filter(Boolean).sort().reverse()[0] ?? null;
+    const activeSupportSession =
+      (supportSessionsResult.data ?? []).find(
+        (session: any) =>
+          ["pending", "accepted"].includes(session.status) &&
+          (!session.expires_at || new Date(session.expires_at).getTime() > now),
+      ) ?? null;
+    const offlineDevices = devices.filter(
+      (device: any) =>
+        device.status === "active" && (!device.last_seen_at || device.last_seen_at < offlineCutoff),
+    ).length;
+    const lastDevice =
+      devices
+        .map((device: any) => device.last_seen_at)
+        .filter(Boolean)
+        .sort()
+        .reverse()[0] ?? null;
     const lastAudit = activityResult.data?.[0]?.created_at ?? null;
     const lastTicket = tickets[0]?.updated_at ?? null;
-    const lastActivity = [lastDevice, lastAudit, lastTicket].filter(Boolean).sort().reverse()[0] ?? null;
-    const openTickets = tickets.filter((ticket: any) => !["resolved", "closed"].includes(ticket.status));
+    const lastActivity =
+      [lastDevice, lastAudit, lastTicket].filter(Boolean).sort().reverse()[0] ?? null;
+    const openTickets = tickets.filter(
+      (ticket: any) => !["resolved", "closed"].includes(ticket.status),
+    );
 
     return {
       store: storeResult.data,
@@ -1310,7 +1783,11 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "POST" 
       recent_activity: activityResult.data ?? [],
       support_sessions: supportSessionsResult.data ?? [],
       active_support_session: activeSupportSession,
-      counts: { devices: devices.length, offline_devices: offlineDevices, open_cases: openTickets.length },
+      counts: {
+        devices: devices.length,
+        offline_devices: offlineDevices,
+        open_cases: openTickets.length,
+      },
       last_activity: lastActivity,
       generated_at: new Date().toISOString(),
       privacy_mode: true,
@@ -1327,16 +1804,58 @@ export const adminListPlatformIncidents = createServerFn({ method: "POST" })
     const since = new Date(Date.now() - days * 86400_000).toISOString();
     const emptyRows = { data: [], error: null } as any;
     const [ticketsResult, billingResult] = await Promise.all([
-      withTimeout(supabaseAdmin.from("support_tickets").select("id,ticket_number,subject,priority,status,store_id,assigned_admin_id,created_at,updated_at").in("priority", ["high", "urgent"]).not("status", "in", "(resolved,closed)").gte("updated_at", since).order("updated_at", { ascending: false }).limit(100), emptyRows, 7000),
-      withTimeout((supabaseAdmin.from as any)("merchant_billing_payments").select("id,store_id,status,amount_due_cents,currency,failure_message,occurred_at,environment,stripe_invoice_id").in("status", ["failed", "uncollectible", "void"]).gte("occurred_at", since).order("occurred_at", { ascending: false }).limit(100), emptyRows, 7000),
+      withTimeout(
+        supabaseAdmin
+          .from("support_tickets")
+          .select(
+            "id,ticket_number,subject,priority,status,store_id,assigned_admin_id,created_at,updated_at",
+          )
+          .in("priority", ["high", "urgent"])
+          .not("status", "in", "(resolved,closed)")
+          .gte("updated_at", since)
+          .order("updated_at", { ascending: false })
+          .limit(100),
+        emptyRows,
+        7000,
+      ),
+      withTimeout(
+        (supabaseAdmin.from as any)("merchant_billing_payments")
+          .select(
+            "id,store_id,status,amount_due_cents,currency,failure_message,occurred_at,environment,stripe_invoice_id",
+          )
+          .in("status", ["failed", "uncollectible", "void"])
+          .gte("occurred_at", since)
+          .order("occurred_at", { ascending: false })
+          .limit(100),
+        emptyRows,
+        7000,
+      ),
     ]);
-    const storeIds = Array.from(new Set([...(ticketsResult.data ?? []), ...(billingResult.data ?? [])].map((row: any) => row.store_id).filter(Boolean)));
-    const storesResult = storeIds.length ? await withTimeout(supabaseAdmin.from("stores").select("id,name,email,plan_status").in("id", storeIds), emptyRows, 5000) : emptyRows;
+    const storeIds = Array.from(
+      new Set(
+        [...(ticketsResult.data ?? []), ...(billingResult.data ?? [])]
+          .map((row: any) => row.store_id)
+          .filter(Boolean),
+      ),
+    );
+    const storesResult = storeIds.length
+      ? await withTimeout(
+          supabaseAdmin.from("stores").select("id,name,email,plan_status").in("id", storeIds),
+          emptyRows,
+          5000,
+        )
+      : emptyRows;
     const storeMap = new Map((storesResult.data ?? []).map((row: any) => [row.id, row]));
     return {
-      tickets: (ticketsResult.data ?? []).map((row: any) => ({ ...row, store: storeMap.get(row.store_id) ?? null })),
-      billing_alerts: (billingResult.data ?? []).map((row: any) => ({ ...row, store: storeMap.get(row.store_id) ?? null })),
-      days, generated_at: new Date().toISOString(),
+      tickets: (ticketsResult.data ?? []).map((row: any) => ({
+        ...row,
+        store: storeMap.get(row.store_id) ?? null,
+      })),
+      billing_alerts: (billingResult.data ?? []).map((row: any) => ({
+        ...row,
+        store: storeMap.get(row.store_id) ?? null,
+      })),
+      days,
+      generated_at: new Date().toISOString(),
     };
   });
-

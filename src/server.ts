@@ -37,7 +37,6 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   });
 }
 
-
 function applySearchIndexPolicy(request: Request, response: Response): Response {
   const hostname = new URL(request.url).hostname.toLowerCase();
   const noindexHost =

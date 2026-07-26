@@ -8,13 +8,12 @@ type SocialLinksProps = {
   tone?: "light" | "dark";
 };
 
-export function SocialLinks({
-  className,
-  iconClassName,
-  tone = "light",
-}: SocialLinksProps) {
+export function SocialLinks({ className, iconClassName, tone = "light" }: SocialLinksProps) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)} aria-label="SEZA POS social media">
+    <div
+      className={cn("flex flex-wrap items-center gap-2", className)}
+      aria-label="SEZA POS social media"
+    >
       {SOCIAL_LINKS.map((link) => (
         <a
           key={link.platform}
@@ -38,7 +37,10 @@ export function SocialLinks({
   );
 }
 
-function SocialIcon({ platform, ...props }: SVGProps<SVGSVGElement> & { platform: SocialPlatform }) {
+function SocialIcon({
+  platform,
+  ...props
+}: SVGProps<SVGSVGElement> & { platform: SocialPlatform }) {
   switch (platform) {
     case "facebook":
       return (
@@ -48,7 +50,14 @@ function SocialIcon({ platform, ...props }: SVGProps<SVGSVGElement> & { platform
       );
     case "instagram":
       return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" {...props}>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden="true"
+          {...props}
+        >
           <rect x="3" y="3" width="18" height="18" rx="5" />
           <circle cx="12" cy="12" r="4" />
           <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />

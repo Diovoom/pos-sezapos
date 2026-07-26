@@ -8,7 +8,9 @@ async function getAdmin() {
 }
 
 function resolvePriceLookupKey(item: any): string | null {
-  return item?.price?.lookup_key ?? item?.price?.metadata?.lovable_external_id ?? item?.price?.id ?? null;
+  return (
+    item?.price?.lookup_key ?? item?.price?.metadata?.lovable_external_id ?? item?.price?.id ?? null
+  );
 }
 
 function resolveProductId(item: any): string | null {
@@ -19,19 +21,23 @@ function resolveProductId(item: any): string | null {
 
 function objectId(value: any): string | null {
   if (!value) return null;
-  return typeof value === "string" ? value : value.id ?? null;
+  return typeof value === "string" ? value : (value.id ?? null);
 }
 
 function invoiceSubscriptionId(invoice: any): string | null {
-  return objectId(invoice?.subscription)
-    ?? objectId(invoice?.parent?.subscription_details?.subscription)
-    ?? objectId(invoice?.lines?.data?.[0]?.subscription);
+  return (
+    objectId(invoice?.subscription) ??
+    objectId(invoice?.parent?.subscription_details?.subscription) ??
+    objectId(invoice?.lines?.data?.[0]?.subscription)
+  );
 }
 
 function invoicePaymentIntentId(invoice: any): string | null {
-  return objectId(invoice?.payment_intent)
-    ?? objectId(invoice?.payments?.data?.[0]?.payment?.payment_intent)
-    ?? objectId(invoice?.charge?.payment_intent);
+  return (
+    objectId(invoice?.payment_intent) ??
+    objectId(invoice?.payments?.data?.[0]?.payment?.payment_intent) ??
+    objectId(invoice?.charge?.payment_intent)
+  );
 }
 
 async function storeIdForUser(userId: string): Promise<string | null> {
@@ -91,7 +97,11 @@ async function handleSubscriptionDeleted(subscription: any, env: StripeEnv) {
     .eq("environment", env);
 }
 
-async function subscriptionContext(subscriptionId: string | null, customerId: string | null, env: StripeEnv) {
+async function subscriptionContext(
+  subscriptionId: string | null,
+  customerId: string | null,
+  env: StripeEnv,
+) {
   const admin = await getAdmin();
   let row: any = null;
   if (subscriptionId) {
@@ -117,7 +127,11 @@ async function subscriptionContext(subscriptionId: string | null, customerId: st
   return row;
 }
 
-async function handleInvoice(invoice: any, env: StripeEnv, event: { id?: string; type: string; created?: number }) {
+async function handleInvoice(
+  invoice: any,
+  env: StripeEnv,
+  event: { id?: string; type: string; created?: number },
+) {
   const admin = await getAdmin();
   const subscriptionId = invoiceSubscriptionId(invoice);
   const customerId = objectId(invoice.customer);
@@ -133,11 +147,17 @@ async function handleInvoice(invoice: any, env: StripeEnv, event: { id?: string;
       await handleSubscriptionUpsert(subscription, env);
       context = await subscriptionContext(subscriptionId, customerId, env);
     } catch (error) {
-      console.error("Stripe webhook: could not hydrate subscription context", subscriptionId, error);
+      console.error(
+        "Stripe webhook: could not hydrate subscription context",
+        subscriptionId,
+        error,
+      );
     }
   }
 
-  const occurredAt = event.created ? new Date(event.created * 1000).toISOString() : new Date().toISOString();
+  const occurredAt = event.created
+    ? new Date(event.created * 1000).toISOString()
+    : new Date().toISOString();
   const paidAtSeconds = invoice?.status_transitions?.paid_at;
   const periodStart = invoice?.period_start;
   const periodEnd = invoice?.period_end;
@@ -165,13 +185,17 @@ async function handleInvoice(invoice: any, env: StripeEnv, event: { id?: string;
     hosted_invoice_url: invoice.hosted_invoice_url ?? null,
     invoice_pdf_url: invoice.invoice_pdf ?? null,
     failure_message:
-      invoice.last_finalization_error?.message
-      ?? invoice.last_payment_error?.message
-      ?? invoice.charge?.failure_message
-      ?? null,
+      invoice.last_finalization_error?.message ??
+      invoice.last_payment_error?.message ??
+      invoice.charge?.failure_message ??
+      null,
     period_start: periodStart ? new Date(periodStart * 1000).toISOString() : null,
     period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-    paid_at: paidAtSeconds ? new Date(paidAtSeconds * 1000).toISOString() : (status === "paid" ? occurredAt : null),
+    paid_at: paidAtSeconds
+      ? new Date(paidAtSeconds * 1000).toISOString()
+      : status === "paid"
+        ? occurredAt
+        : null,
     occurred_at: occurredAt,
     metadata: {
       number: invoice.number ?? null,
@@ -180,8 +204,9 @@ async function handleInvoice(invoice: any, env: StripeEnv, event: { id?: string;
     },
   };
 
-  const { error } = await (admin.from as any)("merchant_billing_payments")
-    .upsert(record, { onConflict: "stripe_invoice_id" });
+  const { error } = await (admin.from as any)("merchant_billing_payments").upsert(record, {
+    onConflict: "stripe_invoice_id",
+  });
   if (error) {
     // Keep webhooks retryable after the migration is deployed, but do not hide
     // a real persistence failure.

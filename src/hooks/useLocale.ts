@@ -34,8 +34,14 @@ const FALLBACK: LocaleContext = {
 export function useLocaleContext(): LocaleContext {
   const { data: store } = useQuery({
     queryKey: ["locale-store"],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    queryFn: async () => (await (supabase.from as any)("stores").select("country_code,currency,locale,time_zone").limit(1).maybeSingle()).data,
+
+    queryFn: async () =>
+      (
+        await (supabase.from as any)("stores")
+          .select("country_code,currency,locale,time_zone")
+          .limit(1)
+          .maybeSingle()
+      ).data,
     staleTime: 60_000,
   });
 
@@ -86,7 +92,13 @@ export function useCountryProfile(code?: string) {
 }
 
 export function useCountryList() {
-  return useQuery<Array<Pick<CountryProfile, "country_code" | "default_locale" | "currency_code" | "regions"> & { country_name: string }>>({
+  return useQuery<
+    Array<
+      Pick<CountryProfile, "country_code" | "default_locale" | "currency_code" | "regions"> & {
+        country_name: string;
+      }
+    >
+  >({
     queryKey: ["country-list"],
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -15,7 +15,9 @@ export default defineTool({
     const supabase = supabaseForUser(ctx);
     const { data, error } = await supabase
       .from("sales")
-      .select("id, receipt_number, created_at, subtotal, tax, discount, total, payment_method, status, refund_status, customer_name")
+      .select(
+        "id, receipt_number, created_at, subtotal, tax, discount, total, payment_method, status, refund_status, customer_name",
+      )
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };

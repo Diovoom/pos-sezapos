@@ -29,11 +29,19 @@ const drawerTx = new Set<string>();
 
 function ls(key: string): string | null {
   if (typeof window === "undefined") return null;
-  try { return window.localStorage.getItem(key); } catch { return null; }
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 function lsSet(key: string, val: string) {
   if (typeof window === "undefined") return;
-  try { window.localStorage.setItem(key, val); } catch { /* ignore */ }
+  try {
+    window.localStorage.setItem(key, val);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function getPaperColumns(): 32 | 42 {
@@ -91,14 +99,20 @@ export function receiptDataToPayload(
     ticketNumber: d.receiptNumber ?? d.transactionId.slice(0, 8),
     cashierName: d.cashierName ?? undefined,
     timestamp: d.createdAt,
-    items: d.lines.map((l) => ({ name: l.name, qty: l.qty, unitPrice: l.unit_price, total: l.line_total })),
+    items: d.lines.map((l) => ({
+      name: l.name,
+      qty: l.qty,
+      unitPrice: l.unit_price,
+      total: l.line_total,
+    })),
     subtotal: d.subtotal,
     tax: d.tax,
     discount: d.discount,
     total: d.total,
-    tender: d.amountTendered != null
-      ? { method: d.paymentMethod.replace("_", " ").toUpperCase(), amount: d.amountTendered }
-      : undefined,
+    tender:
+      d.amountTendered != null
+        ? { method: d.paymentMethod.replace("_", " ").toUpperCase(), amount: d.amountTendered }
+        : undefined,
     change: d.changeDue ?? undefined,
     currency: d.store.currency ?? "USD",
     columns,
@@ -109,7 +123,11 @@ export function receiptDataToPayload(
 
 export type PrintResult =
   | { ok: true; copies: number }
-  | { ok: false; reason: "not_native" | "no_driver" | "not_ready" | "driver_error"; error?: string };
+  | {
+      ok: false;
+      reason: "not_native" | "no_driver" | "not_ready" | "driver_error";
+      error?: string;
+    };
 
 async function printOnceInternal(payload: ReceiptPayload, copies: number): Promise<PrintResult> {
   if (!isNativeMode()) return { ok: false, reason: "not_native" };
@@ -118,7 +136,9 @@ async function printOnceInternal(payload: ReceiptPayload, copies: number): Promi
   try {
     const ready = await driver.isReady();
     if (!ready) return { ok: false, reason: "not_ready" };
-  } catch { return { ok: false, reason: "not_ready" }; }
+  } catch {
+    return { ok: false, reason: "not_ready" };
+  }
   try {
     for (let i = 0; i < copies; i++) {
       await driver.printReceipt(payload);
@@ -153,7 +173,9 @@ export async function autoPrintOnComplete(d: ReceiptData): Promise<PrintResult> 
     entity: "sale",
     entity_id: d.transactionId,
     details: { ok: res.ok, reason: res.ok ? undefined : res.reason },
-  }).catch(() => { /* audit failure never blocks sale */ });
+  }).catch(() => {
+    /* audit failure never blocks sale */
+  });
   return res;
 }
 
@@ -169,7 +191,9 @@ export async function reprintReceipt(d: ReceiptData): Promise<PrintResult> {
     entity: "sale",
     entity_id: d.transactionId,
     details: { ok: res.ok, reason: res.ok ? undefined : res.reason },
-  }).catch(() => { /* ignore */ });
+  }).catch(() => {
+    /* ignore */
+  });
   return res;
 }
 
@@ -177,13 +201,18 @@ export async function reprintReceipt(d: ReceiptData): Promise<PrintResult> {
 export async function testPrint(): Promise<PrintResult> {
   const columns = getPaperColumns();
   const payload: ReceiptPayload = {
-    storeName: "SEZA POS", ticketNumber: "TEST", cashierName: "Setup",
+    storeName: "SEZA POS",
+    ticketNumber: "TEST",
+    cashierName: "Setup",
     timestamp: new Date(),
     items: [
       { name: "Sample item A", qty: 1, unitPrice: 4.99, total: 4.99 },
-      { name: "Sample item B (longer name to test wrap)", qty: 2, unitPrice: 2.50, total: 5.00 },
+      { name: "Sample item B (longer name to test wrap)", qty: 2, unitPrice: 2.5, total: 5.0 },
     ],
-    subtotal: 9.99, tax: 0.80, total: 10.79, columns,
+    subtotal: 9.99,
+    tax: 0.8,
+    total: 10.79,
+    columns,
     header: ["Printer test"],
     footer: ["Test completed", "If you can read this, your printer is ready."],
   };
@@ -192,7 +221,11 @@ export async function testPrint(): Promise<PrintResult> {
 
 export type DrawerResult =
   | { ok: true }
-  | { ok: false; reason: "not_native" | "no_driver" | "not_ready" | "driver_error"; error?: string };
+  | {
+      ok: false;
+      reason: "not_native" | "no_driver" | "not_ready" | "driver_error";
+      error?: string;
+    };
 
 async function kickInternal(pulseMs?: number): Promise<DrawerResult> {
   if (!isNativeMode()) return { ok: false, reason: "not_native" };
@@ -204,7 +237,9 @@ async function kickInternal(pulseMs?: number): Promise<DrawerResult> {
   try {
     const ready = await driver.isReady();
     if (!ready) return { ok: false, reason: "not_ready" };
-  } catch { return { ok: false, reason: "not_ready" }; }
+  } catch {
+    return { ok: false, reason: "not_ready" };
+  }
   try {
     await driver.kickDrawer(pulseMs ?? getDrawerPulseMs());
     lsSet(LS.lastDrawerOk, new Date().toISOString());
@@ -237,7 +272,9 @@ export async function openDrawerAfterCashSale(d: ReceiptData): Promise<DrawerRes
     entity: "sale",
     entity_id: d.transactionId,
     details: { ok: res.ok, reason: res.ok ? undefined : res.reason, trigger: "cash_sale" },
-  }).catch(() => { /* ignore */ });
+  }).catch(() => {
+    /* ignore */
+  });
   return res;
 }
 
@@ -260,7 +297,9 @@ export async function openDrawerAfterCashRefund(d: ReceiptData): Promise<DrawerR
     entity: "refund",
     entity_id: d.transactionId,
     details: { ok: res.ok, reason: res.ok ? undefined : res.reason, trigger: "cash_refund" },
-  }).catch(() => { /* ignore */ });
+  }).catch(() => {
+    /* ignore */
+  });
   return res;
 }
 
@@ -288,4 +327,3 @@ export function hardwareSnapshot() {
     native: isNativeMode(),
   };
 }
-

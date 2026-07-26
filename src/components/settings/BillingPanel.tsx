@@ -19,7 +19,6 @@ const TIER_LABEL: Record<PlanTier, string> = {
   business: "Business",
 };
 
-
 export function BillingPanel() {
   const { data: plan, isLoading } = useSubscription();
   const [checkout, setCheckout] = useState<{ priceId: string; name: string } | null>(null);
@@ -56,7 +55,12 @@ export function BillingPanel() {
     }
   };
 
-  if (isLoading) return <div className="p-6"><Loader2 className="animate-spin" /></div>;
+  if (isLoading)
+    return (
+      <div className="p-6">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
 
   const isTrialing = plan?.isTrialing;
   const isReadOnly = plan?.isReadOnly;
@@ -91,16 +95,21 @@ export function BillingPanel() {
               {isTrialing
                 ? `Trial ends ${format(plan.periodEnd, "PPP")}`
                 : plan.cancelAtPeriodEnd
-                ? `Access ends ${format(plan.periodEnd, "PPP")} (cancellation scheduled)`
-                : `Renews ${format(plan.periodEnd, "PPP")}`}
-              {plan.daysLeft != null && ` — ${plan.daysLeft} day${plan.daysLeft === 1 ? "" : "s"} left`}
+                  ? `Access ends ${format(plan.periodEnd, "PPP")} (cancellation scheduled)`
+                  : `Renews ${format(plan.periodEnd, "PPP")}`}
+              {plan.daysLeft != null &&
+                ` — ${plan.daysLeft} day${plan.daysLeft === 1 ? "" : "s"} left`}
             </div>
           )}
 
           {hasPaidPlan && (
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={openPortal} disabled={portalLoading}>
-                {portalLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ExternalLink className="h-4 w-4 mr-2" />}
+                {portalLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                )}
                 Manage subscription
               </Button>
             </div>
@@ -121,13 +130,17 @@ export function BillingPanel() {
           {SEZA_PLANS.map((p) => {
             const isCurrent = plan?.tier === p.id;
             return (
-              <div key={p.id} className={`rounded-lg border p-4 ${isCurrent ? "border-primary" : ""}`}>
+              <div
+                key={p.id}
+                className={`rounded-lg border p-4 ${isCurrent ? "border-primary" : ""}`}
+              >
                 <div className="flex items-center justify-between">
                   <div className="font-medium">{p.name}</div>
                   {isCurrent && <Badge variant="outline">Current</Badge>}
                 </div>
                 <div className="mt-2 text-2xl font-bold">
-                  ${p.monthlyPrice}<span className="text-sm font-normal text-muted-foreground">/mo</span>
+                  ${p.monthlyPrice}
+                  <span className="text-sm font-normal text-muted-foreground">/mo</span>
                 </div>
                 <Button
                   className="mt-4 w-full"

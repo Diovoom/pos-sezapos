@@ -1,6 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SUPPORTED_LANGUAGES, applyLanguage } from "@/i18n";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
@@ -55,7 +61,9 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
         </SelectTrigger>
         <SelectContent className="max-h-[320px]">
           {SUPPORTED_LANGUAGES.map((l) => (
-            <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>
+            <SelectItem key={l.code} value={l.code}>
+              {l.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>

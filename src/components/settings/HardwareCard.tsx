@@ -5,9 +5,17 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import {
-  type HardwareKind, type DeviceInfo,
-  getDevice, subscribe, removeDevice, testDevice,
-  connectUsb, connectBluetooth, connectSerial, connectHid, support,
+  type HardwareKind,
+  type DeviceInfo,
+  getDevice,
+  subscribe,
+  removeDevice,
+  testDevice,
+  connectUsb,
+  connectBluetooth,
+  connectSerial,
+  connectHid,
+  support,
 } from "@/lib/pos/hardware";
 import { logAudit } from "@/lib/audit-log";
 
@@ -30,16 +38,28 @@ export function HardwareCard({
   useEffect(() => subscribe(() => setDevice(getDevice(kind))), [kind]);
 
   const supportedMap: Record<Transport, boolean> = {
-    usb: support.usb, bluetooth: support.bluetooth, serial: support.serial, hid: support.hid,
+    usb: support.usb,
+    bluetooth: support.bluetooth,
+    serial: support.serial,
+    hid: support.hid,
   };
 
   const connect = async (t: Transport) => {
     setBusy(t);
     try {
-      const fn = { usb: connectUsb, bluetooth: connectBluetooth, serial: connectSerial, hid: connectHid }[t];
+      const fn = {
+        usb: connectUsb,
+        bluetooth: connectBluetooth,
+        serial: connectSerial,
+        hid: connectHid,
+      }[t];
       const info = await fn(kind);
       toast.success(`${title} connected: ${info.name}`);
-      void logAudit({ action: "hardware.connect", entity: kind, details: { transport: t, name: info.name } });
+      void logAudit({
+        action: "hardware.connect",
+        entity: kind,
+        details: { transport: t, name: info.name },
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Connection failed";
       if (!msg.toLowerCase().includes("cancel")) toast.error(msg);
@@ -82,25 +102,52 @@ export function HardwareCard({
       <CardContent className="space-y-3">
         {device && (
           <div className="rounded-md border bg-surface/40 p-3 text-sm space-y-1">
-            <div><span className="text-muted-foreground">Name:</span> {device.name}</div>
-            <div><span className="text-muted-foreground">Transport:</span> {device.transport.toUpperCase()}</div>
-            {device.detail?.serial ? <div><span className="text-muted-foreground">Serial:</span> {String(device.detail.serial)}</div> : null}
+            <div>
+              <span className="text-muted-foreground">Name:</span> {device.name}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Transport:</span>{" "}
+              {device.transport.toUpperCase()}
+            </div>
+            {device.detail?.serial ? (
+              <div>
+                <span className="text-muted-foreground">Serial:</span>{" "}
+                {String(device.detail.serial)}
+              </div>
+            ) : null}
           </div>
         )}
         <div className="flex flex-wrap gap-2">
           {transports.map((t) => (
-            <Button key={t} variant="outline" size="sm" disabled={!supportedMap[t] || busy !== null} onClick={() => connect(t)}>
+            <Button
+              key={t}
+              variant="outline"
+              size="sm"
+              disabled={!supportedMap[t] || busy !== null}
+              onClick={() => connect(t)}
+            >
               {busy === t && <Loader2 className="size-3 animate-spin mr-1" />}
               Connect {t.toUpperCase()}
-              {!supportedMap[t] && <span className="ml-1 text-[10px] text-muted-foreground">(unsupported)</span>}
+              {!supportedMap[t] && (
+                <span className="ml-1 text-[10px] text-muted-foreground">(unsupported)</span>
+              )}
             </Button>
           ))}
-          {device && <Button variant="outline" size="sm" onClick={test}>Test</Button>}
-          {device && <Button variant="ghost" size="sm" onClick={disconnect}>Disconnect</Button>}
+          {device && (
+            <Button variant="outline" size="sm" onClick={test}>
+              Test
+            </Button>
+          )}
+          {device && (
+            <Button variant="ghost" size="sm" onClick={disconnect}>
+              Disconnect
+            </Button>
+          )}
         </div>
         {transports.every((t) => !supportedMap[t]) && (
           <p className="text-xs text-muted-foreground">
-            This browser doesn't expose the required Web APIs. Use Chrome or Edge over HTTPS for hardware access.
+            This browser doesn't expose the required Web APIs. Use Chrome or Edge over HTTPS for
+            hardware access.
           </p>
         )}
       </CardContent>

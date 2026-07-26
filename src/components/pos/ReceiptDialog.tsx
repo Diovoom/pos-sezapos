@@ -12,8 +12,12 @@ import { sendTransactionalEmail } from "@/lib/email/send";
 import { supabase } from "@/integrations/supabase/client";
 import type { CountryCode } from "libphonenumber-js";
 import { isNativeMode } from "@/lib/native";
-import { autoPrintOnComplete, reprintReceipt, openDrawerAfterCashSale, openDrawerAfterCashRefund } from "@/lib/hardware/native-receipt";
-
+import {
+  autoPrintOnComplete,
+  reprintReceipt,
+  openDrawerAfterCashSale,
+  openDrawerAfterCashRefund,
+} from "@/lib/hardware/native-receipt";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -72,10 +76,13 @@ export function ReceiptDialog({
         : await openDrawerAfterCashSale(data);
       if (cancelled) return;
       if (!d.ok && d.reason === "driver_error") toast.error("Cash drawer failed to open");
-    })().catch(() => { /* safe-fail */ });
-    return () => { cancelled = true; };
+    })().catch(() => {
+      /* safe-fail */
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [open, data?.transactionId]);
-
 
   const handlePrint = () => {
     if (!ref.current) return;
@@ -84,7 +91,9 @@ export function ReceiptDialog({
     // Reuse the same compiled application styles in the print window so the
     // physical print preview matches the receipt shown inside the POS dialog.
     const appStyles = Array.from(
-      document.querySelectorAll<HTMLLinkElement | HTMLStyleElement>('link[rel="stylesheet"], style'),
+      document.querySelectorAll<HTMLLinkElement | HTMLStyleElement>(
+        'link[rel="stylesheet"], style',
+      ),
     )
       .map((node) => node.outerHTML)
       .join("\n");
@@ -181,9 +190,7 @@ export function ReceiptDialog({
           cashierName: data.cashierName,
           customerName: data.customerName,
           createdAt:
-            typeof data.createdAt === "string"
-              ? data.createdAt
-              : data.createdAt.toISOString(),
+            typeof data.createdAt === "string" ? data.createdAt : data.createdAt.toISOString(),
           lines: data.lines,
           subtotal: data.subtotal,
           tax: data.tax,
@@ -203,7 +210,11 @@ export function ReceiptDialog({
         return;
       }
       setDeliveryStatus(res.queued ? "queued" : "sent");
-      toast.success(res.queued ? "Receipt queued — it will send when the register reconnects" : "Receipt sent successfully");
+      toast.success(
+        res.queued
+          ? "Receipt queued — it will send when the register reconnects"
+          : "Receipt sent successfully",
+      );
     } finally {
       setSending(false);
     }
@@ -300,7 +311,6 @@ export function ReceiptDialog({
           >
             <Printer className="size-4" /> {isNativeMode() && data ? "Reprint" : "Print"}
           </Button>
-
         </div>
       </DialogContent>
     </Dialog>

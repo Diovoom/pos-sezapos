@@ -20,11 +20,20 @@ import { logAudit } from "@/lib/audit-log";
 // Native APK shell detection — Clock Out on the APK routes through the
 // existing Shift Review flow when a register shift is open, and enforces
 // the offline-sale / payment-busy guardrails. Web POS behavior is unchanged.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const isNativeShell = typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.();
+
+const isNativeShell =
+  typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.();
 
 export const Route = createFileRoute("/_pos/timeclock")({
-  head: () => ({ meta: [{ title: "Time Clock — SEZA POS" }, { name: "description", content: "Clock in, take breaks, and clock out for the current shift." }] }),
+  head: () => ({
+    meta: [
+      { title: "Time Clock — SEZA POS" },
+      {
+        name: "description",
+        content: "Clock in, take breaks, and clock out for the current shift.",
+      },
+    ],
+  }),
   component: TimeclockPage,
 });
 
@@ -60,12 +69,19 @@ export function TimeclockPage() {
     staleTime: 15_000,
     queryFn: async () => {
       type OpenShift = {
-        id: string; store_id: string; opened_by: string; opened_at: string;
-        opening_cash: number; status: string; terminal_id: string | null;
+        id: string;
+        store_id: string;
+        opened_by: string;
+        opened_at: string;
+        opening_cash: number;
+        status: string;
+        terminal_id: string | null;
       };
       if (!isOnlineNow()) {
         const cached = await readMeta<OpenShift | null>("open_register_session");
-        return { rows: cached && cached.opened_by === userId && cached.status === "open" ? [cached] : [] };
+        return {
+          rows: cached && cached.opened_by === userId && cached.status === "open" ? [cached] : [],
+        };
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
@@ -78,7 +94,9 @@ export function TimeclockPage() {
         .limit(5);
       if (error) {
         const cached = await readMeta<OpenShift | null>("open_register_session");
-        return { rows: cached && cached.opened_by === userId && cached.status === "open" ? [cached] : [] };
+        return {
+          rows: cached && cached.opened_by === userId && cached.status === "open" ? [cached] : [],
+        };
       }
       const rows = (data ?? []) as OpenShift[];
       if (rows[0]) await cacheMeta("open_register_session", rows[0]).catch(() => {});
@@ -142,7 +160,9 @@ export function TimeclockPage() {
         .from("time_entries")
         .select("id, user_id, clock_in, break_start")
         .is("clock_out", null);
-      const rows = (data as { id: string; user_id: string; clock_in: string; break_start: string | null }[]) ?? [];
+      const rows =
+        (data as { id: string; user_id: string; clock_in: string; break_start: string | null }[]) ??
+        [];
       if (rows.length === 0) return [];
       const ids = rows.map((r) => r.user_id);
       const { data: profs } = await supabase
@@ -189,16 +209,31 @@ export function TimeclockPage() {
         const extraBreak = current.break_start
           ? Math.max(0, Math.round((Date.now() - new Date(current.break_start).getTime()) / 60000))
           : 0;
-        const closed = { ...current, clock_out: occurredAt, break_start: null, break_minutes: (current.break_minutes ?? 0) + extraBreak };
+        const closed = {
+          ...current,
+          clock_out: occurredAt,
+          break_start: null,
+          break_minutes: (current.break_minutes ?? 0) + extraBreak,
+        };
         const cachedHistory = (await readMeta<TimeEntry[]>("timeclock_history")) ?? [];
-        await cacheMeta("timeclock_history", [closed, ...cachedHistory.filter((entry) => entry.id !== closed.id)].slice(0, 20));
+        await cacheMeta(
+          "timeclock_history",
+          [closed, ...cachedHistory.filter((entry) => entry.id !== closed.id)].slice(0, 20),
+        );
         next = null;
       } else if (action === "start_break" && current) {
         next = current.break_start ? current : { ...current, break_start: occurredAt };
       } else if (action === "end_break" && current) {
         if (current.break_start) {
-          const mins = Math.max(0, Math.round((Date.now() - new Date(current.break_start).getTime()) / 60000));
-          next = { ...current, break_start: null, break_minutes: (current.break_minutes ?? 0) + mins };
+          const mins = Math.max(
+            0,
+            Math.round((Date.now() - new Date(current.break_start).getTime()) / 60000),
+          );
+          next = {
+            ...current,
+            break_start: null,
+            break_minutes: (current.break_minutes ?? 0) + mins,
+          };
         }
       }
 
@@ -219,7 +254,11 @@ export function TimeclockPage() {
       return next;
     }
 
-    const result = await postTimeClockAction({ action, occurredAt, idempotencyKey: crypto.randomUUID() });
+    const result = await postTimeClockAction({
+      action,
+      occurredAt,
+      idempotencyKey: crypto.randomUUID(),
+    });
     const next = (result.entry as TimeEntry | null) ?? null;
     await cacheMeta("timeclock_open", action === "clock_out" ? null : next);
     return next;
@@ -228,32 +267,47 @@ export function TimeclockPage() {
   const clockIn = useMutation({
     networkMode: "always",
     mutationFn: () => applyClockAction("clock_in"),
-    onSuccess: () => { toast.success(isOnlineNow() ? "Clocked in" : "Clocked in offline — will sync automatically"); invalidate(); },
+    onSuccess: () => {
+      toast.success(isOnlineNow() ? "Clocked in" : "Clocked in offline — will sync automatically");
+      invalidate();
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Clock in failed"),
   });
 
   const clockOut = useMutation({
     networkMode: "always",
     mutationFn: () => applyClockAction("clock_out"),
-    onSuccess: () => { toast.success(isOnlineNow() ? "Clocked out" : "Clocked out offline — will sync automatically"); invalidate(); },
+    onSuccess: () => {
+      toast.success(
+        isOnlineNow() ? "Clocked out" : "Clocked out offline — will sync automatically",
+      );
+      invalidate();
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Clock out failed"),
   });
 
   const startBreak = useMutation({
     networkMode: "always",
     mutationFn: () => applyClockAction("start_break"),
-    onSuccess: () => { toast.success(isOnlineNow() ? "Break started" : "Break started offline"); invalidate(); },
+    onSuccess: () => {
+      toast.success(isOnlineNow() ? "Break started" : "Break started offline");
+      invalidate();
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Break failed"),
   });
 
   const endBreak = useMutation({
     networkMode: "always",
     mutationFn: () => applyClockAction("end_break"),
-    onSuccess: () => { toast.success(isOnlineNow() ? "Break ended" : "Break ended offline"); invalidate(); },
+    onSuccess: () => {
+      toast.success(isOnlineNow() ? "Break ended" : "Break ended offline");
+      invalidate();
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Break failed"),
   });
 
-  const anyBusy = clockIn.isPending || clockOut.isPending || startBreak.isPending || endBreak.isPending;
+  const anyBusy =
+    clockIn.isPending || clockOut.isPending || startBreak.isPending || endBreak.isPending;
 
   const totals = computeTotals(history);
 
@@ -264,8 +318,9 @@ export function TimeclockPage() {
     if (isNativeShell) {
       // Ambiguous open shifts: refuse to auto-close either one.
       if (shiftAmbiguous) {
-        const correlationId = (crypto as { randomUUID?: () => string }).randomUUID?.()
-          ?? `cc-${Date.now().toString(36)}`;
+        const correlationId =
+          (crypto as { randomUUID?: () => string }).randomUUID?.() ??
+          `cc-${Date.now().toString(36)}`;
         void logAudit({
           action: "system.error",
           entity: "register_session",
@@ -289,7 +344,9 @@ export function TimeclockPage() {
           // Covers active payment, refund, void, and any unknown/unresolved
           // tender — the register broadcasts paymentBusy for all of them
           // via useNativeActivitySignal. Recovery lives in the POS itself.
-          toast.error("A transaction is in progress. Complete or cancel it in the register before clocking out.");
+          toast.error(
+            "A transaction is in progress. Complete or cancel it in the register before clocking out.",
+          );
           return;
         }
         if (flags.hasCart) {
@@ -297,10 +354,14 @@ export function TimeclockPage() {
           // register — they can complete the sale or use the register's
           // existing (permission-gated) cancel flow, which already routes
           // through ManagerOverrideDialog for cashiers.
-          toast.error("You have an active cart. Complete or cancel the sale in the register before clocking out.");
+          toast.error(
+            "You have an active cart. Complete or cancel the sale in the register before clocking out.",
+          );
           return;
         }
-      } catch { /* module unavailable — proceed */ }
+      } catch {
+        /* module unavailable — proceed */
+      }
 
       // If a register shift is open under THIS cashier, force Shift Review
       // first. CloseShiftDialog re-checks pending offline sales and manager
@@ -334,16 +395,25 @@ export function TimeclockPage() {
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">Your status</CardTitle>
+            <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
+              Your status
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3 flex-wrap">
               {!open && <Badge variant="secondary">Clocked out</Badge>}
-              {open && !open.break_start && <Badge className="bg-success text-success-foreground">On the clock</Badge>}
-              {open?.break_start && <Badge variant="outline" className="border-warning text-warning">On break</Badge>}
+              {open && !open.break_start && (
+                <Badge className="bg-success text-success-foreground">On the clock</Badge>
+              )}
+              {open?.break_start && (
+                <Badge variant="outline" className="border-warning text-warning">
+                  On break
+                </Badge>
+              )}
               {open && (
                 <span className="text-sm text-muted-foreground">
-                  Since {format(new Date(open.clock_in), "p")} · {formatDistanceStrict(new Date(open.clock_in), new Date())}
+                  Since {format(new Date(open.clock_in), "p")} ·{" "}
+                  {formatDistanceStrict(new Date(open.clock_in), new Date())}
                 </span>
               )}
             </div>
@@ -351,16 +421,33 @@ export function TimeclockPage() {
               <Button size="lg" onClick={() => clockIn.mutate()} disabled={!!open || anyBusy}>
                 <LogIn className="size-4 mr-2" /> Clock in
               </Button>
-              <Button size="lg" variant="outline" onClick={() => void handleClockOut()} disabled={!open || anyBusy}>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => void handleClockOut()}
+                disabled={!open || anyBusy}
+              >
                 <LogOut className="size-4 mr-2" /> Clock out
               </Button>
-              <Button size="lg" variant="outline" onClick={() => startBreak.mutate()} disabled={!open || !!open.break_start || anyBusy}>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => startBreak.mutate()}
+                disabled={!open || !!open.break_start || anyBusy}
+              >
                 <Coffee className="size-4 mr-2" /> Start break
               </Button>
-              <Button size="lg" variant="outline" onClick={() => endBreak.mutate()} disabled={!open?.break_start || anyBusy}>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => endBreak.mutate()}
+                disabled={!open?.break_start || anyBusy}
+              >
                 <PlayCircle className="size-4 mr-2" /> End break
               </Button>
-              {anyBusy && <Loader2 className="size-5 animate-spin text-muted-foreground self-center" />}
+              {anyBusy && (
+                <Loader2 className="size-5 animate-spin text-muted-foreground self-center" />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -379,19 +466,36 @@ export function TimeclockPage() {
             </CardHeader>
             <CardContent className="p-0">
               {whosIn.length === 0 ? (
-                <div className="p-6 text-center text-sm text-muted-foreground">No one is currently clocked in.</div>
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  No one is currently clocked in.
+                </div>
               ) : (
                 whosIn.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between px-4 py-3 border-b last:border-b-0">
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between px-4 py-3 border-b last:border-b-0"
+                  >
                     <div>
                       <div className="font-semibold text-sm">
-                        {r.profile?.full_name || `${r.profile?.first_name ?? ""} ${r.profile?.last_name ?? ""}`.trim() || r.profile?.email}
+                        {r.profile?.full_name ||
+                          `${r.profile?.first_name ?? ""} ${r.profile?.last_name ?? ""}`.trim() ||
+                          r.profile?.email}
                       </div>
-                      <div className="text-xs text-muted-foreground font-mono">ID {r.profile?.employee_id}</div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        ID {r.profile?.employee_id}
+                      </div>
                     </div>
                     <div className="text-right text-xs">
-                      <div>{r.break_start ? <Badge variant="outline">On break</Badge> : <Badge>Active</Badge>}</div>
-                      <div className="text-muted-foreground mt-1">In at {format(new Date(r.clock_in), "p")}</div>
+                      <div>
+                        {r.break_start ? (
+                          <Badge variant="outline">On break</Badge>
+                        ) : (
+                          <Badge>Active</Badge>
+                        )}
+                      </div>
+                      <div className="text-muted-foreground mt-1">
+                        In at {format(new Date(r.clock_in), "p")}
+                      </div>
                     </div>
                   </div>
                 ))
@@ -401,15 +505,29 @@ export function TimeclockPage() {
         )}
 
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Recent entries</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Recent entries</CardTitle>
+          </CardHeader>
           <CardContent className="p-0">
-            {history.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No time entries yet.</div>}
+            {history.length === 0 && (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                No time entries yet.
+              </div>
+            )}
             {history.map((e) => {
               const inD = new Date(e.clock_in);
               const outD = e.clock_out ? new Date(e.clock_out) : null;
-              const mins = outD ? Math.max(0, Math.round((outD.getTime() - inD.getTime()) / 60000) - (e.break_minutes ?? 0)) : null;
+              const mins = outD
+                ? Math.max(
+                    0,
+                    Math.round((outD.getTime() - inD.getTime()) / 60000) - (e.break_minutes ?? 0),
+                  )
+                : null;
               return (
-                <div key={e.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 text-xs">
+                <div
+                  key={e.id}
+                  className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 text-xs"
+                >
                   <div>
                     <div className="font-medium flex items-center gap-2">
                       {format(inD, "EEE, MMM d")}
@@ -419,11 +537,17 @@ export function TimeclockPage() {
                         </Badge>
                       )}
                     </div>
-                    <div className="text-muted-foreground">{format(inD, "p")} – {outD ? format(outD, "p") : "…"}</div>
+                    <div className="text-muted-foreground">
+                      {format(inD, "p")} – {outD ? format(outD, "p") : "…"}
+                    </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-mono">{mins != null ? `${(mins / 60).toFixed(2)} h` : "—"}</div>
-                    {(e.break_minutes ?? 0) > 0 && <div className="text-muted-foreground">Break {e.break_minutes}m</div>}
+                    <div className="font-mono">
+                      {mins != null ? `${(mins / 60).toFixed(2)} h` : "—"}
+                    </div>
+                    {(e.break_minutes ?? 0) > 0 && (
+                      <div className="text-muted-foreground">Break {e.break_minutes}m</div>
+                    )}
                   </div>
                 </div>
               );
@@ -460,7 +584,11 @@ export function TimeclockPage() {
                 action: "clock_out",
                 entity: "time_entry",
                 entity_id: open?.id,
-                details: { channel: "native_shell", stage: "clock_out_completed", shift_id: openShift.id },
+                details: {
+                  channel: "native_shell",
+                  stage: "clock_out_completed",
+                  shift_id: openShift.id,
+                },
               });
             } catch (e) {
               void logAudit({

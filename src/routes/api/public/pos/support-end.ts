@@ -36,7 +36,11 @@ export const Route = createFileRoute("/api/public/pos/support-end")({
         if (!token) return json({ error: "Unauthorized" }, 401);
 
         let body: { sessionId?: unknown; note?: unknown };
-        try { body = await request.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400);
+        }
         const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
         const note = typeof body.note === "string" ? body.note.slice(0, 500) : null;
         if (!sessionId) return json({ error: "Invalid request" }, 400);
@@ -86,7 +90,9 @@ export const Route = createFileRoute("/api/public/pos/support-end")({
               channel: "native_shell",
             },
           });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         return json({ ok: true });
       },

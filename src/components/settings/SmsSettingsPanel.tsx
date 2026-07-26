@@ -94,9 +94,12 @@ export function SmsSettingsPanel() {
   const countryOptions = useMemo(() => {
     const all = getCountries();
     const rest = all.filter((c) => !COMMON.includes(c)).sort();
-    const dn = new Intl.DisplayNames([typeof navigator !== "undefined" ? navigator.language : "en"], {
-      type: "region",
-    });
+    const dn = new Intl.DisplayNames(
+      [typeof navigator !== "undefined" ? navigator.language : "en"],
+      {
+        type: "region",
+      },
+    );
     return [...COMMON.filter((c) => all.includes(c)), ...rest].map((c) => ({
       code: c,
       label: `${dn.of(c) ?? c} (+${getCountryCallingCode(c)})`,
@@ -108,32 +111,35 @@ export function SmsSettingsPanel() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { data: me } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .maybeSingle();
+      const { data: me } = await supabase.from("profiles").select("store_id").maybeSingle();
       if (!me?.store_id) {
         toast.error("No store linked to your account");
         return;
       }
       const credentials =
         provider === "twilio"
-          ? { account_sid: accountSid.trim(), auth_token: authToken.trim(), from_number: fromNumber.trim() }
-          : { api_key: apiKey.trim(), api_secret: apiSecret.trim(), from_number: fromNumber.trim() };
+          ? {
+              account_sid: accountSid.trim(),
+              auth_token: authToken.trim(),
+              from_number: fromNumber.trim(),
+            }
+          : {
+              api_key: apiKey.trim(),
+              api_secret: apiSecret.trim(),
+              from_number: fromNumber.trim(),
+            };
 
-      const { error } = await supabase
-        .from("sms_settings")
-        .upsert(
-          {
-            store_id: me.store_id,
-            provider,
-            credentials,
-            sender_id: senderId.trim() || null,
-            default_country: defaultCountry,
-            enabled,
-          },
-          { onConflict: "store_id" },
-        );
+      const { error } = await supabase.from("sms_settings").upsert(
+        {
+          store_id: me.store_id,
+          provider,
+          credentials,
+          sender_id: senderId.trim() || null,
+          default_country: defaultCountry,
+          enabled,
+        },
+        { onConflict: "store_id" },
+      );
       if (error) throw error;
       toast.success("SMS settings saved");
       qc.invalidateQueries({ queryKey: ["sms-settings"] });
@@ -211,7 +217,10 @@ export function SmsSettingsPanel() {
           </div>
           <div>
             <Label className="text-xs">Default country</Label>
-            <Select value={defaultCountry} onValueChange={(v) => setDefaultCountry(v as CountryCode)}>
+            <Select
+              value={defaultCountry}
+              onValueChange={(v) => setDefaultCountry(v as CountryCode)}
+            >
               <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
@@ -264,7 +273,11 @@ export function SmsSettingsPanel() {
           <div className="space-y-3">
             <div>
               <Label className="text-xs">API Key</Label>
-              <Input value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" />
+              <Input
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                autoComplete="off"
+              />
             </div>
             <div>
               <Label className="text-xs">API Secret</Label>
@@ -280,7 +293,9 @@ export function SmsSettingsPanel() {
               <Input value={fromNumber} onChange={(e) => setFromNumber(e.target.value)} />
             </div>
             <p className="text-xs text-muted-foreground">
-              Enter the production credentials from your {SMS_PROVIDERS.find((p) => p.id === provider)?.label} account. For Plivo, use Auth ID as the API Key and Auth Token as the API Secret.
+              Enter the production credentials from your{" "}
+              {SMS_PROVIDERS.find((p) => p.id === provider)?.label} account. For Plivo, use Auth ID
+              as the API Key and Auth Token as the API Secret.
             </p>
           </div>
         )}

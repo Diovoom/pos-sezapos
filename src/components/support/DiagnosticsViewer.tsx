@@ -67,7 +67,11 @@ function Section({ name, value }: { name: string; value: unknown }) {
       </button>
       {open && (
         <div className="px-2.5 pb-2 text-[11px] font-mono">
-          {isObj ? <KVGrid data={value as Record<string, unknown>} /> : <span className="text-foreground">{String(value)}</span>}
+          {isObj ? (
+            <KVGrid data={value as Record<string, unknown>} />
+          ) : (
+            <span className="text-foreground">{String(value)}</span>
+          )}
         </div>
       )}
     </div>

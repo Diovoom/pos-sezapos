@@ -18,34 +18,77 @@ export type DeviceInfo = {
 };
 
 type NavigatorLike = Navigator & {
-  usb?: { requestDevice: (o: { filters: unknown[] }) => Promise<{ productName?: string; manufacturerName?: string; serialNumber?: string; open: () => Promise<void> }> };
-  bluetooth?: { requestDevice: (o: { acceptAllDevices?: boolean; filters?: unknown[]; optionalServices?: string[] }) => Promise<{ name?: string; id: string; gatt?: { connect: () => Promise<unknown> } }> };
-  serial?: { requestPort: () => Promise<{ open: (o: { baudRate: number }) => Promise<void>; getInfo: () => { usbVendorId?: number; usbProductId?: number } }> };
-  hid?: { requestDevice: (o: { filters: unknown[] }) => Promise<Array<{ productName?: string; vendorId?: number; productId?: number; open: () => Promise<void> }>> };
+  usb?: {
+    requestDevice: (o: { filters: unknown[] }) => Promise<{
+      productName?: string;
+      manufacturerName?: string;
+      serialNumber?: string;
+      open: () => Promise<void>;
+    }>;
+  };
+  bluetooth?: {
+    requestDevice: (o: {
+      acceptAllDevices?: boolean;
+      filters?: unknown[];
+      optionalServices?: string[];
+    }) => Promise<{ name?: string; id: string; gatt?: { connect: () => Promise<unknown> } }>;
+  };
+  serial?: {
+    requestPort: () => Promise<{
+      open: (o: { baudRate: number }) => Promise<void>;
+      getInfo: () => { usbVendorId?: number; usbProductId?: number };
+    }>;
+  };
+  hid?: {
+    requestDevice: (o: { filters: unknown[] }) => Promise<
+      Array<{
+        productName?: string;
+        vendorId?: number;
+        productId?: number;
+        open: () => Promise<void>;
+      }>
+    >;
+  };
 };
 
 export const support = {
-  get usb() { return typeof navigator !== "undefined" && !!(navigator as NavigatorLike).usb; },
-  get bluetooth() { return typeof navigator !== "undefined" && !!(navigator as NavigatorLike).bluetooth; },
-  get serial() { return typeof navigator !== "undefined" && !!(navigator as NavigatorLike).serial; },
-  get hid() { return typeof navigator !== "undefined" && !!(navigator as NavigatorLike).hid; },
+  get usb() {
+    return typeof navigator !== "undefined" && !!(navigator as NavigatorLike).usb;
+  },
+  get bluetooth() {
+    return typeof navigator !== "undefined" && !!(navigator as NavigatorLike).bluetooth;
+  },
+  get serial() {
+    return typeof navigator !== "undefined" && !!(navigator as NavigatorLike).serial;
+  },
+  get hid() {
+    return typeof navigator !== "undefined" && !!(navigator as NavigatorLike).hid;
+  },
 };
 
 const STORE_KEY = "pos.hardware.v1";
 
 function load(): DeviceInfo[] {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY) ?? "[]"); } catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(STORE_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
 }
 function save(list: DeviceInfo[]) {
   localStorage.setItem(STORE_KEY, JSON.stringify(list));
   window.dispatchEvent(new CustomEvent("pos-hardware-change"));
 }
 
-export function listDevices(): DeviceInfo[] { return load(); }
+export function listDevices(): DeviceInfo[] {
+  return load();
+}
 export function getDevice(kind: HardwareKind): DeviceInfo | undefined {
   return load().find((d) => d.kind === kind && d.connected);
 }
-export function removeDevice(id: string) { save(load().filter((d) => d.id !== id)); }
+export function removeDevice(id: string) {
+  save(load().filter((d) => d.id !== id));
+}
 export function setConnected(id: string, connected: boolean) {
   const list = load().map((d) => (d.id === id ? { ...d, connected } : d));
   save(list);
@@ -79,7 +122,10 @@ export async function connectUsb(kind: HardwareKind): Promise<DeviceInfo> {
 export async function connectBluetooth(kind: HardwareKind): Promise<DeviceInfo> {
   const nav = navigator as NavigatorLike;
   if (!nav.bluetooth) throw new Error("Web Bluetooth not supported in this browser");
-  const dev = await nav.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: ["battery_service"] });
+  const dev = await nav.bluetooth.requestDevice({
+    acceptAllDevices: true,
+    optionalServices: ["battery_service"],
+  });
   await dev.gatt?.connect();
   const info: DeviceInfo = {
     id: dev.id ?? crypto.randomUUID(),
@@ -132,7 +178,10 @@ export async function testDevice(id: string): Promise<{ ok: boolean; message: st
   const dev = load().find((d) => d.id === id);
   if (!dev) return { ok: false, message: "Device not found" };
   // A real driver would send a status/ping frame. We report connection state.
-  return { ok: dev.connected, message: dev.connected ? "Device responded" : "Device not connected" };
+  return {
+    ok: dev.connected,
+    message: dev.connected ? "Device responded" : "Device not connected",
+  };
 }
 
 /**
@@ -148,9 +197,14 @@ export function openCashDrawer(reason: string): { simulated: boolean; deviceId: 
   const simulated = !drawer;
   try {
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("pos-drawer-open", { detail: { reason, simulated, at: new Date().toISOString() } }));
+      window.dispatchEvent(
+        new CustomEvent("pos-drawer-open", {
+          detail: { reason, simulated, at: new Date().toISOString() },
+        }),
+      );
     }
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
   return { simulated, deviceId: drawer?.id ?? null };
 }
-

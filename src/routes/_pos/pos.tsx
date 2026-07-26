@@ -7,23 +7,64 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/pos/AppShell";
 import { fmtCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Plus, Minus, Trash2, Search, Banknote, CreditCard, Smartphone, Wallet, Gift, SplitSquareHorizontal, Loader2, Camera, Calculator, Percent, Heart, RotateCcw, ShoppingCart, ImageIcon, AlertTriangle } from "lucide-react";
+import {
+  Plus,
+  Minus,
+  Trash2,
+  Search,
+  Banknote,
+  CreditCard,
+  Smartphone,
+  Wallet,
+  Gift,
+  SplitSquareHorizontal,
+  Loader2,
+  Camera,
+  Calculator,
+  Percent,
+  Heart,
+  RotateCcw,
+  ShoppingCart,
+  ImageIcon,
+  AlertTriangle,
+} from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
-import { PaymentDialog, type CompletedPayment, type PaymentMethod, type PaymentAllocation } from "@/components/pos/PaymentDialog";
+import {
+  PaymentDialog,
+  type CompletedPayment,
+  type PaymentMethod,
+  type PaymentAllocation,
+} from "@/components/pos/PaymentDialog";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
-import { AgeVerificationDialog, type RestrictedItem, type SuccessfulVerification } from "@/components/pos/AgeVerificationDialog";
+import {
+  AgeVerificationDialog,
+  type RestrictedItem,
+  type SuccessfulVerification,
+} from "@/components/pos/AgeVerificationDialog";
 import { loadAgeSettings } from "@/lib/age-verification";
 import { useProductImageUrl } from "@/lib/pos/product-images";
 import { CustomItemDialog } from "@/components/pos/CustomItemDialog";
 import { DiscountDialog, type DiscountValue } from "@/components/pos/DiscountDialog";
-import { LoyaltyDialog, accrueLoyaltyPoints, spendLoyaltyPoints, type LoyaltyCustomer } from "@/components/pos/LoyaltyDialog";
+import {
+  LoyaltyDialog,
+  accrueLoyaltyPoints,
+  spendLoyaltyPoints,
+  type LoyaltyCustomer,
+} from "@/components/pos/LoyaltyDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
 import { useMe } from "@/hooks/useMe";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { logAudit } from "@/lib/audit-log";
 import { useOnline, isOnlineNow } from "@/lib/offline/useOnline";
@@ -42,7 +83,10 @@ import {
 import { syncNow } from "@/lib/offline/sync";
 import { useNativeActivitySignal } from "@/lib/native-activity";
 import { isNativeMode } from "@/lib/native";
-import { QuickAddProductDialog, type QuickAddedProduct } from "@/components/pos/QuickAddProductDialog";
+import {
+  QuickAddProductDialog,
+  type QuickAddedProduct,
+} from "@/components/pos/QuickAddProductDialog";
 import { useTranslation } from "react-i18next";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
@@ -60,13 +104,19 @@ function friendlyDbMessage(err: unknown, fallback: string): string {
   const e = err as { code?: string; message?: string } | null | undefined;
   if (!e) return fallback;
   switch (e.code) {
-    case "42501": return "You don't have permission to record sales. Contact your manager.";
-    case "23505": return "Duplicate sale detected. Please refresh and try again.";
-    case "23503": return "Referenced product or record was not found.";
-    case "23502": return "Sale is missing required information.";
-    case "23514": return "Sale contains invalid values.";
+    case "42501":
+      return "You don't have permission to record sales. Contact your manager.";
+    case "23505":
+      return "Duplicate sale detected. Please refresh and try again.";
+    case "23503":
+      return "Referenced product or record was not found.";
+    case "23502":
+      return "Sale is missing required information.";
+    case "23514":
+      return "Sale contains invalid values.";
     case "PGRST301":
-    case "PGRST302": return "Your session has expired. Please sign in again.";
+    case "PGRST302":
+      return "Your session has expired. Please sign in again.";
     default:
       if (e.message && /network|fetch|failed to fetch/i.test(e.message)) {
         return "Network error. Check your connection and try again.";
@@ -75,11 +125,17 @@ function friendlyDbMessage(err: unknown, fallback: string): string {
   }
 }
 
-
-
-
 export const Route = createFileRoute("/_pos/pos")({
-  head: () => ({ meta: [{ title: "Checkout — SEZA POS" }, { name: "description", content: "Fast POS checkout with barcode scanning, custom items, discounts, and card + cash." }] }),
+  head: () => ({
+    meta: [
+      { title: "Checkout — SEZA POS" },
+      {
+        name: "description",
+        content:
+          "Fast POS checkout with barcode scanning, custom items, discounts, and card + cash.",
+      },
+    ],
+  }),
   component: PosPage,
 });
 
@@ -165,7 +221,10 @@ export function PosPage() {
     // must not appear. Detection still runs for the mobile web POS.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
-    if (isNative) { setHasCameraCap(false); return; }
+    if (isNative) {
+      setHasCameraCap(false);
+      return;
+    }
     const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
     const hasMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     setHasCameraCap(coarse && hasMedia);
@@ -196,7 +255,11 @@ export function PosPage() {
       try {
         const { data: u } = await supabase.auth.getUser();
         if (!u.user) return (await readMeta("profile")) ?? null;
-        const { data, error } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", u.user.id)
+          .maybeSingle();
         if (error) throw error;
         if (data) await cacheMeta("profile", data);
         return data;
@@ -230,7 +293,10 @@ export function PosPage() {
     queryFn: async () => {
       if (!isOnlineNow()) return (await readMeta<Category[]>("categories")) ?? [];
       try {
-        const { data, error } = await supabase.from("categories").select("id,name").order("sort_order");
+        const { data, error } = await supabase
+          .from("categories")
+          .select("id,name")
+          .order("sort_order");
         if (error) throw error;
         const rows = data ?? [];
         await cacheMeta("categories", rows);
@@ -251,7 +317,9 @@ export function PosPage() {
       try {
         const { data, error } = await supabase
           .from("products")
-          .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category")
+          .select(
+            "id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category",
+          )
           .eq("status", "active")
           .order("name");
         if (error) throw error;
@@ -269,7 +337,8 @@ export function PosPage() {
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
       if (activeCategory === "fav" && !q && !p.is_favorite) return false;
-      if (activeCategory !== "fav" && activeCategory !== "all" && p.category_id !== activeCategory) return false;
+      if (activeCategory !== "fav" && activeCategory !== "all" && p.category_id !== activeCategory)
+        return false;
       if (!q) return true;
       return (
         p.name.toLowerCase().includes(q) ||
@@ -306,7 +375,6 @@ export function PosPage() {
     return false;
   };
 
-
   useEffect(() => {
     window.setTimeout(() => searchRef.current?.focus(), 50);
 
@@ -321,9 +389,9 @@ export function PosPage() {
       // finish with Enter. Capture that input even if the cashier tapped
       // somewhere else, while leaving normal typing in form fields alone.
       const target = e.target as HTMLElement | null;
-      const isEditable = !!target && (
-        target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable
-      );
+      const isEditable =
+        !!target &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
       if (isEditable) return;
 
       const now = Date.now();
@@ -339,7 +407,9 @@ export function PosPage() {
             localStorage.setItem("pos.hw.scanner.status", "connected");
             localStorage.setItem("pos.hw.scanner.lastSeen", String(Date.now()));
             window.dispatchEvent(new Event("seza-hardware-status"));
-          } catch { /* hardware status is best-effort */ }
+          } catch {
+            /* hardware status is best-effort */
+          }
           if (!tryAddByCode(code)) toast.error(`No product found for ${code}`);
         }
         return;
@@ -383,19 +453,28 @@ export function PosPage() {
       return;
     }
 
-    setCart((cur) => cur.map((line) => {
-      if (line.product.id !== id) return line;
-      const isCustomItem = line.product.id.startsWith("custom-");
-      const availableStock = Math.max(0, Number(line.product.stock ?? 0));
-      if (!isCustomItem && qty > availableStock) {
-        toast.error(`Only ${availableStock} ${line.product.name} available.`);
-        return line;
-      }
-      return { ...line, qty };
-    }));
+    setCart((cur) =>
+      cur.map((line) => {
+        if (line.product.id !== id) return line;
+        const isCustomItem = line.product.id.startsWith("custom-");
+        const availableStock = Math.max(0, Number(line.product.stock ?? 0));
+        if (!isCustomItem && qty > availableStock) {
+          toast.error(`Only ${availableStock} ${line.product.name} available.`);
+          return line;
+        }
+        return { ...line, qty };
+      }),
+    );
   };
   const removeLine = (id: string) => setCart((cur) => cur.filter((l) => l.product.id !== id));
-  const clearCart = () => { setCart([]); setAgeVerification(null); setDiscount(null); setLoyalty(null); setLoyaltyRedemption(0); setCartOpen(false); };
+  const clearCart = () => {
+    setCart([]);
+    setAgeVerification(null);
+    setDiscount(null);
+    setLoyalty(null);
+    setLoyaltyRedemption(0);
+    setCartOpen(false);
+  };
 
   const addCustomItem = (item: { name: string; price: number; taxable: boolean }) => {
     const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -445,10 +524,16 @@ export function PosPage() {
     : discount.mode === "percent"
       ? Math.min(subtotal, Math.round(subtotal * discount.value) / 100)
       : Math.min(subtotal, Math.round(discount.value * 100) / 100);
-  const effectiveLoyaltyRedemption = Math.min(Math.max(0, subtotal - manualDiscount), loyaltyRedemption);
+  const effectiveLoyaltyRedemption = Math.min(
+    Math.max(0, subtotal - manualDiscount),
+    loyaltyRedemption,
+  );
   const discountAmount = Math.round((manualDiscount + effectiveLoyaltyRedemption) * 100) / 100;
   const discountRatio = subtotal > 0 ? discountAmount / subtotal : 0;
-  const taxableBase = cart.reduce((s, l) => s + (l.product.taxable ? l.product.price * l.qty : 0), 0);
+  const taxableBase = cart.reduce(
+    (s, l) => s + (l.product.taxable ? l.product.price * l.qty : 0),
+    0,
+  );
   const taxableAfterDiscount = Math.max(0, taxableBase * (1 - discountRatio));
   const tax = Math.round(taxableAfterDiscount * taxRate * 100) / 100;
   const total = Math.max(0, Math.round((subtotal - discountAmount + tax) * 100) / 100);
@@ -462,7 +547,10 @@ export function PosPage() {
     networkMode: "always",
     mutationFn: async (payment: CompletedPayment) => {
       if (storeSwitchBlocked) {
-        throw new SaleError("auth", "Checkout is locked because this terminal has unsynced records from another store. Open Pending Sync or contact support.");
+        throw new SaleError(
+          "auth",
+          "Checkout is locked because this terminal has unsynced records from another store. Open Pending Sync or contact support.",
+        );
       }
       // ---- OFFLINE CASH PATH ---------------------------------------------
       // When offline, only cash is allowed. Save to IndexedDB, mark
@@ -474,7 +562,8 @@ export function PosPage() {
         const { data: sess } = await supabase.auth.getSession();
         const cachedProfile = await readMeta<{ id?: string } | null>("profile");
         const uid = sess.session?.user?.id ?? cachedProfile?.id ?? profile?.id ?? null;
-        if (!uid) throw new SaleError("auth", "You are signed out. Sign in while online, then try again.");
+        if (!uid)
+          throw new SaleError("auth", "You are signed out. Sign in while online, then try again.");
         const storeId = store?.id ?? (await readMeta<{ id?: string } | null>("store"))?.id ?? null;
         if (!storeId) {
           throw new SaleError(
@@ -489,7 +578,9 @@ export function PosPage() {
         try {
           const rs = await readMeta<{ id: string } | null>("open_register_session");
           registerSessionId = rs?.id ?? null;
-        } catch { /* noop */ }
+        } catch {
+          /* noop */
+        }
         await saveOfflineSale({
           id: localId,
           idempotency_key: localId,
@@ -504,7 +595,10 @@ export function PosPage() {
           updated_at: new Date().toISOString(),
           status: "pending",
           attempts: 0,
-          subtotal, tax, discount: discountAmount, total,
+          subtotal,
+          tax,
+          discount: discountAmount,
+          total,
           amount_tendered: payment.amountTendered,
           change_due: payment.changeDue,
           currency,
@@ -565,21 +659,30 @@ export function PosPage() {
       }));
       const allocations: PaymentAllocation[] = payment.allocations?.length
         ? payment.allocations
-        : [{
-            method: payment.method === "split" ? "card" : payment.method,
-            amount: total,
-            reference: payment.reference,
-            cardBrand: payment.cardBrand,
-            last4: payment.last4,
-          }];
-      const paymentRows = allocations.filter((allocation) => allocation.amount > 0).map((allocation) => ({
-        method: allocation.method === "tap" ? "tap_to_pay" : ["apple_pay", "google_pay"].includes(allocation.method) ? "card" : allocation.method,
-        amount: allocation.amount,
-        provider: allocation.provider ?? null,
-        provider_reference: allocation.reference ?? null,
-        status: "completed",
-        metadata: { card_brand: allocation.cardBrand ?? null, last4: allocation.last4 ?? null },
-      }));
+        : [
+            {
+              method: payment.method === "split" ? "card" : payment.method,
+              amount: total,
+              reference: payment.reference,
+              cardBrand: payment.cardBrand,
+              last4: payment.last4,
+            },
+          ];
+      const paymentRows = allocations
+        .filter((allocation) => allocation.amount > 0)
+        .map((allocation) => ({
+          method:
+            allocation.method === "tap"
+              ? "tap_to_pay"
+              : ["apple_pay", "google_pay"].includes(allocation.method)
+                ? "card"
+                : allocation.method,
+          amount: allocation.amount,
+          provider: allocation.provider ?? null,
+          provider_reference: allocation.reference ?? null,
+          status: "completed",
+          metadata: { card_brand: allocation.cardBrand ?? null, last4: allocation.last4 ?? null },
+        }));
 
       // 4. Atomically create header + items + payment ledger. Inventory
       // triggers run in the same PostgreSQL transaction.
@@ -664,10 +767,14 @@ export function PosPage() {
       if (!isOffline) {
         // Fire-and-forget: audit log failure must NOT cancel the sale.
         void import("@/lib/audit-log")
-          .then((m) => m.logAudit({
-            action: "sale.create", entity: "sale", entity_id: rd.transactionId,
-            details: { total, method: payment.method, items: cart.length },
-          }))
+          .then((m) =>
+            m.logAudit({
+              action: "sale.create",
+              entity: "sale",
+              entity_id: rd.transactionId,
+              details: { total, method: payment.method, items: cart.length },
+            }),
+          )
           .catch((err) => console.warn("[sale] audit log failed (non-fatal):", err));
       }
       clearCart();
@@ -681,12 +788,14 @@ export function PosPage() {
     onError: (e) => {
       // Always log the real error for developers
       console.error("[sale] finalize failed:", e);
-      const friendly = e instanceof SaleError
-        ? e.message
-        : "Unable to complete sale. Please try again.";
-      const detail = import.meta.env.DEV && e instanceof Error
-        ? (e instanceof SaleError && e.cause instanceof Error ? e.cause.message : e.message)
-        : undefined;
+      const friendly =
+        e instanceof SaleError ? e.message : "Unable to complete sale. Please try again.";
+      const detail =
+        import.meta.env.DEV && e instanceof Error
+          ? e instanceof SaleError && e.cause instanceof Error
+            ? e.cause.message
+            : e.message
+          : undefined;
       toast.error(friendly, detail ? { description: detail } : undefined);
     },
   });
@@ -695,9 +804,6 @@ export function PosPage() {
   // button, backgrounding, and resume flows can protect the transaction.
   // No-op on web (no shell listener registered).
   useNativeActivitySignal({ hasCart: cart.length > 0, paymentBusy: finalize.isPending });
-
-
-
 
   // Force cash tender while offline (card, tap, wallets need connectivity).
   useEffect(() => {
@@ -760,7 +866,9 @@ export function PosPage() {
       const channel = new BroadcastChannel("seza-customer-display");
       channel.postMessage(payload);
       channel.close();
-    } catch { /* second display support is best-effort */ }
+    } catch {
+      /* second display support is best-effort */
+    }
   }, [cart, subtotal, discountAmount, tax, total, currency, store?.name]);
 
   const cartPanel = (
@@ -768,7 +876,10 @@ export function PosPage() {
       <div className="px-4 py-3 flex items-center justify-between">
         <h2 className="font-semibold">{t("pos.current_sale")}</h2>
         {cart.length > 0 && (
-          <button onClick={clearCart} className="text-xs text-destructive font-medium hover:bg-destructive/10 px-2 py-1 rounded">
+          <button
+            onClick={clearCart}
+            className="text-xs text-destructive font-medium hover:bg-destructive/10 px-2 py-1 rounded"
+          >
             {t("pos.clear")}
           </button>
         )}
@@ -776,10 +887,15 @@ export function PosPage() {
 
       <div className="flex-1 overflow-y-auto px-4 space-y-2">
         {cart.length === 0 ? (
-          <div className="h-full grid place-items-center text-sm text-muted-foreground py-10">{t("pos.cart_empty")}</div>
+          <div className="h-full grid place-items-center text-sm text-muted-foreground py-10">
+            {t("pos.cart_empty")}
+          </div>
         ) : (
           cart.map((line) => (
-            <div key={line.product.id} className="flex items-start gap-2 rounded-lg border bg-background px-3 py-2 group">
+            <div
+              key={line.product.id}
+              className="flex items-start gap-2 rounded-lg border bg-background px-3 py-2 group"
+            >
               <div className="size-8 rounded-md bg-muted grid place-items-center text-xs font-mono font-bold shrink-0">
                 {line.qty}
               </div>
@@ -789,10 +905,20 @@ export function PosPage() {
                   {fmtCurrency(Number(line.product.price), currency)} ea
                 </p>
                 <div className="flex items-center gap-1 mt-1">
-                  <Button size="icon" variant="outline" className="size-6" onClick={() => setQty(line.product.id, line.qty - 1)}>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="size-6"
+                    onClick={() => setQty(line.product.id, line.qty - 1)}
+                  >
                     <Minus className="size-3" />
                   </Button>
-                  <Button size="icon" variant="outline" className="size-6" onClick={() => setQty(line.product.id, line.qty + 1)}>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="size-6"
+                    onClick={() => setQty(line.product.id, line.qty + 1)}
+                  >
                     <Plus className="size-3" />
                   </Button>
                   <Button
@@ -815,13 +941,24 @@ export function PosPage() {
         )}
       </div>
 
-      <div className="p-4 border-t bg-surface/40" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+      <div
+        className="p-4 border-t bg-surface/40"
+        style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+      >
         <div className="space-y-1.5 mb-4">
           <Row label={t("pos.subtotal")} value={fmtCurrency(subtotal, currency)} />
           {discount && (
             <div className="flex justify-between text-sm text-success">
-              <button className="underline underline-offset-2 disabled:no-underline disabled:opacity-50" disabled={!canDiscount} onClick={() => canDiscount && setDiscountOpen(true)}>
-                Discount{discount.code ? ` (${discount.code})` : ""} ({discount.mode === "percent" ? `${discount.value}%` : fmtCurrency(discount.value, currency)})
+              <button
+                className="underline underline-offset-2 disabled:no-underline disabled:opacity-50"
+                disabled={!canDiscount}
+                onClick={() => canDiscount && setDiscountOpen(true)}
+              >
+                Discount{discount.code ? ` (${discount.code})` : ""} (
+                {discount.mode === "percent"
+                  ? `${discount.value}%`
+                  : fmtCurrency(discount.value, currency)}
+                )
               </button>
               <span className="font-mono">− {fmtCurrency(manualDiscount, currency)}</span>
             </div>
@@ -831,10 +968,15 @@ export function PosPage() {
               <button className="underline underline-offset-2" onClick={() => setLoyaltyOpen(true)}>
                 Loyalty redeem
               </button>
-              <span className="font-mono">− {fmtCurrency(effectiveLoyaltyRedemption, currency)}</span>
+              <span className="font-mono">
+                − {fmtCurrency(effectiveLoyaltyRedemption, currency)}
+              </span>
             </div>
           )}
-          <Row label={`${t("pos.tax")} (${(taxRate * 100).toFixed(2)}%)`} value={fmtCurrency(tax, currency)} />
+          <Row
+            label={`${t("pos.tax")} (${(taxRate * 100).toFixed(2)}%)`}
+            value={fmtCurrency(tax, currency)}
+          />
           <div className="flex justify-between text-2xl font-bold pt-2 border-t border-dashed">
             <span>{t("pos.total")}</span>
             <span className="font-mono">{fmtCurrency(total, currency)}</span>
@@ -849,7 +991,8 @@ export function PosPage() {
 
         {!online && (
           <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-            Offline mode — cash sales will be saved on this register and synced when connection returns. Card payments require an internet connection.
+            Offline mode — cash sales will be saved on this register and synced when connection
+            returns. Card payments require an internet connection.
           </div>
         )}
         <div className="grid grid-cols-3 gap-2 mb-3">
@@ -909,11 +1052,15 @@ export function PosPage() {
           disabled={cart.length === 0 || finalize.isPending || !canCreateSale || storeSwitchBlocked}
           className="w-full h-16 text-lg font-bold rounded-xl shadow-[var(--shadow-charge)]"
         >
-          {finalize.isPending
-            ? <Loader2 className="size-5 animate-spin" />
-            : needsAgeVerification
-              ? <>Verify Age to Charge {fmtCurrency(total, currency)}</>
-              : <>{t("pos.charge")} {fmtCurrency(total, currency)}</>}
+          {finalize.isPending ? (
+            <Loader2 className="size-5 animate-spin" />
+          ) : needsAgeVerification ? (
+            <>Verify Age to Charge {fmtCurrency(total, currency)}</>
+          ) : (
+            <>
+              {t("pos.charge")} {fmtCurrency(total, currency)}
+            </>
+          )}
         </Button>
       </div>
     </>
@@ -938,14 +1085,16 @@ export function PosPage() {
           <AlertTriangle className="size-4 mt-0.5 shrink-0" />
           <div>
             <p className="font-semibold">Checkout locked for financial-record safety</p>
-            <p className="text-xs mt-0.5">This terminal still has unsynced records from its previous store. Open Pending Sync and contact support before changing stores.</p>
+            <p className="text-xs mt-0.5">
+              This terminal still has unsynced records from its previous store. Open Pending Sync
+              and contact support before changing stores.
+            </p>
           </div>
         </div>
       )}
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         <section className="flex-1 md:flex-1 flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
-
           <div className="p-4 flex flex-col gap-3">
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -985,12 +1134,25 @@ export function PosPage() {
               )}
             </div>
 
-
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-              <CategoryChip active={activeCategory === "fav"} onClick={() => setActiveCategory("fav")}>{t("pos.favorites")}</CategoryChip>
-              <CategoryChip active={activeCategory === "all"} onClick={() => setActiveCategory("all")}>{t("pos.all")}</CategoryChip>
+              <CategoryChip
+                active={activeCategory === "fav"}
+                onClick={() => setActiveCategory("fav")}
+              >
+                {t("pos.favorites")}
+              </CategoryChip>
+              <CategoryChip
+                active={activeCategory === "all"}
+                onClick={() => setActiveCategory("all")}
+              >
+                {t("pos.all")}
+              </CategoryChip>
               {categories.map((c) => (
-                <CategoryChip key={c.id} active={activeCategory === c.id} onClick={() => setActiveCategory(c.id)}>
+                <CategoryChip
+                  key={c.id}
+                  active={activeCategory === c.id}
+                  onClick={() => setActiveCategory(c.id)}
+                >
                   {c.name}
                 </CategoryChip>
               ))}
@@ -1004,9 +1166,16 @@ export function PosPage() {
                 disabled={!canManage}
                 title={canManage ? "Add a custom item" : "Owner or manager approval required"}
               >
-                <Plus className="size-4 mr-2" />Add item
+                <Plus className="size-4 mr-2" />
+                Add item
               </Button>
-              <Button variant="outline" className="h-10" onClick={() => setDiscountOpen(true)} disabled={!canDiscount} title={canDiscount ? undefined : "Discount permission required"}>
+              <Button
+                variant="outline"
+                className="h-10"
+                onClick={() => setDiscountOpen(true)}
+                disabled={!canDiscount}
+                title={canDiscount ? undefined : "Discount permission required"}
+              >
                 <Percent className="size-4 mr-2" />
                 {discount ? "Edit discount" : "Discount"}
               </Button>
@@ -1020,7 +1189,8 @@ export function PosPage() {
                 title={canRefund ? "Open refund workflow" : "Manager approval will be required"}
                 onClick={() => navigate({ to: "/refunds" })}
               >
-                <RotateCcw className="size-4 mr-2" />Refund
+                <RotateCcw className="size-4 mr-2" />
+                Refund
               </Button>
             </div>
           </div>
@@ -1035,7 +1205,9 @@ export function PosPage() {
               <div className="grid place-items-center h-full text-center text-sm text-muted-foreground">
                 <div>
                   <p className="mb-2">No products yet.</p>
-                  <a href="/products" className="text-primary font-medium">Add your first product →</a>
+                  <a href="/products" className="text-primary font-medium">
+                    Add your first product →
+                  </a>
                 </div>
               </div>
             ) : (
@@ -1044,7 +1216,6 @@ export function PosPage() {
                   <ProductTile key={p.id} product={p} currency={currency} onAdd={addToCart} />
                 ))}
               </div>
-
             )}
           </div>
         </section>
@@ -1079,9 +1250,7 @@ export function PosPage() {
           <SheetHeader className="p-4 pb-0">
             <SheetTitle>{t("pos.current_sale")}</SheetTitle>
           </SheetHeader>
-          <div className="flex-1 flex flex-col min-h-0">
-            {cartPanel}
-          </div>
+          <div className="flex-1 flex flex-col min-h-0">{cartPanel}</div>
         </SheetContent>
       </Sheet>
 
@@ -1097,7 +1266,6 @@ export function PosPage() {
         // is friction, not security — no payment has committed yet.
         bypassCancelApproval={canCancelTender}
       />
-
 
       <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receipt} />
 
@@ -1151,7 +1319,6 @@ export function PosPage() {
         }}
       />
 
-
       <DiscountDialog
         open={discountOpen}
         onOpenChange={setDiscountOpen}
@@ -1168,15 +1335,24 @@ export function PosPage() {
         currency={currency}
         current={loyalty}
         redemption={loyaltyRedemption}
-        onApply={(cust, amt) => { setLoyalty(cust); setLoyaltyRedemption(amt); }}
+        onApply={(cust, amt) => {
+          setLoyalty(cust);
+          setLoyaltyRedemption(amt);
+        }}
       />
 
-      <Dialog open={!!voidLine} onOpenChange={(v) => { if (!v) setVoidLine(null); }}>
+      <Dialog
+        open={!!voidLine}
+        onOpenChange={(v) => {
+          if (!v) setVoidLine(null);
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Void item</DialogTitle>
             <DialogDescription>
-              Remove <span className="font-semibold text-foreground">{voidLine?.product.name}</span> from the current sale. This is recorded in the shift audit log.
+              Remove <span className="font-semibold text-foreground">{voidLine?.product.name}</span>{" "}
+              from the current sale. This is recorded in the shift audit log.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -1190,7 +1366,9 @@ export function PosPage() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setVoidLine(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setVoidLine(null)}>
+              Cancel
+            </Button>
             <Button
               variant="destructive"
               onClick={() => {
@@ -1220,12 +1398,18 @@ export function PosPage() {
         </DialogContent>
       </Dialog>
     </>
-
-
   );
 }
 
-function ProductTile({ product, currency, onAdd }: { product: Product; currency: string; onAdd: (p: Product) => void }) {
+function ProductTile({
+  product,
+  currency,
+  onAdd,
+}: {
+  product: Product;
+  currency: string;
+  onAdd: (p: Product) => void;
+}) {
   const url = useProductImageUrl(product.image_url);
   return (
     <button
@@ -1244,20 +1428,40 @@ function ProductTile({ product, currency, onAdd }: { product: Product; currency:
           <ImageIcon className="size-8 text-muted-foreground/35" />
         </div>
       )}
-      {url && <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />}
-      <div className={cn("text-[10px] font-mono relative", url ? "text-white/90" : "text-muted-foreground group-hover:text-primary")}>
+      {url && (
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+      )}
+      <div
+        className={cn(
+          "text-[10px] font-mono relative",
+          url ? "text-white/90" : "text-muted-foreground group-hover:text-primary",
+        )}
+      >
         {fmtCurrency(Number(product.price), currency)}
       </div>
       <div className="relative">
-        <div className={cn("text-sm font-semibold leading-tight line-clamp-2", url && "text-white")}>{product.name}</div>
-        <div className={cn("text-[10px] mt-1", url ? "text-white/70" : "text-muted-foreground")}>Stock: {Number(product.stock)}</div>
+        <div
+          className={cn("text-sm font-semibold leading-tight line-clamp-2", url && "text-white")}
+        >
+          {product.name}
+        </div>
+        <div className={cn("text-[10px] mt-1", url ? "text-white/70" : "text-muted-foreground")}>
+          Stock: {Number(product.stock)}
+        </div>
       </div>
     </button>
   );
 }
 
-
-function CategoryChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function CategoryChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       onClick={onClick}

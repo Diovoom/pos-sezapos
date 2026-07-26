@@ -7,13 +7,7 @@ import { Logo } from "./Logo";
  * has no logo, show their short POS display text/initials instead of a broken
  * image or the old placeholder mark.
  */
-export function StoreLogo({
-  className,
-  alt,
-}: {
-  className?: string;
-  alt?: string;
-}) {
+export function StoreLogo({ className, alt }: { className?: string; alt?: string }) {
   const { data, isLoading } = useStoreBranding();
   const label = alt ?? data?.name ?? "Store logo";
 

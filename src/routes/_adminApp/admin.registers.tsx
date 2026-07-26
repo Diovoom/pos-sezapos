@@ -9,7 +9,9 @@ import { useAdminPermissions } from "@/lib/admin/permissions";
 import { adminListPairedDevices } from "@/lib/admin/admin.functions";
 
 export const Route = createFileRoute("/_adminApp/admin/registers")({
-  head: () => ({ meta: [{ title: "Registers — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({
+    meta: [{ title: "Registers — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: RegistersPage,
 });
 
@@ -32,23 +34,55 @@ function RegistersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Paired POS registers</h1>
-        <p className="text-sm text-muted-foreground">Android POS devices paired to merchant stores. This is the source of truth for register fleet health; card readers live under Devices.</p>
+        <p className="text-sm text-muted-foreground">
+          Android POS devices paired to merchant stores. This is the source of truth for register
+          fleet health; card readers live under Devices.
+        </p>
       </div>
       <Card>
         <CardHeader className="flex flex-row items-center gap-3">
-          <Input placeholder="Search label…" value={q} onChange={(e) => { setPage(1); setQ(e.target.value); }} className="max-w-sm" />
+          <Input
+            placeholder="Search label…"
+            value={q}
+            onChange={(e) => {
+              setPage(1);
+              setQ(e.target.value);
+            }}
+            className="max-w-sm"
+          />
           <div className="flex gap-1">
             {["all", "active", "revoked"].map((s) => (
-              <Button key={s} size="sm" variant={status === s ? "default" : "outline"} onClick={() => { setPage(1); setStatus(s); }}>{s}</Button>
+              <Button
+                key={s}
+                size="sm"
+                variant={status === s ? "default" : "outline"}
+                onClick={() => {
+                  setPage(1);
+                  setStatus(s);
+                }}
+              >
+                {s}
+              </Button>
             ))}
           </div>
-          <CardTitle className="ml-auto text-sm font-normal text-muted-foreground">{data?.count ?? 0} devices</CardTitle>
+          <CardTitle className="ml-auto text-sm font-normal text-muted-foreground">
+            {data?.count ?? 0} devices
+          </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : (
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (
             <table className="w-full text-sm min-w-[800px]">
               <thead className="text-left text-xs uppercase text-muted-foreground">
-                <tr><th className="py-2">Register</th><th>Store</th><th>Platform</th><th>App</th><th>Last seen</th><th>Status</th></tr>
+                <tr>
+                  <th className="py-2">Register</th>
+                  <th>Store</th>
+                  <th>Platform</th>
+                  <th>App</th>
+                  <th>Last seen</th>
+                  <th>Status</th>
+                </tr>
               </thead>
               <tbody>
                 {(data?.rows ?? []).map((d: any) => (
@@ -60,21 +94,43 @@ function RegistersPage() {
                     <td className="text-xs text-muted-foreground">
                       {d.last_seen_at ? (
                         <span className="flex items-center gap-2">
-                          <span className={`inline-block h-2 w-2 rounded-full ${d.online ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
+                          <span
+                            className={`inline-block h-2 w-2 rounded-full ${d.online ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                          />
                           {new Date(d.last_seen_at).toLocaleString()}
                         </span>
-                      ) : "never"}
+                      ) : (
+                        "never"
+                      )}
                     </td>
-                    <td><Badge variant={d.status === "active" ? "default" : "destructive"}>{d.status}</Badge></td>
+                    <td>
+                      <Badge variant={d.status === "active" ? "default" : "destructive"}>
+                        {d.status}
+                      </Badge>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
           <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Prev</Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              Prev
+            </Button>
             <span>Page {page}</span>
-            <Button size="sm" variant="outline" disabled={(data?.rows.length ?? 0) < 25} onClick={() => setPage((p) => p + 1)}>Next</Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={(data?.rows.length ?? 0) < 25}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
           </div>
         </CardContent>
       </Card>

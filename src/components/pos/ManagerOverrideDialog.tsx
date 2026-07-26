@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { verifyManagerPin } from "@/lib/overrides.functions";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -33,7 +39,9 @@ export function ManagerOverrideDialog({
 
   useEffect(() => {
     if (open) {
-      setPin(""); setReason(""); setBusy(false);
+      setPin("");
+      setReason("");
+      setBusy(false);
       setTimeout(() => pinRef.current?.focus(), 50);
     }
   }, [open]);
@@ -70,7 +78,10 @@ export function ManagerOverrideDialog({
             <Label>Manager PIN</Label>
             <Input
               ref={pinRef}
-              type="password" inputMode="numeric" maxLength={8} value={pin}
+              type="password"
+              inputMode="numeric"
+              maxLength={8}
+              value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
               placeholder="Enter manager or owner PIN"
               onKeyDown={(e) => e.key === "Enter" && submit()}
@@ -81,10 +92,16 @@ export function ManagerOverrideDialog({
           </div>
           <div className="space-y-1">
             <Label>Reason (optional)</Label>
-            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Context for audit log" />
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Context for audit log"
+            />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+              Cancel
+            </Button>
             <Button onClick={submit} disabled={busy || pin.length < 4}>
               {busy && <Loader2 className="size-4 animate-spin mr-2" />}Approve
             </Button>

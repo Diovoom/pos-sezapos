@@ -74,7 +74,6 @@ export const Route = createFileRoute("/lovable/sms/send")({
           );
         }
 
-
         type Body = {
           to?: string;
           body?: string;
@@ -92,7 +91,10 @@ export const Route = createFileRoute("/lovable/sms/send")({
         const to = (payload.to ?? "").trim();
         const body = (payload.body ?? "").trim();
         if (!/^\+[1-9]\d{6,14}$/.test(to)) {
-          return jsonResponse({ error: "Recipient phone must be in E.164 format" }, { status: 400 });
+          return jsonResponse(
+            { error: "Recipient phone must be in E.164 format" },
+            { status: 400 },
+          );
         }
         if (body.length < 1 || body.length > 1600) {
           return jsonResponse({ error: "Message body must be 1–1600 characters" }, { status: 400 });
@@ -161,7 +163,7 @@ export const Route = createFileRoute("/lovable/sms/send")({
           provider,
           recipient_phone: to,
           status: result.ok ? "sent" : "failed",
-          provider_message_id: result.ok ? result.providerMessageId ?? null : null,
+          provider_message_id: result.ok ? (result.providerMessageId ?? null) : null,
           provider_response: (result as any).raw ?? null,
           error_message: result.ok ? null : result.error,
           message_body: body,
