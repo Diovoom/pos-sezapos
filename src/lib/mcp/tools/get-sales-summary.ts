@@ -5,7 +5,8 @@ import { requireAuth, supabaseForUser } from "../supabase-client";
 export default defineTool({
   name: "get_sales_summary",
   title: "Get sales summary",
-  description: "Aggregate sales totals for the signed-in user's store over the last N days (default 1 = today).",
+  description:
+    "Aggregate sales totals for the signed-in user's store over the last N days (default 1 = today).",
   inputSchema: {
     days: z.number().int().min(1).max(90).default(1).describe("Rolling window in days."),
   },

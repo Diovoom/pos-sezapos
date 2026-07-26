@@ -4,7 +4,8 @@ import { requireAuth, supabaseForUser } from "../supabase-client";
 export default defineTool({
   name: "get_store_info",
   title: "Get store info",
-  description: "Get the signed-in user's SEZA POS store details (name, code, currency, plan status).",
+  description:
+    "Get the signed-in user's SEZA POS store details (name, code, currency, plan status).",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async (_input, ctx) => {
@@ -21,7 +22,9 @@ export default defineTool({
     }
     const { data: store, error } = await supabase
       .from("stores")
-      .select("id, name, store_code, country, currency, time_zone, plan_tier, plan_status, plan_period_end, trial_ends_at")
+      .select(
+        "id, name, store_code, country, currency, time_zone, plan_tier, plan_status, plan_period_end, trial_ends_at",
+      )
       .eq("id", profile.store_id)
       .maybeSingle();
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };

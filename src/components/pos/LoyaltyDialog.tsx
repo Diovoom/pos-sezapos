@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +34,11 @@ type Props = {
 const LS_KEY = "pos.loyalty.customers.v1";
 
 function loadCustomers(): Record<string, number> {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) ?? "{}"); } catch { return {}; }
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
 }
 function saveCustomers(map: Record<string, number>) {
   localStorage.setItem(LS_KEY, JSON.stringify(map));
@@ -91,7 +102,9 @@ export function LoyaltyDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Gift className="size-5 text-primary" /> Loyalty</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Gift className="size-5 text-primary" /> Loyalty
+          </DialogTitle>
           <DialogDescription>
             Look up a customer to earn or redeem loyalty points on this sale.
           </DialogDescription>
@@ -107,7 +120,9 @@ export function LoyaltyDialog({
               className="text-base h-11"
               autoFocus
             />
-            <Button variant="outline" onClick={lookup}>Look up</Button>
+            <Button variant="outline" onClick={lookup}>
+              Look up
+            </Button>
           </div>
         </div>
 
@@ -117,7 +132,9 @@ export function LoyaltyDialog({
               <Sparkles className="size-4 text-primary" />
               <span className="text-muted-foreground">Available points</span>
             </div>
-            <Badge variant="outline" className="font-mono">{points.toLocaleString()}</Badge>
+            <Badge variant="outline" className="font-mono">
+              {points.toLocaleString()}
+            </Badge>
           </div>
         )}
 
@@ -136,13 +153,16 @@ export function LoyaltyDialog({
             disabled={!identifier || points <= 0}
           />
           <p className="text-[11px] text-muted-foreground">
-            {redemptionRate * 100} points = {fmtCurrency(redemptionRate, currency)}. Earning: {earnPreview.toLocaleString()} pts on this sale.
+            {redemptionRate * 100} points = {fmtCurrency(redemptionRate, currency)}. Earning:{" "}
+            {earnPreview.toLocaleString()} pts on this sale.
           </p>
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
           {current && (
-            <Button variant="ghost" onClick={remove}>Remove</Button>
+            <Button variant="ghost" onClick={remove}>
+              Remove
+            </Button>
           )}
           <Button onClick={apply}>Apply</Button>
         </DialogFooter>

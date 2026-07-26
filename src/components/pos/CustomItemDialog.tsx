@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +25,11 @@ export function CustomItemDialog({ open, onOpenChange, currency, onAdd }: Props)
   const [taxable, setTaxable] = useState(true);
 
   useEffect(() => {
-    if (!open) { setRaw(""); setName(""); setTaxable(true); }
+    if (!open) {
+      setRaw("");
+      setName("");
+      setTaxable(true);
+    }
   }, [open]);
 
   const cents = raw === "" ? 0 : parseInt(raw, 10);
@@ -44,8 +54,16 @@ export function CustomItemDialog({ open, onOpenChange, currency, onAdd }: Props)
     onOpenChange(false);
   };
 
-  const Key = ({ label, onClick, variant = "outline", className = "" }: {
-    label: React.ReactNode; onClick: () => void; variant?: "outline" | "default" | "destructive" | "secondary"; className?: string;
+  const Key = ({
+    label,
+    onClick,
+    variant = "outline",
+    className = "",
+  }: {
+    label: React.ReactNode;
+    onClick: () => void;
+    variant?: "outline" | "default" | "destructive" | "secondary";
+    className?: string;
   }) => (
     <Button
       type="button"
@@ -73,11 +91,16 @@ export function CustomItemDialog({ open, onOpenChange, currency, onAdd }: Props)
 
           <div className="space-y-1">
             <Label>Item name (optional)</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Custom item" maxLength={80} />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Custom item"
+              maxLength={80}
+            />
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            {["1","2","3","4","5","6","7","8","9"].map((n) => (
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => (
               <Key key={n} label={n} onClick={() => push(n)} />
             ))}
             <Key label="00" onClick={() => push("00")} />
@@ -86,12 +109,18 @@ export function CustomItemDialog({ open, onOpenChange, currency, onAdd }: Props)
           </div>
 
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={taxable}
+              onChange={(e) => setTaxable(e.target.checked)}
+            />
             Taxable
           </label>
 
           <div className="flex gap-2">
-            <Button variant="ghost" className="flex-1" onClick={clear}>Clear</Button>
+            <Button variant="ghost" className="flex-1" onClick={clear}>
+              Clear
+            </Button>
             <Button className="flex-[2] h-12" disabled={!priceValid} onClick={submit}>
               Add to cart
             </Button>

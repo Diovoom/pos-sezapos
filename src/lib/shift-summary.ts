@@ -8,29 +8,71 @@ const sb = supabase as any;
 export type ShiftSummary = Awaited<ReturnType<typeof fetchShiftSummary>>;
 
 export async function fetchShiftSummary(sessionId: string) {
-  const { data: session } = await sb.from("register_sessions").select("*").eq("id", sessionId).maybeSingle();
+  const { data: session } = await sb
+    .from("register_sessions")
+    .select("*")
+    .eq("id", sessionId)
+    .maybeSingle();
   if (!session) throw new Error("Shift not found");
 
-  const [store, cashier, sales, refunds, timeEntry, terminal, movements, noSales, approver] = await Promise.all([
-    sb.from("stores").select("*").eq("id", session.store_id).maybeSingle(),
-    sb.from("profiles").select("id, full_name, first_name, last_name, email, employee_id").eq("id", session.opened_by).maybeSingle(),
-    sb.from("sales").select("id, receipt_number, cashier_id, subtotal, tax, discount, total, payment_method, amount_tendered, change_due, status, created_at, refunded_amount")
-      .eq("register_session_id", sessionId).order("created_at"),
-    sb.from("refunds").select("id, sale_id, cashier_id, approver_id, refund_type, reason, notes, total, payment_method, status, created_at, sales!inner(receipt_number, register_session_id)")
-      .eq("sales.register_session_id", sessionId).order("created_at"),
-    session.opened_by ? sb.from("time_entries").select("*").eq("user_id", session.opened_by)
-      .gte("clock_in", session.opened_at).order("clock_in").limit(1).maybeSingle() : Promise.resolve({ data: null }),
-    session.terminal_id ? sb.from("payment_terminals").select("*").eq("id", session.terminal_id).maybeSingle() : Promise.resolve({ data: null }),
-    sb.from("cash_movements").select("id, type, amount, reason, notes, created_at, user_id")
-      .eq("register_session_id", sessionId).order("created_at"),
-    sb.from("audit_log").select("id, actor_id, actor_email, details, created_at")
-      .eq("action", "drawer.no_sale_open").eq("entity_id", sessionId).order("created_at"),
-    session.approver_id ? sb.from("profiles").select("id, full_name, email").eq("id", session.approver_id).maybeSingle() : Promise.resolve({ data: null }),
-  ]);
+  const [store, cashier, sales, refunds, timeEntry, terminal, movements, noSales, approver] =
+    await Promise.all([
+      sb.from("stores").select("*").eq("id", session.store_id).maybeSingle(),
+      sb
+        .from("profiles")
+        .select("id, full_name, first_name, last_name, email, employee_id")
+        .eq("id", session.opened_by)
+        .maybeSingle(),
+      sb
+        .from("sales")
+        .select(
+          "id, receipt_number, cashier_id, subtotal, tax, discount, total, payment_method, amount_tendered, change_due, status, created_at, refunded_amount",
+        )
+        .eq("register_session_id", sessionId)
+        .order("created_at"),
+      sb
+        .from("refunds")
+        .select(
+          "id, sale_id, cashier_id, approver_id, refund_type, reason, notes, total, payment_method, status, created_at, sales!inner(receipt_number, register_session_id)",
+        )
+        .eq("sales.register_session_id", sessionId)
+        .order("created_at"),
+      session.opened_by
+        ? sb
+            .from("time_entries")
+            .select("*")
+            .eq("user_id", session.opened_by)
+            .gte("clock_in", session.opened_at)
+            .order("clock_in")
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      session.terminal_id
+        ? sb.from("payment_terminals").select("*").eq("id", session.terminal_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      sb
+        .from("cash_movements")
+        .select("id, type, amount, reason, notes, created_at, user_id")
+        .eq("register_session_id", sessionId)
+        .order("created_at"),
+      sb
+        .from("audit_log")
+        .select("id, actor_id, actor_email, details, created_at")
+        .eq("action", "drawer.no_sale_open")
+        .eq("entity_id", sessionId)
+        .order("created_at"),
+      session.approver_id
+        ? sb
+            .from("profiles")
+            .select("id, full_name, email")
+            .eq("id", session.approver_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
   const saleIds = (sales.data ?? []).map((s: { id: string }) => s.id);
   const items = saleIds.length
-    ? (await sb.from("sale_items").select("*").in("sale_id", saleIds)).data ?? []
+    ? ((await sb.from("sale_items").select("*").in("sale_id", saleIds)).data ?? [])
     : [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,32 +90,57 @@ export async function fetchShiftSummary(sessionId: string) {
   const totalItems = it.length;
   const totalQty = it.reduce((a, x) => a + Number(x.quantity || 0), 0);
   const grossSales = completedSales.reduce((a, x) => a + Number(x.subtotal || 0), 0);
-  const netSales = completedSales.reduce((a, x) => a + Number(x.total || 0) - Number(x.tax || 0), 0);
+  const netSales = completedSales.reduce(
+    (a, x) => a + Number(x.total || 0) - Number(x.tax || 0),
+    0,
+  );
   const totalTax = completedSales.reduce((a, x) => a + Number(x.tax || 0), 0);
   const totalDiscount = completedSales.reduce((a, x) => a + Number(x.discount || 0), 0);
   const totals = completedSales.map((x) => Number(x.total || 0));
   const highestSale = totals.length ? Math.max(...totals) : 0;
   const lowestSale = totals.length ? Math.min(...totals) : 0;
-  const avgTx = totalTx ? completedSales.reduce((a, x) => a + Number(x.total || 0), 0) / totalTx : 0;
+  const avgTx = totalTx
+    ? completedSales.reduce((a, x) => a + Number(x.total || 0), 0) / totalTx
+    : 0;
   const avgItems = totalTx ? totalItems / totalTx : 0;
 
   // Payment methods
-  const paymentKinds = ["cash", "card", "tap", "apple_pay", "google_pay", "gift_card", "split", "store_credit"] as const;
-  const byMethod = Object.fromEntries(paymentKinds.map((k) => [k, 0])) as Record<typeof paymentKinds[number], number>;
+  const paymentKinds = [
+    "cash",
+    "card",
+    "tap",
+    "apple_pay",
+    "google_pay",
+    "gift_card",
+    "split",
+    "store_credit",
+  ] as const;
+  const byMethod = Object.fromEntries(paymentKinds.map((k) => [k, 0])) as Record<
+    (typeof paymentKinds)[number],
+    number
+  >;
   for (const x of completedSales) {
-    const m = x.payment_method as typeof paymentKinds[number];
+    const m = x.payment_method as (typeof paymentKinds)[number];
     if (m in byMethod) byMethod[m] += Number(x.total || 0);
   }
-  const totalCashReceived = completedSales.filter((x) => x.payment_method === "cash").reduce((a, x) => a + Number(x.amount_tendered || x.total || 0), 0);
-  const totalChangeGiven = completedSales.filter((x) => x.payment_method === "cash").reduce((a, x) => a + Number(x.change_due || 0), 0);
+  const totalCashReceived = completedSales
+    .filter((x) => x.payment_method === "cash")
+    .reduce((a, x) => a + Number(x.amount_tendered || x.total || 0), 0);
+  const totalChangeGiven = completedSales
+    .filter((x) => x.payment_method === "cash")
+    .reduce((a, x) => a + Number(x.change_due || 0), 0);
   const totalCardSales = byMethod.card + byMethod.tap + byMethod.apple_pay + byMethod.google_pay;
   const grandTotal = completedSales.reduce((a, x) => a + Number(x.total || 0), 0);
 
   // Refunds
-  const refundAmount = r.filter((x) => x.refund_type !== "void").reduce((a, x) => a + Number(x.total || 0), 0);
+  const refundAmount = r
+    .filter((x) => x.refund_type !== "void")
+    .reduce((a, x) => a + Number(x.total || 0), 0);
   const voidCount = r.filter((x) => x.refund_type === "void").length;
   const exchanges = r.filter((x) => x.refund_type === "exchange").length;
-  const storeCreditIssued = r.filter((x) => x.payment_method === "store_credit").reduce((a, x) => a + Number(x.total || 0), 0);
+  const storeCreditIssued = r
+    .filter((x) => x.payment_method === "store_credit")
+    .reduce((a, x) => a + Number(x.total || 0), 0);
 
   // Top / lowest products
   const perProduct = new Map<string, { name: string; qty: number; revenue: number }>();
@@ -129,11 +196,26 @@ export async function fetchShiftSummary(sessionId: string) {
     noSaleEvents,
     // sections
     salesSummary: {
-      totalTx, totalItems, totalQty, grossSales, netSales, totalTax, totalDiscount,
-      avgTx, highestSale, lowestSale, avgItems,
+      totalTx,
+      totalItems,
+      totalQty,
+      grossSales,
+      netSales,
+      totalTax,
+      totalDiscount,
+      avgTx,
+      highestSale,
+      lowestSale,
+      avgItems,
     },
     paymentSummary: { byMethod, totalCashReceived, totalChangeGiven, totalCardSales, grandTotal },
-    refundSummary: { refundAmount, voidCount, exchanges, storeCreditIssued, refundCount: r.length - voidCount },
+    refundSummary: {
+      refundAmount,
+      voidCount,
+      exchanges,
+      storeCreditIssued,
+      refundCount: r.length - voidCount,
+    },
     products: { top: topProducts, lowest: lowestProducts, total: productsSorted.length },
     hourly,
   };

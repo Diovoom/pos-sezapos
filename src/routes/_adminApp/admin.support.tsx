@@ -48,10 +48,7 @@ const searchSchema = z.object({
 export const Route = createFileRoute("/_adminApp/admin/support")({
   validateSearch: zodValidator(searchSchema),
   head: () => ({
-    meta: [
-      { title: "Support — SEZA Admin" },
-      { name: "robots", content: "noindex, nofollow" },
-    ],
+    meta: [{ title: "Support — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: SupportPage,
 });
@@ -245,11 +242,7 @@ function SupportPage() {
           label="All tickets"
           value={c.all ?? 0}
           icon={<Search className="h-4 w-4" />}
-          active={
-            search.assignee === "any" &&
-            search.priority === "all" &&
-            search.status === "all"
-          }
+          active={search.assignee === "any" && search.priority === "all" && search.status === "all"}
           onClick={() =>
             navigate({
               search: (prev: any) => ({
@@ -296,9 +289,7 @@ function SupportPage() {
           >
             {label}
             {val !== "all" && c[val] !== undefined && (
-              <span className="ml-1.5 text-xs text-muted-foreground">
-                ({c[val]})
-              </span>
+              <span className="ml-1.5 text-xs text-muted-foreground">({c[val]})</span>
             )}
           </button>
         ))}
@@ -357,68 +348,102 @@ function SupportPage() {
       {/* Mobile support cards */}
       <div className="space-y-3 md:hidden">
         {listQ.isLoading ? (
-          <Card><CardContent className="p-5 text-sm text-muted-foreground">Loading…</CardContent></Card>
+          <Card>
+            <CardContent className="p-5 text-sm text-muted-foreground">Loading…</CardContent>
+          </Card>
         ) : rows.length === 0 ? (
-          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">No tickets match these filters.</CardContent></Card>
-        ) : rows.map((ticket: any) => {
-          const finalStatus = ticket.status === "resolved" || ticket.status === "closed";
-          return (
-            <Card
-              key={ticket.id}
-              className="overflow-hidden cursor-pointer transition-colors hover:border-primary/40 hover:bg-muted/10"
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } })}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } });
+          <Card>
+            <CardContent className="p-8 text-center text-sm text-muted-foreground">
+              No tickets match these filters.
+            </CardContent>
+          </Card>
+        ) : (
+          rows.map((ticket: any) => {
+            const finalStatus = ticket.status === "resolved" || ticket.status === "closed";
+            return (
+              <Card
+                key={ticket.id}
+                className="overflow-hidden cursor-pointer transition-colors hover:border-primary/40 hover:bg-muted/10"
+                role="button"
+                tabIndex={0}
+                onClick={() =>
+                  navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } })
                 }
-              }}
-            >
-              <CardContent className="space-y-3 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-mono text-[11px] text-muted-foreground">CASE #{ticket.ticket_number}</div>
-                    <div className="mt-1 font-semibold" data-no-translate>{ticket.subject}</div>
-                  </div>
-                  <Badge variant={ticket.status === "resolved" ? "default" : "outline"}>
-                    {STATUS_LABELS[ticket.status] ?? ticket.status}
-                  </Badge>
-                </div>
-                <div className="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground" data-no-translate>
-                  {ticket.problem_preview || "The merchant did not include an opening message."}
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  {!finalStatus && (
-                    <Badge variant="outline" className={PRIORITY_COLOR[ticket.priority] ?? ""}>
-                      {PRIORITY_LABELS[ticket.priority] ?? ticket.priority}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } });
+                  }
+                }}
+              >
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-mono text-[11px] text-muted-foreground">
+                        CASE #{ticket.ticket_number}
+                      </div>
+                      <div className="mt-1 font-semibold" data-no-translate>
+                        {ticket.subject}
+                      </div>
+                    </div>
+                    <Badge variant={ticket.status === "resolved" ? "default" : "outline"}>
+                      {STATUS_LABELS[ticket.status] ?? ticket.status}
                     </Badge>
-                  )}
-                  <span className="text-muted-foreground">{ticket.store_name ? <span data-no-translate>{ticket.store_name}</span> : "No business attached"}</span>
-                  <span className="ml-auto text-muted-foreground">
-                    {formatDistanceToNow(new Date(ticket.updated_at), { addSuffix: true })}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    className="flex-1"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } });
-                    }}
+                  </div>
+                  <div
+                    className="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground"
+                    data-no-translate
                   >
-                    Open case <ExternalLink className="ml-2 h-4 w-4" />
-                  </Button>
-                  {!ticket.assigned_admin_id && !finalStatus && (
-                    <Button variant="outline" onClick={(event) => { event.stopPropagation(); void claimOne(ticket.id); }}>Claim</Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                    {ticket.problem_preview || "The merchant did not include an opening message."}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    {!finalStatus && (
+                      <Badge variant="outline" className={PRIORITY_COLOR[ticket.priority] ?? ""}>
+                        {PRIORITY_LABELS[ticket.priority] ?? ticket.priority}
+                      </Badge>
+                    )}
+                    <span className="text-muted-foreground">
+                      {ticket.store_name ? (
+                        <span data-no-translate>{ticket.store_name}</span>
+                      ) : (
+                        "No business attached"
+                      )}
+                    </span>
+                    <span className="ml-auto text-muted-foreground">
+                      {formatDistanceToNow(new Date(ticket.updated_at), { addSuffix: true })}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      className="flex-1"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        navigate({
+                          to: "/admin/support/$ticketId",
+                          params: { ticketId: ticket.id },
+                        });
+                      }}
+                    >
+                      Open case <ExternalLink className="ml-2 h-4 w-4" />
+                    </Button>
+                    {!ticket.assigned_admin_id && !finalStatus && (
+                      <Button
+                        variant="outline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void claimOne(ticket.id);
+                        }}
+                      >
+                        Claim
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
       </div>
 
       {/* Desktop support table */}
@@ -439,13 +464,19 @@ function SupportPage() {
                   <th className="p-3">Business</th>
                   <th className="p-3">Assignee</th>
                   <th className="p-3">
-                    <button onClick={() => toggleSort("priority")} className="inline-flex items-center gap-1 hover:text-foreground">
+                    <button
+                      onClick={() => toggleSort("priority")}
+                      className="inline-flex items-center gap-1 hover:text-foreground"
+                    >
                       Priority <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </th>
                   <th className="p-3">Status</th>
                   <th className="p-3">
-                    <button onClick={() => toggleSort("updated_at")} className="inline-flex items-center gap-1 hover:text-foreground">
+                    <button
+                      onClick={() => toggleSort("updated_at")}
+                      className="inline-flex items-center gap-1 hover:text-foreground"
+                    >
                       Age <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </th>
@@ -460,11 +491,19 @@ function SupportPage() {
                       key={ticket.id}
                       className="border-t hover:bg-muted/20 cursor-pointer"
                       tabIndex={0}
-                      onClick={() => navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } })}
+                      onClick={() =>
+                        navigate({
+                          to: "/admin/support/$ticketId",
+                          params: { ticketId: ticket.id },
+                        })
+                      }
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } });
+                          navigate({
+                            to: "/admin/support/$ticketId",
+                            params: { ticketId: ticket.id },
+                          });
                         }
                       }}
                     >
@@ -474,7 +513,10 @@ function SupportPage() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } });
+                            navigate({
+                              to: "/admin/support/$ticketId",
+                              params: { ticketId: ticket.id },
+                            });
                           }}
                           className="font-medium text-primary hover:underline"
                           data-no-translate
@@ -482,39 +524,78 @@ function SupportPage() {
                           {ticket.subject}
                         </button>
                         {ticket.problem_preview && (
-                          <div className="mt-1 max-w-md truncate text-xs text-muted-foreground" data-no-translate>{ticket.problem_preview}</div>
+                          <div
+                            className="mt-1 max-w-md truncate text-xs text-muted-foreground"
+                            data-no-translate
+                          >
+                            {ticket.problem_preview}
+                          </div>
                         )}
                       </td>
                       <td className="p-3 text-xs">
                         {ticket.store_id ? (
-                          <Link to="/admin/businesses/$storeId" params={{ storeId: ticket.store_id }} className="hover:underline" data-no-translate>
+                          <Link
+                            to="/admin/businesses/$storeId"
+                            params={{ storeId: ticket.store_id }}
+                            className="hover:underline"
+                            data-no-translate
+                          >
                             {ticket.store_name ?? ticket.store_id.slice(0, 8)}
                           </Link>
-                        ) : "—"}
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="p-3 text-xs">
-                        {ticket.assignee_name ? <span data-no-translate>{ticket.assignee_name}</span> : <span className="italic text-muted-foreground">Unassigned</span>}
+                        {ticket.assignee_name ? (
+                          <span data-no-translate>{ticket.assignee_name}</span>
+                        ) : (
+                          <span className="italic text-muted-foreground">Unassigned</span>
+                        )}
                       </td>
                       <td className="p-3">
                         {finalStatus ? (
                           <span className="text-muted-foreground">—</span>
                         ) : (
-                          <Badge variant="outline" className={PRIORITY_COLOR[ticket.priority] ?? ""}>{PRIORITY_LABELS[ticket.priority] ?? ticket.priority}</Badge>
+                          <Badge
+                            variant="outline"
+                            className={PRIORITY_COLOR[ticket.priority] ?? ""}
+                          >
+                            {PRIORITY_LABELS[ticket.priority] ?? ticket.priority}
+                          </Badge>
                         )}
                       </td>
-                      <td className="p-3"><Badge variant={ticket.status === "resolved" ? "default" : "outline"}>{STATUS_LABELS[ticket.status] ?? ticket.status}</Badge></td>
+                      <td className="p-3">
+                        <Badge variant={ticket.status === "resolved" ? "default" : "outline"}>
+                          {STATUS_LABELS[ticket.status] ?? ticket.status}
+                        </Badge>
+                      </td>
                       <td className="whitespace-nowrap p-3 text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(ticket.updated_at), { addSuffix: true })}
                       </td>
                       <td className="p-3 text-right">
                         <div className="flex justify-end gap-2">
-                          {!ticket.assigned_admin_id && !finalStatus && <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); void claimOne(ticket.id); }}>Claim</Button>}
+                          {!ticket.assigned_admin_id && !finalStatus && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void claimOne(ticket.id);
+                              }}
+                            >
+                              Claim
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             size="sm"
                             onClick={(event) => {
                               event.stopPropagation();
-                              navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } });
+                              navigate({
+                                to: "/admin/support/$ticketId",
+                                params: { ticketId: ticket.id },
+                              });
                             }}
                           >
                             Open case
@@ -540,9 +621,7 @@ function SupportPage() {
             variant="outline"
             size="sm"
             disabled={search.page <= 1}
-            onClick={() =>
-              navigate({ search: (prev: any) => ({ ...prev, page: prev.page - 1 }) })
-            }
+            onClick={() => navigate({ search: (prev: any) => ({ ...prev, page: prev.page - 1 }) })}
           >
             Prev
           </Button>
@@ -550,9 +629,7 @@ function SupportPage() {
             variant="outline"
             size="sm"
             disabled={search.page >= pageCount}
-            onClick={() =>
-              navigate({ search: (prev: any) => ({ ...prev, page: prev.page + 1 }) })
-            }
+            onClick={() => navigate({ search: (prev: any) => ({ ...prev, page: prev.page + 1 }) })}
           >
             Next
           </Button>
@@ -593,11 +670,7 @@ function SupportPage() {
             </div>
             <div>
               <Label>First note</Label>
-              <Textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={3}
-              />
+              <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} />
             </div>
           </div>
           <DialogFooter>
@@ -629,9 +702,7 @@ function QueueChip({
     <button
       onClick={onClick}
       className={`text-left p-4 rounded-lg border transition-colors ${
-        active
-          ? "border-primary bg-primary/5"
-          : "border-border hover:bg-muted/40"
+        active ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"
       }`}
     >
       <div className="flex items-center gap-2 text-xs text-muted-foreground">

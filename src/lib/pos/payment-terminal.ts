@@ -12,7 +12,10 @@
 // connected" state and blocks completion.
 
 import { supabase } from "@/integrations/supabase/client";
-import { charge as chargeStripeTerminal, disconnect as disconnectStripeTerminal } from "@/lib/hardware/terminal-stripe";
+import {
+  charge as chargeStripeTerminal,
+  disconnect as disconnectStripeTerminal,
+} from "@/lib/hardware/terminal-stripe";
 
 export type PaymentStatus =
   | "idle"
@@ -36,12 +39,7 @@ export type PaymentEvent = {
   last4?: string;
 };
 
-export type PaymentMethodKind =
-  | "card"
-  | "tap"
-  | "apple_pay"
-  | "google_pay"
-  | "gift_card";
+export type PaymentMethodKind = "card" | "tap" | "apple_pay" | "google_pay" | "gift_card";
 
 export type PaymentRequest = {
   amount: number;
@@ -74,12 +72,12 @@ export interface PaymentProvider {
   cancel?(): void;
 }
 
-
 const stripeTerminalProvider: PaymentProvider = {
   id: "stripe-terminal",
   name: "Stripe Terminal",
   async charge(req, onEvent, signal) {
-    if (signal.aborted) return { approved: false, finalStatus: "cancelled", message: "Payment cancelled" };
+    if (signal.aborted)
+      return { approved: false, finalStatus: "cancelled", message: "Payment cancelled" };
     onEvent({ status: "payment_requested", message: "Payment requested" });
     const result = await chargeStripeTerminal(
       "none",
@@ -100,13 +98,23 @@ const stripeTerminalProvider: PaymentProvider = {
         onEvent({ status, message });
       },
     );
-    if (signal.aborted) return { approved: false, finalStatus: "cancelled", message: "Payment cancelled" };
+    if (signal.aborted)
+      return { approved: false, finalStatus: "cancelled", message: "Payment cancelled" };
     if (!result.ok) {
       onEvent({ status: navigator.onLine ? "error" : "network_error", message: result.error });
-      return { approved: false, finalStatus: navigator.onLine ? "error" : "network_error", message: result.error };
+      return {
+        approved: false,
+        finalStatus: navigator.onLine ? "error" : "network_error",
+        message: result.error,
+      };
     }
     onEvent({ status: "approved", message: "Payment approved", reference: result.ref });
-    return { approved: true, finalStatus: "approved", message: "Payment approved", reference: result.ref };
+    return {
+      approved: true,
+      finalStatus: "approved",
+      message: "Payment approved",
+      reference: result.ref,
+    };
   },
   cancel() {
     void disconnectStripeTerminal();
@@ -164,6 +172,6 @@ export async function logPaymentAttempt(entry: {
     // swallow — audit log is best-effort
   }
   // Structured console log for local dev visibility.
-  // eslint-disable-next-line no-console
+
   if (import.meta.env.DEV) console.info("[payment]", new Date().toISOString(), entry);
 }

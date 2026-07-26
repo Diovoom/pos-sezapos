@@ -18,7 +18,9 @@ const receiptQuery = (id: string) =>
 
 export const Route = createFileRoute("/r/$id")({
   head: ({ loaderData }) => {
-    const r = loaderData as { receiptNumber: string | number; store: { name: string | null } } | undefined;
+    const r = loaderData as
+      | { receiptNumber: string | number; store: { name: string | null } }
+      | undefined;
     return {
       meta: [
         { title: r ? `Receipt #${r.receiptNumber} — ${r.store.name ?? "Store"}` : "Receipt" },
@@ -27,7 +29,8 @@ export const Route = createFileRoute("/r/$id")({
       ],
     };
   },
-  loader: async ({ context, params }) => context.queryClient.ensureQueryData(receiptQuery(params.id)),
+  loader: async ({ context, params }) =>
+    context.queryClient.ensureQueryData(receiptQuery(params.id)),
   component: PublicReceiptPage,
   errorComponent: () => (
     <div className="min-h-screen grid place-items-center p-6 text-center">
@@ -67,8 +70,12 @@ function PublicReceiptPage() {
               className="mx-auto mb-3 h-16 w-auto object-contain"
             />
           )}
-          <h1 className="text-xl font-bold uppercase tracking-wide">{data.store.name ?? "Store"}</h1>
-          {data.store.address && <p className="text-sm text-neutral-600 mt-1">{data.store.address}</p>}
+          <h1 className="text-xl font-bold uppercase tracking-wide">
+            {data.store.name ?? "Store"}
+          </h1>
+          {data.store.address && (
+            <p className="text-sm text-neutral-600 mt-1">{data.store.address}</p>
+          )}
           {data.store.phone && <p className="text-sm text-neutral-600">{data.store.phone}</p>}
           {data.store.email && <p className="text-sm text-neutral-600">{data.store.email}</p>}
           {data.store.receipt_header && (
@@ -153,9 +160,7 @@ function PublicReceiptPage() {
           </Button>
         </div>
       </div>
-      <p className="text-center text-xs text-neutral-500 mt-4 print:hidden">
-        Powered by SEZA POS
-      </p>
+      <p className="text-center text-xs text-neutral-500 mt-4 print:hidden">Powered by SEZA POS</p>
     </div>
   );
 }

@@ -19,7 +19,12 @@ export type StoreBranding = {
 function makeDisplayText(value: string | null | undefined, storeName: string | null | undefined) {
   const raw = (value || storeName || "S").trim();
   const initials = raw.includes(" ")
-    ? raw.split(/\s+/).filter(Boolean).slice(0, 3).map((part) => part[0]).join("")
+    ? raw
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 3)
+        .map((part) => part[0])
+        .join("")
     : raw.slice(0, 4);
   return (initials || "S").toUpperCase();
 }
@@ -70,7 +75,10 @@ export function useStoreBranding() {
       return {
         storeId: data?.id ?? storeId ?? null,
         name: data?.name ?? null,
-        displayText: makeDisplayText((data as { pos_display_name?: string | null } | null)?.pos_display_name, data?.name),
+        displayText: makeDisplayText(
+          (data as { pos_display_name?: string | null } | null)?.pos_display_name,
+          data?.name,
+        ),
         logoUrl: logo,
         receiptLogoUrl: receipt,
         hasCustomLogo: custom,

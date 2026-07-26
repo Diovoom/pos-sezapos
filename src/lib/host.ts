@@ -1,5 +1,4 @@
-export type AppSurface =
-  "marketing" | "dashboard" | "admin" | "pos" | "unknown";
+export type AppSurface = "marketing" | "dashboard" | "admin" | "pos" | "unknown";
 
 const MARKETING_HOSTS = new Set(["sezapos.com", "www.sezapos.com"]);
 const DASHBOARD_HOST = "dashboard.sezapos.com";
@@ -45,8 +44,7 @@ function urlFor(host: string, path: string): string {
 }
 
 export const marketingUrl = (path: string = "/") => urlFor("sezapos.com", path);
-export const dashboardUrl = (path: string = "/dashboard") =>
-  urlFor(DASHBOARD_HOST, path);
+export const dashboardUrl = (path: string = "/dashboard") => urlFor(DASHBOARD_HOST, path);
 
 // The browser POS surface is retired. Keep this helper for old imports, but
 // send browser traffic to the owner dashboard. The native Capacitor shell uses

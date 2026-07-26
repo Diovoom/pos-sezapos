@@ -4,24 +4,54 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
 import { Card } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { fmtCurrency } from "@/lib/format";
 import { toast } from "sonner";
 import { RotateCcw, Search, Loader2 } from "lucide-react";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
-import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
+import {
+  ManagerOverrideDialog,
+  type ManagerOverrideResult,
+} from "@/components/pos/ManagerOverrideDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export const Route = createFileRoute("/_pos/refunds")({
-  head: () => ({ meta: [{ title: "Refunds — SEZA POS" }, { name: "description", content: "Search sales by receipt number to refund, exchange, or void a transaction." }] }),
+  head: () => ({
+    meta: [
+      { title: "Refunds — SEZA POS" },
+      {
+        name: "description",
+        content: "Search sales by receipt number to refund, exchange, or void a transaction.",
+      },
+    ],
+  }),
   component: RefundsPage,
 });
 
@@ -80,7 +110,7 @@ export function RefundsPage() {
       let q = supabase
         .from("sales")
         .select(
-          "id,receipt_number,total,subtotal,tax,refunded_amount,refund_status,status,payment_method,created_at,customer_name,sale_items(id,product_id,product_name,quantity,unit_price,line_total)"
+          "id,receipt_number,total,subtotal,tax,refunded_amount,refund_status,status,payment_method,created_at,customer_name,sale_items(id,product_id,product_name,quantity,unit_price,line_total)",
         )
         .order("created_at", { ascending: false })
         .limit(50);
@@ -94,7 +124,10 @@ export function RefundsPage() {
 
   return (
     <>
-      <PageHeader title="Refunds" subtitle="Search a sale by receipt number to refund, exchange, or void." />
+      <PageHeader
+        title="Refunds"
+        subtitle="Search a sale by receipt number to refund, exchange, or void."
+      />
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         <div className="relative max-w-md">
           <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -121,37 +154,60 @@ export function RefundsPage() {
             </TableHeader>
             <TableBody>
               {isFetching && sales.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="py-10 text-center"><Loader2 className="size-4 animate-spin inline" /></TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={7} className="py-10 text-center">
+                    <Loader2 className="size-4 animate-spin inline" />
+                  </TableCell>
+                </TableRow>
               ) : sales.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                    No matching sales. <Link className="text-primary" to="/pos">Go to checkout →</Link>
+                    No matching sales.{" "}
+                    <Link className="text-primary" to="/pos">
+                      Go to checkout →
+                    </Link>
                   </TableCell>
                 </TableRow>
-              ) : sales.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-mono">#{s.receipt_number ?? s.id.slice(0, 6)}</TableCell>
-                  <TableCell className="text-sm">{new Date(s.created_at).toLocaleString()}</TableCell>
-                  <TableCell className="capitalize">{String(s.payment_method).replace("_", " ")}</TableCell>
-                  <TableCell>
-                    <StatusPill status={s.refund_status === "none" ? s.status : `refund: ${s.refund_status}`} />
-                  </TableCell>
-                  <TableCell className="text-right font-mono">{fmtCurrency(Number(s.total), cur)}</TableCell>
-                  <TableCell className="text-right font-mono text-destructive">
-                    {Number(s.refunded_amount) > 0 ? `-${fmtCurrency(Number(s.refunded_amount), cur)}` : "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={s.refund_status === "full" || s.status === "voided"}
-                      onClick={() => setSelected(s)}
-                    >
-                      <RotateCcw className="size-3.5" /> Refund
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              ) : (
+                sales.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="font-mono">
+                      #{s.receipt_number ?? s.id.slice(0, 6)}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {new Date(s.created_at).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {String(s.payment_method).replace("_", " ")}
+                    </TableCell>
+                    <TableCell>
+                      <StatusPill
+                        status={
+                          s.refund_status === "none" ? s.status : `refund: ${s.refund_status}`
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {fmtCurrency(Number(s.total), cur)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-destructive">
+                      {Number(s.refunded_amount) > 0
+                        ? `-${fmtCurrency(Number(s.refunded_amount), cur)}`
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={s.refund_status === "full" || s.status === "voided"}
+                        onClick={() => setSelected(s)}
+                      >
+                        <RotateCcw className="size-3.5" /> Refund
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </Card>
@@ -179,9 +235,13 @@ function StatusPill({ status }: { status: string }) {
     s.includes("full") || s === "voided"
       ? "bg-destructive/10 text-destructive"
       : s.includes("partial")
-      ? "bg-amber-500/10 text-amber-600"
-      : "bg-success/10 text-success";
-  return <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${tone}`}>{status}</span>;
+        ? "bg-amber-500/10 text-amber-600"
+        : "bg-success/10 text-success";
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${tone}`}>
+      {status}
+    </span>
+  );
 }
 
 function RefundDialog({
@@ -208,18 +268,18 @@ function RefundDialog({
   const { has, isSuper } = usePermissions();
   const canCreate = isSuper || has("refunds.create");
   const canApprove = isSuper || has("refunds.approve");
-  const requireApproval =
-    (() => {
-      try {
-        const raw = localStorage.getItem("pos.pref.refunds");
-        if (!raw) return true;
-        const p = JSON.parse(raw) as Record<string, string>;
-        return p.manager_approval !== "false";
-      } catch { return true; }
-    })();
+  const requireApproval = (() => {
+    try {
+      const raw = localStorage.getItem("pos.pref.refunds");
+      if (!raw) return true;
+      const p = JSON.parse(raw) as Record<string, string>;
+      return p.manager_approval !== "false";
+    } catch {
+      return true;
+    }
+  })();
   const needsOverride = (!canCreate || (requireApproval && !canApprove)) && !override;
   const authorizedToCreate = canCreate || Boolean(override);
-
 
   const itemsToRefund = sale
     ? sale.sale_items.map((i) => ({
@@ -228,12 +288,16 @@ function RefundDialog({
       }))
     : [];
 
-  const refundSubtotal = itemsToRefund.reduce((s, { item, qty }) => s + qty * Number(item.unit_price), 0);
+  const refundSubtotal = itemsToRefund.reduce(
+    (s, { item, qty }) => s + qty * Number(item.unit_price),
+    0,
+  );
   const taxRatio = sale && Number(sale.subtotal) > 0 ? Number(sale.tax) / Number(sale.subtotal) : 0;
   const refundTax = Math.round(refundSubtotal * taxRatio * 100) / 100;
-  const refundTotal = type === "full" || type === "void"
-    ? Number(sale?.total ?? 0) - Number(sale?.refunded_amount ?? 0)
-    : Math.round((refundSubtotal + refundTax) * 100) / 100;
+  const refundTotal =
+    type === "full" || type === "void"
+      ? Number(sale?.total ?? 0) - Number(sale?.refunded_amount ?? 0)
+      : Math.round((refundSubtotal + refundTax) * 100) / 100;
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -269,7 +333,14 @@ function RefundDialog({
           tax: type === "full" || type === "void" ? Number(sale.tax) : refundTax,
           total: refundTotal,
           payment_method: sale.payment_method as
-            | "cash" | "card" | "tap" | "apple_pay" | "google_pay" | "gift_card" | "split" | "store_credit",
+            | "cash"
+            | "card"
+            | "tap"
+            | "apple_pay"
+            | "google_pay"
+            | "gift_card"
+            | "split"
+            | "store_credit",
           status: "completed",
         })
         .select()
@@ -294,10 +365,14 @@ function RefundDialog({
     onSuccess: (payload) => {
       if (!payload || !sale) return;
       toast.success(`Refund issued · ${fmtCurrency(refundTotal, currency)}`);
-      void import("@/lib/audit-log").then((m) => m.logAudit({
-        action: "refund.create", entity: "refund", entity_id: payload.refund.id,
-        details: { amount: refundTotal, sale_id: sale?.id },
-      }));
+      void import("@/lib/audit-log").then((m) =>
+        m.logAudit({
+          action: "refund.create",
+          entity: "refund",
+          entity_id: payload.refund.id,
+          details: { amount: refundTotal, sale_id: sale?.id },
+        }),
+      );
       qc.invalidateQueries({ queryKey: ["refund-sales"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["products"] });
@@ -342,18 +417,30 @@ function RefundDialog({
               <div>
                 <Label className="mb-1 block">Refund type</Label>
                 <Select value={type} onValueChange={setType}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {TYPES.map((t) => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)}
+                    {TYPES.map((t) => (
+                      <SelectItem key={t.v} value={t.v}>
+                        {t.l}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="mb-1 block">Reason</Label>
                 <Select value={reason} onValueChange={setReason}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {REASONS.map((r) => <SelectItem key={r.v} value={r.v}>{r.l}</SelectItem>)}
+                    {REASONS.map((r) => (
+                      <SelectItem key={r.v} value={r.v}>
+                        {r.l}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -372,16 +459,38 @@ function RefundDialog({
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button size="sm" variant="outline" onClick={() =>
-                        setQtyMap((m) => ({ ...m, [item.id]: Math.max(0, (m[item.id] ?? 0) - 1) }))
-                      }>-</Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setQtyMap((m) => ({
+                            ...m,
+                            [item.id]: Math.max(0, (m[item.id] ?? 0) - 1),
+                          }))
+                        }
+                      >
+                        -
+                      </Button>
                       <span className="w-8 text-center font-mono">{qty}</span>
-                      <Button size="sm" variant="outline" onClick={() =>
-                        setQtyMap((m) => ({ ...m, [item.id]: Math.min(max, (m[item.id] ?? 0) + 1) }))
-                      }>+</Button>
-                      <Button size="sm" variant="ghost" onClick={() =>
-                        setQtyMap((m) => ({ ...m, [item.id]: max }))
-                      }>All</Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setQtyMap((m) => ({
+                            ...m,
+                            [item.id]: Math.min(max, (m[item.id] ?? 0) + 1),
+                          }))
+                        }
+                      >
+                        +
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setQtyMap((m) => ({ ...m, [item.id]: max }))}
+                      >
+                        All
+                      </Button>
                     </div>
                   </div>
                 );
@@ -390,12 +499,19 @@ function RefundDialog({
 
             <div className="flex items-center gap-2">
               <Checkbox id="restock" checked={restock} onCheckedChange={(v) => setRestock(!!v)} />
-              <Label htmlFor="restock" className="text-sm">Restock refunded items to inventory</Label>
+              <Label htmlFor="restock" className="text-sm">
+                Restock refunded items to inventory
+              </Label>
             </div>
 
             <div>
               <Label className="mb-1 block">Notes (optional)</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Manager approval, additional context..." />
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                placeholder="Manager approval, additional context..."
+              />
             </div>
 
             {override && (
@@ -406,13 +522,17 @@ function RefundDialog({
 
             <div className="flex justify-between items-center border-t pt-3">
               <div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider">Refund total</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Refund total
+                </div>
                 <div className="text-2xl font-mono font-bold text-destructive">
                   -{fmtCurrency(refundTotal, currency)}
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={onClose}>Cancel</Button>
+                <Button variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
                 {needsOverride ? (
                   <Button variant="destructive" onClick={() => setOverrideOpen(true)}>
                     Get manager approval
@@ -431,7 +551,6 @@ function RefundDialog({
             </div>
           </div>
         )}
-
       </DialogContent>
       <ManagerOverrideDialog
         open={overrideOpen}
@@ -439,9 +558,13 @@ function RefundDialog({
         action={type === "void" ? "sales.void" : "refunds.approve"}
         description={`Approve ${type} refund of ${fmtCurrency(refundTotal, currency)} on receipt #${sale?.receipt_number ?? ""}`}
         details={{ sale_id: sale?.id, amount: refundTotal, type }}
-        onApprove={(r) => { setOverride(r); setNotes((n) => n ? `${n}\nApproved by ${r.manager_name}` : `Approved by ${r.manager_name}`); }}
+        onApprove={(r) => {
+          setOverride(r);
+          setNotes((n) =>
+            n ? `${n}\nApproved by ${r.manager_name}` : `Approved by ${r.manager_name}`,
+          );
+        }}
       />
     </Dialog>
   );
 }
-

@@ -112,7 +112,9 @@ function UnsubscribePage() {
           {state.kind === "already" && (
             <div className="flex flex-col items-center gap-2 text-emerald-700">
               <CheckCircle2 className="size-6" />
-              <p className="text-sm">You are already unsubscribed. No further emails will be sent.</p>
+              <p className="text-sm">
+                You are already unsubscribed. No further emails will be sent.
+              </p>
             </div>
           )}
           {state.kind === "ready" && (
@@ -120,7 +122,9 @@ function UnsubscribePage() {
               <p className="text-sm text-muted-foreground">
                 Click below to stop receiving emails from SEZA POS.
               </p>
-              <Button className="w-full" onClick={confirm}>Confirm unsubscribe</Button>
+              <Button className="w-full" onClick={confirm}>
+                Confirm unsubscribe
+              </Button>
             </>
           )}
           {state.kind === "submitting" && (
@@ -138,7 +142,9 @@ function UnsubscribePage() {
             <div className="flex flex-col items-center gap-2 text-destructive">
               <AlertTriangle className="size-6" />
               <p className="text-sm">{state.message}</p>
-              <Button variant="outline" onClick={confirm}>Try again</Button>
+              <Button variant="outline" onClick={confirm}>
+                Try again
+              </Button>
             </div>
           )}
         </CardContent>

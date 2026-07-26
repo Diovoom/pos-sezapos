@@ -5,9 +5,16 @@ import { requireAuth, supabaseForUser } from "../supabase-client";
 export default defineTool({
   name: "list_low_stock",
   title: "List low-stock products",
-  description: "List active tracked products whose stock is at or below their reorder threshold (min_stock).",
+  description:
+    "List active tracked products whose stock is at or below their reorder threshold (min_stock).",
   inputSchema: {
-    limit: z.number().int().min(1).max(200).default(50).describe("Maximum number of products to return."),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(200)
+      .default(50)
+      .describe("Maximum number of products to return."),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ limit }, ctx) => {

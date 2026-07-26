@@ -17,8 +17,9 @@ function walk(dir) {
   return out;
 }
 
-const sourceFiles = [...walk(join(root, "src")), ...walk(join(root, "capacitor-shell"))]
-  .filter((file) => /\.(ts|tsx|js|jsx)$/.test(file));
+const sourceFiles = [...walk(join(root, "src")), ...walk(join(root, "capacitor-shell"))].filter(
+  (file) => /\.(ts|tsx|js|jsx)$/.test(file),
+);
 
 for (const file of sourceFiles) {
   const rel = relative(root, file).replaceAll("\\", "/");
@@ -91,11 +92,16 @@ const migrationText = walk(migrationDir)
   .map((file) => readFileSync(file, "utf8"))
   .join("\n");
 
-const tableMatches = [...migrationText.matchAll(/create\s+table(?:\s+if\s+not\s+exists)?\s+public\.([a-zA-Z0-9_]+)/gi)]
-  .map((match) => match[1]);
+const tableMatches = [
+  ...migrationText.matchAll(/create\s+table(?:\s+if\s+not\s+exists)?\s+public\.([a-zA-Z0-9_]+)/gi),
+].map((match) => match[1]);
 for (const table of new Set(tableMatches)) {
-  const rls = new RegExp(`alter\\s+table\\s+public\\.${table}\\s+enable\\s+row\\s+level\\s+security`, "i");
-  if (!rls.test(migrationText)) warnings.push(`public.${table}: no explicit ENABLE ROW LEVEL SECURITY found`);
+  const rls = new RegExp(
+    `alter\\s+table\\s+public\\.${table}\\s+enable\\s+row\\s+level\\s+security`,
+    "i",
+  );
+  if (!rls.test(migrationText))
+    warnings.push(`public.${table}: no explicit ENABLE ROW LEVEL SECURITY found`);
 }
 
 for (const required of [

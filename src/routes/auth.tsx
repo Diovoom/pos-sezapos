@@ -5,13 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -28,17 +22,13 @@ import { marketingUrl } from "@/lib/host";
 import { secureOwnerPasswordSignIn, securePasswordReset } from "@/lib/auth/auth.functions";
 import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/auth";
 
-const PLATFORM_STAFF_MSG =
-  "Platform administrators cannot sign in here. Use admin.sezapos.com.";
+const PLATFORM_STAFF_MSG = "Platform administrators cannot sign in here. Use admin.sezapos.com.";
 const OWNER_ONLY_MSG =
   "The SEZA website is for store owners. Employees use the paired SEZA POS Android app.";
 
 async function ensureOwnerWebsiteAccess(userId: string): Promise<boolean> {
   try {
-    const { data, error } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
+    const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     if (error) throw error;
 
     const roles = (data ?? []).map((row) => row.role as string);
@@ -109,10 +99,7 @@ function OwnerAuthPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface p-4">
       <div className="w-full max-w-md">
-        <a
-          href={marketingUrl("/")}
-          className="mb-6 flex items-center justify-center gap-2"
-        >
+        <a href={marketingUrl("/")} className="mb-6 flex items-center justify-center gap-2">
           <Logo className="size-9 rounded-lg" />
           <span className="text-lg font-semibold tracking-tight">SEZA</span>
         </a>
@@ -131,10 +118,7 @@ function OwnerAuthPage() {
           </CardContent>
           <div className="px-6 pb-6 text-center text-xs text-muted-foreground">
             New merchant?{" "}
-            <Link
-              to="/signup"
-              className="font-medium text-primary hover:underline"
-            >
+            <Link to="/signup" className="font-medium text-primary hover:underline">
               Create an account
             </Link>
           </div>
@@ -246,7 +230,6 @@ function OwnerEmailLogin() {
         Continue with Google
       </Button>
 
-
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
           <span className="w-full border-t" />
@@ -290,7 +273,8 @@ function OwnerEmailLogin() {
             <Loader2 className="size-4 animate-spin" />
           ) : (
             <>
-              <LogIn className="mr-2 size-4" /> {cooldown.active ? `Try again in ${cooldown.seconds}s` : "Sign in"}
+              <LogIn className="mr-2 size-4" />{" "}
+              {cooldown.active ? `Try again in ${cooldown.seconds}s` : "Sign in"}
             </>
           )}
         </Button>
@@ -365,7 +349,10 @@ function ForgotPasswordLink() {
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={sendReset} disabled={busy || !email || cooldown.active || (authCaptchaEnabled && !captchaToken)}>
+            <Button
+              onClick={sendReset}
+              disabled={busy || !email || cooldown.active || (authCaptchaEnabled && !captchaToken)}
+            >
               {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
               <KeyRound className="mr-2 size-4" />
               Send reset link

@@ -2,7 +2,10 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { useMe } from "@/hooks/useMe";
-import { merchantRespondSupportSession, merchantEndSupportSession } from "@/lib/admin/admin.functions";
+import {
+  merchantRespondSupportSession,
+  merchantEndSupportSession,
+} from "@/lib/admin/admin.functions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -101,7 +104,12 @@ export function SupportRequestListener() {
       .channel(`support-req-${storeId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "admin_support_sessions", filter: `store_id=eq.${storeId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "admin_support_sessions",
+          filter: `store_id=eq.${storeId}`,
+        },
         () => void refresh(),
       )
       .subscribe();
@@ -153,10 +161,16 @@ export function SupportRequestListener() {
         nativeStopRef.current = native.stop;
         capability = "android_screen_share";
       } else {
-        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== "function") {
+        if (
+          !navigator.mediaDevices ||
+          typeof navigator.mediaDevices.getDisplayMedia !== "function"
+        ) {
           throw new Error("This browser does not support screen sharing");
         }
-        stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 }, audio: false });
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: 15 },
+          audio: false,
+        });
       }
 
       await respond({
@@ -199,7 +213,9 @@ export function SupportRequestListener() {
       nativeStopRef.current = null;
       toast.error(error?.message ?? "Screen sharing was cancelled or blocked");
       try {
-        await respond({ data: { sessionId: target.id, decision: "decline", note: "screen_share_failed" } });
+        await respond({
+          data: { sessionId: target.id, decision: "decline", note: "screen_share_failed" },
+        });
       } catch {
         /* noop */
       }
@@ -233,7 +249,12 @@ export function SupportRequestListener() {
         <div className="fixed left-1/2 top-[max(.5rem,env(safe-area-inset-top))] z-[70] flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center gap-2 rounded-full border border-amber-500/40 bg-background/95 px-3 py-2 text-xs shadow-lg backdrop-blur">
           <Eye className="h-4 w-4 text-amber-600" />
           <span className="font-medium">SEZA Support view active</span>
-          <button className="ml-1 font-semibold text-destructive hover:underline" onClick={() => void endActive()}>Stop</button>
+          <button
+            className="ml-1 font-semibold text-destructive hover:underline"
+            onClick={() => void endActive()}
+          >
+            Stop
+          </button>
         </div>
       )}
 
@@ -267,16 +288,36 @@ export function SupportRequestListener() {
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm">
-                <p>A SEZA Support agent{pending?.admin_email ? ` (${pending.admin_email})` : ""} is requesting temporary, read-only screen access.</p>
-                {pending?.reason && <div className="rounded-md border bg-muted/40 p-2"><div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Reason</div><div>{pending.reason}</div></div>}
-                <p className="text-xs text-muted-foreground">You remain in control. SEZA cannot tap, type, open files, use the camera, or control your register.</p>
-                <div className="flex items-center gap-2 pt-1"><Badge variant="outline">Read-only</Badge><Badge variant="outline">Stop anytime</Badge></div>
+                <p>
+                  A SEZA Support agent{pending?.admin_email ? ` (${pending.admin_email})` : ""} is
+                  requesting temporary, read-only screen access.
+                </p>
+                {pending?.reason && (
+                  <div className="rounded-md border bg-muted/40 p-2">
+                    <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
+                      Reason
+                    </div>
+                    <div>{pending.reason}</div>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  You remain in control. SEZA cannot tap, type, open files, use the camera, or
+                  control your register.
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <Badge variant="outline">Read-only</Badge>
+                  <Badge variant="outline">Stop anytime</Badge>
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy} onClick={() => void decide("decline")}>Decline</AlertDialogCancel>
-            <AlertDialogAction disabled={busy} onClick={() => void decide("accept")}>{busy ? "Starting…" : "Accept & share"}</AlertDialogAction>
+            <AlertDialogCancel disabled={busy} onClick={() => void decide("decline")}>
+              Decline
+            </AlertDialogCancel>
+            <AlertDialogAction disabled={busy} onClick={() => void decide("accept")}>
+              {busy ? "Starting…" : "Accept & share"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

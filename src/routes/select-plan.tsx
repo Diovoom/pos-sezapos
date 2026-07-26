@@ -74,7 +74,12 @@ function SelectPlanPage() {
 
         <div className="grid gap-6 md:grid-cols-3">
           {PLANS.map((p) => (
-            <Card key={p.id} className={p.highlight ? "border-primary shadow-lg ring-1 ring-primary/20 relative" : ""}>
+            <Card
+              key={p.id}
+              className={
+                p.highlight ? "border-primary shadow-lg ring-1 ring-primary/20 relative" : ""
+              }
+            >
               {p.highlight && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-medium px-3 py-1 rounded-full">
                   Most Popular
@@ -91,7 +96,10 @@ function SelectPlanPage() {
               <CardContent>
                 <ul className="space-y-2 text-sm mb-6">
                   {p.features.map((f) => (
-                    <li key={f} className="flex gap-2"><Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />{f}</li>
+                    <li key={f} className="flex gap-2">
+                      <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                      {f}
+                    </li>
                   ))}
                 </ul>
                 <Button

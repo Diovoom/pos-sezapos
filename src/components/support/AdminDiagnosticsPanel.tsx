@@ -46,11 +46,15 @@ export function AdminDiagnosticsPanel({
     const tick = () => {
       if (startedAt) {
         const s = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
-        setDuration(`${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`);
+        setDuration(
+          `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`,
+        );
       }
       if (expiresAt) {
         const r = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
-        setRemaining(`${String(Math.floor(r / 60)).padStart(2, "0")}:${String(r % 60).padStart(2, "0")}`);
+        setRemaining(
+          `${String(Math.floor(r / 60)).padStart(2, "0")}:${String(r % 60).padStart(2, "0")}`,
+        );
       }
     };
     tick();
@@ -97,28 +101,55 @@ export function AdminDiagnosticsPanel({
             <span className="uppercase tracking-wide mr-1">Emp</span>
             <span className="text-foreground">{employeeName ?? "—"}</span>
           </span>
-          <span className="font-mono text-foreground" title="Elapsed">{duration}</span>
-          <span className="font-mono text-foreground" title="Time remaining">{remaining}</span>
+          <span className="font-mono text-foreground" title="Elapsed">
+            {duration}
+          </span>
+          <span className="font-mono text-foreground" title="Time remaining">
+            {remaining}
+          </span>
         </div>
         <div className="ml-auto flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMinimized((m) => !m)} aria-label="Minimize">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setMinimized((m) => !m)}
+            aria-label="Minimize"
+          >
             <Minimize2 className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setExpanded((e) => !e)} aria-label="Expand">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setExpanded((e) => !e)}
+            aria-label="Expand"
+          >
             <Maximize2 className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={closeAndEnd} aria-label="End session">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={closeAndEnd}
+            aria-label="End session"
+          >
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
       {!minimized || expanded ? (
-        <div className={cn("overflow-y-auto p-3", expanded ? "max-h-[calc(100vh-8rem)]" : "max-h-[60vh]")}>
+        <div
+          className={cn(
+            "overflow-y-auto p-3",
+            expanded ? "max-h-[calc(100vh-8rem)]" : "max-h-[60vh]",
+          )}
+        >
           <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-800 dark:text-amber-200">
-            Live screen viewing wasn't granted for this Android session — the
-            merchant accepted diagnostics only. You can still help using the
-            device context and hardware state shared below.
+            Live screen viewing wasn't granted for this Android session — the merchant accepted
+            diagnostics only. You can still help using the device context and hardware state shared
+            below.
           </div>
           {metadata ? (
             <DiagnosticsViewer diagnostics={metadata} />

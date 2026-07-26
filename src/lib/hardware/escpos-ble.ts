@@ -34,7 +34,7 @@ const PRINTER_SERVICES = [
 
 const NAME_HINTS = ["printer", "escpos", "pos", "rpp", "mtp", "gp-", "xp-", "hm-a", "srp-"];
 
-type BleClient = typeof import("@capacitor-community/bluetooth-le")["BleClient"];
+type BleClient = (typeof import("@capacitor-community/bluetooth-le"))["BleClient"];
 let cache: BleClient | null = null;
 async function ble(): Promise<BleClient> {
   if (cache) return cache;
@@ -49,7 +49,9 @@ export function getSavedTarget(): EscPosBleTarget | null {
   try {
     const raw = window.localStorage.getItem(LS_KEY);
     return raw ? (JSON.parse(raw) as EscPosBleTarget) : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export function saveTarget(t: EscPosBleTarget | null) {
@@ -77,7 +79,10 @@ export async function scanForPrinters(
   await client.stopLEScan();
 }
 
-async function discoverWritable(client: BleClient, deviceId: string): Promise<{ serviceUuid: string; writeCharUuid: string } | null> {
+async function discoverWritable(
+  client: BleClient,
+  deviceId: string,
+): Promise<{ serviceUuid: string; writeCharUuid: string } | null> {
   const services = await client.getServices(deviceId);
   // Prefer known printer services.
   for (const s of services) {
@@ -110,7 +115,11 @@ export async function pair(deviceId: string, name?: string): Promise<EscPosBleTa
     saveTarget(target);
     return target;
   } finally {
-    try { await client.disconnect(deviceId); } catch { /* ignore */ }
+    try {
+      await client.disconnect(deviceId);
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -125,10 +134,19 @@ export async function write(payload: Uint8Array): Promise<void> {
     for (let i = 0; i < payload.length; i += CHUNK) {
       const slice = payload.slice(i, i + CHUNK);
       const dv = new DataView(slice.buffer, slice.byteOffset, slice.byteLength);
-      await client.writeWithoutResponse(target.deviceId, target.serviceUuid, target.writeCharUuid, dv);
+      await client.writeWithoutResponse(
+        target.deviceId,
+        target.serviceUuid,
+        target.writeCharUuid,
+        dv,
+      );
     }
   } finally {
-    try { await client.disconnect(target.deviceId); } catch { /* ignore */ }
+    try {
+      await client.disconnect(target.deviceId);
+    } catch {
+      /* ignore */
+    }
   }
 }
 

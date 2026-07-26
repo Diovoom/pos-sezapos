@@ -10,8 +10,18 @@ import { getAllOfflineSales, type OfflineSale } from "@/lib/offline/db";
 export function OfflineIndicator() {
   const online = useOnline();
   const evt = useSyncEvents();
-  const [counts, setCounts] = useState<{ pendingSales: number; syncedSales: number; failedSales: number; pendingCash: number; lastSync: string | null }>({
-    pendingSales: 0, syncedSales: 0, failedSales: 0, pendingCash: 0, lastSync: null,
+  const [counts, setCounts] = useState<{
+    pendingSales: number;
+    syncedSales: number;
+    failedSales: number;
+    pendingCash: number;
+    lastSync: string | null;
+  }>({
+    pendingSales: 0,
+    syncedSales: 0,
+    failedSales: 0,
+    pendingCash: 0,
+    lastSync: null,
   });
   const [sales, setSales] = useState<OfflineSale[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -20,34 +30,53 @@ export function OfflineIndicator() {
     try {
       setCounts(await pendingCounts());
       setSales(await getAllOfflineSales());
-    } catch { /* IDB unavailable in SSR */ }
+    } catch {
+      /* IDB unavailable in SSR */
+    }
   };
 
-  useEffect(() => { installAutoSync(); void refresh(); }, []);
-  useEffect(() => { void refresh(); }, [evt, online]);
+  useEffect(() => {
+    installAutoSync();
+    void refresh();
+  }, []);
+  useEffect(() => {
+    void refresh();
+  }, [evt, online]);
 
-  const state: "offline" | "syncing" | "issue" | "online" =
-    !online ? "offline"
-      : syncing || evt?.type === "start" || evt?.type === "progress" ? "syncing"
-      : counts.failedSales > 0 ? "issue"
-      : "online";
+  const state: "offline" | "syncing" | "issue" | "online" = !online
+    ? "offline"
+    : syncing || evt?.type === "start" || evt?.type === "progress"
+      ? "syncing"
+      : counts.failedSales > 0
+        ? "issue"
+        : "online";
 
   const label =
-    state === "offline" ? "Offline"
-    : state === "syncing" ? "Syncing"
-    : state === "issue" ? "Sync issue"
-    : "Online";
+    state === "offline"
+      ? "Offline"
+      : state === "syncing"
+        ? "Syncing"
+        : state === "issue"
+          ? "Sync issue"
+          : "Online";
 
-  const Icon = state === "offline" ? WifiOff
-    : state === "syncing" ? RefreshCw
-    : state === "issue" ? AlertTriangle
-    : Wifi;
+  const Icon =
+    state === "offline"
+      ? WifiOff
+      : state === "syncing"
+        ? RefreshCw
+        : state === "issue"
+          ? AlertTriangle
+          : Wifi;
 
   const color =
-    state === "offline" ? "text-amber-600 bg-amber-500/10 border-amber-500/30"
-    : state === "syncing" ? "text-primary bg-primary/10 border-primary/30"
-    : state === "issue" ? "text-destructive bg-destructive/10 border-destructive/30"
-    : "text-success bg-success/10 border-success/30";
+    state === "offline"
+      ? "text-amber-600 bg-amber-500/10 border-amber-500/30"
+      : state === "syncing"
+        ? "text-primary bg-primary/10 border-primary/30"
+        : state === "issue"
+          ? "text-destructive bg-destructive/10 border-destructive/30"
+          : "text-success bg-success/10 border-success/30";
 
   const pending = counts.pendingSales + counts.pendingCash;
 
@@ -78,12 +107,14 @@ export function OfflineIndicator() {
           </div>
           {state === "offline" && (
             <p className="mt-2 text-xs text-muted-foreground">
-              Offline mode — cash sales will be saved on this register and synced when connection returns.
+              Offline mode — cash sales will be saved on this register and synced when connection
+              returns.
             </p>
           )}
           {state === "issue" && (
             <p className="mt-2 text-xs text-destructive">
-              {counts.failedSales} record{counts.failedSales === 1 ? "" : "s"} could not sync. Retry below.
+              {counts.failedSales} record{counts.failedSales === 1 ? "" : "s"} could not sync. Retry
+              below.
             </p>
           )}
         </div>
@@ -91,27 +122,47 @@ export function OfflineIndicator() {
           <Row label="Pending sales" value={counts.pendingSales} />
           <Row label="Pending cash movements" value={counts.pendingCash} />
           <Row label="Failed records" value={counts.failedSales} />
-          <Row label="Last sync" value={counts.lastSync ? new Date(counts.lastSync).toLocaleTimeString() : "—"} />
+          <Row
+            label="Last sync"
+            value={counts.lastSync ? new Date(counts.lastSync).toLocaleTimeString() : "—"}
+          />
         </div>
         {sales.length > 0 && (
           <div className="border-t max-h-48 overflow-auto">
-            {sales.slice(-10).reverse().map((s) => (
-              <div key={s.id} className="flex items-center justify-between px-4 py-2 text-xs border-b last:border-b-0">
-                <div className="min-w-0">
-                  <div className="font-mono truncate">#{s.local_seq} · {s.id.slice(0, 8)}</div>
-                  <div className="text-muted-foreground">{s.total.toFixed(2)} {s.currency}</div>
+            {sales
+              .slice(-10)
+              .reverse()
+              .map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between px-4 py-2 text-xs border-b last:border-b-0"
+                >
+                  <div className="min-w-0">
+                    <div className="font-mono truncate">
+                      #{s.local_seq} · {s.id.slice(0, 8)}
+                    </div>
+                    <div className="text-muted-foreground">
+                      {s.total.toFixed(2)} {s.currency}
+                    </div>
+                  </div>
+                  <StatusBadge status={s.status} />
                 </div>
-                <StatusBadge status={s.status} />
-              </div>
-            ))}
+              ))}
           </div>
         )}
         <div className="p-3 border-t bg-surface/40">
           <Button
-            size="sm" className="w-full" disabled={!online || syncing}
+            size="sm"
+            className="w-full"
+            disabled={!online || syncing}
             onClick={async () => {
               setSyncing(true);
-              try { await syncNow(); } finally { setSyncing(false); void refresh(); }
+              try {
+                await syncNow();
+              } finally {
+                setSyncing(false);
+                void refresh();
+              }
             }}
           >
             <RefreshCw className={cn("size-4 mr-2", syncing && "animate-spin")} />
@@ -143,7 +194,12 @@ function StatusBadge({ status }: { status: OfflineSale["status"] }) {
   };
   const { c, Icon } = map[status];
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", c)}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+        c,
+      )}
+    >
       <Icon className={cn("size-3", status === "syncing" && "animate-spin")} />
       {status}
     </span>

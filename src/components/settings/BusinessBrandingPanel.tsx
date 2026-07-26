@@ -56,7 +56,8 @@ export function BusinessBrandingPanel() {
     value: string | null,
   ) => {
     if (!storeId) return;
-    const kind = field === "logo_url" ? "primary" : field === "receipt_logo_url" ? "receipt" : "text";
+    const kind =
+      field === "logo_url" ? "primary" : field === "receipt_logo_url" ? "receipt" : "text";
     setSaving(kind);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any)
@@ -68,7 +69,13 @@ export function BusinessBrandingPanel() {
       toast.error(error.message);
       return;
     }
-    toast.success(field === "pos_display_name" ? "Fallback text updated" : value ? "Logo updated" : "Logo removed");
+    toast.success(
+      field === "pos_display_name"
+        ? "Fallback text updated"
+        : value
+          ? "Logo updated"
+          : "Logo removed",
+    );
     void logAudit({
       action: "settings.branding.update",
       entity: "store",
@@ -126,8 +133,17 @@ export function BusinessBrandingPanel() {
             className="hidden"
             onChange={(e) => onPick(field, e.currentTarget)}
           />
-          <Button size="sm" variant="outline" onClick={() => inputRef.current?.click()} disabled={busy || !storeId}>
-            {busy ? <Loader2 className="size-3.5 mr-2 animate-spin" /> : <Upload className="size-3.5 mr-2" />}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => inputRef.current?.click()}
+            disabled={busy || !storeId}
+          >
+            {busy ? (
+              <Loader2 className="size-3.5 mr-2 animate-spin" />
+            ) : (
+              <Upload className="size-3.5 mr-2" />
+            )}
             Upload
           </Button>
           <Button
@@ -149,21 +165,26 @@ export function BusinessBrandingPanel() {
       <CardHeader>
         <CardTitle>Business Branding</CardTitle>
         <CardDescription>
-          Branding is stored in the cloud. Online Android registers refresh automatically when you save a change—no APK rebuild required.
+          Branding is stored in the cloud. Online Android registers refresh automatically when you
+          save a change—no APK rebuild required.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="rounded-lg border p-4 space-y-3">
           <div>
             <Label htmlFor="pos-display-text">Text shown when no logo is uploaded</Label>
-            <p className="text-xs text-muted-foreground">Use 1–4 short characters, for example EVS, DM, or S.</p>
+            <p className="text-xs text-muted-foreground">
+              Use 1–4 short characters, for example EVS, DM, or S.
+            </p>
           </div>
           <div className="flex gap-2 max-w-sm">
             <Input
               id="pos-display-text"
               value={displayText}
               maxLength={4}
-              onChange={(e) => setDisplayText(e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase())}
+              onChange={(e) =>
+                setDisplayText(e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase())
+              }
               placeholder="EVS"
             />
             <Button
@@ -194,7 +215,8 @@ export function BusinessBrandingPanel() {
         />
         {!data?.hasCustomLogo && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <ImageIcon className="size-4" /> The fallback text above is currently used in the POS header.
+            <ImageIcon className="size-4" /> The fallback text above is currently used in the POS
+            header.
           </div>
         )}
       </CardContent>

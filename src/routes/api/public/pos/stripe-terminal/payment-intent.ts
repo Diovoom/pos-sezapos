@@ -10,7 +10,8 @@ const CORS: Record<string, string> = {
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
-    status, headers: { "content-type": "application/json", ...CORS },
+    status,
+    headers: { "content-type": "application/json", ...CORS },
   });
 }
 
@@ -37,11 +38,18 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
         if (!token) return json({ error: "Missing bearer token" }, 401);
 
         let body: Body;
-        try { body = (await request.json()) as Body; } catch { return json({ error: "Invalid JSON" }, 400); }
+        try {
+          body = (await request.json()) as Body;
+        } catch {
+          return json({ error: "Invalid JSON" }, 400);
+        }
         const amount = typeof body.amount === "number" ? Math.round(body.amount) : NaN;
-        const currency = typeof body.currency === "string" && body.currency ? body.currency.toLowerCase() : "usd";
-        const description = typeof body.description === "string" ? body.description.slice(0, 200) : undefined;
-        if (!Number.isInteger(amount) || amount < 50) return json({ error: "amount must be an integer ≥ 50 (in cents)" }, 400);
+        const currency =
+          typeof body.currency === "string" && body.currency ? body.currency.toLowerCase() : "usd";
+        const description =
+          typeof body.description === "string" ? body.description.slice(0, 200) : undefined;
+        if (!Number.isInteger(amount) || amount < 50)
+          return json({ error: "amount must be an integer ≥ 50 (in cents)" }, 400);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: userRes, error: uerr } = await supabaseAdmin.auth.getUser(token);
@@ -51,7 +59,11 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
         // Resolve store for audit.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const admin: any = supabaseAdmin;
-        const { data: profile } = await admin.from("profiles").select("store_id").eq("id", userId).maybeSingle();
+        const { data: profile } = await admin
+          .from("profiles")
+          .select("store_id")
+          .eq("id", userId)
+          .maybeSingle();
         const storeId = profile?.store_id ?? null;
 
         try {
@@ -59,7 +71,8 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
           const env = (process.env.STRIPE_LIVE_API_KEY ? "live" : "sandbox") as "live" | "sandbox";
           const stripe = createStripeClient(env);
           const pi = await stripe.paymentIntents.create({
-            amount, currency,
+            amount,
+            currency,
             payment_method_types: ["card_present"],
             capture_method: "automatic",
             description,
@@ -67,13 +80,22 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
           });
           try {
             await admin.from("payment_attempts").insert({
-              store_id: storeId, cashier_id: userId, amount_cents: amount, currency,
-              provider: "stripe_terminal", provider_ref: pi.id, status: "created",
+              store_id: storeId,
+              cashier_id: userId,
+              amount_cents: amount,
+              currency,
+              provider: "stripe_terminal",
+              provider_ref: pi.id,
+              status: "created",
             });
-          } catch { /* payment_attempts columns may differ; audit is best-effort */ }
+          } catch {
+            /* payment_attempts columns may differ; audit is best-effort */
+          }
           return json({ id: pi.id, client_secret: pi.client_secret });
         } catch (e) {
-          const { getStripeErrorMessage } = await import("@/lib/stripe.server").catch(() => ({ getStripeErrorMessage: () => "Stripe error" }));
+          const { getStripeErrorMessage } = await import("@/lib/stripe.server").catch(() => ({
+            getStripeErrorMessage: () => "Stripe error",
+          }));
           return json({ error: getStripeErrorMessage(e) }, 500);
         }
       },

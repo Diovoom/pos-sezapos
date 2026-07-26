@@ -4,7 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
 import { Card } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { fmtCurrency } from "@/lib/format";
 import { Printer } from "lucide-react";
@@ -12,7 +19,12 @@ import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
 
 export const Route = createFileRoute("/_dashboard/sales")({
-  head: () => ({ meta: [{ title: "Sales — SEZA POS" }, { name: "description", content: "Recent sales transactions, receipts, and payment details." }] }),
+  head: () => ({
+    meta: [
+      { title: "Sales — SEZA POS" },
+      { name: "description", content: "Recent sales transactions, receipts, and payment details." },
+    ],
+  }),
   component: SalesPage,
 });
 
@@ -30,7 +42,12 @@ type Row = {
   amount_tendered: number | null;
   change_due: number | null;
   terminal_ref: string | null;
-  sale_items: Array<{ product_name: string; quantity: number; unit_price: number; line_total: number }>;
+  sale_items: Array<{
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+    line_total: number;
+  }>;
 };
 
 function SalesPage() {
@@ -47,7 +64,9 @@ function SalesPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("sales")
-        .select("id,receipt_number,total,subtotal,tax,refunded_amount,refund_status,payment_method,status,created_at,amount_tendered,change_due,terminal_ref,sale_items(product_name,quantity,unit_price,line_total)")
+        .select(
+          "id,receipt_number,total,subtotal,tax,refunded_amount,refund_status,payment_method,status,created_at,amount_tendered,change_due,terminal_ref,sale_items(product_name,quantity,unit_price,line_total)",
+        )
         .order("created_at", { ascending: false })
         .limit(100);
       return (data as unknown as Row[]) ?? [];
@@ -96,37 +115,67 @@ function SalesPage() {
             </TableHeader>
             <TableBody>
               {sales.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">No sales yet.</TableCell></TableRow>
-              ) : sales.map((s) => {
-                const itemCount = s.sale_items?.reduce((a, i) => a + Number(i.quantity), 0) ?? 0;
-                return (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-mono">#{s.receipt_number ?? s.id.slice(0, 6)}</TableCell>
-                    <TableCell className="text-sm">{new Date(s.created_at).toLocaleString()}</TableCell>
-                    <TableCell>{itemCount}</TableCell>
-                    <TableCell className="capitalize">{String(s.payment_method).replace("_", " ")}</TableCell>
-                    <TableCell>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
-                        s.status === "voided" ? "bg-destructive/10 text-destructive" :
-                        s.refund_status === "full" ? "bg-destructive/10 text-destructive" :
-                        s.refund_status === "partial" ? "bg-amber-500/10 text-amber-600" :
-                        "bg-success/10 text-success"
-                      }`}>
-                        {s.status === "voided" ? "voided" : s.refund_status === "none" ? s.status : s.refund_status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-semibold">{fmtCurrency(Number(s.total), cur)}</TableCell>
-                    <TableCell className="text-right font-mono text-destructive">
-                      {Number(s.refunded_amount) > 0 ? `-${fmtCurrency(Number(s.refunded_amount), cur)}` : "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button size="icon" variant="ghost" onClick={() => openReceipt(s)} aria-label="Reprint receipt">
-                        <Printer className="size-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                    No sales yet.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sales.map((s) => {
+                  const itemCount = s.sale_items?.reduce((a, i) => a + Number(i.quantity), 0) ?? 0;
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell className="font-mono">
+                        #{s.receipt_number ?? s.id.slice(0, 6)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {new Date(s.created_at).toLocaleString()}
+                      </TableCell>
+                      <TableCell>{itemCount}</TableCell>
+                      <TableCell className="capitalize">
+                        {String(s.payment_method).replace("_", " ")}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+                            s.status === "voided"
+                              ? "bg-destructive/10 text-destructive"
+                              : s.refund_status === "full"
+                                ? "bg-destructive/10 text-destructive"
+                                : s.refund_status === "partial"
+                                  ? "bg-amber-500/10 text-amber-600"
+                                  : "bg-success/10 text-success"
+                          }`}
+                        >
+                          {s.status === "voided"
+                            ? "voided"
+                            : s.refund_status === "none"
+                              ? s.status
+                              : s.refund_status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-semibold">
+                        {fmtCurrency(Number(s.total), cur)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-destructive">
+                        {Number(s.refunded_amount) > 0
+                          ? `-${fmtCurrency(Number(s.refunded_amount), cur)}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => openReceipt(s)}
+                          aria-label="Reprint receipt"
+                        >
+                          <Printer className="size-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </Card>

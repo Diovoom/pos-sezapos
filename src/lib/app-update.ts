@@ -39,7 +39,9 @@ export async function initializeAppUpdateWorkflow() {
   try {
     const { App } = await import("@capacitor/app");
     const info = await App.getInfo();
-    const response = await fetch(`https://sezapos.com/version.json?t=${Date.now()}`, { cache: "no-store" });
+    const response = await fetch(`https://sezapos.com/version.json?t=${Date.now()}`, {
+      cache: "no-store",
+    });
     if (!response.ok) return;
     const manifest = (await response.json()) as SezaVersionManifest;
     if (!isNewerVersion(manifest.version, info.version || SEZA_APP_VERSION)) return;

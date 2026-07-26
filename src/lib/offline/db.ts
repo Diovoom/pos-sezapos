@@ -23,10 +23,10 @@ export type OfflineSaleItem = {
 };
 
 export type OfflineSale = {
-  id: string;                  // local UUID = sale.id
-  idempotency_key: string;     // dedupe key on server
-  correlation_id?: string;     // per-record trace id for support
-  payload_version?: number;    // matches OFFLINE_PAYLOAD_VERSION at creation
+  id: string; // local UUID = sale.id
+  idempotency_key: string; // dedupe key on server
+  correlation_id?: string; // per-record trace id for support
+  payload_version?: number; // matches OFFLINE_PAYLOAD_VERSION at creation
   store_id: string;
   register_session_id: string | null;
   cashier_id: string;
@@ -39,7 +39,7 @@ export type OfflineSale = {
   last_attempt_at?: string | null;
   last_error?: string | null;
   last_error_code?: string | null;
-  next_retry_at?: string | null;   // backoff gate
+  next_retry_at?: string | null; // backoff gate
   server_receipt_number?: number | null;
   server_id?: string | null;
   // snapshot
@@ -72,7 +72,6 @@ export type OfflineCashMovement = {
   last_attempt_at?: string | null;
   next_retry_at?: string | null;
 };
-
 
 export type OfflineActionKind =
   | "timeclock"
@@ -140,7 +139,8 @@ export function getDB() {
           const cash = db.createObjectStore("cash_movements", { keyPath: "id" });
           cash.createIndex("by_status", "status");
         }
-        if (!db.objectStoreNames.contains("products")) db.createObjectStore("products", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("products"))
+          db.createObjectStore("products", { keyPath: "id" });
         if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
         if (!db.objectStoreNames.contains("actions")) {
           const actions = db.createObjectStore("actions", { keyPath: "id" });
@@ -266,14 +266,22 @@ export async function recoverStaleSyncing(): Promise<number> {
   const cash = (await db.getAll("cash_movements")) as OfflineCashMovement[];
   for (const m of cash) {
     if (m.status === "syncing") {
-      await db.put("cash_movements", { ...m, status: "pending", last_error: "recovered_stale_syncing" });
+      await db.put("cash_movements", {
+        ...m,
+        status: "pending",
+        last_error: "recovered_stale_syncing",
+      });
       n++;
     }
   }
   const actions = (await db.getAll("actions")) as OfflineAction[];
   for (const action of actions) {
     if (action.status === "syncing") {
-      await db.put("actions", { ...action, status: "pending", last_error: "recovered_stale_syncing" });
+      await db.put("actions", {
+        ...action,
+        status: "pending",
+        last_error: "recovered_stale_syncing",
+      });
       n++;
     }
   }
@@ -353,9 +361,9 @@ export async function countUnsyncedFinancialRecords(): Promise<number> {
     getAllOfflineActions(),
   ]);
   return (
-    sales.filter((row) => row.status !== "synced").length
-    + cash.filter((row) => row.status !== "synced").length
-    + actions.filter((row) => row.status !== "synced").length
+    sales.filter((row) => row.status !== "synced").length +
+    cash.filter((row) => row.status !== "synced").length +
+    actions.filter((row) => row.status !== "synced").length
   );
 }
 
@@ -364,7 +372,13 @@ export async function purgeIfStoreChanged(
   storeId: string | null | undefined,
 ): Promise<StoreChangeResult> {
   if (!storeId) {
-    return { changed: false, blocked: false, previousStoreId: null, requestedStoreId: null, preservedUnsyncedRecords: 0 };
+    return {
+      changed: false,
+      blocked: false,
+      previousStoreId: null,
+      requestedStoreId: null,
+      preservedUnsyncedRecords: 0,
+    };
   }
   const prev = await readMeta<string>("store_id");
   if (prev && prev !== storeId) {
@@ -395,9 +409,21 @@ export async function purgeIfStoreChanged(
     }
     await cacheMeta("store_id", storeId);
     await cacheMeta("store_switch_conflict", null);
-    return { changed: true, blocked: false, previousStoreId: prev, requestedStoreId: storeId, preservedUnsyncedRecords: 0 };
+    return {
+      changed: true,
+      blocked: false,
+      previousStoreId: prev,
+      requestedStoreId: storeId,
+      preservedUnsyncedRecords: 0,
+    };
   }
   await cacheMeta("store_id", storeId);
   await cacheMeta("store_switch_conflict", null);
-  return { changed: false, blocked: false, previousStoreId: prev ?? null, requestedStoreId: storeId, preservedUnsyncedRecords: 0 };
+  return {
+    changed: false,
+    blocked: false,
+    previousStoreId: prev ?? null,
+    requestedStoreId: storeId,
+    preservedUnsyncedRecords: 0,
+  };
 }

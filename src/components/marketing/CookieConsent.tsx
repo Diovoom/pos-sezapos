@@ -101,8 +101,13 @@ export function CookieConsent() {
                 <div className="font-semibold text-foreground">Your privacy choices</div>
                 <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                   SEZA uses necessary storage to keep the website secure and remember your choices.
-                  Optional analytics and marketing technologies stay off unless you allow them. Read our{" "}
-                  <Link to="/legal/$slug" params={{ slug: "cookies" }} className="font-medium text-primary underline underline-offset-4">
+                  Optional analytics and marketing technologies stay off unless you allow them. Read
+                  our{" "}
+                  <Link
+                    to="/legal/$slug"
+                    params={{ slug: "cookies" }}
+                    className="font-medium text-primary underline underline-offset-4"
+                  >
                     Cookie Policy
                   </Link>
                   .
@@ -125,19 +130,33 @@ export function CookieConsent() {
       )}
 
       {preferencesOpen && (
-        <div className="fixed inset-0 z-[90] grid place-items-end bg-slate-950/45 p-0 backdrop-blur-sm sm:place-items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="cookie-settings-title">
+        <div
+          className="fixed inset-0 z-[90] grid place-items-end bg-slate-950/45 p-0 backdrop-blur-sm sm:place-items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cookie-settings-title"
+        >
           <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl border bg-background p-5 shadow-2xl sm:max-w-xl sm:rounded-3xl sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="mb-3 grid size-11 place-items-center rounded-2xl bg-primary/10 text-primary">
                   <ShieldCheck className="size-5" />
                 </div>
-                <h2 id="cookie-settings-title" className="text-2xl font-bold tracking-tight">Cookie settings</h2>
+                <h2 id="cookie-settings-title" className="text-2xl font-bold tracking-tight">
+                  Cookie settings
+                </h2>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Choose which optional technologies SEZA may use on this browser. Necessary storage cannot be disabled because it supports security, authentication and your privacy preferences.
+                  Choose which optional technologies SEZA may use on this browser. Necessary storage
+                  cannot be disabled because it supports security, authentication and your privacy
+                  preferences.
                 </p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setPreferencesOpen(false)} aria-label="Close cookie settings">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setPreferencesOpen(false)}
+                aria-label="Close cookie settings"
+              >
                 <X className="size-5" />
               </Button>
             </div>
@@ -165,7 +184,9 @@ export function CookieConsent() {
             </div>
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" onClick={() => save(false, false)}>Reject optional</Button>
+              <Button variant="outline" onClick={() => save(false, false)}>
+                Reject optional
+              </Button>
               <Button onClick={() => save(analytics, marketing)}>Save preferences</Button>
             </div>
           </div>
@@ -192,10 +213,18 @@ function PreferenceRow({
   return (
     <div className="flex items-start justify-between gap-4 p-4 sm:p-5">
       <div className="min-w-0">
-        <Label htmlFor={id} className="text-sm font-semibold">{title}</Label>
+        <Label htmlFor={id} className="text-sm font-semibold">
+          {title}
+        </Label>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
       </div>
-      <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} aria-label={`${title} cookies`} />
+      <Switch
+        id={id}
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onCheckedChange}
+        aria-label={`${title} cookies`}
+      />
     </div>
   );
 }

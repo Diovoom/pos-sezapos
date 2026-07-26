@@ -47,10 +47,12 @@ export const Route = createFileRoute("/api/public/pos/device-heartbeat")({
         const storeId = typeof body.store_id === "string" ? body.store_id : "";
         const deviceId = typeof body.device_id === "string" ? body.device_id : "";
         const deviceSecret = typeof body.device_secret === "string" ? body.device_secret : "";
-        const appVersion = typeof body.app_version === "string" ? body.app_version.slice(0, 80) : null;
-        const snapshot = body.status_snapshot && typeof body.status_snapshot === "object"
-          ? body.status_snapshot
-          : {};
+        const appVersion =
+          typeof body.app_version === "string" ? body.app_version.slice(0, 80) : null;
+        const snapshot =
+          body.status_snapshot && typeof body.status_snapshot === "object"
+            ? body.status_snapshot
+            : {};
 
         if (!storeId || !deviceId || !deviceSecret) {
           return json({ error: "Device not paired" }, 401);

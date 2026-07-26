@@ -14,8 +14,12 @@ const MANAGER_ROLES = ["owner", "admin", "manager"] as const;
 export const verifyManagerOverride = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
-    (data: { employee_id: string; pin: string; action: string; details?: Record<string, unknown> }) =>
-      data,
+    (data: {
+      employee_id: string;
+      pin: string;
+      action: string;
+      details?: Record<string, unknown>;
+    }) => data,
   )
   .handler(async ({ data, context }) => {
     if (!/^\d{6}$/.test(data.employee_id)) throw new Error("Invalid employee ID");
@@ -30,7 +34,10 @@ export const verifyManagerOverride = createServerFn({ method: "POST" })
     // Without this, any signed-in employee could probe employee IDs, statuses,
     // and PINs for staff at unrelated stores via the distinct error messages.
     const { data: caller } = await admin
-      .from("profiles").select("store_id").eq("id", ctx.userId).maybeSingle();
+      .from("profiles")
+      .select("store_id")
+      .eq("id", ctx.userId)
+      .maybeSingle();
     const callerStoreId = caller?.store_id ?? null;
 
     const deny = async (reason: string) => {
@@ -38,7 +45,12 @@ export const verifyManagerOverride = createServerFn({ method: "POST" })
         actor_id: ctx.userId,
         action: "override.denied",
         entity: "manager_override",
-        details: { requested_action: data.action, employee_id: data.employee_id, reason, ...(data.details ?? {}) },
+        details: {
+          requested_action: data.action,
+          employee_id: data.employee_id,
+          reason,
+          ...(data.details ?? {}),
+        },
       });
       throw new Error(reason);
     };
@@ -104,13 +116,18 @@ export const verifyManagerPin = createServerFn({ method: "POST" })
     const ctx = context as { userId: string };
 
     const { data: caller } = await admin
-      .from("profiles").select("store_id").eq("id", ctx.userId).maybeSingle();
+      .from("profiles")
+      .select("store_id")
+      .eq("id", ctx.userId)
+      .maybeSingle();
     const storeId = caller?.store_id ?? null;
 
     const rolesQ = admin.from("user_roles").select("user_id, role").in("role", MANAGER_ROLES);
     if (storeId) rolesQ.eq("store_id", storeId);
     const { data: roleRows } = await rolesQ;
-    const managerIds = Array.from(new Set(((roleRows ?? []) as { user_id: string }[]).map((r) => r.user_id)));
+    const managerIds = Array.from(
+      new Set(((roleRows ?? []) as { user_id: string }[]).map((r) => r.user_id)),
+    );
 
     const deny = async (reason: string) => {
       await admin.from("audit_log").insert({

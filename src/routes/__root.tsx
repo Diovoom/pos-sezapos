@@ -33,9 +33,7 @@ function NotFoundComponent() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">
-          Page not found
-        </h2>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           The page you're looking for doesn't exist or has been moved.
         </p>
@@ -66,8 +64,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           This page didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back
-          home.
+          Something went wrong on our end. You can try refreshing or head back home.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -91,109 +88,105 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-const SITE_TITLE =
-  "SEZA POS | Smart Point of Sale System for Retail Businesses";
+const SITE_TITLE = "SEZA POS | Smart Point of Sale System for Retail Businesses";
 const SITE_DESCRIPTION =
   "SEZA POS is a modern point-of-sale system for retail stores, convenience stores, liquor stores, grocery stores, and small businesses. Manage sales, inventory, employees, receipts, reports, and payments in one platform.";
-const OG_IMAGE =
-  "https://sezapos.com/seza-og.jpg";
+const OG_IMAGE = "https://sezapos.com/seza-og.jpg";
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
-  {
-    head: () => ({
-      meta: [
-        { charSet: "utf-8" },
-        { name: "viewport", content: "width=device-width, initial-scale=1" },
-        { title: SITE_TITLE },
-        { name: "description", content: SITE_DESCRIPTION },
-        { name: "author", content: "SEZA POS" },
-        { name: "theme-color", content: "#1e40af" },
-        { property: "og:site_name", content: "SEZA POS" },
-        { property: "og:title", content: SITE_TITLE },
-        { property: "og:description", content: SITE_DESCRIPTION },
-        { property: "og:type", content: "website" },
-        { property: "og:url", content: "https://sezapos.com/" },
-        { property: "og:image", content: OG_IMAGE },
-        { property: "og:image:width", content: "1200" },
-        { property: "og:image:height", content: "630" },
-        { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:title", content: SITE_TITLE },
-        { name: "twitter:description", content: SITE_DESCRIPTION },
-        { name: "twitter:image", content: OG_IMAGE },
-      ],
-      links: [
-        { rel: "stylesheet", href: appCss },
-        { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
-        { rel: "shortcut icon", href: "/favicon.ico" },
-        {
-          rel: "icon",
-          type: "image/png",
-          sizes: "48x48",
-          href: "/seza-logo-48.png",
-        },
-        {
-          rel: "icon",
-          type: "image/png",
-          sizes: "192x192",
-          href: "/seza-logo-192.png",
-        },
-        {
-          rel: "apple-touch-icon",
-          sizes: "180x180",
-          href: "/seza-logo-180.png",
-        },
-        { rel: "manifest", href: "/manifest.json" },
-        { rel: "preconnect", href: "https://fonts.googleapis.com" },
-        {
-          rel: "preconnect",
-          href: "https://fonts.gstatic.com",
-          crossOrigin: "",
-        },
-        {
-          rel: "stylesheet",
-          href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap",
-        },
-      ],
-      scripts: [
-        {
-          type: "application/ld+json",
-          children: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            name: "SEZA POS",
-            legalName: "SEZA Technologies Inc.",
-            logo: "https://sezapos.com/seza-logo-512.png",
-            image: "https://sezapos.com/seza-og.jpg",
-            url: "https://sezapos.com",
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  head: () => ({
+    meta: [
+      { charSet: "utf-8" },
+      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { title: SITE_TITLE },
+      { name: "description", content: SITE_DESCRIPTION },
+      { name: "author", content: "SEZA POS" },
+      { name: "theme-color", content: "#1e40af" },
+      { property: "og:site_name", content: "SEZA POS" },
+      { property: "og:title", content: SITE_TITLE },
+      { property: "og:description", content: SITE_DESCRIPTION },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://sezapos.com/" },
+      { property: "og:image", content: OG_IMAGE },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: SITE_TITLE },
+      { name: "twitter:description", content: SITE_DESCRIPTION },
+      { name: "twitter:image", content: OG_IMAGE },
+    ],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
+      { rel: "shortcut icon", href: "/favicon.ico" },
+      {
+        rel: "icon",
+        type: "image/png",
+        sizes: "48x48",
+        href: "/seza-logo-48.png",
+      },
+      {
+        rel: "icon",
+        type: "image/png",
+        sizes: "192x192",
+        href: "/seza-logo-192.png",
+      },
+      {
+        rel: "apple-touch-icon",
+        sizes: "180x180",
+        href: "/seza-logo-180.png",
+      },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap",
+      },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "SEZA POS",
+          legalName: "SEZA Technologies Inc.",
+          logo: "https://sezapos.com/seza-logo-512.png",
+          image: "https://sezapos.com/seza-og.jpg",
+          url: "https://sezapos.com",
+          telephone: LEGAL_CONFIG.phone,
+          contactPoint: {
+            "@type": "ContactPoint",
             telephone: LEGAL_CONFIG.phone,
-            contactPoint: {
-              "@type": "ContactPoint",
-              telephone: LEGAL_CONFIG.phone,
-              contactType: "customer service",
-              availableLanguage: ["English", "French", "Haitian Creole"],
-            },
-            description:
-              "Modern cloud point-of-sale platform for convenience stores, mini marts, liquor, and retail.",
-            sameAs: SOCIAL_LINKS.map((link) => link.href),
-          }),
-        },
-        {
-          type: "application/ld+json",
-          children: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            name: "SEZA POS",
-            url: "https://sezapos.com",
-          }),
-        },
-      ],
-    }),
-    shellComponent: RootShell,
-    component: RootComponent,
-    notFoundComponent: NotFoundComponent,
-    errorComponent: ErrorComponent,
-  },
-);
+            contactType: "customer service",
+            availableLanguage: ["English", "French", "Haitian Creole"],
+          },
+          description:
+            "Modern cloud point-of-sale platform for convenience stores, mini marts, liquor, and retail.",
+          sameAs: SOCIAL_LINKS.map((link) => link.href),
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "SEZA POS",
+          url: "https://sezapos.com",
+        }),
+      },
+    ],
+  }),
+  shellComponent: RootShell,
+  component: RootComponent,
+  notFoundComponent: NotFoundComponent,
+  errorComponent: ErrorComponent,
+});
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
@@ -208,7 +201,6 @@ function RootShell({ children }: { children: ReactNode }) {
     </html>
   );
 }
-
 
 function RouteScrollManager() {
   const href = useRouterState({ select: (state) => state.location.href });
@@ -230,7 +222,9 @@ function RouteScrollManager() {
     };
 
     moveToDestination();
-    const frame = window.requestAnimationFrame(() => window.requestAnimationFrame(moveToDestination));
+    const frame = window.requestAnimationFrame(() =>
+      window.requestAnimationFrame(moveToDestination),
+    );
     const timer = window.setTimeout(moveToDestination, 180);
     return () => {
       window.cancelAnimationFrame(frame);
@@ -246,10 +240,7 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    const saved =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem("i18nextLng")
-        : null;
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem("i18nextLng") : null;
     if (saved) applyLanguage(saved);
     installSessionBridge();
     void initializeAppUpdateWorkflow();
@@ -257,12 +248,7 @@ function RootComponent() {
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (
-        event !== "SIGNED_IN" &&
-        event !== "SIGNED_OUT" &&
-        event !== "USER_UPDATED"
-      )
-        return;
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });
@@ -307,10 +293,7 @@ function RootComponent() {
     );
 
     if (app === "admin") {
-      if (
-        path === "/" ||
-        (!path.startsWith("/admin") && !path.startsWith("/reset-password"))
-      ) {
+      if (path === "/" || (!path.startsWith("/admin") && !path.startsWith("/reset-password"))) {
         window.location.replace("/admin");
       }
       return;

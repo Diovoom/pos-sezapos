@@ -77,7 +77,15 @@ type Props = {
  * Auto-closes on the first successful decode. Falls back gracefully
  * when camera permission is denied.
  */
-export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan barcode", formats, hint, note }: Props) {
+export function BarcodeScanner({
+  open,
+  onOpenChange,
+  onDetected,
+  title = "Scan barcode",
+  formats,
+  hint,
+  note,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
   const [status, setStatus] = useState<"starting" | "scanning" | "error">("starting");
@@ -140,7 +148,9 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
 
         const constraints: MediaStreamConstraints = {
           video: {
-            ...(chosen ? { deviceId: { exact: chosen } } : { facingMode: { ideal: "environment" } }),
+            ...(chosen
+              ? { deviceId: { exact: chosen } }
+              : { facingMode: { ideal: "environment" } }),
             width: { ideal: 1920 },
             height: { ideal: 1080 },
             // best-effort; ignored by browsers that don't support it
@@ -150,19 +160,22 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
           audio: false,
         };
 
-        const controls = await reader.decodeFromConstraints(constraints, videoRef.current, (result, err) => {
-          if (result && !cancelled) {
-            onDetected(result.getText());
-            controls.stop();
-            onOpenChange(false);
-            return;
-          }
-          // Silently ignore per-frame "no barcode found" — spams console otherwise.
-          if (err && !isNotFoundError(err, NotFoundException)) {
-            // eslint-disable-next-line no-console
-            // console.debug("[scanner]", err);
-          }
-        });
+        const controls = await reader.decodeFromConstraints(
+          constraints,
+          videoRef.current,
+          (result, err) => {
+            if (result && !cancelled) {
+              onDetected(result.getText());
+              controls.stop();
+              onOpenChange(false);
+              return;
+            }
+            // Silently ignore per-frame "no barcode found" — spams console otherwise.
+            if (err && !isNotFoundError(err, NotFoundException)) {
+              // console.debug("[scanner]", err);
+            }
+          },
+        );
         controlsRef.current = controls;
         setStatus("scanning");
       } catch (e) {
@@ -185,7 +198,9 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-0 overflow-hidden">
         <DialogHeader className="p-4 pb-2">
-          <DialogTitle className="flex items-center gap-2"><Camera className="size-4" /> {title}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Camera className="size-4" /> {title}
+          </DialogTitle>
         </DialogHeader>
         <div className="relative bg-black aspect-[3/4]">
           <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
@@ -231,7 +246,9 @@ export function BarcodeScanner({ open, onOpenChange, onDetected, title = "Scan b
                 </option>
               ))}
             </select>
-          ) : <span className="text-xs text-muted-foreground">Point at a barcode</span>}
+          ) : (
+            <span className="text-xs text-muted-foreground">Point at a barcode</span>
+          )}
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             <X className="size-3.5 mr-1" /> Cancel
           </Button>

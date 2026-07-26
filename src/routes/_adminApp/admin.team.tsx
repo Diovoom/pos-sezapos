@@ -17,8 +17,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { ShieldCheck, UserPlus, Pencil, UserX, LockKeyhole } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,10 +51,7 @@ export const Route = createFileRoute("/_adminApp/admin/team")({
     }
   },
   head: () => ({
-    meta: [
-      { title: "Admin Team — SEZA Admin" },
-      { name: "robots", content: "noindex, nofollow" },
-    ],
+    meta: [{ title: "Admin Team — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: AdminTeamPage,
 });
@@ -102,7 +112,13 @@ function AdminTeamPage() {
       await invite({ data: inviteForm });
       toast.success("SEZA staff invitation sent");
       setInviteOpen(false);
-      setInviteForm({ email: "", fullName: "", role: "support_admin", title: "Support Specialist", department: "Support" });
+      setInviteForm({
+        email: "",
+        fullName: "",
+        role: "support_admin",
+        title: "Support Specialist",
+        department: "Support",
+      });
       refresh();
     } catch (error: any) {
       toast.error(error?.message ?? "Could not invite staff member");
@@ -162,15 +178,19 @@ function AdminTeamPage() {
     }
   }
 
-  if (permissionLoading) return <div className="text-sm text-muted-foreground">Checking founder access…</div>;
+  if (permissionLoading)
+    return <div className="text-sm text-muted-foreground">Checking founder access…</div>;
 
   if (!permissions?.isFounder) {
     return (
       <Card className="max-w-2xl border-amber-400">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><LockKeyhole className="h-5 w-5" /> Founder-only area</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <LockKeyhole className="h-5 w-5" /> Founder-only area
+          </CardTitle>
           <CardDescription>
-            Admin Team access management is visible only to admin@sezapos.com, the SEZA Founder & CEO.
+            Admin Team access management is visible only to admin@sezapos.com, the SEZA Founder &
+            CEO.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -191,26 +211,37 @@ function AdminTeamPage() {
             Founder-only control of everyone who can access SEZA company operations.
           </p>
         </div>
-        <Button onClick={() => setInviteOpen(true)}><UserPlus className="mr-2 h-4 w-4" /> Invite employee</Button>
+        <Button onClick={() => setInviteOpen(true)}>
+          <UserPlus className="mr-2 h-4 w-4" /> Invite employee
+        </Button>
       </div>
 
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-4 text-sm">
-          <strong>Owner:</strong> admin@sezapos.com · <strong>Title:</strong> Founder & CEO.
-          Only this account can invite staff, change company roles, or deactivate Admin access.
+          <strong>Owner:</strong> admin@sezapos.com · <strong>Title:</strong> Founder & CEO. Only
+          this account can invite staff, change company roles, or deactivate Admin access.
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle>Company access roster</CardTitle>
-          <CardDescription>Platform roles are completely separate from merchant store roles.</CardDescription>
+          <CardDescription>
+            Platform roles are completely separate from merchant store roles.
+          </CardDescription>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           {teamQuery.isLoading ? (
             <div className="p-8 text-sm text-muted-foreground">Loading company team…</div>
           ) : teamQuery.isError ? (
-            <div className="p-8"><div className="text-sm text-destructive">{(teamQuery.error as any)?.message ?? "Could not load company team"}</div><Button className="mt-3" variant="outline" onClick={() => teamQuery.refetch()}>Retry</Button></div>
+            <div className="p-8">
+              <div className="text-sm text-destructive">
+                {(teamQuery.error as any)?.message ?? "Could not load company team"}
+              </div>
+              <Button className="mt-3" variant="outline" onClick={() => teamQuery.refetch()}>
+                Retry
+              </Button>
+            </div>
           ) : (
             <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
@@ -237,11 +268,27 @@ function AdminTeamPage() {
                       <div className="text-xs text-muted-foreground">{person.department}</div>
                     </td>
                     <td className="p-3">
-                      <div className="flex flex-wrap gap-1">{person.roles.map((role: string) => <Badge key={role} variant="outline">{role}</Badge>)}</div>
+                      <div className="flex flex-wrap gap-1">
+                        {person.roles.map((role: string) => (
+                          <Badge key={role} variant="outline">
+                            {role}
+                          </Badge>
+                        ))}
+                      </div>
                     </td>
-                    <td className="p-3"><Badge variant={person.employment_status === "active" ? "default" : "secondary"}>{person.employment_status}</Badge></td>
+                    <td className="p-3">
+                      <Badge
+                        variant={person.employment_status === "active" ? "default" : "secondary"}
+                      >
+                        {person.employment_status}
+                      </Badge>
+                    </td>
                     <td className="p-3">{person.active_cases}</td>
-                    <td className="p-3 text-xs text-muted-foreground">{person.last_activity_at ? new Date(person.last_activity_at).toLocaleString() : "—"}</td>
+                    <td className="p-3 text-xs text-muted-foreground">
+                      {person.last_activity_at
+                        ? new Date(person.last_activity_at).toLocaleString()
+                        : "—"}
+                    </td>
                     <td className="p-3 text-right whitespace-nowrap">
                       <Button
                         size="sm"
@@ -251,23 +298,34 @@ function AdminTeamPage() {
                             id: person.id,
                             isFounder: Boolean(person.is_founder),
                             fullName: person.full_name ?? "",
-                            role: person.is_founder ? "super_admin" : person.roles.find((role: string) => role !== "super_admin") ?? "support_admin",
-                            title: person.is_founder ? "Founder & CEO" : person.title ?? "",
-                            department: person.is_founder ? "Executive" : person.department ?? "Operations",
-                            employmentStatus: person.is_founder ? "active" : person.employment_status ?? "active",
+                            role: person.is_founder
+                              ? "super_admin"
+                              : (person.roles.find((role: string) => role !== "super_admin") ??
+                                "support_admin"),
+                            title: person.is_founder ? "Founder & CEO" : (person.title ?? ""),
+                            department: person.is_founder
+                              ? "Executive"
+                              : (person.department ?? "Operations"),
+                            employmentStatus: person.is_founder
+                              ? "active"
+                              : (person.employment_status ?? "active"),
                             phone: person.phone ?? "",
                           });
                           setReason("");
                         }}
                       >
-                        <Pencil className="mr-1 h-3.5 w-3.5" /> {person.is_founder ? "Edit my profile" : "Edit"}
+                        <Pencil className="mr-1 h-3.5 w-3.5" />{" "}
+                        {person.is_founder ? "Edit my profile" : "Edit"}
                       </Button>
                       {!person.is_founder && (
                         <Button
                           size="sm"
                           variant="destructive"
                           className="ml-2"
-                          onClick={() => { setDeactivateTarget(person); setReason(""); }}
+                          onClick={() => {
+                            setDeactivateTarget(person);
+                            setReason("");
+                          }}
                         >
                           <UserX className="mr-1 h-3.5 w-3.5" /> Deactivate
                         </Button>
@@ -285,23 +343,65 @@ function AdminTeamPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Invite a SEZA employee</DialogTitle>
-            <DialogDescription>Sends an Admin invitation and assigns a company role. This is not a merchant employee account.</DialogDescription>
+            <DialogDescription>
+              Sends an Admin invitation and assigns a company role. This is not a merchant employee
+              account.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
-            <Field label="Full name"><Input value={inviteForm.fullName} onChange={(e) => setInviteForm((f) => ({ ...f, fullName: e.target.value }))} /></Field>
-            <Field label="Company email"><Input type="email" value={inviteForm.email} onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))} /></Field>
-            <Field label="Job title"><Input value={inviteForm.title} onChange={(e) => setInviteForm((f) => ({ ...f, title: e.target.value }))} /></Field>
-            <Field label="Department"><Input value={inviteForm.department} onChange={(e) => setInviteForm((f) => ({ ...f, department: e.target.value }))} /></Field>
+            <Field label="Full name">
+              <Input
+                value={inviteForm.fullName}
+                onChange={(e) => setInviteForm((f) => ({ ...f, fullName: e.target.value }))}
+              />
+            </Field>
+            <Field label="Company email">
+              <Input
+                type="email"
+                value={inviteForm.email}
+                onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </Field>
+            <Field label="Job title">
+              <Input
+                value={inviteForm.title}
+                onChange={(e) => setInviteForm((f) => ({ ...f, title: e.target.value }))}
+              />
+            </Field>
+            <Field label="Department">
+              <Input
+                value={inviteForm.department}
+                onChange={(e) => setInviteForm((f) => ({ ...f, department: e.target.value }))}
+              />
+            </Field>
             <Field label="Admin role">
-              <Select value={inviteForm.role} onValueChange={(role) => setInviteForm((f) => ({ ...f, role }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{ROLE_OPTIONS.map((role) => <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>)}</SelectContent>
+              <Select
+                value={inviteForm.role}
+                onValueChange={(role) => setInviteForm((f) => ({ ...f, role }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </Field>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
-            <Button disabled={busy || !inviteForm.email || !inviteForm.fullName} onClick={sendInvite}>Send invitation</Button>
+            <Button variant="outline" onClick={() => setInviteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={busy || !inviteForm.email || !inviteForm.fullName}
+              onClick={sendInvite}
+            >
+              Send invitation
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -310,23 +410,67 @@ function AdminTeamPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit company employee</DialogTitle>
-            <DialogDescription>Every change is server-authorized and written to the Admin audit log.</DialogDescription>
+            <DialogDescription>
+              Every change is server-authorized and written to the Admin audit log.
+            </DialogDescription>
           </DialogHeader>
           {edit && (
             <div className="grid gap-3">
-              <Field label="Full name"><Input value={edit.fullName} onChange={(e) => setEdit({ ...edit, fullName: e.target.value })} /></Field>
-              <Field label="Job title"><Input disabled={edit.isFounder} value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></Field>
-              <Field label="Department"><Input disabled={edit.isFounder} value={edit.department} onChange={(e) => setEdit({ ...edit, department: e.target.value })} /></Field>
-              <Field label="Phone"><Input value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></Field>
+              <Field label="Full name">
+                <Input
+                  value={edit.fullName}
+                  onChange={(e) => setEdit({ ...edit, fullName: e.target.value })}
+                />
+              </Field>
+              <Field label="Job title">
+                <Input
+                  disabled={edit.isFounder}
+                  value={edit.title}
+                  onChange={(e) => setEdit({ ...edit, title: e.target.value })}
+                />
+              </Field>
+              <Field label="Department">
+                <Input
+                  disabled={edit.isFounder}
+                  value={edit.department}
+                  onChange={(e) => setEdit({ ...edit, department: e.target.value })}
+                />
+              </Field>
+              <Field label="Phone">
+                <Input
+                  value={edit.phone}
+                  onChange={(e) => setEdit({ ...edit, phone: e.target.value })}
+                />
+              </Field>
               <Field label="Admin role">
-                <Select disabled={edit.isFounder} value={edit.role} onValueChange={(role) => setEdit({ ...edit, role })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{ROLE_OPTIONS.map((role) => <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>)}</SelectContent>
+                <Select
+                  disabled={edit.isFounder}
+                  value={edit.role}
+                  onValueChange={(role) => setEdit({ ...edit, role })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLE_OPTIONS.map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {role.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </Field>
               <Field label="Employment status">
-                <Select disabled={edit.isFounder} value={edit.employmentStatus} onValueChange={(value) => setEdit({ ...edit, employmentStatus: value as EditState["employmentStatus"] })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  disabled={edit.isFounder}
+                  value={edit.employmentStatus}
+                  onValueChange={(value) =>
+                    setEdit({ ...edit, employmentStatus: value as EditState["employmentStatus"] })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="invited">Invited</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
@@ -334,12 +478,18 @@ function AdminTeamPage() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Reason for change"><Textarea value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
+              <Field label="Reason for change">
+                <Textarea value={reason} onChange={(e) => setReason(e.target.value)} />
+              </Field>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEdit(null)}>Cancel</Button>
-            <Button disabled={busy} onClick={saveEdit}>Save changes</Button>
+            <Button variant="outline" onClick={() => setEdit(null)}>
+              Cancel
+            </Button>
+            <Button disabled={busy} onClick={saveEdit}>
+              Save changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -349,13 +499,24 @@ function AdminTeamPage() {
           <DialogHeader>
             <DialogTitle>Deactivate Admin access?</DialogTitle>
             <DialogDescription>
-              This removes all SEZA company roles and bans new sessions for {deactivateTarget?.email}. It does not delete audit history.
+              This removes all SEZA company roles and bans new sessions for{" "}
+              {deactivateTarget?.email}. It does not delete audit history.
             </DialogDescription>
           </DialogHeader>
-          <Field label="Reason"><Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Employment ended, access no longer required…" /></Field>
+          <Field label="Reason">
+            <Textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Employment ended, access no longer required…"
+            />
+          </Field>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeactivateTarget(null)}>Cancel</Button>
-            <Button variant="destructive" disabled={busy} onClick={confirmDeactivate}>Deactivate access</Button>
+            <Button variant="outline" onClick={() => setDeactivateTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" disabled={busy} onClick={confirmDeactivate}>
+              Deactivate access
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -364,5 +525,10 @@ function AdminTeamPage() {
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
-  return <div className="space-y-1.5"><Label>{label}</Label>{children}</div>;
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      {children}
+    </div>
+  );
 }

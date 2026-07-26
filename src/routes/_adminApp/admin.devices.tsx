@@ -73,10 +73,7 @@ const DEFAULTS: DevicesSearch = {
 
 export const Route = createFileRoute("/_adminApp/admin/devices")({
   head: () => ({
-    meta: [
-      { title: "Devices — SEZA Admin" },
-      { name: "robots", content: "noindex, nofollow" },
-    ],
+    meta: [{ title: "Devices — SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   validateSearch: (raw: Record<string, unknown>): DevicesSearch => ({
     q: typeof raw.q === "string" ? raw.q : DEFAULTS.q,
@@ -84,8 +81,12 @@ export const Route = createFileRoute("/_adminApp/admin/devices")({
     provider: typeof raw.provider === "string" ? raw.provider : DEFAULTS.provider,
     sortBy: typeof raw.sortBy === "string" ? raw.sortBy : DEFAULTS.sortBy,
     sortDir: raw.sortDir === "asc" ? "asc" : "desc",
-    page: Number.isFinite(Number(raw.page)) ? Math.max(1, Math.floor(Number(raw.page))) : DEFAULTS.page,
-    pageSize: Number.isFinite(Number(raw.pageSize)) ? Math.floor(Number(raw.pageSize)) : DEFAULTS.pageSize,
+    page: Number.isFinite(Number(raw.page))
+      ? Math.max(1, Math.floor(Number(raw.page)))
+      : DEFAULTS.page,
+    pageSize: Number.isFinite(Number(raw.pageSize))
+      ? Math.floor(Number(raw.pageSize))
+      : DEFAULTS.pageSize,
   }),
   component: DevicesPage,
 });
@@ -161,7 +162,9 @@ function DevicesPage() {
   const queryClient = useQueryClient();
 
   const filter = FILTERS.some((f) => f.value === rawSearch.filter) ? rawSearch.filter : "all";
-  const sortBy = SORT_COLUMNS.some((c) => c.key === rawSearch.sortBy) ? rawSearch.sortBy : "last_seen_at";
+  const sortBy = SORT_COLUMNS.some((c) => c.key === rawSearch.sortBy)
+    ? rawSearch.sortBy
+    : "last_seen_at";
   const sortDir: "asc" | "desc" = rawSearch.sortDir === "asc" ? "asc" : "desc";
   const page = Math.max(1, Math.min(9999, rawSearch.page || 1));
   const pageSize = PAGE_SIZES.includes(rawSearch.pageSize) ? rawSearch.pageSize : 25;
@@ -169,7 +172,9 @@ function DevicesPage() {
   const provider = (rawSearch.provider ?? "all").slice(0, 40);
 
   const [searchInput, setSearchInput] = useState(q);
-  useEffect(() => { setSearchInput(q); }, [q]);
+  useEffect(() => {
+    setSearchInput(q);
+  }, [q]);
   useEffect(() => {
     const t = window.setTimeout(() => {
       if (searchInput === q) return;
@@ -218,13 +223,19 @@ function DevicesPage() {
     navigate({ search: (prev: DevicesSearch) => ({ ...prev, filter: v, page: 1 }), replace: true });
   };
   const setProvider = (v: string) => {
-    navigate({ search: (prev: DevicesSearch) => ({ ...prev, provider: v, page: 1 }), replace: true });
+    navigate({
+      search: (prev: DevicesSearch) => ({ ...prev, provider: v, page: 1 }),
+      replace: true,
+    });
   };
   const setPage = (p: number) => {
     navigate({ search: (prev: DevicesSearch) => ({ ...prev, page: p }), replace: true });
   };
   const setPageSize = (n: number) => {
-    navigate({ search: (prev: DevicesSearch) => ({ ...prev, pageSize: n, page: 1 }), replace: true });
+    navigate({
+      search: (prev: DevicesSearch) => ({ ...prev, pageSize: n, page: 1 }),
+      replace: true,
+    });
   };
   const clearAll = () => {
     setSearchInput("");
@@ -239,9 +250,17 @@ function DevicesPage() {
       return;
     }
     const header = [
-      "id", "label", "serial", "provider", "status",
-      "store_id", "store_name", "location",
-      "last_seen_at", "created_at", "has_config",
+      "id",
+      "label",
+      "serial",
+      "provider",
+      "status",
+      "store_id",
+      "store_name",
+      "location",
+      "last_seen_at",
+      "created_at",
+      "has_config",
     ];
     const esc = (v: unknown) => {
       const s = v == null ? "" : String(v);
@@ -367,11 +386,15 @@ function DevicesPage() {
           </div>
 
           <Select value={provider} onValueChange={setProvider}>
-            <SelectTrigger className="w-44"><SelectValue placeholder="Provider" /></SelectTrigger>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Provider" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All providers</SelectItem>
               {providers.map((p) => (
-                <SelectItem key={p} value={p}>{p}</SelectItem>
+                <SelectItem key={p} value={p}>
+                  {p}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -381,24 +404,41 @@ function DevicesPage() {
             onValueChange={(v) => {
               const [key, dir] = v.split(":");
               navigate({
-                search: (prev: DevicesSearch) => ({ ...prev, sortBy: key, sortDir: dir as "asc" | "desc", page: 1 }),
+                search: (prev: DevicesSearch) => ({
+                  ...prev,
+                  sortBy: key,
+                  sortDir: dir as "asc" | "desc",
+                  page: 1,
+                }),
                 replace: true,
               });
             }}
           >
-            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               {SORT_COLUMNS.flatMap((c) => [
-                <SelectItem key={`${c.key}:desc`} value={`${c.key}:desc`}>{c.label} ↓</SelectItem>,
-                <SelectItem key={`${c.key}:asc`} value={`${c.key}:asc`}>{c.label} ↑</SelectItem>,
+                <SelectItem key={`${c.key}:desc`} value={`${c.key}:desc`}>
+                  {c.label} ↓
+                </SelectItem>,
+                <SelectItem key={`${c.key}:asc`} value={`${c.key}:asc`}>
+                  {c.label} ↑
+                </SelectItem>,
               ])}
             </SelectContent>
           </Select>
 
           <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-            <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {PAGE_SIZES.map((n) => <SelectItem key={n} value={String(n)}>{n} / page</SelectItem>)}
+              {PAGE_SIZES.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n} / page
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -416,7 +456,9 @@ function DevicesPage() {
           {query.isError ? (
             <div className="p-6 text-sm text-destructive space-y-2">
               <p>Failed to load devices: {(query.error as Error).message}</p>
-              <Button size="sm" variant="outline" onClick={() => query.refetch()}>Retry</Button>
+              <Button size="sm" variant="outline" onClick={() => query.refetch()}>
+                Retry
+              </Button>
             </div>
           ) : query.isLoading && !query.data ? (
             <div className="p-4 space-y-2">
@@ -428,7 +470,9 @@ function DevicesPage() {
             <div className="p-10 text-sm text-muted-foreground text-center space-y-2">
               <div>No devices match your filters.</div>
               {anyFilter && (
-                <Button variant="outline" size="sm" onClick={clearAll}>Clear filters</Button>
+                <Button variant="outline" size="sm" onClick={clearAll}>
+                  Clear filters
+                </Button>
               )}
             </div>
           ) : (
@@ -466,7 +510,9 @@ function DevicesPage() {
                           >
                             {r.store_name}
                           </Link>
-                        ) : "—"}
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="p-3 text-xs">
                         <div>{r.provider ?? "—"}</div>
@@ -480,7 +526,9 @@ function DevicesPage() {
                       <td className="p-3">
                         <span
                           className={`inline-flex items-center gap-1 text-xs ${
-                            isOnline(r.last_seen_at) ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+                            isOnline(r.last_seen_at)
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-muted-foreground"
                           }`}
                         >
                           <span
@@ -502,24 +550,29 @@ function DevicesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => setAction({ kind: "rename", device: r })}>
+                            <DropdownMenuItem
+                              onSelect={() => setAction({ kind: "rename", device: r })}
+                            >
                               Rename
                             </DropdownMenuItem>
-                            {r.status !== "revoked" && (
-                              r.status === "inactive" ? (
+                            {r.status !== "revoked" &&
+                              (r.status === "inactive" ? (
                                 <DropdownMenuItem
-                                  onSelect={() => setAction({ kind: "status", device: r, next: "active" })}
+                                  onSelect={() =>
+                                    setAction({ kind: "status", device: r, next: "active" })
+                                  }
                                 >
                                   Activate
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem
-                                  onSelect={() => setAction({ kind: "status", device: r, next: "inactive" })}
+                                  onSelect={() =>
+                                    setAction({ kind: "status", device: r, next: "inactive" })
+                                  }
                                 >
                                   Deactivate
                                 </DropdownMenuItem>
-                              )
-                            )}
+                              ))}
                             {r.status !== "revoked" && (
                               <>
                                 <DropdownMenuSeparator />
@@ -558,12 +611,37 @@ function DevicesPage() {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">Page {page} of {totalPages}</span>
+          <span className="text-xs text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(1)}>First</Button>
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>Last</Button>
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(1)}>
+              First
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage(page - 1)}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage(page + 1)}
+            >
+              Next
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage(totalPages)}
+            >
+              Last
+            </Button>
           </div>
         </div>
       )}
@@ -603,14 +681,20 @@ function DeviceActionDialog({
   if (!action) return null;
 
   const title =
-    action.kind === "rename" ? "Rename device"
-    : action.kind === "status" ? (action.next === "active" ? "Activate device" : "Deactivate device")
-    : "Revoke device";
+    action.kind === "rename"
+      ? "Rename device"
+      : action.kind === "status"
+        ? action.next === "active"
+          ? "Activate device"
+          : "Deactivate device"
+        : "Revoke device";
 
   const description =
-    action.kind === "rename" ? "Update the label shown to the merchant. Reason is logged."
-    : action.kind === "status" ? `Set ${action.device.label} to ${action.next}. This is auditable.`
-    : "Revoke this terminal. It will be marked revoked and its stored configuration cleared.";
+    action.kind === "rename"
+      ? "Update the label shown to the merchant. Reason is logged."
+      : action.kind === "status"
+        ? `Set ${action.device.label} to ${action.next}. This is auditable.`
+        : "Revoke this terminal. It will be marked revoked and its stored configuration cleared.";
 
   const submit = async () => {
     if (reason.trim().length < 4) {
@@ -644,7 +728,12 @@ function DeviceActionDialog({
   };
 
   return (
-    <Dialog open={!!action} onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Dialog
+      open={!!action}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -674,7 +763,9 @@ function DeviceActionDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="outline" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
           <Button
             onClick={submit}
             disabled={busy}

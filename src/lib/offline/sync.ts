@@ -34,14 +34,19 @@ import { emitSync } from "./useOnline";
 let syncing = false;
 let lastSync: string | null = null;
 
-export function getLastSync() { return lastSync; }
+export function getLastSync() {
+  return lastSync;
+}
 
 // PostgREST / Supabase error codes that will never succeed on retry.
 // Anything else is treated as temporary and gets exponential backoff.
 const PERMANENT_CODES = new Set<string>([
   "42501", // insufficient_privilege / RLS denial
-  "PGRST301", "PGRST302", "PGRST116", // rls / row not found
-  "PGRST202", "42883", // required RPC/function missing from deployed database
+  "PGRST301",
+  "PGRST302",
+  "PGRST116", // rls / row not found
+  "PGRST202",
+  "42883", // required RPC/function missing from deployed database
   "23503", // fk violation (product / shift deleted)
   "23514", // check constraint violation
   "22P02", // invalid input
@@ -80,14 +85,16 @@ async function syncSale(sale: OfflineSale): Promise<void> {
     unit_price: line.unit_price,
     line_total: line.line_total,
   }));
-  const payments = [{
-    method: "cash",
-    amount: sale.total,
-    provider: null,
-    provider_reference: null,
-    status: "completed",
-    metadata: { offline: true, device_id: sale.device_id },
-  }];
+  const payments = [
+    {
+      method: "cash",
+      amount: sale.total,
+      provider: null,
+      provider_reference: null,
+      status: "completed",
+      metadata: { offline: true, device_id: sale.device_id },
+    },
+  ];
 
   // One RPC = one PostgreSQL transaction. Header, items, payment ledger, and
   // inventory trigger effects either all commit or all roll back.
@@ -195,36 +202,45 @@ async function syncAction(action: OfflineAction): Promise<void> {
   try {
     if (action.kind === "timeclock") {
       await postTimeClockAction({
-        action: String(action.payload.action) as "clock_in" | "clock_out" | "start_break" | "end_break",
+        action: String(action.payload.action) as
+          | "clock_in"
+          | "clock_out"
+          | "start_break"
+          | "end_break",
         occurredAt: String(action.payload.occurredAt ?? action.local_created_at),
         idempotencyKey: action.idempotency_key,
       });
     } else if (action.kind === "register_open") {
       const row = action.payload;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from as any)("register_sessions").upsert({
-        id: row.id,
-        store_id: action.store_id,
-        opened_by: action.user_id,
-        opened_at: row.opened_at ?? action.local_created_at,
-        opening_cash: row.opening_cash ?? 0,
-        notes: row.notes ?? null,
-        status: "open",
-      }, { onConflict: "id" });
+      const { error } = await (supabase.from as any)("register_sessions").upsert(
+        {
+          id: row.id,
+          store_id: action.store_id,
+          opened_by: action.user_id,
+          opened_at: row.opened_at ?? action.local_created_at,
+          opening_cash: row.opening_cash ?? 0,
+          notes: row.notes ?? null,
+          status: "open",
+        },
+        { onConflict: "id" },
+      );
       if (error && error.code !== "23505") throw error;
     } else if (action.kind === "register_close") {
       const row = action.payload;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from as any)("register_sessions").update({
-        status: "closed",
-        closed_at: row.closed_at ?? action.local_created_at,
-        closed_by: action.user_id,
-        closing_cash: row.closing_cash,
-        expected_cash: row.expected_cash,
-        variance: row.variance,
-        safe_drop_amount: row.safe_drop_amount ?? 0,
-        close_notes: row.close_notes ?? null,
-      }).eq("id", row.id);
+      const { error } = await (supabase.from as any)("register_sessions")
+        .update({
+          status: "closed",
+          closed_at: row.closed_at ?? action.local_created_at,
+          closed_by: action.user_id,
+          closing_cash: row.closing_cash,
+          expected_cash: row.expected_cash,
+          variance: row.variance,
+          safe_drop_amount: row.safe_drop_amount ?? 0,
+          close_notes: row.close_notes ?? null,
+        })
+        .eq("id", row.id);
       if (error) throw error;
     } else if (action.kind === "audit_event") {
       // The queued row has a client-generated UUID, making retries
@@ -233,16 +249,22 @@ async function syncAction(action: OfflineAction): Promise<void> {
       const { error } = await (supabase.from as any)("audit_log").insert(action.payload);
       if (error && error.code !== "23505") throw error;
     } else if (action.kind === "receipt_email") {
-      const result = await sendTransactionalEmail(action.payload as any, { queueOnNetworkFailure: false });
+      const result = await sendTransactionalEmail(action.payload as any, {
+        queueOnNetworkFailure: false,
+      });
       if (!result.ok) throw new Error(result.error);
     } else if (action.kind === "receipt_sms") {
       const result = await sendSms(action.payload as any, { queueOnNetworkFailure: false });
       if (!result.ok) throw new Error(result.error);
     }
-    await updateOfflineAction(action.id, { status: "synced", last_error: null, next_retry_at: null });
+    await updateOfflineAction(action.id, {
+      status: "synced",
+      last_error: null,
+      next_retry_at: null,
+    });
   } catch (error) {
     const normalized = error as { code?: string; message?: string; status?: number } | null;
-    const message = error instanceof Error ? error.message : normalized?.message ?? String(error);
+    const message = error instanceof Error ? error.message : (normalized?.message ?? String(error));
     const permanent = isPermanent(normalized);
     await updateOfflineAction(action.id, {
       status: permanent || attempts >= 8 ? "needs_attention" : "failed",
@@ -287,7 +309,10 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
         .map((action) => String(action.payload.id ?? ""))
         .filter(Boolean),
     );
-    emitSync({ type: "start", pending: pendingSales.length + pendingCash.length + pendingActions.length });
+    emitSync({
+      type: "start",
+      pending: pendingSales.length + pendingCash.length + pendingActions.length,
+    });
 
     // Dependency-safe drain order:
     // 1) create local register sessions before sales reference them;
@@ -298,8 +323,12 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
     const registerOpenActions = pendingActions.filter((action) => action.kind === "register_open");
     const timeClockActions = pendingActions.filter((action) => action.kind === "timeclock");
     const auditActions = pendingActions.filter((action) => action.kind === "audit_event");
-    const receiptActions = pendingActions.filter((action) => action.kind === "receipt_email" || action.kind === "receipt_sms");
-    const registerCloseActions = pendingActions.filter((action) => action.kind === "register_close");
+    const receiptActions = pendingActions.filter(
+      (action) => action.kind === "receipt_email" || action.kind === "receipt_sms",
+    );
+    const registerCloseActions = pendingActions.filter(
+      (action) => action.kind === "register_close",
+    );
 
     for (const action of registerOpenActions) {
       const sessionId = String(action.payload.id ?? "");
@@ -315,33 +344,58 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
       emitSync({ type: "progress" });
     }
     for (const action of timeClockActions) {
-      try { await syncAction(action); synced++; }
-      catch (e) { failed++; console.warn("[sync] time-clock action failed", e); }
+      try {
+        await syncAction(action);
+        synced++;
+      } catch (e) {
+        failed++;
+        console.warn("[sync] time-clock action failed", e);
+      }
       emitSync({ type: "progress" });
     }
     for (const sale of pendingSales) {
       if (sale.register_session_id && blockedSessionIds.has(sale.register_session_id)) {
-        if (import.meta.env.DEV) console.info("[sync] sale deferred until local register session syncs", sale.id);
+        if (import.meta.env.DEV)
+          console.info("[sync] sale deferred until local register session syncs", sale.id);
         emitSync({ type: "progress" });
         continue;
       }
-      try { await syncSale(sale); synced++; }
-      catch (e) { failed++; console.warn("[sync] sale failed", e); }
+      try {
+        await syncSale(sale);
+        synced++;
+      } catch (e) {
+        failed++;
+        console.warn("[sync] sale failed", e);
+      }
       emitSync({ type: "progress" });
     }
     for (const movement of pendingCash) {
       if (movement.register_session_id && blockedSessionIds.has(movement.register_session_id)) {
-        if (import.meta.env.DEV) console.info("[sync] cash movement deferred until local register session syncs", movement.id);
+        if (import.meta.env.DEV)
+          console.info(
+            "[sync] cash movement deferred until local register session syncs",
+            movement.id,
+          );
         emitSync({ type: "progress" });
         continue;
       }
-      try { await syncCashMovement(movement); synced++; }
-      catch (e) { failed++; console.warn("[sync] cash movement failed", e); }
+      try {
+        await syncCashMovement(movement);
+        synced++;
+      } catch (e) {
+        failed++;
+        console.warn("[sync] cash movement failed", e);
+      }
       emitSync({ type: "progress" });
     }
     for (const action of auditActions) {
-      try { await syncAction(action); synced++; }
-      catch (e) { failed++; console.warn("[sync] audit action failed", e); }
+      try {
+        await syncAction(action);
+        synced++;
+      } catch (e) {
+        failed++;
+        console.warn("[sync] audit action failed", e);
+      }
       emitSync({ type: "progress" });
     }
     // Customer receipts for offline sales must wait until the referenced sale
@@ -350,24 +404,27 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
     const currentSales = await getAllOfflineSales();
     for (const action of receiptActions) {
       const payload = action.payload;
-      const templateData = payload.templateData && typeof payload.templateData === "object"
-        ? payload.templateData as Record<string, unknown>
-        : undefined;
-      const referencedSaleId = String(
-        payload.saleId
-        ?? templateData?.transactionId
-        ?? "",
-      );
+      const templateData =
+        payload.templateData && typeof payload.templateData === "object"
+          ? (payload.templateData as Record<string, unknown>)
+          : undefined;
+      const referencedSaleId = String(payload.saleId ?? templateData?.transactionId ?? "");
       const localSale = referencedSaleId
         ? currentSales.find((sale) => sale.id === referencedSaleId)
         : undefined;
       if (localSale && localSale.status !== "synced") {
-        if (import.meta.env.DEV) console.info("[sync] receipt deferred until sale syncs", action.id);
+        if (import.meta.env.DEV)
+          console.info("[sync] receipt deferred until sale syncs", action.id);
         emitSync({ type: "progress" });
         continue;
       }
-      try { await syncAction(action); synced++; }
-      catch (e) { failed++; console.warn("[sync] receipt action failed", e); }
+      try {
+        await syncAction(action);
+        synced++;
+      } catch (e) {
+        failed++;
+        console.warn("[sync] receipt action failed", e);
+      }
       emitSync({ type: "progress" });
     }
 
@@ -377,16 +434,27 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
     const currentCash = await getAllOfflineCashMovements();
     for (const action of registerCloseActions) {
       const sessionId = String(action.payload.id ?? "");
-      const hasUnsyncedDependency = blockedSessionIds.has(sessionId)
-        || currentSales.some((sale) => sale.register_session_id === sessionId && sale.status !== "synced")
-        || currentCash.some((movement) => movement.register_session_id === sessionId && movement.status !== "synced");
+      const hasUnsyncedDependency =
+        blockedSessionIds.has(sessionId) ||
+        currentSales.some(
+          (sale) => sale.register_session_id === sessionId && sale.status !== "synced",
+        ) ||
+        currentCash.some(
+          (movement) => movement.register_session_id === sessionId && movement.status !== "synced",
+        );
       if (hasUnsyncedDependency) {
-        if (import.meta.env.DEV) console.info("[sync] register close deferred until shift records sync", sessionId);
+        if (import.meta.env.DEV)
+          console.info("[sync] register close deferred until shift records sync", sessionId);
         emitSync({ type: "progress" });
         continue;
       }
-      try { await syncAction(action); synced++; }
-      catch (e) { failed++; console.warn("[sync] register close failed", e); }
+      try {
+        await syncAction(action);
+        synced++;
+      } catch (e) {
+        failed++;
+        console.warn("[sync] register close failed", e);
+      }
       emitSync({ type: "progress" });
     }
     lastSync = new Date().toISOString();
@@ -405,12 +473,18 @@ export function installAutoSync() {
   // Recover stale records as soon as the module boots, even before the
   // first online transition.
   void recoverStaleSyncing().catch(() => {});
-  window.addEventListener("online", () => { void syncNow(); });
+  window.addEventListener("online", () => {
+    void syncNow();
+  });
   // Retry on interval as a safety net — the backoff gate inside
   // getPendingSales prevents this from hammering a failing endpoint.
-  setInterval(() => { void syncNow(); }, 30_000);
+  setInterval(() => {
+    void syncNow();
+  }, 30_000);
   // Kick immediately in case we came back with pending.
-  setTimeout(() => { void syncNow(); }, 1500);
+  setTimeout(() => {
+    void syncNow();
+  }, 1500);
 }
 
 export async function pendingCounts() {
@@ -422,13 +496,19 @@ export async function pendingCounts() {
     syncingSales: all.filter((s) => s.status === "syncing").length,
     syncedSales: all.filter((s) => s.status === "synced").length,
     failedSales: all.filter((s) => s.status === "failed").length,
-    needsAttentionSales: all.filter((s) => s.status === "needs_attention" || s.status === "conflict").length,
+    needsAttentionSales: all.filter(
+      (s) => s.status === "needs_attention" || s.status === "conflict",
+    ).length,
     unsyncedSales: all.filter((s) => s.status !== "synced").length,
     pendingCash: cash.filter((m) => m.status === "pending" || m.status === "failed").length,
-    needsAttentionCash: cash.filter((m) => m.status === "needs_attention" || m.status === "conflict").length,
+    needsAttentionCash: cash.filter(
+      (m) => m.status === "needs_attention" || m.status === "conflict",
+    ).length,
     unsyncedCash: cash.filter((m) => m.status !== "synced").length,
     pendingActions: actions.filter((a) => a.status === "pending" || a.status === "failed").length,
-    needsAttentionActions: actions.filter((a) => a.status === "needs_attention" || a.status === "conflict").length,
+    needsAttentionActions: actions.filter(
+      (a) => a.status === "needs_attention" || a.status === "conflict",
+    ).length,
     lastSync,
   };
 }

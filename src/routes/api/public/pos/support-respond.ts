@@ -45,10 +45,21 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
         const token = authz.toLowerCase().startsWith("bearer ") ? authz.slice(7).trim() : "";
         if (!token) return json({ error: "Unauthorized" }, 401);
 
-        let body: { sessionId?: unknown; decision?: unknown; note?: unknown; clientCapability?: unknown; clientMetadata?: unknown };
-        try { body = await request.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
+        let body: {
+          sessionId?: unknown;
+          decision?: unknown;
+          note?: unknown;
+          clientCapability?: unknown;
+          clientMetadata?: unknown;
+        };
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "Invalid JSON" }, 400);
+        }
         const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
-        const decision = body.decision === "accept" || body.decision === "decline" ? body.decision : null;
+        const decision =
+          body.decision === "accept" || body.decision === "decline" ? body.decision : null;
         const note = typeof body.note === "string" ? body.note.slice(0, 500) : null;
         const capability =
           body.clientCapability === "web_screen_share" ||
@@ -57,19 +68,23 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
             ? body.clientCapability
             : null;
         // Redact obvious secret keys from client-supplied metadata.
-        const FORBIDDEN = /(pin|password|token|secret|apikey|api_key|authorization|card|cvv|cvc|track|pan|refresh)/i;
+        const FORBIDDEN =
+          /(pin|password|token|secret|apikey|api_key|authorization|card|cvv|cvc|track|pan|refresh)/i;
         const scrub = (v: unknown): unknown => {
           if (v == null || typeof v !== "object") return v;
-          const out: Record<string, unknown> = Array.isArray(v) ? ([] as unknown as Record<string, unknown>) : {};
+          const out: Record<string, unknown> = Array.isArray(v)
+            ? ([] as unknown as Record<string, unknown>)
+            : {};
           for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
             if (FORBIDDEN.test(k)) continue;
             out[k] = typeof val === "object" && val !== null ? scrub(val) : val;
           }
           return out;
         };
-        const safeMetadata = body.clientMetadata && typeof body.clientMetadata === "object"
-          ? scrub(body.clientMetadata)
-          : null;
+        const safeMetadata =
+          body.clientMetadata && typeof body.clientMetadata === "object"
+            ? scrub(body.clientMetadata)
+            : null;
         if (!sessionId || !decision) return json({ error: "Invalid request" }, 400);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -86,7 +101,8 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
           .eq("id", callerId)
           .maybeSingle();
         if (!profile?.store_id) return json({ error: "No store" }, 403);
-        if (profile.status && profile.status !== "active") return json({ error: "Inactive employee" }, 403);
+        if (profile.status && profile.status !== "active")
+          return json({ error: "Inactive employee" }, 403);
 
         const { data: sess } = await admin
           .from("admin_support_sessions")
@@ -101,24 +117,25 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
         }
 
         const now = new Date().toISOString();
-        const patch = decision === "accept"
-          ? {
-              status: "active",
-              decided_at: now,
-              decided_by: callerId,
-              decision_note: note,
-              started_at: now,
-              expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
-              client_capability: capability ?? "android_diagnostics_only",
-              client_metadata: safeMetadata,
-            }
-          : {
-              status: "declined",
-              decided_at: now,
-              decided_by: callerId,
-              decision_note: note,
-              ended_at: now,
-            };
+        const patch =
+          decision === "accept"
+            ? {
+                status: "active",
+                decided_at: now,
+                decided_by: callerId,
+                decision_note: note,
+                started_at: now,
+                expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+                client_capability: capability ?? "android_diagnostics_only",
+                client_metadata: safeMetadata,
+              }
+            : {
+                status: "declined",
+                decided_at: now,
+                decided_by: callerId,
+                decision_note: note,
+                ended_at: now,
+              };
 
         const { error, data: updated } = await admin
           .from("admin_support_sessions")
@@ -134,7 +151,10 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
           await admin.from("audit_log").insert({
             actor_id: callerId,
             actor_email: profile.email,
-            action: decision === "accept" ? "merchant.support_view.accept" : "merchant.support_view.decline",
+            action:
+              decision === "accept"
+                ? "merchant.support_view.accept"
+                : "merchant.support_view.decline",
             entity: "support_session",
             entity_id: sessionId,
             details: {
@@ -148,7 +168,9 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
               client_capability: capability ?? "android_diagnostics_only",
             },
           });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         return json({ ok: true, status: updated.status });
       },

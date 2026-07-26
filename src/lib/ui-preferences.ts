@@ -25,16 +25,20 @@ export function loadUiPreferences(): UiPreferences {
     if (!raw) return DEFAULT_UI_PREFERENCES;
     const value = JSON.parse(raw) as Partial<UiPreferences>;
     return {
-      theme: value.theme === "light" || value.theme === "dark" || value.theme === "system"
-        ? value.theme
-        : DEFAULT_UI_PREFERENCES.theme,
-      density: value.density === "compact" || value.density === "comfortable"
-        ? value.density
-        : DEFAULT_UI_PREFERENCES.density,
-      textScale: value.textScale === "small" || value.textScale === "normal" || value.textScale === "large"
-        ? value.textScale
-        : DEFAULT_UI_PREFERENCES.textScale,
-      touchMode: typeof value.touchMode === "boolean" ? value.touchMode : DEFAULT_UI_PREFERENCES.touchMode,
+      theme:
+        value.theme === "light" || value.theme === "dark" || value.theme === "system"
+          ? value.theme
+          : DEFAULT_UI_PREFERENCES.theme,
+      density:
+        value.density === "compact" || value.density === "comfortable"
+          ? value.density
+          : DEFAULT_UI_PREFERENCES.density,
+      textScale:
+        value.textScale === "small" || value.textScale === "normal" || value.textScale === "large"
+          ? value.textScale
+          : DEFAULT_UI_PREFERENCES.textScale,
+      touchMode:
+        typeof value.touchMode === "boolean" ? value.touchMode : DEFAULT_UI_PREFERENCES.touchMode,
     };
   } catch {
     return DEFAULT_UI_PREFERENCES;
@@ -44,7 +48,8 @@ export function loadUiPreferences(): UiPreferences {
 export function applyUiPreferences(prefs: UiPreferences) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
-  const systemDark = typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  const systemDark =
+    typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
   const dark = prefs.theme === "dark" || (prefs.theme === "system" && systemDark);
   root.classList.toggle("dark", !!dark);
   root.dataset.uiDensity = prefs.density;

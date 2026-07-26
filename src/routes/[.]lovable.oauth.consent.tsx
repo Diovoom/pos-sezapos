@@ -98,8 +98,9 @@ function Consent() {
           <CardHeader>
             <CardTitle>Connect {clientName} to your account</CardTitle>
             <CardDescription>
-              This lets <strong>{clientName}</strong> use SEZA POS as you. It can call this app's enabled
-              tools while you are signed in. This does not bypass SEZA POS permissions or backend policies.
+              This lets <strong>{clientName}</strong> use SEZA POS as you. It can call this app's
+              enabled tools while you are signed in. This does not bypass SEZA POS permissions or
+              backend policies.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -124,7 +125,12 @@ function Consent() {
               </div>
             )}
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1" disabled={busy} onClick={() => decide(false)}>
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={busy}
+                onClick={() => decide(false)}
+              >
                 Cancel connection
               </Button>
               <Button className="flex-1" disabled={busy} onClick={() => decide(true)}>

@@ -33,7 +33,9 @@ function ResetPasswordPage() {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" || session) setReady(true);
     });
-    supabase.auth.getSession().then(({ data }) => { if (data.session) setReady(true); });
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setReady(true);
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -63,7 +65,9 @@ function ResetPasswordPage() {
         </Link>
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><KeyRound className="size-5" /> Choose a new password</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <KeyRound className="size-5" /> Choose a new password
+            </CardTitle>
             <CardDescription>
               {ready
                 ? "Enter a new password to complete recovery."
@@ -74,17 +78,37 @@ function ResetPasswordPage() {
             <form onSubmit={submit} className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="pw">New password</Label>
-                <Input id="pw" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required disabled={!ready} />
+                <Input
+                  id="pw"
+                  type="password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  minLength={8}
+                  required
+                  disabled={!ready}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="pw2">Confirm password</Label>
-                <Input id="pw2" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} minLength={8} required disabled={!ready} />
+                <Input
+                  id="pw2"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  minLength={8}
+                  required
+                  disabled={!ready}
+                />
               </div>
               <Button type="submit" className="w-full h-11" disabled={!ready || busy}>
                 {busy ? <Loader2 className="size-4 animate-spin" /> : "Update password"}
               </Button>
               <div className="text-center text-xs text-muted-foreground pt-1">
-                <Link to="/auth" className="hover:underline">Back to sign in</Link>
+                <Link to="/auth" className="hover:underline">
+                  Back to sign in
+                </Link>
               </div>
             </form>
           </CardContent>

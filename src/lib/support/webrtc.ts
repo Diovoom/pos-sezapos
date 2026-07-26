@@ -15,11 +15,16 @@ export const RTC_ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
   ...(turnUrl
-    ? [{
-        urls: turnUrl.split(",").map((value) => value.trim()).filter(Boolean),
-        username: turnUsername,
-        credential: turnCredential,
-      } satisfies RTCIceServer]
+    ? [
+        {
+          urls: turnUrl
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean),
+          username: turnUsername,
+          credential: turnCredential,
+        } satisfies RTCIceServer,
+      ]
     : []),
 ];
 

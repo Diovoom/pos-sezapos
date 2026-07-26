@@ -40,18 +40,25 @@ export const Route = createFileRoute("/api/public/pos/complete-first-login")({
         if (!token) return json({ error: "Missing bearer token" }, 401);
 
         let body: Body;
-        try { body = (await request.json()) as Body; } catch { return json({ error: "Invalid JSON" }, 400); }
+        try {
+          body = (await request.json()) as Body;
+        } catch {
+          return json({ error: "Invalid JSON" }, 400);
+        }
         const pwd = typeof body.new_password === "string" ? body.new_password : "";
         const pin = typeof body.pin === "string" && body.pin ? body.pin : undefined;
         if (pwd.length < 8) return json({ error: "Password must be at least 8 characters" }, 400);
-        if (pin && !/^\d{6}$/.test(pin)) return json({ error: "PIN must be exactly 6 digits" }, 400);
+        if (pin && !/^\d{6}$/.test(pin))
+          return json({ error: "PIN must be exactly 6 digits" }, 400);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: userRes, error: uerr } = await supabaseAdmin.auth.getUser(token);
         if (uerr || !userRes.user) return json({ error: "Unauthorized" }, 401);
         const userId = userRes.user.id;
 
-        const { error: pwErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { password: pwd });
+        const { error: pwErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+          password: pwd,
+        });
         if (pwErr) return json({ error: pwErr.message }, 500);
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,10 +74,15 @@ export const Route = createFileRoute("/api/public/pos/complete-first-login")({
 
         try {
           await admin.from("audit_log").insert({
-            actor_id: userId, action: "onboarding_complete", entity: "employee", entity_id: userId,
+            actor_id: userId,
+            action: "onboarding_complete",
+            entity: "employee",
+            entity_id: userId,
             details: { channel: "native_shell", pin_set: !!pin },
           });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         return json({ ok: true });
       },

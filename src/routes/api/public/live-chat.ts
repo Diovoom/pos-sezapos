@@ -14,7 +14,12 @@ const json = (data: unknown, status = 200) =>
   });
 
 const clean = (value: unknown, max: number) =>
-  typeof value === "string" ? value.trim().replace(/\u0000/g, "").slice(0, max) : "";
+  typeof value === "string"
+    ? value
+        .trim()
+        .replace(/\u0000/g, "")
+        .slice(0, max)
+    : "";
 
 const normalizePhone = (value: unknown) => {
   const raw = clean(value, 40);
@@ -54,7 +59,7 @@ async function publicMessages(admin: any, ticketId: string) {
     body: item.body,
     createdAt: item.created_at,
     from: item.sender_kind === "admin" ? "agent" : "visitor",
-    author: item.sender_kind === "admin" ? (item.author_email || "SEZA Support") : null,
+    author: item.sender_kind === "admin" ? item.author_email || "SEZA Support" : null,
   }));
 }
 
@@ -96,7 +101,10 @@ export const Route = createFileRoute("/api/public/live-chat")({
           if (!phone) return json({ error: "Please enter a valid phone number." }, 400);
           if (message.length < 2) return json({ error: "Please tell us how we can help." }, 400);
 
-          const forwarded = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
+          const forwarded =
+            request.headers.get("cf-connecting-ip") ||
+            request.headers.get("x-forwarded-for") ||
+            "unknown";
           const ip = forwarded.split(",")[0]?.trim() || "unknown";
           const ipHash = await hashValue(ip);
           const tenMinutesAgo = new Date(Date.now() - 10 * 60_000).toISOString();
@@ -107,7 +115,10 @@ export const Route = createFileRoute("/api/public/live-chat")({
             .eq("visitor_ip_hash", ipHash)
             .gte("created_at", tenMinutesAgo);
           if ((count ?? 0) >= 5) {
-            return json({ error: "Too many chat requests. Please wait a few minutes and try again." }, 429);
+            return json(
+              { error: "Too many chat requests. Please wait a few minutes and try again." },
+              429,
+            );
           }
 
           const { randomBytes } = await import("node:crypto");
@@ -131,7 +142,8 @@ export const Route = createFileRoute("/api/public/live-chat")({
             })
             .select("id,ticket_number,chat_status,status,visitor_name")
             .single();
-          if (ticketError || !ticket) return json({ error: ticketError?.message || "Could not start chat." }, 500);
+          if (ticketError || !ticket)
+            return json({ error: ticketError?.message || "Could not start chat." }, 500);
 
           const { error: noteError } = await admin.from("support_ticket_notes").insert({
             ticket_id: ticket.id,
@@ -152,7 +164,15 @@ export const Route = createFileRoute("/api/public/live-chat")({
             ticketNumber: ticket.ticket_number,
             chatStatus: ticket.chat_status,
             visitorName: name,
-            messages: [{ id: `initial-${ticket.id}`, body: message, createdAt: now, from: "visitor", author: null }],
+            messages: [
+              {
+                id: `initial-${ticket.id}`,
+                body: message,
+                createdAt: now,
+                from: "visitor",
+                author: null,
+              },
+            ],
           });
         }
 
@@ -165,7 +185,9 @@ export const Route = createFileRoute("/api/public/live-chat")({
             ok: true,
             ticketId: ticket.id,
             ticketNumber: ticket.ticket_number,
-            chatStatus: ticket.chat_status ?? (["resolved", "closed"].includes(ticket.status) ? "ended" : "active"),
+            chatStatus:
+              ticket.chat_status ??
+              (["resolved", "closed"].includes(ticket.status) ? "ended" : "active"),
             status: ticket.status,
             visitorName: ticket.visitor_name,
             messages: await publicMessages(admin, ticket.id),
@@ -187,27 +209,33 @@ export const Route = createFileRoute("/api/public/live-chat")({
             internal: false,
           });
           if (error) return json({ error: error.message }, 500);
-          await admin.from("support_tickets").update({
-            chat_status: ticket.chat_status === "waiting" ? "waiting" : "active",
-            last_message_at: now,
-            last_merchant_read_at: now,
-            updated_at: now,
-          }).eq("id", ticket.id);
+          await admin
+            .from("support_tickets")
+            .update({
+              chat_status: ticket.chat_status === "waiting" ? "waiting" : "active",
+              last_message_at: now,
+              last_merchant_read_at: now,
+              updated_at: now,
+            })
+            .eq("id", ticket.id);
           return json({ ok: true, messages: await publicMessages(admin, ticket.id) });
         }
 
         if (action === "end") {
           const now = new Date().toISOString();
-          await admin.from("support_tickets").update({
-            chat_status: "ended",
-            chat_ended_at: now,
-            status: "closed",
-            closed_at: now,
-            resolution: "Website visitor ended the live chat.",
-            resolution_summary: "Website visitor ended the live chat.",
-            resolution_code: "visitor_ended",
-            updated_at: now,
-          }).eq("id", ticket.id);
+          await admin
+            .from("support_tickets")
+            .update({
+              chat_status: "ended",
+              chat_ended_at: now,
+              status: "closed",
+              closed_at: now,
+              resolution: "Website visitor ended the live chat.",
+              resolution_summary: "Website visitor ended the live chat.",
+              resolution_code: "visitor_ended",
+              updated_at: now,
+            })
+            .eq("id", ticket.id);
           return json({ ok: true, chatStatus: "ended" });
         }
 

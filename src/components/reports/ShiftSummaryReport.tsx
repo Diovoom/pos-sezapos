@@ -10,28 +10,47 @@ import { useState } from "react";
 import { isNativeMode } from "@/lib/native";
 import { toast } from "sonner";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
-  PieChart, Pie, Cell, Legend,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
 } from "recharts";
 
 // Native-only print via configured ESC/POS printer; web falls back to browser print.
 function NativePrintButton({ d }: { d: ShiftSummary }) {
   const [busy, setBusy] = useState(false);
   const onClick = async () => {
-    if (!isNativeMode()) { window.print(); return; }
+    if (!isNativeMode()) {
+      window.print();
+      return;
+    }
     setBusy(true);
     try {
-      const { printShiftSummary } = await import("../../../capacitor-shell/lib/shiftSummaryReceipt");
+      const { printShiftSummary } =
+        await import("../../../capacitor-shell/lib/shiftSummaryReceipt");
       const r = await printShiftSummary(d);
       if (r.ok) toast.success("Shift summary sent to printer");
       else toast.error(r.error);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Printer error");
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <Button variant="outline" onClick={onClick} disabled={busy}>
-      {busy ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Printer className="size-4 mr-2" />}
+      {busy ? (
+        <Loader2 className="size-4 mr-2 animate-spin" />
+      ) : (
+        <Printer className="size-4 mr-2" />
+      )}
       Print
     </Button>
   );
@@ -41,7 +60,10 @@ function NativePrintButton({ d }: { d: ShiftSummary }) {
 function NativePdfButton({ d }: { d: ShiftSummary }) {
   const [state, setState] = useState<"idle" | "generating">("idle");
   const onClick = async () => {
-    if (!isNativeMode()) { window.print(); return; }
+    if (!isNativeMode()) {
+      window.print();
+      return;
+    }
     setState("generating");
     try {
       const { saveAndSharePdf } = await import("../../../capacitor-shell/lib/shiftSummaryPdf");
@@ -50,12 +72,18 @@ function NativePdfButton({ d }: { d: ShiftSummary }) {
       else toast.error(`PDF failed: ${r.error}`);
     } catch (e) {
       toast.error(`PDF failed: ${e instanceof Error ? e.message : "unknown error"}`);
-    } finally { setState("idle"); }
+    } finally {
+      setState("idle");
+    }
   };
   const busy = state === "generating";
   return (
     <Button variant="outline" onClick={onClick} disabled={busy}>
-      {busy ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
+      {busy ? (
+        <Loader2 className="size-4 mr-2 animate-spin" />
+      ) : (
+        <FileText className="size-4 mr-2" />
+      )}
       {busy ? "Generating…" : "Save PDF"}
     </Button>
   );
@@ -65,10 +93,25 @@ const fmt = (n: number) => `$${Number(n || 0).toFixed(2)}`;
 const fmtInt = (n: number) => Number(n || 0).toLocaleString();
 
 const METHOD_LABELS: Record<string, string> = {
-  cash: "Cash", card: "Credit Card", tap: "Debit / Tap", apple_pay: "Apple Pay",
-  google_pay: "Google Pay", gift_card: "Gift Card", split: "Split", store_credit: "Store Credit",
+  cash: "Cash",
+  card: "Credit Card",
+  tap: "Debit / Tap",
+  apple_pay: "Apple Pay",
+  google_pay: "Google Pay",
+  gift_card: "Gift Card",
+  split: "Split",
+  store_credit: "Store Credit",
 };
-const PIE_COLORS = ["#4f46e5", "#0ea5e9", "#22c55e", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#f43f5e"];
+const PIE_COLORS = [
+  "#4f46e5",
+  "#0ea5e9",
+  "#22c55e",
+  "#f59e0b",
+  "#ec4899",
+  "#8b5cf6",
+  "#14b8a6",
+  "#f43f5e",
+];
 
 export function ShiftSummaryReport({ sessionId }: { sessionId: string }) {
   const q = useQuery({
@@ -77,7 +120,11 @@ export function ShiftSummaryReport({ sessionId }: { sessionId: string }) {
   });
 
   if (q.isLoading) {
-    return <div className="flex items-center gap-2 text-muted-foreground p-6"><Loader2 className="size-4 animate-spin" /> Building report…</div>;
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground p-6">
+        <Loader2 className="size-4 animate-spin" /> Building report…
+      </div>
+    );
   }
   if (q.error || !q.data) {
     return <div className="p-6 text-destructive">Failed to load shift report.</div>;
@@ -95,7 +142,9 @@ export function ShiftSummaryReport({ sessionId }: { sessionId: string }) {
         <div className="flex gap-2">
           <NativePrintButton d={d} />
           <NativePdfButton d={d} />
-          <Button variant="outline" onClick={() => downloadCsv(d)}><FileDown className="size-4 mr-2" /> Export CSV</Button>
+          <Button variant="outline" onClick={() => downloadCsv(d)}>
+            <FileDown className="size-4 mr-2" /> Export CSV
+          </Button>
         </div>
       </div>
 
@@ -135,11 +184,23 @@ function ShiftHeader({ d }: { d: ShiftSummary }) {
       <CardContent className="p-6 space-y-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">{store?.name}</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              {store?.name}
+            </div>
             <h1 className="text-2xl font-bold">Shift #{shortId(session.id)}</h1>
-            <div className="text-sm text-muted-foreground">{store?.address ?? ""}{store?.city ? ` · ${store.city}` : ""}</div>
+            <div className="text-sm text-muted-foreground">
+              {store?.address ?? ""}
+              {store?.city ? ` · ${store.city}` : ""}
+            </div>
           </div>
-          <Badge variant="outline" className={session.status === "closed" ? "text-muted-foreground" : "text-success border-success/30"}>
+          <Badge
+            variant="outline"
+            className={
+              session.status === "closed"
+                ? "text-muted-foreground"
+                : "text-success border-success/30"
+            }
+          >
             {session.status === "closed" ? "Closed" : "Open"}
           </Badge>
         </div>
@@ -150,7 +211,12 @@ function ShiftHeader({ d }: { d: ShiftSummary }) {
           <Info label="Terminal" value={terminal?.serial ?? terminal?.id?.slice(0, 8) ?? "—"} />
           <Info label="Date" value={new Date(session.opened_at).toLocaleDateString()} />
           <Info label="Shift start" value={new Date(session.opened_at).toLocaleTimeString()} />
-          <Info label="Shift end" value={session.closed_at ? new Date(session.closed_at).toLocaleTimeString() : "In progress"} />
+          <Info
+            label="Shift end"
+            value={
+              session.closed_at ? new Date(session.closed_at).toLocaleTimeString() : "In progress"
+            }
+          />
           <Info label="Duration" value={`${Math.floor(durationMin / 60)}h ${durationMin % 60}m`} />
         </div>
       </CardContent>
@@ -163,25 +229,41 @@ function CashReconciliation({ d }: { d: ShiftSummary }) {
   const expected = Number(session.expected_cash ?? 0);
   const actual = Number(session.closing_cash ?? 0);
   const variance = session.closing_cash != null ? actual - expected : null;
-  const varianceClass = variance == null ? "" : variance === 0 ? "text-success" : Math.abs(variance) > 5 ? "text-destructive" : "text-warning";
+  const varianceClass =
+    variance == null
+      ? ""
+      : variance === 0
+        ? "text-success"
+        : Math.abs(variance) > 5
+          ? "text-destructive"
+          : "text-warning";
   const remaining = actual - Number(session.safe_drop_amount ?? 0);
   return (
     <Card>
-      <CardHeader><CardTitle>Cash Reconciliation</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Cash Reconciliation</CardTitle>
+      </CardHeader>
       <CardContent className="space-y-2">
         <Row label="Opening cash" value={fmt(session.opening_cash)} />
         <Row label="Cash sales" value={fmt(session.cash_sales)} />
         <Row label="Cash refunds" value={`-${fmt(session.cash_refunds)}`} />
         <Row label="Safe drops" value={`-${fmt(safeDropTotal)}`} />
-        <div className="border-t pt-2"><Row label="Expected in drawer" value={fmt(expected)} bold /></div>
+        <div className="border-t pt-2">
+          <Row label="Expected in drawer" value={fmt(expected)} bold />
+        </div>
         <Row label="Actual counted" value={session.closing_cash != null ? fmt(actual) : "—"} bold />
         {variance !== null && (
-          <div className={`flex items-center justify-between rounded-md border p-2 ${Math.abs(variance) > 5 ? "border-destructive/50 bg-destructive/5" : ""}`}>
+          <div
+            className={`flex items-center justify-between rounded-md border p-2 ${Math.abs(variance) > 5 ? "border-destructive/50 bg-destructive/5" : ""}`}
+          >
             <span className="flex items-center gap-2 font-medium">
               {Math.abs(variance) > 0 && <AlertTriangle className="size-4" />}
               {variance === 0 ? "Balanced" : variance > 0 ? "Overage" : "Shortage"}
             </span>
-            <span className={`font-bold tabular-nums ${varianceClass}`}>{variance > 0 ? "+" : ""}{fmt(variance)}</span>
+            <span className={`font-bold tabular-nums ${varianceClass}`}>
+              {variance > 0 ? "+" : ""}
+              {fmt(variance)}
+            </span>
           </div>
         )}
         {session.safe_drop_amount != null && Number(session.safe_drop_amount) > 0 && (
@@ -194,7 +276,9 @@ function CashReconciliation({ d }: { d: ShiftSummary }) {
           <Row label="Approved by" value={approver.full_name ?? approver.email ?? "—"} />
         )}
         {session.close_notes && (
-          <div className="text-xs text-muted-foreground border-t pt-2">Note: {session.close_notes}</div>
+          <div className="text-xs text-muted-foreground border-t pt-2">
+            Note: {session.close_notes}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -213,7 +297,9 @@ function DrawerEvents({ d }: { d: ShiftSummary }) {
       </CardHeader>
       <CardContent>
         {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No no-sale drawer openings for this shift.</p>
+          <p className="text-sm text-muted-foreground">
+            No no-sale drawer openings for this shift.
+          </p>
         ) : (
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-muted-foreground border-b">
@@ -234,7 +320,9 @@ function DrawerEvents({ d }: { d: ShiftSummary }) {
                     <td className="py-2">{new Date(e.created_at).toLocaleTimeString()}</td>
                     <td className="capitalize">{String(det.reason ?? "—").replace(/_/g, " ")}</td>
                     <td className="capitalize">{String(det.status ?? "—")}</td>
-                    <td className="text-xs text-muted-foreground">{String(det.approver_name ?? "—")}</td>
+                    <td className="text-xs text-muted-foreground">
+                      {String(det.approver_name ?? "—")}
+                    </td>
                     <td className="text-xs">{String(det.note ?? "")}</td>
                     <td className="text-right tabular-nums">
                       {det.safe_drop_amount != null ? fmt(Number(det.safe_drop_amount)) : "—"}
@@ -254,7 +342,9 @@ function SalesSummary({ d }: { d: ShiftSummary }) {
   const s = d.salesSummary;
   return (
     <Card>
-      <CardHeader><CardTitle>Sales Summary</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Sales Summary</CardTitle>
+      </CardHeader>
       <CardContent className="grid grid-cols-2 gap-2 text-sm">
         <Row label="Transactions" value={fmtInt(s.totalTx)} />
         <Row label="Items sold" value={fmtInt(s.totalItems)} />
@@ -274,7 +364,9 @@ function PaymentSummary({ d }: { d: ShiftSummary }) {
   const p = d.paymentSummary;
   return (
     <Card>
-      <CardHeader><CardTitle>Payment Summary</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Payment Summary</CardTitle>
+      </CardHeader>
       <CardContent className="space-y-1 text-sm">
         {Object.entries(p.byMethod).map(([k, v]) => (
           <Row key={k} label={METHOD_LABELS[k] ?? k} value={fmt(v)} />
@@ -292,12 +384,16 @@ function PaymentSummary({ d }: { d: ShiftSummary }) {
 
 function TaxDiscountSummary({ d }: { d: ShiftSummary }) {
   const s = d.salesSummary;
-  const taxable = d.sales.filter((x) => Number(x.tax) > 0).reduce((a, x) => a + Number(x.subtotal || 0), 0);
+  const taxable = d.sales
+    .filter((x) => Number(x.tax) > 0)
+    .reduce((a, x) => a + Number(x.subtotal || 0), 0);
   const nonTaxable = s.grossSales - taxable;
   const rate = d.store?.tax_rate ? `${(Number(d.store.tax_rate) * 100).toFixed(2)}%` : "—";
   return (
     <Card>
-      <CardHeader><CardTitle>Tax & Discounts</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Tax & Discounts</CardTitle>
+      </CardHeader>
       <CardContent className="grid grid-cols-2 gap-2 text-sm">
         <Row label="Total tax collected" value={fmt(s.totalTax)} bold />
         <Row label="Store rate" value={rate} />
@@ -344,8 +440,12 @@ function RefundList({ d }: { d: ShiftSummary }) {
                   <td className="py-2">#{r.sales?.receipt_number ?? "—"}</td>
                   <td className="capitalize">{r.refund_type}</td>
                   <td>{r.reason}</td>
-                  <td className="text-muted-foreground">{r.approver_id ? shortId(r.approver_id) : "—"}</td>
-                  <td className="capitalize">{METHOD_LABELS[r.payment_method] ?? r.payment_method}</td>
+                  <td className="text-muted-foreground">
+                    {r.approver_id ? shortId(r.approver_id) : "—"}
+                  </td>
+                  <td className="capitalize">
+                    {METHOD_LABELS[r.payment_method] ?? r.payment_method}
+                  </td>
                   <td className="text-right tabular-nums">{fmt(r.total)}</td>
                 </tr>
               ))}
@@ -360,14 +460,20 @@ function RefundList({ d }: { d: ShiftSummary }) {
 function TopProducts({ d }: { d: ShiftSummary }) {
   return (
     <Card>
-      <CardHeader><CardTitle>Top Products ({d.products.total} unique)</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Top Products ({d.products.total} unique)</CardTitle>
+      </CardHeader>
       <CardContent>
         {d.products.top.length === 0 ? (
           <p className="text-sm text-muted-foreground">No products sold.</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-muted-foreground border-b">
-              <tr><th className="py-2">Product</th><th className="text-right">Qty</th><th className="text-right">Revenue</th></tr>
+              <tr>
+                <th className="py-2">Product</th>
+                <th className="text-right">Qty</th>
+                <th className="text-right">Revenue</th>
+              </tr>
             </thead>
             <tbody>
               {d.products.top.map((p, i) => (
@@ -389,7 +495,9 @@ function EmployeePerformance({ d }: { d: ShiftSummary }) {
   const { cashier, timeEntry, salesSummary, refundSummary } = d;
   return (
     <Card>
-      <CardHeader><CardTitle>Employee Performance</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Employee Performance</CardTitle>
+      </CardHeader>
       <CardContent className="space-y-1 text-sm">
         <Row label="Cashier" value={cashier?.full_name ?? "—"} />
         <Row label="Transactions" value={fmtInt(salesSummary.totalTx)} />
@@ -397,8 +505,14 @@ function EmployeePerformance({ d }: { d: ShiftSummary }) {
         <Row label="Sales total" value={fmt(salesSummary.grossSales)} />
         <Row label="Refunds" value={fmtInt(refundSummary.refundCount)} />
         <Row label="Avg sale" value={fmt(salesSummary.avgTx)} />
-        <Row label="Clock in" value={timeEntry?.clock_in ? new Date(timeEntry.clock_in).toLocaleTimeString() : "—"} />
-        <Row label="Clock out" value={timeEntry?.clock_out ? new Date(timeEntry.clock_out).toLocaleTimeString() : "—"} />
+        <Row
+          label="Clock in"
+          value={timeEntry?.clock_in ? new Date(timeEntry.clock_in).toLocaleTimeString() : "—"}
+        />
+        <Row
+          label="Clock out"
+          value={timeEntry?.clock_out ? new Date(timeEntry.clock_out).toLocaleTimeString() : "—"}
+        />
       </CardContent>
     </Card>
   );
@@ -408,7 +522,9 @@ function SalesByHourChart({ d }: { d: ShiftSummary }) {
   const data = d.hourly.filter((h) => h.count > 0);
   return (
     <Card>
-      <CardHeader><CardTitle>Sales by Hour</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Sales by Hour</CardTitle>
+      </CardHeader>
       <CardContent className="h-64">
         {data.length === 0 ? (
           <div className="text-sm text-muted-foreground">No sales.</div>
@@ -434,15 +550,25 @@ function PaymentBreakdownChart({ d }: { d: ShiftSummary }) {
     .map(([k, v]) => ({ name: METHOD_LABELS[k] ?? k, value: v }));
   return (
     <Card>
-      <CardHeader><CardTitle>Payment Method Breakdown</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Payment Method Breakdown</CardTitle>
+      </CardHeader>
       <CardContent className="h-64">
         {data.length === 0 ? (
           <div className="text-sm text-muted-foreground">No payments.</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={data} dataKey="value" nameKey="name" outerRadius={85} label={(e) => `${e.name}: ${fmt(e.value)}`}>
-                {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="name"
+                outerRadius={85}
+                label={(e) => `${e.name}: ${fmt(e.value)}`}
+              >
+                {data.map((_, i) => (
+                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                ))}
               </Pie>
               <Legend />
               <Tooltip formatter={(v: number) => fmt(v)} />
@@ -461,7 +587,9 @@ function FinancialSummary({ d }: { d: ShiftSummary }) {
   const expectedDeposit = Number(d.session.expected_cash ?? 0);
   return (
     <Card>
-      <CardHeader><CardTitle>Financial Summary</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Financial Summary</CardTitle>
+      </CardHeader>
       <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
         <Stat label="Gross sales" value={fmt(s.grossSales)} />
         <Stat label="Net sales" value={fmt(s.netSales)} />
@@ -470,7 +598,11 @@ function FinancialSummary({ d }: { d: ShiftSummary }) {
         <Stat label="Refunds" value={fmt(rs.refundAmount)} />
         <Stat label="Total collected" value={fmt(p.grandTotal)} highlight />
         <Stat label="Card sales" value={fmt(p.totalCardSales)} />
-        <Stat label="Cash in drawer" value={fmt(d.session.closing_cash ?? expectedDeposit)} highlight />
+        <Stat
+          label="Cash in drawer"
+          value={fmt(d.session.closing_cash ?? expectedDeposit)}
+          highlight
+        />
       </CardContent>
     </Card>
   );
@@ -479,7 +611,8 @@ function FinancialSummary({ d }: { d: ShiftSummary }) {
 function FooterNote() {
   return (
     <div className="text-xs text-muted-foreground text-center py-4 print:pt-8">
-      Generated {new Date().toLocaleString()} · This report is a snapshot of the register session at time of viewing.
+      Generated {new Date().toLocaleString()} · This report is a snapshot of the register session at
+      time of viewing.
     </div>
   );
 }
@@ -510,7 +643,9 @@ function Stat({ label, value, highlight }: { label: string; value: string; highl
     </div>
   );
 }
-function shortId(id: string) { return id.slice(0, 8).toUpperCase(); }
+function shortId(id: string) {
+  return id.slice(0, 8).toUpperCase();
+}
 
 function downloadCsv(d: ShiftSummary) {
   const s = d.salesSummary;
@@ -549,7 +684,9 @@ function downloadCsv(d: ShiftSummary) {
     ["Product", "Qty", "Revenue"],
     ...d.products.top.map((p) => [p.name, p.qty, p.revenue.toFixed(2)]),
   ];
-  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const csv = rows
+    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

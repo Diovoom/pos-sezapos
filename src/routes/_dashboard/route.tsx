@@ -35,9 +35,7 @@ export const Route = createFileRoute("/_dashboard")({
         .eq("user_id", data.user.id);
       if (roleError) throw roleError;
 
-      const roles = ((roleRows ?? []) as { role: string }[]).map(
-        (row) => row.role,
-      );
+      const roles = ((roleRows ?? []) as { role: string }[]).map((row) => row.role);
 
       if (hasAnyPlatformRole(roles)) {
         throw redirect({ to: "/admin" as string as "/" });
@@ -116,14 +114,10 @@ function DashboardLayout() {
     const path = location.pathname;
     const isBlocked =
       READ_ONLY_BLOCKED.has(path) ||
-      [...READ_ONLY_BLOCKED].some((blockedPath) =>
-        path.startsWith(`${blockedPath}/`),
-      );
+      [...READ_ONLY_BLOCKED].some((blockedPath) => path.startsWith(`${blockedPath}/`));
     const isAllowed =
       READ_ONLY_ALLOWED.has(path) ||
-      [...READ_ONLY_ALLOWED].some((allowedPath) =>
-        path.startsWith(`${allowedPath}/`),
-      );
+      [...READ_ONLY_ALLOWED].some((allowedPath) => path.startsWith(`${allowedPath}/`));
 
     if (isBlocked && !isAllowed) {
       if (!toastedRef.current) {
@@ -133,7 +127,6 @@ function DashboardLayout() {
         toastedRef.current = true;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       navigate({
         to: "/settings",
         search: { section: "billing" } as any,
@@ -151,7 +144,9 @@ function DashboardLayout() {
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
           <div>
             <div className="font-medium">SEZA maintenance notice</div>
-            <div className="text-muted-foreground">{notice.maintenance_message || "Some platform services may be temporarily limited."}</div>
+            <div className="text-muted-foreground">
+              {notice.maintenance_message || "Some platform services may be temporarily limited."}
+            </div>
           </div>
         </div>
       )}

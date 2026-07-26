@@ -32,10 +32,11 @@ export function useMe() {
       if (!sessionUser) return cached ?? null;
 
       try {
-        const [{ data: profile, error: profileError }, { data: roles, error: rolesError }] = await Promise.all([
-          supabase.from("profiles").select("*").eq("id", sessionUser.id).maybeSingle(),
-          supabase.from("user_roles").select("role").eq("user_id", sessionUser.id),
-        ]);
+        const [{ data: profile, error: profileError }, { data: roles, error: rolesError }] =
+          await Promise.all([
+            supabase.from("profiles").select("*").eq("id", sessionUser.id).maybeSingle(),
+            supabase.from("user_roles").select("role").eq("user_id", sessionUser.id),
+          ]);
         if (profileError) throw profileError;
         if (rolesError) throw rolesError;
         const profileStoreId = (profile as { store_id?: string | null } | null)?.store_id ?? null;

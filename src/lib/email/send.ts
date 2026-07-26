@@ -62,9 +62,7 @@ export async function sendTransactionalEmail(
   const queueOnNetworkFailure = options.queueOnNetworkFailure !== false;
 
   if (!isOnlineNow()) {
-    return queueOnNetworkFailure
-      ? queueEmail(args)
-      : { ok: false, error: "Offline" };
+    return queueOnNetworkFailure ? queueEmail(args) : { ok: false, error: "Offline" };
   }
 
   const { data } = await supabase.auth.getSession();

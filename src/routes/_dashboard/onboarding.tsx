@@ -12,7 +12,15 @@ import { toast } from "sonner";
 import { Loader2, KeyRound } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/onboarding")({
-  head: () => ({ meta: [{ title: "Set up your account — SEZA POS" }, { name: "description", content: "Complete your first-time SEZA POS sign-in and personalize your account." }] }),
+  head: () => ({
+    meta: [
+      { title: "Set up your account — SEZA POS" },
+      {
+        name: "description",
+        content: "Complete your first-time SEZA POS sign-in and personalize your account.",
+      },
+    ],
+  }),
   component: OnboardingPage,
 });
 
@@ -50,27 +58,43 @@ export function OnboardingPage() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <KeyRound className="size-5 text-primary" />Secure your login
+              <KeyRound className="size-5 text-primary" />
+              Secure your login
             </CardTitle>
             <CardDescription>
-              Choose a permanent password, then optionally a 6-digit PIN for
-              quick keypad sign-in on this terminal.
+              Choose a permanent password, then optionally a 6-digit PIN for quick keypad sign-in on
+              this terminal.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label>New password</Label>
-                <Input type="password" value={password} minLength={8} autoComplete="new-password"
-                  onChange={(e) => setPassword(e.target.value)} required />
+                <Input
+                  type="password"
+                  value={password}
+                  minLength={8}
+                  autoComplete="new-password"
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label>Confirm password</Label>
-                <Input type="password" value={confirm} minLength={8} autoComplete="new-password"
-                  onChange={(e) => setConfirm(e.target.value)} required />
+                <Input
+                  type="password"
+                  value={confirm}
+                  minLength={8}
+                  autoComplete="new-password"
+                  onChange={(e) => setConfirm(e.target.value)}
+                  required
+                />
               </div>
               <div className="space-y-2">
-                <Label>Quick sign-in PIN <span className="text-muted-foreground font-normal">(optional, 6 digits)</span></Label>
+                <Label>
+                  Quick sign-in PIN{" "}
+                  <span className="text-muted-foreground font-normal">(optional, 6 digits)</span>
+                </Label>
                 <Input
                   type="password"
                   inputMode="numeric"

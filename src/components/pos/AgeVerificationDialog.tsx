@@ -1,12 +1,32 @@
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ScanLine, CheckCircle2, XCircle, ShieldAlert, Calendar, Camera, KeyRound, Trash2, X, Loader2 } from "lucide-react";
+import {
+  ScanLine,
+  CheckCircle2,
+  XCircle,
+  ShieldAlert,
+  Calendar,
+  Camera,
+  KeyRound,
+  Trash2,
+  X,
+  Loader2,
+} from "lucide-react";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
-import { ManagerOverrideDialog, type ManagerOverrideResult } from "@/components/pos/ManagerOverrideDialog";
+import {
+  ManagerOverrideDialog,
+  type ManagerOverrideResult,
+} from "@/components/pos/ManagerOverrideDialog";
 import {
   parseIdBarcode,
   evaluateId,
@@ -115,7 +135,12 @@ export function AgeVerificationDialog({
     } else {
       logEvent({
         method: "id_scan",
-        result: r.reason === "underage" ? "underage" : r.reason === "expired_id" ? "expired_id" : "rejected",
+        result:
+          r.reason === "underage"
+            ? "underage"
+            : r.reason === "expired_id"
+              ? "expired_id"
+              : "rejected",
         parsed: p,
       });
     }
@@ -205,7 +230,7 @@ export function AgeVerificationDialog({
       });
     } catch (err) {
       // best-effort; do not block checkout
-      // eslint-disable-next-line no-console
+
       console.warn("[age-verification] failed to log", err);
     }
   };
@@ -221,14 +246,18 @@ export function AgeVerificationDialog({
         if (u.user) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { data: roleRows } = await (supabase as any)
-            .from("user_roles").select("role").eq("user_id", u.user.id);
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", u.user.id);
           const roles = ((roleRows ?? []) as { role: string }[]).map((r) => r.role);
           if (roles.some((r) => r === "owner" || r === "admin" || r === "manager")) {
             trustedManager = { manager_id: u.user.id, manager_name: u.user.email ?? "manager" };
             setManualManagerOk(trustedManager);
           }
         }
-      } catch { /* fall through to prompt */ }
+      } catch {
+        /* fall through to prompt */
+      }
     }
     if (settings.requireManagerForManual && !trustedManager) {
       setManagerOpen(true);
@@ -290,7 +319,9 @@ export function AgeVerificationDialog({
                 </Badge>
               ))}
               {items.length > 4 && (
-                <Badge variant="outline" className="bg-card">+{items.length - 4} more</Badge>
+                <Badge variant="outline" className="bg-card">
+                  +{items.length - 4} more
+                </Badge>
               )}
             </div>
           </div>
@@ -316,7 +347,11 @@ export function AgeVerificationDialog({
                     <ActionCard
                       icon={Calendar}
                       title="Enter date of birth"
-                      subtitle={settings.requireManagerForManual ? "Manager approval required" : "Manual entry"}
+                      subtitle={
+                        settings.requireManagerForManual
+                          ? "Manager approval required"
+                          : "Manual entry"
+                      }
                       onClick={() => {
                         setManualMode("manual");
                         setMode("manual");
@@ -345,7 +380,10 @@ export function AgeVerificationDialog({
                     <button
                       type="button"
                       className="underline hover:text-foreground"
-                      onClick={() => { setManualMode("manual"); setMode("manual"); }}
+                      onClick={() => {
+                        setManualMode("manual");
+                        setMode("manual");
+                      }}
                     >
                       Camera scan isn't working?
                     </button>
@@ -403,7 +441,9 @@ export function AgeVerificationDialog({
                   </div>
                 )}
                 <div className="flex justify-between pt-2 border-t">
-                  <Button variant="ghost" onClick={() => setMode("choose")}>Back</Button>
+                  <Button variant="ghost" onClick={() => setMode("choose")}>
+                    Back
+                  </Button>
                   <Button onClick={submitManual} disabled={saving || !manualDob}>
                     {saving && <Loader2 className="size-4 animate-spin mr-2" />}
                     Verify age
@@ -435,7 +475,10 @@ export function AgeVerificationDialog({
 
       <BarcodeScanner
         open={scannerOpen}
-        onOpenChange={(v) => { setScannerOpen(v); if (!v) setScanNote(null); }}
+        onOpenChange={(v) => {
+          setScannerOpen(v);
+          if (!v) setScanNote(null);
+        }}
         title="Scan ID barcode"
         formats={["PDF_417", "QR_CODE", "DATA_MATRIX"]}
         hint="Align the barcode on the back of the ID with the red line. Hold steady 4–6 inches away."
@@ -446,7 +489,9 @@ export function AgeVerificationDialog({
             if (!seenCodesRef.current.has(code)) {
               seenCodesRef.current.add(code);
               toast.error("Barcode read, but not a recognized government ID.");
-              setScanNote("Barcode read but not a recognized government ID — try the PDF417 on the back of a driver's license, or use manual entry.");
+              setScanNote(
+                "Barcode read but not a recognized government ID — try the PDF417 on the back of a driver's license, or use manual entry.",
+              );
             }
             return; // keep camera open
           }
@@ -505,7 +550,11 @@ function ActionCard({
         <div
           className={cn(
             "size-10 rounded-lg grid place-items-center shrink-0",
-            accent ? "bg-primary text-primary-foreground" : danger ? "bg-destructive/15 text-destructive" : "bg-muted",
+            accent
+              ? "bg-primary text-primary-foreground"
+              : danger
+                ? "bg-destructive/15 text-destructive"
+                : "bg-muted",
           )}
         >
           <Icon className="size-5" />
@@ -541,7 +590,9 @@ function ResultView({
           <CheckCircle2 className="size-10 text-success" />
         </div>
         <h3 className="text-2xl font-bold">Age Verified</h3>
-        <p className="text-muted-foreground mt-1">Customer is {outcome.ageYears} years old. Checkout may continue.</p>
+        <p className="text-muted-foreground mt-1">
+          Customer is {outcome.ageYears} years old. Checkout may continue.
+        </p>
       </div>
     );
   }
@@ -568,9 +619,13 @@ function ResultView({
       <h3 className="text-xl font-bold text-destructive">{title}</h3>
       <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">{detail}</p>
       <div className="mt-6 flex justify-center gap-2">
-        <Button variant="outline" onClick={onRetry}>Try again</Button>
+        <Button variant="outline" onClick={onRetry}>
+          Try again
+        </Button>
         <Button onClick={onRemove}>Remove restricted items</Button>
-        <Button variant="ghost" onClick={onCancel}>Cancel sale</Button>
+        <Button variant="ghost" onClick={onCancel}>
+          Cancel sale
+        </Button>
       </div>
     </div>
   );

@@ -7,7 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TrendingUp, Building2, DollarSign, CalendarCheck, RefreshCw, Search } from "lucide-react";
 
 export const Route = createFileRoute("/_adminApp/admin/sales")({
@@ -21,7 +27,9 @@ export const Route = createFileRoute("/_adminApp/admin/sales")({
 });
 
 function money(cents: number, currency = "USD") {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format((Number(cents) || 0) / 100);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
+    (Number(cents) || 0) / 100,
+  );
 }
 
 function MerchantSalesPage() {
@@ -43,7 +51,8 @@ function MerchantSalesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">New Merchant Sales</h1>
           <p className="text-sm text-muted-foreground">
-            Merchants who completed their first paid SEZA POS subscription after the free trial. Store checkout sales are not shown here.
+            Merchants who completed their first paid SEZA POS subscription after the free trial.
+            Store checkout sales are not shown here.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => query.refetch()}>
@@ -52,25 +61,52 @@ function MerchantSalesPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Summary label="First-time paid merchants" value={summary?.conversions ?? 0} icon={Building2} />
-        <Summary label="First-payment revenue" value={money(summary?.revenue_cents ?? 0)} icon={DollarSign} tone="text-emerald-600" />
-        <Summary label="Live conversions" value={summary?.live ?? 0} icon={TrendingUp} tone="text-emerald-600" />
-        <Summary label="Sandbox conversions" value={summary?.sandbox ?? 0} icon={CalendarCheck} tone="text-blue-600" />
+        <Summary
+          label="First-time paid merchants"
+          value={summary?.conversions ?? 0}
+          icon={Building2}
+        />
+        <Summary
+          label="First-payment revenue"
+          value={money(summary?.revenue_cents ?? 0)}
+          icon={DollarSign}
+          tone="text-emerald-600"
+        />
+        <Summary
+          label="Live conversions"
+          value={summary?.live ?? 0}
+          icon={TrendingUp}
+          tone="text-emerald-600"
+        />
+        <Summary
+          label="Sandbox conversions"
+          value={summary?.sandbox ?? 0}
+          icon={CalendarCheck}
+          tone="text-blue-600"
+        />
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Trial-to-paid conversion ledger</CardTitle>
           <CardDescription>
-            Each merchant appears once, using their earliest successful subscription invoice recorded by SEZA.
+            Each merchant appears once, using their earliest successful subscription invoice
+            recorded by SEZA.
           </CardDescription>
           <div className="flex flex-wrap gap-2 pt-2">
             <div className="relative min-w-[220px] flex-1 max-w-sm">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search merchant name or email…" />
+              <Input
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search merchant name or email…"
+              />
             </div>
             <Select value={days} onValueChange={setDays}>
-              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="30">Last 30 days</SelectItem>
                 <SelectItem value="90">Last 90 days</SelectItem>
@@ -87,7 +123,8 @@ function MerchantSalesPage() {
             <div className="p-10 text-center">
               <div className="font-medium">No first paid conversions recorded in this period</div>
               <p className="mt-1 text-sm text-muted-foreground">
-                New successful Stripe subscription invoices will automatically create conversion records.
+                New successful Stripe subscription invoices will automatically create conversion
+                records.
               </p>
             </div>
           ) : (
@@ -106,23 +143,46 @@ function MerchantSalesPage() {
                 {rows.map((row: any) => (
                   <tr key={row.store_id} className="border-t hover:bg-muted/20">
                     <td className="p-3">
-                      <Link to="/admin/businesses/$storeId" params={{ storeId: row.store_id }} className="font-medium text-primary hover:underline">
+                      <Link
+                        to="/admin/businesses/$storeId"
+                        params={{ storeId: row.store_id }}
+                        className="font-medium text-primary hover:underline"
+                      >
                         {row.store?.name ?? "Unknown merchant"}
                       </Link>
                       <div className="text-xs text-muted-foreground">{row.store?.email ?? "—"}</div>
                     </td>
-                    <td className="p-3 font-semibold">{money(row.amount_cents, String(row.first_payment?.currency ?? "usd").toUpperCase())}</td>
+                    <td className="p-3 font-semibold">
+                      {money(
+                        row.amount_cents,
+                        String(row.first_payment?.currency ?? "usd").toUpperCase(),
+                      )}
+                    </td>
                     <td className="p-3">
-                      <Badge variant="outline">{row.store?.plan_tier ?? row.subscription?.price_id ?? "—"}</Badge>
+                      <Badge variant="outline">
+                        {row.store?.plan_tier ?? row.subscription?.price_id ?? "—"}
+                      </Badge>
                     </td>
                     <td className="p-3 whitespace-nowrap">
                       <div>{new Date(row.converted_at).toLocaleDateString()}</div>
-                      <div className="text-xs text-muted-foreground">{new Date(row.converted_at).toLocaleTimeString()}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(row.converted_at).toLocaleTimeString()}
+                      </div>
                     </td>
-                    <td className="p-3"><Badge variant={row.environment === "live" ? "default" : "secondary"}>{row.environment}</Badge></td>
                     <td className="p-3">
-                      <Badge variant="outline">{row.subscription?.status ?? row.store?.plan_status ?? "—"}</Badge>
-                      {row.store?.trial_ends_at && <div className="mt-1 text-xs text-muted-foreground">Trial ended {new Date(row.store.trial_ends_at).toLocaleDateString()}</div>}
+                      <Badge variant={row.environment === "live" ? "default" : "secondary"}>
+                        {row.environment}
+                      </Badge>
+                    </td>
+                    <td className="p-3">
+                      <Badge variant="outline">
+                        {row.subscription?.status ?? row.store?.plan_status ?? "—"}
+                      </Badge>
+                      {row.store?.trial_ends_at && (
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Trial ended {new Date(row.store.trial_ends_at).toLocaleDateString()}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -135,11 +195,28 @@ function MerchantSalesPage() {
   );
 }
 
-function Summary({ label, value, icon: Icon, tone }: { label: string; value: string | number; icon: any; tone?: string }) {
+function Summary({
+  label,
+  value,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  icon: any;
+  tone?: string;
+}) {
   return (
-    <Card><CardContent className="p-4 flex items-center justify-between">
-      <div><div className="text-2xl font-bold">{typeof value === "number" ? value.toLocaleString() : value}</div><div className="text-xs text-muted-foreground">{label}</div></div>
-      <Icon className={`h-7 w-7 ${tone ?? "text-primary"}`} />
-    </CardContent></Card>
+    <Card>
+      <CardContent className="p-4 flex items-center justify-between">
+        <div>
+          <div className="text-2xl font-bold">
+            {typeof value === "number" ? value.toLocaleString() : value}
+          </div>
+          <div className="text-xs text-muted-foreground">{label}</div>
+        </div>
+        <Icon className={`h-7 w-7 ${tone ?? "text-primary"}`} />
+      </CardContent>
+    </Card>
   );
 }

@@ -37,15 +37,23 @@ export const Route = createFileRoute("/api/public/pos/pair-device")({
         });
         if (blocked) return blocked;
         let body: Body;
-        try { body = (await request.json()) as Body; } catch { return json({ error: "Invalid JSON" }, 400); }
+        try {
+          body = (await request.json()) as Body;
+        } catch {
+          return json({ error: "Invalid JSON" }, 400);
+        }
 
         const codeRaw = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
-        const label = typeof body.label === "string" && body.label.trim() ? body.label.trim().slice(0, 60) : "POS Register";
+        const label =
+          typeof body.label === "string" && body.label.trim()
+            ? body.label.trim().slice(0, 60)
+            : "POS Register";
         const platform = typeof body.platform === "string" ? body.platform.slice(0, 40) : "android";
         if (!/^[A-Z2-9]{10}$/.test(codeRaw)) return json({ error: "Invalid pairing code" }, 400);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { hashPairingCode, generateDeviceSecret, hashDeviceSecret } = await import("@/lib/pos/device.server");
+        const { hashPairingCode, generateDeviceSecret, hashDeviceSecret } =
+          await import("@/lib/pos/device.server");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const admin: any = supabaseAdmin;
 
@@ -73,7 +81,8 @@ export const Route = createFileRoute("/api/public/pos/pair-device")({
           })
           .select("id, store_id, label")
           .single();
-        if (devErr || !dev) return json({ error: devErr?.message ?? "Could not register device" }, 500);
+        if (devErr || !dev)
+          return json({ error: devErr?.message ?? "Could not register device" }, 500);
 
         await admin
           .from("device_pairing_codes")
@@ -87,7 +96,9 @@ export const Route = createFileRoute("/api/public/pos/pair-device")({
             entity_id: dev.id,
             details: { store_id: pc.store_id, label: dev.label, platform },
           });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         return json({
           device_id: dev.id,

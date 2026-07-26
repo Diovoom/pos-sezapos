@@ -32,7 +32,10 @@ export const Route = createFileRoute("/legal/$slug")({
         <h1 className="text-3xl font-bold text-foreground">Document not found</h1>
         <p className="mt-3 text-muted-foreground">
           The legal document you are looking for doesn't exist. Return to the{" "}
-          <a href="/legal" className="text-primary underline">Legal Center</a>.
+          <a href="/legal" className="text-primary underline">
+            Legal Center
+          </a>
+          .
         </p>
       </div>
     </MarketingShell>
@@ -42,7 +45,9 @@ export const Route = createFileRoute("/legal/$slug")({
       <div className="max-w-3xl mx-auto px-6 py-24 text-center">
         <h1 className="text-3xl font-bold text-foreground">Something went wrong</h1>
         <p className="mt-3 text-muted-foreground">{error.message}</p>
-        <button className="mt-6 underline text-primary" onClick={reset}>Try again</button>
+        <button className="mt-6 underline text-primary" onClick={reset}>
+          Try again
+        </button>
       </div>
     </MarketingShell>
   ),

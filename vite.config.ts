@@ -22,30 +22,20 @@ const publicSupabasePublishableKey =
   "sb_publishable_D06VufRmNrbKI6Fe0OF70Q_Wzr5pkBn";
 
 if (publicSupabasePublishableKey.startsWith("sb_secret_")) {
-  throw new Error(
-    "Refusing to build: VITE_SUPABASE_PUBLISHABLE_KEY contains a secret key.",
-  );
+  throw new Error("Refusing to build: VITE_SUPABASE_PUBLISHABLE_KEY contains a secret key.");
 }
 
 const publicSupabaseProjectId =
-  process.env.VITE_SUPABASE_PROJECT_ID ??
-  process.env.SUPABASE_PROJECT_ID ??
-  "xbirnlsbckbcjbxqkmjn";
+  process.env.VITE_SUPABASE_PROJECT_ID ?? process.env.SUPABASE_PROJECT_ID ?? "xbirnlsbckbcjbxqkmjn";
 
 const publicEnv = {
   "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(publicSupabaseUrl),
-  "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(
-    publicSupabasePublishableKey,
-  ),
-  "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(
-    publicSupabaseProjectId,
-  ),
+  "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(publicSupabasePublishableKey),
+  "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(publicSupabaseProjectId),
   // Some generated/shared modules still include process.env fallbacks in code
   // that reaches the browser bundle. Replace those public values as well.
   "process.env.SUPABASE_URL": JSON.stringify(publicSupabaseUrl),
-  "process.env.SUPABASE_PUBLISHABLE_KEY": JSON.stringify(
-    publicSupabasePublishableKey,
-  ),
+  "process.env.SUPABASE_PUBLISHABLE_KEY": JSON.stringify(publicSupabasePublishableKey),
   "process.env.SUPABASE_PROJECT_ID": JSON.stringify(publicSupabaseProjectId),
 };
 

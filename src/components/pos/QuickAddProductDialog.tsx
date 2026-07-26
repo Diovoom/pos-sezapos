@@ -5,7 +5,14 @@
 // products.create / products.quick_add permission. On success, returns the
 // created product to the caller (typically added to the current cart line).
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,12 +92,15 @@ export function QuickAddProductDialog({
           status: "active",
           is_favorite: false,
         })
-        .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category")
+        .select(
+          "id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category",
+        )
         .single();
       if (error || !data) {
-        const msg = error?.code === "42501"
-          ? "You don't have permission to add products. Ask a manager to enable Quick Add for cashiers."
-          : (error?.message || "Could not create product");
+        const msg =
+          error?.code === "42501"
+            ? "You don't have permission to add products. Ask a manager to enable Quick Add for cashiers."
+            : error?.message || "Could not create product";
         toast.error(msg);
         return;
       }
@@ -98,12 +108,21 @@ export function QuickAddProductDialog({
         action: "products.quick_add",
         entity: "product",
         entity_id: data.id,
-        details: { name: trimmed, price: p, barcode: barcode.trim() || null, source: "pos_quick_add" },
-      }).catch(() => { /* audit failure never blocks */ });
+        details: {
+          name: trimmed,
+          price: p,
+          barcode: barcode.trim() || null,
+          source: "pos_quick_add",
+        },
+      }).catch(() => {
+        /* audit failure never blocks */
+      });
       toast.success(`Added ${trimmed}`);
       onCreated(data as QuickAddedProduct);
       onOpenChange(false);
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -112,22 +131,36 @@ export function QuickAddProductDialog({
         <DialogHeader>
           <DialogTitle>Quick add product</DialogTitle>
           <DialogDescription>
-            Create a product on the fly. It is saved to your catalog and can be edited later from the dashboard.
+            Create a product on the fly. It is saved to your catalog and can be edited later from
+            the dashboard.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
             <Label>Name</Label>
-            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Iced Coffee" />
+            <Input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Iced Coffee"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>Price</Label>
-              <Input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ""))} />
+              <Input
+                inputMode="decimal"
+                value={price}
+                onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ""))}
+              />
             </div>
             <div className="space-y-1">
               <Label>Barcode</Label>
-              <Input value={barcode} onChange={(e) => setBarcode(e.target.value.trim())} placeholder="Optional" />
+              <Input
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value.trim())}
+                placeholder="Optional"
+              />
             </div>
           </div>
           <div className="flex items-center justify-between rounded-md border p-2">
@@ -136,7 +169,9 @@ export function QuickAddProductDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
+            Cancel
+          </Button>
           <Button onClick={submit} disabled={busy || !name.trim() || !price}>
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Add to cart

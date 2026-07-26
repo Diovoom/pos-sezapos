@@ -41,12 +41,17 @@ export const Route = createFileRoute("/api/public/pos/verify-employee-pin")({
         });
         if (blocked) return blocked;
         let body: Body;
-        try { body = (await request.json()) as Body; } catch { return json({ error: "Invalid JSON" }, 400); }
+        try {
+          body = (await request.json()) as Body;
+        } catch {
+          return json({ error: "Invalid JSON" }, 400);
+        }
 
         const pin = typeof body.pin === "string" ? body.pin : "";
         const employeeId = typeof body.employee_id === "string" ? body.employee_id : "";
         if (!/^\d{6}$/.test(pin)) return json({ error: "PIN must be exactly 6 digits" }, 400);
-        if (employeeId && !/^\d{6}$/.test(employeeId)) return json({ error: "Invalid employee ID" }, 400);
+        if (employeeId && !/^\d{6}$/.test(employeeId))
+          return json({ error: "Invalid employee ID" }, 400);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { verifyPin } = await import("@/lib/pin.server");
@@ -73,19 +78,25 @@ export const Route = createFileRoute("/api/public/pos/verify-employee-pin")({
           if (!p.pin_fingerprint && p.store_id) {
             try {
               const { pinFingerprint } = await import("@/lib/pos/fingerprint.server");
-              await admin.from("profiles")
+              await admin
+                .from("profiles")
                 .update({ pin_fingerprint: pinFingerprint(p.store_id, pin) })
                 .eq("id", p.id);
-            } catch { /* best effort */ }
+            } catch {
+              /* best effort */
+            }
           }
         } else {
           // PIN-only sign-in is disabled: matching a PIN across every store on
           // the platform allowed cross-tenant collisions. Always require the
           // globally-unique 6-digit Employee ID.
-          return json({
-            error: "MULTIPLE_MATCHES",
-            message: "Please also enter your 6-digit Employee ID to sign in.",
-          }, 409);
+          return json(
+            {
+              error: "MULTIPLE_MATCHES",
+              message: "Please also enter your 6-digit Employee ID to sign in.",
+            },
+            409,
+          );
         }
 
         const { data: link, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
@@ -103,7 +114,9 @@ export const Route = createFileRoute("/api/public/pos/verify-employee-pin")({
             entity_id: match.id,
             details: { method: employeeId ? "pin_with_id" : "pin", channel: "native_shell" },
           });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         return json({
           email: match.email,

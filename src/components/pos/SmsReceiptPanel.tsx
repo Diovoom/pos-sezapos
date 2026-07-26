@@ -54,7 +54,9 @@ export function SmsReceiptPanel({
   const [country, setCountry] = useState<CountryCode>(defaultCountry);
   const [raw, setRaw] = useState("");
   const [sending, setSending] = useState(false);
-  const [deliveryStatus, setDeliveryStatus] = useState<"sent" | "queued" | "already_sent" | null>(null);
+  const [deliveryStatus, setDeliveryStatus] = useState<"sent" | "queued" | "already_sent" | null>(
+    null,
+  );
   const options = useMemo(() => buildCountryOptions(defaultCountry), [defaultCountry]);
 
   useEffect(() => setCountry(defaultCountry), [defaultCountry]);
@@ -115,7 +117,12 @@ export function SmsReceiptPanel({
     return (
       <div className="flex items-center gap-2 text-emerald-600 text-sm px-1">
         <CheckCircle2 className="size-4" />
-        {deliveryStatus === "queued" ? "Queued for" : deliveryStatus === "already_sent" ? "Already sent to" : "Sent to"} {formatted}
+        {deliveryStatus === "queued"
+          ? "Queued for"
+          : deliveryStatus === "already_sent"
+            ? "Already sent to"
+            : "Sent to"}{" "}
+        {formatted}
       </div>
     );
   }

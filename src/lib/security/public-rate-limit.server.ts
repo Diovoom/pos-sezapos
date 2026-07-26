@@ -34,16 +34,15 @@ function clientAddress(request: Request): string {
 }
 
 function normalizeScope(scope: string): string {
-  return scope.toLowerCase().replace(/[^a-z0-9_.:-]/g, "-").slice(0, 100);
+  return scope
+    .toLowerCase()
+    .replace(/[^a-z0-9_.:-]/g, "-")
+    .slice(0, 100);
 }
 
 function bucketHash(request: Request, options: RateLimitOptions): string {
   const rawIdentifier = options.identifier?.trim().slice(0, 300) || "anonymous";
-  const material = [
-    normalizeScope(options.scope),
-    clientAddress(request),
-    rawIdentifier,
-  ].join("|");
+  const material = [normalizeScope(options.scope), clientAddress(request), rawIdentifier].join("|");
   return createHash("sha256").update(material).digest("hex");
 }
 
@@ -57,9 +56,10 @@ function memoryFallback(key: string, limit: number, windowSeconds: number): Rate
   }
 
   const existing = memoryBuckets.get(key);
-  const bucket = !existing || existing.resetAt <= now
-    ? { count: 0, resetAt: now + windowSeconds * 1000 }
-    : existing;
+  const bucket =
+    !existing || existing.resetAt <= now
+      ? { count: 0, resetAt: now + windowSeconds * 1000 }
+      : existing;
   bucket.count += 1;
   memoryBuckets.set(key, bucket);
 

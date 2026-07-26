@@ -3,10 +3,12 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 function isMissingPlatformSettings(error: any) {
   const message = String(error?.message ?? "").toLowerCase();
-  return error?.code === "42P01"
-    || error?.code === "PGRST205"
-    || message.includes("platform_settings")
-    || message.includes("schema cache");
+  return (
+    error?.code === "42P01" ||
+    error?.code === "PGRST205" ||
+    message.includes("platform_settings") ||
+    message.includes("schema cache")
+  );
 }
 
 // Safe merchant-facing subset of the private global platform configuration.
@@ -37,7 +39,10 @@ export const getMerchantPlatformNotice = createServerFn({ method: "GET" })
         .limit(1)
         .maybeSingle();
       data = fallback.data?.details
-        ? { ...(fallback.data.details as Record<string, unknown>), updated_at: fallback.data.created_at }
+        ? {
+            ...(fallback.data.details as Record<string, unknown>),
+            updated_at: fallback.data.created_at,
+          }
         : null;
     }
 

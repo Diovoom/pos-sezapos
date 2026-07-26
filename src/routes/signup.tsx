@@ -1,22 +1,11 @@
-import {
-  createFileRoute,
-  Link,
-  useNavigate,
-  useSearch,
-} from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, Mail, CheckCircle2, RefreshCw, Check } from "lucide-react";
@@ -63,19 +52,14 @@ const PLAN_LABELS: Record<string, string> = {
 const schema = z.object({
   businessName: z.string().trim().min(2, "Business name is required").max(120),
   email: z.string().trim().email("Enter a valid email").max(255),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .max(128),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128),
   accept: z.literal(true, { message: "You must accept the terms" }),
 });
 
 function SignupPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: "/signup" });
-  const [selectedPlan, setSelectedPlan] = useState<string | undefined>(
-    search.plan,
-  );
+  const [selectedPlan, setSelectedPlan] = useState<string | undefined>(search.plan);
 
   useEffect(() => {
     setSelectedPlan(search.plan);
@@ -83,9 +67,7 @@ function SignupPage() {
 
   const detectedTz = useMemo(() => {
     try {
-      return (
-        Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York"
-      );
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
     } catch {
       return "America/New_York";
     }
@@ -163,10 +145,7 @@ function SignupPage() {
   return (
     <div className="min-h-screen bg-surface p-4 py-10">
       <div className="max-w-5xl mx-auto">
-        <a
-          href={marketingUrl("/")}
-          className="flex items-center justify-center gap-2 mb-6"
-        >
+        <a href={marketingUrl("/")} className="flex items-center justify-center gap-2 mb-6">
           <div className="size-9 rounded-lg bg-primary grid place-items-center text-primary-foreground font-bold">
             S
           </div>
@@ -183,13 +162,8 @@ function SignupPage() {
               {planLabel && (
                 <div className="mt-3 flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
                   <span className="text-muted-foreground">Selected plan:</span>
-                  <span className="font-semibold text-foreground">
-                    {planLabel}
-                  </span>
-                  <Link
-                    to="/pricing"
-                    className="ml-auto text-xs text-primary hover:underline"
-                  >
+                  <span className="font-semibold text-foreground">{planLabel}</span>
+                  <Link to="/pricing" className="ml-auto text-xs text-primary hover:underline">
                     Change plan
                   </Link>
                 </div>
@@ -232,9 +206,7 @@ function SignupPage() {
                     minLength={8}
                     required
                   />
-                  <p className="text-xs text-muted-foreground">
-                    At least 8 characters.
-                  </p>
+                  <p className="text-xs text-muted-foreground">At least 8 characters.</p>
                 </div>
 
                 <label className="flex items-start gap-2 text-sm">
@@ -265,7 +237,11 @@ function SignupPage() {
                 </label>
 
                 <AuthTurnstile onTokenChange={setCaptchaToken} resetKey={captchaReset} />
-                <Button type="submit" className="w-full h-11" disabled={busy || cooldown.active || (authCaptchaEnabled && !captchaToken)}>
+                <Button
+                  type="submit"
+                  className="w-full h-11"
+                  disabled={busy || cooldown.active || (authCaptchaEnabled && !captchaToken)}
+                >
                   {busy ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
@@ -398,9 +374,8 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
           </div>
           <CardTitle>Check your inbox</CardTitle>
           <CardDescription>
-            We sent a verification link to <strong>{email}</strong>. Click it to
-            activate your account and start your 14-day free trial. The link
-            expires in 24 hours.
+            We sent a verification link to <strong>{email}</strong>. Click it to activate your
+            account and start your 14-day free trial. The link expires in 24 hours.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -410,25 +385,24 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
             variant="outline"
             className="w-full"
             onClick={resend}
-            disabled={resending || cooldown > 0 || serverCooldown.active || (authCaptchaEnabled && !captchaToken)}
+            disabled={
+              resending ||
+              cooldown > 0 ||
+              serverCooldown.active ||
+              (authCaptchaEnabled && !captchaToken)
+            }
           >
             {resending ? (
               <Loader2 className="size-4 animate-spin mr-2" />
             ) : (
               <RefreshCw className="size-4 mr-2" />
             )}
-            {cooldown > 0
-              ? `Resend in ${cooldown}s`
-              : "Resend verification email"}
+            {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend verification email"}
           </Button>
 
           <p className="text-xs text-muted-foreground text-center">
             Didn't get it? Check spam, or{" "}
-            <button
-              type="button"
-              className="text-primary hover:underline"
-              onClick={onReset}
-            >
+            <button type="button" className="text-primary hover:underline" onClick={onReset}>
               use a different email
             </button>
             .
@@ -437,14 +411,8 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
           {isDev && (
             <div className="mt-4 rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-xs space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-amber-900">
-                  Developer diagnostic
-                </span>
-                <button
-                  type="button"
-                  onClick={refresh}
-                  className="text-amber-700 hover:underline"
-                >
+                <span className="font-semibold text-amber-900">Developer diagnostic</span>
+                <button type="button" onClick={refresh} className="text-amber-700 hover:underline">
                   refresh
                 </button>
               </div>
@@ -460,19 +428,16 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
                   </div>
                   {devStatus.created_at && (
                     <div className="text-slate-500">
-                      logged{" "}
-                      {new Date(devStatus.created_at).toLocaleTimeString()}
+                      logged {new Date(devStatus.created_at).toLocaleTimeString()}
                     </div>
                   )}
                   {devStatus.error_message && (
-                    <div className="text-red-700">
-                      Error: {devStatus.error_message}
-                    </div>
+                    <div className="text-red-700">Error: {devStatus.error_message}</div>
                   )}
                   {devStatus.status === "none" && (
                     <div className="text-slate-600">
-                      No send row yet — the queue processes every ~5s. Give it a
-                      moment or click resend.
+                      No send row yet — the queue processes every ~5s. Give it a moment or click
+                      resend.
                     </div>
                   )}
                 </>

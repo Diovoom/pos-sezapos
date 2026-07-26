@@ -51,16 +51,22 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
         });
         if (blocked) return blocked;
         let body: Body;
-        try { body = (await request.json()) as Body; } catch { return json({ error: "Invalid JSON" }, 400); }
+        try {
+          body = (await request.json()) as Body;
+        } catch {
+          return json({ error: "Invalid JSON" }, 400);
+        }
 
         const storeId = typeof body.store_id === "string" ? body.store_id : "";
         const deviceId = typeof body.device_id === "string" ? body.device_id : "";
         const deviceSecret = typeof body.device_secret === "string" ? body.device_secret : "";
         const pin = typeof body.pin === "string" ? body.pin : "";
         const employeeId = typeof body.employee_id === "string" ? body.employee_id : "";
-        if (!storeId || !deviceId || !deviceSecret) return json({ error: "Device not paired" }, 401);
+        if (!storeId || !deviceId || !deviceSecret)
+          return json({ error: "Device not paired" }, 401);
         if (!/^\d{6}$/.test(pin)) return json({ error: "PIN must be exactly 6 digits" }, 400);
-        if (employeeId && !/^\d{6}$/.test(employeeId)) return json({ error: "Invalid employee ID" }, 400);
+        if (employeeId && !/^\d{6}$/.test(employeeId))
+          return json({ error: "Invalid employee ID" }, 400);
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { verifyDeviceSecret } = await import("@/lib/pos/device.server");
@@ -98,14 +104,17 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
           candidates = [p];
         } else {
           const { data: fpMatches } = await admin.rpc("pos_find_pin_candidates", {
-            _store_id: storeId, _fingerprint: fp,
+            _store_id: storeId,
+            _fingerprint: fp,
           });
           candidates = (fpMatches ?? []) as typeof candidates;
           if (candidates.length === 0) {
             // Legacy fallback: some active cashiers may not have a
             // fingerprint yet. Try their pin_hash directly, still scoped
             // to this one store so cross-tenant matches are impossible.
-            const { data: legacy } = await admin.rpc("pos_list_unfingerprinted", { _store_id: storeId });
+            const { data: legacy } = await admin.rpc("pos_list_unfingerprinted", {
+              _store_id: storeId,
+            });
             candidates = ((legacy ?? []) as typeof candidates).filter(
               (r) => r.pin_hash && verifyPin(pin, r.pin_hash),
             );
@@ -121,10 +130,14 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
         }
         if (matched.length === 0) return json({ error: "Incorrect PIN" }, 401);
         if (matched.length > 1) {
-          return json({
-            error: "MULTIPLE_MATCHES",
-            message: "Two employees at this register share this PIN. Enter your 6-digit Employee ID to continue.",
-          }, 409);
+          return json(
+            {
+              error: "MULTIPLE_MATCHES",
+              message:
+                "Two employees at this register share this PIN. Enter your 6-digit Employee ID to continue.",
+            },
+            409,
+          );
         }
 
         const chosen = matched[0];
@@ -138,14 +151,25 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
 
         // Best-effort audit + device heartbeat.
         try {
-          await admin.from("device_registrations")
+          await admin
+            .from("device_registrations")
             .update({ last_seen_at: new Date().toISOString() })
             .eq("id", deviceId);
           await admin.from("audit_log").insert({
-            actor_id: chosen.id, action: "login", entity: "employee", entity_id: chosen.id,
-            details: { method: employeeId ? "pin_with_id" : "pin_device", channel: "native_shell", device_id: deviceId, store_id: storeId },
+            actor_id: chosen.id,
+            action: "login",
+            entity: "employee",
+            entity_id: chosen.id,
+            details: {
+              method: employeeId ? "pin_with_id" : "pin_device",
+              channel: "native_shell",
+              device_id: deviceId,
+              store_id: storeId,
+            },
           });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         return json({
           email: chosen.email,

@@ -19,11 +19,7 @@ const DEFAULT_ALLOWED_HOSTS = [
   "pos.sezapos.com",
 ];
 
-const NATIVE_ALLOWED_ORIGINS = [
-  "capacitor://localhost",
-  "http://localhost",
-  "https://localhost",
-];
+const NATIVE_ALLOWED_ORIGINS = ["capacitor://localhost", "http://localhost", "https://localhost"];
 
 function allowedOrigins(request: Request): Set<string> {
   const origins = new Set<string>();
@@ -43,7 +39,6 @@ function allowedOrigins(request: Request): Set<string> {
   }
   return origins;
 }
-
 
 async function requestBodyTooLarge(request: Request, maximum: number): Promise<boolean> {
   const rawLength = request.headers.get("content-length");
@@ -80,7 +75,11 @@ async function requestBodyTooLarge(request: Request, maximum: number): Promise<b
 function isLovablePreviewOrigin(origin: string): boolean {
   try {
     const host = new URL(origin).hostname;
-    return host === "lovable.app" || host.endsWith(".lovable.app") || host.endsWith(".lovableproject.com");
+    return (
+      host === "lovable.app" ||
+      host.endsWith(".lovable.app") ||
+      host.endsWith(".lovableproject.com")
+    );
   } catch {
     return false;
   }
@@ -94,10 +93,19 @@ export async function guardApiRequest(
     const origin = request.headers.get("origin");
     if (!origin) {
       if (options.allowMissingOrigin === false) {
-        return Response.json({ error: "Origin required" }, { status: 403, headers: securityHeaders() });
+        return Response.json(
+          { error: "Origin required" },
+          { status: 403, headers: securityHeaders() },
+        );
       }
-    } else if (!allowedOrigins(request).has(origin.replace(/\/$/, "")) && !isLovablePreviewOrigin(origin)) {
-      return Response.json({ error: "Origin not allowed" }, { status: 403, headers: securityHeaders() });
+    } else if (
+      !allowedOrigins(request).has(origin.replace(/\/$/, "")) &&
+      !isLovablePreviewOrigin(origin)
+    ) {
+      return Response.json(
+        { error: "Origin not allowed" },
+        { status: 403, headers: securityHeaders() },
+      );
     }
   }
 
