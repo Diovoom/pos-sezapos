@@ -64,23 +64,55 @@ function CustomerDisplayPage() {
         localStorage.setItem("pos.hw.display.lastSeen", String(Date.now()));
       } catch { /* best-effort */ }
     };
+
+    const refreshFromStorage = () => {
+      const next = readSavedSale();
+      setSale((current) =>
+        current.updatedAt === next.updatedAt ? current : next,
+      );
+    };
+
     markDisplayConnected();
+    refreshFromStorage();
+
+    // Polling is intentional. Some Linux/Firefox multi-window setups do not
+    // reliably deliver StorageEvent or BroadcastChannel messages between the
+    // cashier window and the customer-facing window.
     const heartbeat = window.setInterval(markDisplayConnected, 2_000);
-    const channel = new BroadcastChannel("seza-customer-display");
-    channel.onmessage = (event: MessageEvent<DisplaySale>) => {
-      if (event.data?.type === "seza-pos-sale") {
-        markDisplayConnected();
-        setSale(event.data);
-      }
-    };
+    const storagePoll = window.setInterval(refreshFromStorage, 500);
+
+    const channel =
+      typeof BroadcastChannel !== "undefined"
+        ? new BroadcastChannel("seza-customer-display")
+        : null;
+
+    if (channel) {
+      channel.onmessage = (event: MessageEvent<DisplaySale>) => {
+        if (event.data?.type === "seza-pos-sale") {
+          markDisplayConnected();
+          setSale(event.data);
+        }
+      };
+    }
+
     const onStorage = (event: StorageEvent) => {
-      if (event.key === "seza.customer-display.sale") setSale(readSavedSale());
+      if (event.key === "seza.customer-display.sale") refreshFromStorage();
     };
+    const onVisible = () => {
+      if (!document.hidden) refreshFromStorage();
+    };
+
     window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refreshFromStorage);
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       window.clearInterval(heartbeat);
-      channel.close();
+      window.clearInterval(storagePoll);
+      channel?.close();
       window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refreshFromStorage);
+      document.removeEventListener("visibilitychange", onVisible);
       try { localStorage.setItem("pos.hw.display.status", "disconnected"); } catch { /* ignore */ }
     };
   }, []);
@@ -89,8 +121,8 @@ function CustomerDisplayPage() {
     <main className="min-h-screen bg-slate-950 text-white flex flex-col p-8 md:p-12">
       <header className="flex items-center justify-between border-b border-white/15 pb-6">
         <div>
-          <p className="text-sm uppercase tracking-[0.28em] text-white/55">Your order</p>
-          <h1 className="mt-2 text-3xl md:text-5xl font-bold">{sale.storeName}</h1>
+          <h1 className="text-3xl md:text-5xl font-bold">{sale.storeName}</h1>
+          <p className="mt-2 text-sm uppercase tracking-[0.22em] text-white/55">Customer display</p>
         </div>
         <div className="text-right">
           <p className="text-sm text-emerald-300">Register ready</p>
