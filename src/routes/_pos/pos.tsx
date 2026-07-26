@@ -88,6 +88,10 @@ import {
   type QuickAddedProduct,
 } from "@/components/pos/QuickAddProductDialog";
 import { useTranslation } from "react-i18next";
+import {
+  publishCustomerDisplay,
+  type CustomerDisplayPayload,
+} from "@/lib/pos/customer-display-sync";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
@@ -189,6 +193,7 @@ export function PosPage() {
   const [payOpen, setPayOpen] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [displayCompletion, setDisplayCompletion] = useState<CustomerDisplayPayload | null>(null);
   const [ageOpen, setAgeOpen] = useState(false);
   const [ageVerification, setAgeVerification] = useState<SuccessfulVerification | null>(null);
   const [voidLine, setVoidLine] = useState<CartLine | null>(null);
@@ -750,6 +755,30 @@ export function PosPage() {
       };
       setReceipt(rd);
       setReceiptOpen(true);
+      const completedDisplay: CustomerDisplayPayload = {
+        type: "seza-pos-display",
+        version: 2,
+        storeId: store?.id ?? null,
+        storeName: store?.name ?? "Store",
+        currency,
+        phase: "complete",
+        lines: rd.lines.map((line, index) => ({
+          id: `${rd.transactionId}:${index}`,
+          name: line.name,
+          qty: line.qty,
+          unitPrice: line.unit_price,
+          lineTotal: line.line_total,
+        })),
+        subtotal: rd.subtotal,
+        discount: rd.discount ?? 0,
+        tax: rd.tax,
+        total: rd.total,
+        paymentMethod: rd.paymentMethod,
+        receiptNumber: rd.receiptNumber,
+        updatedAt: new Date().toISOString(),
+      };
+      setDisplayCompletion(completedDisplay);
+      window.setTimeout(() => setDisplayCompletion(null), 4_500);
       toast.success(
         isOffline
           ? `Offline sale saved · ${fmtCurrency(total, currency)} — will sync when online`
@@ -840,14 +869,21 @@ export function PosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restrictedItems.length]);
 
-  // Keep a customer-facing second screen synchronized. No product images
-  // are sent: only names, quantities, prices, tax and totals.
+  // Keep the web customer display synchronized from both the temporary web
+  // POS and the Android APK. Local browser windows use storage/broadcast;
+  // another device uses a store-scoped Supabase Realtime broadcast.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const payload = {
-      type: "seza-pos-sale",
+    if (displayCompletion) {
+      void publishCustomerDisplay(displayCompletion);
+      return;
+    }
+    const payload: CustomerDisplayPayload = {
+      type: "seza-pos-display",
+      version: 2,
+      storeId: store?.id ?? null,
       storeName: store?.name ?? "Store",
       currency,
+      phase: cart.length ? "sale" : "idle",
       lines: cart.map((line) => ({
         id: line.product.id,
         name: line.product.name,
@@ -861,15 +897,19 @@ export function PosPage() {
       total,
       updatedAt: new Date().toISOString(),
     };
-    try {
-      localStorage.setItem("seza.customer-display.sale", JSON.stringify(payload));
-      const channel = new BroadcastChannel("seza-customer-display");
-      channel.postMessage(payload);
-      channel.close();
-    } catch {
-      /* second display support is best-effort */
-    }
-  }, [cart, subtotal, discountAmount, tax, total, currency, store?.name]);
+    const timer = window.setTimeout(() => void publishCustomerDisplay(payload), 60);
+    return () => window.clearTimeout(timer);
+  }, [
+    cart,
+    subtotal,
+    discountAmount,
+    tax,
+    total,
+    currency,
+    store?.id,
+    store?.name,
+    displayCompletion,
+  ]);
 
   const cartPanel = (
     <>

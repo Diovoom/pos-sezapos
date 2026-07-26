@@ -24,6 +24,7 @@ import { GlobalLanguageRuntime } from "@/components/i18n/GlobalLanguageRuntime";
 import { installSessionBridge } from "@/integrations/supabase/session-bridge";
 import { detectAndPersistNative, isPathAllowedInNative } from "@/lib/native";
 import { NativeLoadingOverlay } from "@/components/NativeLoadingOverlay";
+import { NativeRuntime } from "@/components/NativeRuntime";
 import { currentApp, dashboardUrl, marketingUrl } from "@/lib/host";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { SOCIAL_LINKS } from "@/lib/social";
@@ -299,9 +300,33 @@ function RootComponent() {
       return;
     }
 
-    // The old browser POS hostname is retired. Employees use the Android app.
+    // Temporary browser POS remains enabled for hardware/customer-display
+    // testing. Keep this isolated to the POS hostname and remove this branch
+    // when the Android rollout is accepted.
     if (app === "pos") {
-      window.location.replace(dashboardUrl("/auth"));
+      const posPrefixes = [
+        "/auth",
+        "/pos",
+        "/register",
+        "/refunds",
+        "/timeclock",
+        "/inventory",
+        "/customers",
+        "/products",
+        "/shifts",
+        "/settings",
+        "/support",
+        "/pending-sync",
+        "/customer-display",
+      ];
+      if (path === "/") {
+        window.location.replace("/auth");
+        return;
+      }
+      const allowed = posPrefixes.some(
+        (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+      );
+      if (!allowed) window.location.replace("/auth");
       return;
     }
 
@@ -348,6 +373,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <RouteScrollManager />
       <GlobalLanguageRuntime />
+      <NativeRuntime queryClient={queryClient} />
       <PaymentTestModeBanner />
       <AppUpdateNotice />
       <Outlet />
