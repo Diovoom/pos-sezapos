@@ -89,7 +89,7 @@ function getPublisherChannel(storeId: string) {
   if (pending) return pending;
 
   const channel = supabase.channel(realtimeTopic(storeId), {
-    config: { broadcast: { self: false, ack: false } },
+    config: { private: true, broadcast: { self: false, ack: false } },
   });
 
   const ready = new Promise<ReturnType<typeof supabase.channel>>((resolve, reject) => {
@@ -162,7 +162,7 @@ export function subscribeCustomerDisplay(
 
   const channel = supabase
     .channel(realtimeTopic(storeId), {
-      config: { broadcast: { self: false, ack: false } },
+      config: { private: true, broadcast: { self: false, ack: false } },
     })
     .on("broadcast", { event: EVENT }, ({ payload }) => {
       const next = payload as CustomerDisplayPayload;
