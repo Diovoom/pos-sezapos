@@ -27,6 +27,7 @@ import {
   ShoppingCart,
   ImageIcon,
   AlertTriangle,
+  Clock3,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -165,6 +166,33 @@ type Product = {
 type Category = { id: string; name: string };
 type CartLine = { product: Product; qty: number };
 
+const RETAIL_DEPARTMENTS = [
+  { id: "dept:alcohol", label: "Alcohol", terms: ["alcohol", "beer", "wine", "liquor", "spirits"] },
+  { id: "dept:soda", label: "Soda", terms: ["soda", "soft drink", "cola"] },
+  { id: "dept:juice", label: "Juice", terms: ["juice", "water", "beverage", "drink"] },
+  { id: "dept:grocery", label: "Grocery", terms: ["grocery", "food", "pantry", "canned"] },
+  { id: "dept:snacks", label: "Snacks", terms: ["snack", "chips", "candy", "cookie"] },
+  { id: "dept:tobacco", label: "Tobacco", terms: ["tobacco", "cigar", "cigarette"] },
+  {
+    id: "dept:household",
+    label: "Household",
+    terms: ["household", "cleaning", "paper", "laundry"],
+  },
+  {
+    id: "dept:personal",
+    label: "Personal care",
+    terms: ["personal", "beauty", "health", "soap", "lotion"],
+  },
+  { id: "dept:apparel", label: "Apparel", terms: ["apparel", "clothing", "shirt", "shoe"] },
+  {
+    id: "dept:electronics",
+    label: "Electronics",
+    terms: ["electronic", "charger", "phone", "battery"],
+  },
+  { id: "dept:auto", label: "Automotive", terms: ["auto", "automotive", "motor", "oil"] },
+  { id: "dept:services", label: "Services", terms: ["service", "fee", "lottery"] },
+] as const;
+
 const TENDER: Array<{ id: PaymentMethod; label: string; icon: typeof Banknote }> = [
   { id: "cash", label: "Cash", icon: Banknote },
   { id: "split", label: "Split", icon: SplitSquareHorizontal },
@@ -180,7 +208,7 @@ export function PosPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string | "fav" | "all">("fav");
+  const [activeCategory, setActiveCategory] = useState<string>("fav");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
@@ -217,6 +245,25 @@ export function PosPage() {
   const canQuickAdd = perms.has("products.quick_add") || perms.isSuper;
   const isMobile = useIsMobile();
   const online = useOnline();
+  const { data: openTimeEntry, isLoading: clockStatusLoading } = useQuery<{ id: string } | null>({
+    queryKey: ["pos-clock-status", me.data?.user.id],
+    enabled: !!me.data?.user.id,
+    queryFn: async () => {
+      if (!isOnlineNow()) return (await readMeta<{ id: string } | null>("timeclock_open")) ?? null;
+      const { data, error } = await (supabase as any)
+        .from("time_entries")
+        .select("id")
+        .eq("user_id", me.data!.user.id)
+        .is("clock_out", null)
+        .order("clock_in", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) return (await readMeta<{ id: string } | null>("timeclock_open")) ?? null;
+      await cacheMeta("timeclock_open", data ?? null).catch(() => {});
+      return data ? { id: String(data.id) } : null;
+    },
+    refetchInterval: 60_000,
+  });
 
   const [cartOpen, setCartOpen] = useState(false);
   const [storeSwitchBlocked, setStoreSwitchBlocked] = useState(false);
@@ -368,8 +415,18 @@ export function PosPage() {
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
       if (activeCategory === "fav" && !q && !p.is_favorite) return false;
-      if (activeCategory !== "fav" && activeCategory !== "all" && p.category_id !== activeCategory)
+      if (activeCategory.startsWith("dept:")) {
+        const department = RETAIL_DEPARTMENTS.find((item) => item.id === activeCategory);
+        const categoryName = categories.find((item) => item.id === p.category_id)?.name ?? "";
+        const haystack = `${categoryName} ${p.name} ${p.sku ?? ""}`.toLowerCase();
+        if (department && !department.terms.some((term) => haystack.includes(term))) return false;
+      } else if (
+        activeCategory !== "fav" &&
+        activeCategory !== "all" &&
+        p.category_id !== activeCategory
+      ) {
         return false;
+      }
       if (!q) return true;
       return (
         p.name.toLowerCase().includes(q) ||
@@ -377,7 +434,7 @@ export function PosPage() {
         p.barcode?.toLowerCase().includes(q)
       );
     });
-  }, [products, activeCategory, search]);
+  }, [products, categories, activeCategory, search]);
 
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddSeed, setQuickAddSeed] = useState<string>("");
@@ -393,6 +450,7 @@ export function PosPage() {
       (p) => p.barcode?.toLowerCase() === norm || p.sku?.toLowerCase() === norm,
     );
     if (hit) {
+      if (hit.category_id) setActiveCategory(hit.category_id);
       addToCart(hit);
       setSearch("");
       window.setTimeout(() => searchRef.current?.focus(), 0);
@@ -1143,6 +1201,29 @@ export function PosPage() {
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
 
+  if (me.data?.user.id && !clockStatusLoading && !openTimeEntry) {
+    return (
+      <div className="grid h-full place-items-center bg-slate-50 p-5">
+        <div className="w-full max-w-md rounded-[28px] border bg-white p-7 text-center shadow-xl">
+          <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-blue-50 text-blue-700">
+            <Clock3 className="size-8" />
+          </div>
+          <h1 className="mt-5 text-2xl font-black">Clock in to start selling</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Every register session must be connected to an active employee shift for accurate sales,
+            cash, and payroll reporting.
+          </p>
+          <Button
+            className="mt-6 h-12 w-full rounded-2xl text-base font-bold"
+            onClick={() => navigate({ to: "/timeclock" })}
+          >
+            Go to clock in
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <PageHeader
@@ -1222,6 +1303,15 @@ export function PosPage() {
               >
                 {t("pos.all")}
               </CategoryChip>
+              {RETAIL_DEPARTMENTS.map((department) => (
+                <CategoryChip
+                  key={department.id}
+                  active={activeCategory === department.id}
+                  onClick={() => setActiveCategory(department.id)}
+                >
+                  {department.label}
+                </CategoryChip>
+              ))}
               {categories.map((c) => (
                 <CategoryChip
                   key={c.id}

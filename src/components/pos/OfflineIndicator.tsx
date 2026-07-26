@@ -71,12 +71,12 @@ export function OfflineIndicator() {
 
   const color =
     state === "offline"
-      ? "text-amber-600 bg-amber-500/10 border-amber-500/30"
+      ? "text-red-600 bg-white border-slate-200"
       : state === "syncing"
-        ? "text-primary bg-primary/10 border-primary/30"
+        ? "text-primary bg-white border-slate-200"
         : state === "issue"
-          ? "text-destructive bg-destructive/10 border-destructive/30"
-          : "text-success bg-success/10 border-success/30";
+          ? "text-red-600 bg-white border-slate-200"
+          : "text-emerald-600 bg-white border-slate-200";
 
   const pending = counts.pendingSales + counts.pendingCash;
 
@@ -85,18 +85,29 @@ export function OfflineIndicator() {
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition",
+            "inline-flex size-10 items-center justify-center rounded-full border shadow-sm transition",
             color,
           )}
           aria-label={`Connection: ${label}`}
         >
-          <Icon className={cn("size-3.5", state === "syncing" && "animate-spin")} />
-          <span>{label}</span>
-          {pending > 0 && (
-            <span className="ml-1 rounded-full bg-foreground/10 px-1.5 py-0.5 text-[10px] font-semibold">
-              {pending}
-            </span>
-          )}
+          <span
+            className={cn(
+              "absolute ml-5 -mt-5 size-2.5 rounded-full ring-2 ring-white",
+              state === "online"
+                ? "bg-emerald-500"
+                : state === "offline"
+                  ? "bg-amber-400"
+                  : "bg-red-500",
+            )}
+          />
+          <Icon
+            className={cn(
+              "size-5",
+              state === "syncing" && "animate-spin",
+              state === "offline" && "text-red-600",
+            )}
+          />
+          {pending > 0 && <span className="sr-only">{pending} pending records</span>}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">

@@ -161,9 +161,18 @@
     background: white !important;
     color: black !important;
   }
-  #shift-report,
-  #shift-report * {
+  body:has(#shift-report) * {
+    visibility: hidden !important;
+  }
+  body:has(#shift-report) #shift-report,
+  body:has(#shift-report) #shift-report * {
+    visibility: visible !important;
     color: black !important;
+  }
+  body:has(#shift-report) #shift-report {
+    position: absolute;
+    inset: 0;
+    width: 100%;
   }
   #shift-report .border {
     border-color: #ddd !important;

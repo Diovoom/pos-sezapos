@@ -611,6 +611,25 @@ function InventoryPage() {
                                 <Pencil className="mr-2 size-4" /> Edit price & stock
                               </DropdownMenuItem>
                               <DropdownMenuItem
+                                onSelect={() => {
+                                  setEditingProduct(p);
+                                  setEditForm({
+                                    ...productToEditForm(p),
+                                    stock: String(Number(p.stock) + 1),
+                                  });
+                                }}
+                              >
+                                <Plus className="mr-2 size-4" /> Add stock
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  setEditingProduct(p);
+                                  setEditForm(productToEditForm(p));
+                                }}
+                              >
+                                <Package className="mr-2 size-4" /> Full product details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
                                 onSelect={() => setDeletingProduct(p)}
                               >

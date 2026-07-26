@@ -925,7 +925,7 @@ function PayScheduleCard({ userId }: { userId: string }) {
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Pay & schedule</CardTitle>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+      <CardContent className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
         <div className="space-y-1">
           <Label>Hourly wage</Label>
           <Input
@@ -946,15 +946,21 @@ function PayScheduleCard({ userId }: { userId: string }) {
           <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
         </div>
         <div className="space-y-1">
-          <Label>Late grace (min)</Label>
-          <Input
-            type="number"
-            min="0"
-            value={threshold}
-            onChange={(e) => setThreshold(e.target.value)}
-          />
+          <Label>Late grace</Label>
+          <div className="relative">
+            <Input
+              type="number"
+              min="0"
+              value={threshold}
+              onChange={(e) => setThreshold(e.target.value)}
+              className="pr-20"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              minutes
+            </span>
+          </div>
         </div>
-        <div className="col-span-2 md:col-span-4">
+        <div className="sm:col-span-2 xl:col-span-4">
           <Button onClick={() => save.mutate()} disabled={save.isPending}>
             {save.isPending && <Loader2 className="size-4 animate-spin mr-2" />}Save
           </Button>

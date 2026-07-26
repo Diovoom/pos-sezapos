@@ -9,6 +9,7 @@ import {
   Phone,
   MessageCircle,
   X,
+  ShoppingCart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,7 +50,7 @@ const RESOURCE_ITEMS: NavItem[] = [
 
 const MOBILE_ITEMS: NavItem[] = [
   { to: "/guide", label: "User guide", description: "How to use SEZA POS and what is included" },
-  { to: "/hardware", label: "Hardware", description: "Compatibility and setup planning" },
+  { to: "/hardware", label: "Hardware", description: "In production now", badge: "Coming soon" },
   { to: "/features", label: "All features", description: "Everything inside SEZA POS" },
   { to: "/industries", label: "Industries", description: "See how SEZA fits your business" },
   { to: "/pricing", label: "Pricing", description: "Simple monthly plans" },
@@ -117,7 +118,7 @@ function MorphingBrand({ progress }: { progress: number }) {
       to="/"
       resetScroll
       aria-label="SEZA POS home"
-      className="group relative block h-12 w-[156px]"
+      className="group relative block h-12 w-[156px] self-center"
     >
       <span
         className="absolute top-0 grid size-12 place-items-center rounded-2xl border border-blue-200 bg-blue-50 shadow-[0_10px_28px_-14px_rgba(37,99,235,0.75)] transition-transform duration-150 group-hover:scale-[1.03] dark:border-blue-400/20 dark:bg-blue-500/10"
@@ -126,7 +127,7 @@ function MorphingBrand({ progress }: { progress: number }) {
         <Logo className="size-9" alt="SEZA POS" />
       </span>
       <span
-        className="absolute left-[58px] top-1/2 -translate-y-1/2 whitespace-nowrap text-[16px] font-black tracking-[-0.035em] text-slate-950 dark:text-white"
+        className="absolute left-[58px] top-1/2 whitespace-nowrap text-[16px] font-black tracking-[-0.035em] text-slate-950 dark:text-white"
         style={{
           opacity: progress,
           transform: `translateY(-50%) translateX(${10 * (1 - progress)}px)`,
@@ -218,6 +219,15 @@ export function MarketingShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-[70] border-b border-slate-200/80 bg-white/88 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/88">
         <div className="mx-auto grid h-[76px] max-w-7xl grid-cols-[76px_minmax(0,1fr)_76px] items-center px-2 sm:px-6 lg:grid-cols-[1fr_auto_1fr] lg:gap-3 lg:px-8">
           <div className="flex min-w-0 items-center justify-start">
+            <button
+              type="button"
+              className="group grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white lg:hidden"
+              aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={mobileOpen}
+              onClick={() => setMobileOpen((value) => !value)}
+            >
+              <MenuGlyph open={mobileOpen} />
+            </button>
             <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary navigation">
               <Link
                 resetScroll
@@ -261,22 +271,24 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               <a href={dashboardUrl("/dashboard")}>Login</a>
             </Button>
 
-            <button
-              type="button"
-              className="group grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white lg:hidden"
-              aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-              aria-expanded={mobileOpen}
-              onClick={() => setMobileOpen((value) => !value)}
+            <Link
+              to="/hardware"
+              resetScroll
+              className="relative grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary dark:border-white/10 dark:bg-slate-900 dark:text-white lg:hidden"
+              aria-label="SEZA hardware coming soon"
             >
-              <MenuGlyph open={mobileOpen} />
-            </button>
+              <ShoppingCart className="size-5" />
+              <span className="absolute -right-2 -top-2 rounded-full bg-blue-700 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-white">
+                Soon
+              </span>
+            </Link>
           </div>
         </div>
       </header>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent
-          side="right"
+          side="left"
           className="inset-0 z-[90] h-dvh w-screen max-w-none overflow-y-auto border-0 bg-white p-0 shadow-none dark:bg-slate-950 [&>button:first-of-type]:hidden"
         >
           <SheetHeader className="sticky top-0 z-10 border-b bg-white/95 px-5 py-4 text-left backdrop-blur dark:bg-slate-950/95">
@@ -304,7 +316,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           </SheetHeader>
 
           <nav
-            className="mx-auto w-full max-w-xl space-y-3 px-5 py-6"
+            className="mx-auto grid w-full max-w-xl grid-cols-2 gap-2 px-4 py-4"
             aria-label="Mobile navigation"
           >
             {MOBILE_ITEMS.map((item, index) => (
@@ -314,7 +326,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 resetScroll
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "group flex items-center justify-between rounded-2xl border px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/[0.035] hover:shadow-sm",
+                  "group min-h-24 flex items-start justify-between rounded-2xl border px-3 py-3 transition-all hover:border-primary/35 hover:bg-primary/[0.035] hover:shadow-sm",
                   index === 0
                     ? "border-blue-200 bg-blue-50 dark:border-blue-400/20 dark:bg-blue-500/10"
                     : "border-slate-200 bg-card dark:border-white/10",
@@ -345,7 +357,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 setMobileOpen(false);
                 openWebsiteLiveChat();
               }}
-              className="group flex w-full items-center justify-between rounded-2xl border border-blue-200 bg-blue-700 px-4 py-4 text-left text-white transition-all hover:bg-blue-800"
+              className="group col-span-2 flex w-full items-center justify-between rounded-2xl border border-blue-200 bg-blue-700 px-4 py-3 text-left text-white transition-all hover:bg-blue-800"
             >
               <span>
                 <span className="flex items-center gap-2 text-sm font-bold">

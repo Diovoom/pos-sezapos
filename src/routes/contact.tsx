@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
+import { isDisposableEmail } from "@/lib/security/disposable-email";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -35,6 +36,7 @@ function ContactPage() {
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<keyof ConsultationForm, string>>>({});
   const [form, setForm] = useState<ConsultationForm>({
     name: "",
     email: "",
@@ -50,24 +52,46 @@ function ContactPage() {
     });
   }, []);
 
+  const validateStep = (currentStep: number) => {
+    const nextErrors: Partial<Record<keyof ConsultationForm, string>> = {};
+    if (currentStep === 1) {
+      if (form.name.trim().length < 2) nextErrors.name = "Enter your full name.";
+      const email = form.email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+        nextErrors.email = "Enter a valid business email.";
+      } else if (isDisposableEmail(email)) {
+        nextErrors.email = "Temporary email addresses are not accepted.";
+      }
+    }
+    if (currentStep === 2) {
+      if (form.business.trim().length < 2) nextErrors.business = "Enter your business name.";
+      const digits = form.phone.replace(/\D/g, "");
+      if (digits.length < 10 || digits.length > 15) {
+        nextErrors.phone = "Enter a complete phone number with area code.";
+      }
+    }
+    if (currentStep === 3 && form.message.trim().length < 10) {
+      nextErrors.message = "Add a little more detail so we can prepare the right answer.";
+    }
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  };
+
   const next = () => {
-    if (step === 1 && (!form.name.trim() || !form.email.trim())) {
-      toast.error("Enter your name and email to continue.");
-      return;
-    }
-    if (step === 2 && (!form.business.trim() || !form.phone.trim())) {
-      toast.error("Tell us your business name and phone number.");
-      return;
-    }
+    if (!validateStep(step)) return;
     setStep((current) => Math.min(3, current + 1));
   };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.message.trim()) {
-      toast.error("Tell us how we can help.");
-      return;
-    }
+    if (!validateStep(3)) return;
 
     setBusy(true);
     try {
@@ -156,8 +180,14 @@ function ContactPage() {
                         id="name"
                         autoComplete="name"
                         value={form.name}
-                        onChange={(event) => setForm({ ...form, name: event.target.value })}
+                        onChange={(event) => {
+                          setForm({ ...form, name: event.target.value });
+                          setErrors((current) => ({ ...current, name: undefined }));
+                        }}
                       />
+                      {errors.name && (
+                        <p className="text-xs font-medium text-destructive">{errors.name}</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
@@ -166,8 +196,14 @@ function ContactPage() {
                         type="email"
                         autoComplete="email"
                         value={form.email}
-                        onChange={(event) => setForm({ ...form, email: event.target.value })}
+                        onChange={(event) => {
+                          setForm({ ...form, email: event.target.value });
+                          setErrors((current) => ({ ...current, email: undefined }));
+                        }}
                       />
+                      {errors.email && (
+                        <p className="text-xs font-medium text-destructive">{errors.email}</p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -180,8 +216,14 @@ function ContactPage() {
                         id="business"
                         autoComplete="organization"
                         value={form.business}
-                        onChange={(event) => setForm({ ...form, business: event.target.value })}
+                        onChange={(event) => {
+                          setForm({ ...form, business: event.target.value });
+                          setErrors((current) => ({ ...current, business: undefined }));
+                        }}
                       />
+                      {errors.business && (
+                        <p className="text-xs font-medium text-destructive">{errors.business}</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone number</Label>
@@ -190,8 +232,14 @@ function ContactPage() {
                         type="tel"
                         autoComplete="tel"
                         value={form.phone}
-                        onChange={(event) => setForm({ ...form, phone: event.target.value })}
+                        onChange={(event) => {
+                          setForm({ ...form, phone: formatPhone(event.target.value) });
+                          setErrors((current) => ({ ...current, phone: undefined }));
+                        }}
                       />
+                      {errors.phone && (
+                        <p className="text-xs font-medium text-destructive">{errors.phone}</p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -204,8 +252,14 @@ function ContactPage() {
                       rows={6}
                       placeholder="Tell us what you sell, how many registers you need, and any questions about hardware, pricing, or switching from another POS."
                       value={form.message}
-                      onChange={(event) => setForm({ ...form, message: event.target.value })}
+                      onChange={(event) => {
+                        setForm({ ...form, message: event.target.value });
+                        setErrors((current) => ({ ...current, message: undefined }));
+                      }}
                     />
+                    {errors.message && (
+                      <p className="text-xs font-medium text-destructive">{errors.message}</p>
+                    )}
                   </div>
                 )}
 

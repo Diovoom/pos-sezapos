@@ -30,10 +30,19 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { AlertTriangle, Inbox, Search, UserCheck, ArrowUpDown, ExternalLink } from "lucide-react";
+import {
+  AlertTriangle,
+  Inbox,
+  Search,
+  UserCheck,
+  ArrowUpDown,
+  ExternalLink,
+  PhoneIncoming,
+  VolumeX,
+} from "lucide-react";
 
 const searchSchema = z.object({
   status: fallback(z.string(), "active").default("active"),
@@ -134,6 +143,11 @@ function SupportPage() {
   const [body, setBody] = useState("");
   const [priority, setPriority] = useState("normal");
   const [storeId, setStoreId] = useState("");
+  const [incoming, setIncoming] = useState<any | null>(null);
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  const [silenced, setSilenced] = useState(false);
+  const seenIncomingRef = useRef(new Set<string>());
+  const audioRef = useRef<AudioContext | null>(null);
 
   async function submit() {
     if (!subject.trim()) {
@@ -173,6 +187,55 @@ function SupportPage() {
   const total = listQ.data?.count ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / 25));
 
+  useEffect(() => {
+    if (!alertsEnabled || silenced || incoming) return;
+    const candidate = rows.find((ticket: any) => {
+      const source = String(ticket.source ?? "").toLowerCase();
+      const subject = String(ticket.subject ?? "").toLowerCase();
+      return (
+        !ticket.assigned_admin_id &&
+        !seenIncomingRef.current.has(ticket.id) &&
+        (source.includes("website") ||
+          subject.includes("live chat") ||
+          subject.includes("consultation"))
+      );
+    });
+    if (!candidate) return;
+    seenIncomingRef.current.add(candidate.id);
+    setIncoming(candidate);
+    try {
+      const context = audioRef.current ?? new AudioContext();
+      audioRef.current = context;
+      const ring = () => {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.frequency.value = 760;
+        gain.gain.setValueAtTime(0.0001, context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.45);
+        oscillator.connect(gain).connect(context.destination);
+        oscillator.start();
+        oscillator.stop(context.currentTime + 0.5);
+      };
+      ring();
+      const timer = window.setInterval(ring, 1200);
+      const stop = window.setTimeout(() => window.clearInterval(timer), 12000);
+      return () => {
+        window.clearInterval(timer);
+        window.clearTimeout(stop);
+      };
+    } catch {
+      return;
+    }
+  }, [rows, alertsEnabled, silenced, incoming]);
+
+  async function acceptIncoming() {
+    if (!incoming) return;
+    const ticket = incoming;
+    setIncoming(null);
+    await claimOne(ticket.id);
+  }
+
   const toggleSort = (col: string) => {
     navigate({
       search: (prev: any) => ({
@@ -186,6 +249,41 @@ function SupportPage() {
 
   return (
     <div className="space-y-6">
+      {incoming && (
+        <div className="fixed inset-0 z-[200] grid place-items-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-blue-200 bg-white shadow-2xl">
+            <div className="bg-blue-800 px-6 py-7 text-center text-white">
+              <div className="mx-auto grid size-16 place-items-center rounded-full bg-white/15 animate-pulse">
+                <PhoneIncoming className="size-8" />
+              </div>
+              <div className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-blue-100">
+                Incoming SEZA support request
+              </div>
+              <h2 className="mt-2 text-2xl font-black">
+                {incoming.visitor_name || incoming.subject || "Website visitor"}
+              </h2>
+              <p className="mt-2 line-clamp-3 text-sm text-blue-50">
+                {incoming.problem_preview || "A customer is waiting for help."}
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-3 p-5">
+              <Button variant="outline" onClick={() => setIncoming(null)}>
+                Decline
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSilenced(true);
+                  setIncoming(null);
+                }}
+              >
+                <VolumeX className="mr-1 size-4" /> Silence
+              </Button>
+              <Button onClick={() => void acceptIncoming()}>Accept</Button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
           <h1 className="text-2xl font-bold">Support</h1>
@@ -193,7 +291,20 @@ function SupportPage() {
             Queue and case management for merchant tickets.
           </p>
         </div>
-        <Button onClick={() => setOpen(true)}>New ticket</Button>
+        <div className="flex gap-2">
+          {!alertsEnabled && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAlertsEnabled(true);
+                setSilenced(false);
+              }}
+            >
+              Enable support alerts
+            </Button>
+          )}
+          <Button onClick={() => setOpen(true)}>New ticket</Button>
+        </div>
       </div>
 
       {/* Queue chips */}
