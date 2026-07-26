@@ -335,6 +335,11 @@ export function PosPage() {
         scannerBufferRef.current = "";
         if (code.length >= 3) {
           e.preventDefault();
+          try {
+            localStorage.setItem("pos.hw.scanner.status", "connected");
+            localStorage.setItem("pos.hw.scanner.lastSeen", String(Date.now()));
+            window.dispatchEvent(new Event("seza-hardware-status"));
+          } catch { /* hardware status is best-effort */ }
           if (!tryAddByCode(code)) toast.error(`No product found for ${code}`);
         }
         return;

@@ -396,6 +396,11 @@ function readDeviceStatuses(online: boolean): DeviceRow[] {
   ): StatusLevel => {
     try {
       const raw = localStorage.getItem(`pos.hw.${k}.status`);
+      const lastSeen = Number(localStorage.getItem(`pos.hw.${k}.lastSeen`) ?? "0");
+      // Customer-display heartbeats expire quickly. Scanner/printer detection is
+      // remembered because browsers cannot continuously enumerate USB devices.
+      if (k === "display" && raw === "connected" && Date.now() - lastSeen > 8_000)
+        return "disconnected";
       if (raw === "connected" || raw === "warning" || raw === "disconnected")
         return raw;
     } catch {
@@ -432,7 +437,8 @@ function readDeviceStatuses(online: boolean): DeviceRow[] {
       key: "drawer",
       label: "Cash Drawer",
       icon: DollarSign,
-      status: read("drawer"),
+      status: read("drawer", read("printer") === "connected" ? "warning" : "disconnected"),
+      hint: "Drawer is controlled through the receipt printer",
     },
     {
       key: "display",
@@ -499,9 +505,15 @@ function DeviceStatusMenu() {
     const on = () => refresh();
     window.addEventListener("online", on);
     window.addEventListener("offline", on);
+    window.addEventListener("storage", on);
+    window.addEventListener("seza-hardware-status", on);
+    const timer = window.setInterval(refresh, 2_000);
     return () => {
+      window.clearInterval(timer);
       window.removeEventListener("online", on);
       window.removeEventListener("offline", on);
+      window.removeEventListener("storage", on);
+      window.removeEventListener("seza-hardware-status", on);
     };
   }, [open]);
 

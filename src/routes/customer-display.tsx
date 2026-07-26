@@ -58,17 +58,30 @@ function CustomerDisplayPage() {
   const [sale, setSale] = useState<DisplaySale>(readSavedSale);
 
   useEffect(() => {
+    const markDisplayConnected = () => {
+      try {
+        localStorage.setItem("pos.hw.display.status", "connected");
+        localStorage.setItem("pos.hw.display.lastSeen", String(Date.now()));
+      } catch { /* best-effort */ }
+    };
+    markDisplayConnected();
+    const heartbeat = window.setInterval(markDisplayConnected, 2_000);
     const channel = new BroadcastChannel("seza-customer-display");
     channel.onmessage = (event: MessageEvent<DisplaySale>) => {
-      if (event.data?.type === "seza-pos-sale") setSale(event.data);
+      if (event.data?.type === "seza-pos-sale") {
+        markDisplayConnected();
+        setSale(event.data);
+      }
     };
     const onStorage = (event: StorageEvent) => {
       if (event.key === "seza.customer-display.sale") setSale(readSavedSale());
     };
     window.addEventListener("storage", onStorage);
     return () => {
+      window.clearInterval(heartbeat);
       channel.close();
       window.removeEventListener("storage", onStorage);
+      try { localStorage.setItem("pos.hw.display.status", "disconnected"); } catch { /* ignore */ }
     };
   }, []);
 

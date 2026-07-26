@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Printer, Mail, X, MessageSquare, Loader2, CheckCircle2 } from "lucide-react";
+import { Printer, Mail, MessageSquare, Loader2, CheckCircle2 } from "lucide-react";
 import { Receipt, type ReceiptData } from "./Receipt";
 import { SmsReceiptPanel } from "./SmsReceiptPanel";
 import { toast } from "sonner";
@@ -81,6 +81,13 @@ export function ReceiptDialog({
     if (!ref.current) return;
 
     const html = ref.current.outerHTML;
+    // Reuse the same compiled application styles in the print window so the
+    // physical print preview matches the receipt shown inside the POS dialog.
+    const appStyles = Array.from(
+      document.querySelectorAll<HTMLLinkElement | HTMLStyleElement>('link[rel="stylesheet"], style'),
+    )
+      .map((node) => node.outerHTML)
+      .join("\n");
     const w = window.open("", "_blank", "width=380,height=700");
 
     if (!w) {
@@ -94,6 +101,7 @@ export function ReceiptDialog({
         <head>
           <meta charset="utf-8" />
           <title>Receipt</title>
+          ${appStyles}
           <style>
             @page { size: 80mm auto; margin: 0; }
             html, body {
@@ -131,7 +139,17 @@ export function ReceiptDialog({
               window.focus();
               window.print();
             });
-            window.addEventListener("afterprint", () => window.close());
+            window.addEventListener("afterprint", () => {
+              try {
+                window.opener?.localStorage.setItem("pos.hw.printer.status", "connected");
+                window.opener?.localStorage.setItem("pos.hw.printer.lastSeen", String(Date.now()));
+                // RP80 cash drawers connect through the printer's RJ-11 port.
+                window.opener?.localStorage.setItem("pos.hw.drawer.status", "connected");
+                window.opener?.localStorage.setItem("pos.hw.drawer.lastSeen", String(Date.now()));
+                window.opener?.dispatchEvent(new Event("seza-hardware-status"));
+              } catch {}
+              window.close();
+            });
           <\/script>
         </body>
       </html>
@@ -197,11 +215,12 @@ export function ReceiptDialog({
         <DialogHeader className="p-4 border-b flex-row items-center justify-between space-y-0">
           <DialogTitle>Receipt</DialogTitle>
           <button
+            type="button"
             onClick={() => onOpenChange(false)}
-            className="size-8 grid place-items-center rounded-md hover:bg-accent"
-            aria-label="Close"
+            className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100"
+            aria-label="Close without receipt"
           >
-            <X className="size-4" />
+            No receipt
           </button>
         </DialogHeader>
         <div className="max-h-[50vh] overflow-y-auto bg-muted/40 py-4">
