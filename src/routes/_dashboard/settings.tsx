@@ -270,7 +270,7 @@ export function SettingsPage() {
               </TabsContent>
             )}
             <TabsContent value="terminal" className="mt-0">
-              <TerminalPanel />
+              <TerminalPanel canEdit={canEditSettings} />
             </TabsContent>
             <TabsContent value="receipt" className="mt-0">
               <UnifiedReceiptPanel />
@@ -987,40 +987,8 @@ function EmployeesPanel() {
 
 /* ================= Terminal ================= */
 
-function TerminalPanel() {
-  return (
-    <Card className="max-w-3xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CreditCard className="size-5" />
-          Payment Terminal
-        </CardTitle>
-        <CardDescription>
-          Payment readers are configured and tested on the physical Android register, where NFC,
-          Bluetooth, USB and the native payment SDK are available.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="rounded-md border p-4 text-sm">
-          <p className="font-medium">Dashboard is status-only</p>
-          <p className="text-muted-foreground mt-1">
-            Open SEZA POS on the register, then go to Settings → Payment Terminal. The register
-            sends its connection state and errors back to this dashboard automatically.
-          </p>
-        </div>
-        <div className="rounded-md border border-warning/40 bg-warning/10 p-4 text-sm">
-          Real card charging requires the certified native provider SDK to be linked in the Android
-          build. SEZA will never display a fake “connected” result when that SDK is missing.
-        </div>
-        <Button asChild>
-          <Link to="/devices">
-            <Monitor className="size-4 mr-2" />
-            View Android POS status
-          </Link>
-        </Button>
-      </CardContent>
-    </Card>
-  );
+function TerminalPanel({ canEdit }: { canEdit: boolean }) {
+  return <PaymentTerminalsPanel canEdit={canEdit} />;
 }
 
 /* ================= Simple pref panel ================= */

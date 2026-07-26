@@ -84,10 +84,12 @@ async function activeConfiguration(preferred?: TerminalDriverId): Promise<Termin
   ) as TerminalDriverId;
   const locationId = String(config.location_id || "").trim();
   if (!data || !driver || driver === "none")
-    throw new Error("Activate a Stripe Terminal in Owner Dashboard → Settings → Payment terminals");
+    throw new Error(
+      "Card payments are not ready on this register. Ask the store owner to connect a payment terminal in Payments and terminals.",
+    );
   if (!locationId)
     throw new Error(
-      "Add the Stripe Terminal Location ID (tml_…) to the active terminal configuration",
+      "This terminal still needs provider setup. Open Payments and terminals as the owner to finish connecting it.",
     );
   return {
     driver: (driver as string) === "stripe" ? "stripe-tap-to-pay" : driver,
