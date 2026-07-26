@@ -681,7 +681,9 @@ export const adminExtendTrial = createServerFn({ method: "POST" })
     // Recompute plan derived state
     try {
       await supabaseAdmin.rpc("recompute_store_plan", { _store_id: data.storeId });
-    } catch {}
+    } catch {
+      // Plan recomputation is best-effort; the primary update already landed.
+    }
     await writeAudit(supabaseAdmin, {
       actor_id: context.userId,
       actor_email: admin.email,
@@ -710,7 +712,9 @@ export const adminEndTrial = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     try {
       await supabaseAdmin.rpc("recompute_store_plan", { _store_id: data.storeId });
-    } catch {}
+    } catch {
+      // Plan recomputation is best-effort; the primary update already landed.
+    }
     await writeAudit(supabaseAdmin, {
       actor_id: context.userId,
       actor_email: admin.email,
@@ -1144,7 +1148,9 @@ export const adminRefreshSubscription = createServerFn({ method: "POST" })
       if (sub.store_id) {
         try {
           await supabaseAdmin.rpc("recompute_store_plan", { _store_id: sub.store_id });
-        } catch {}
+        } catch {
+          // Plan recomputation is best-effort; the primary update already landed.
+        }
       }
       await writeAudit(supabaseAdmin, {
         actor_id: context.userId,

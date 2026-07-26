@@ -79,7 +79,11 @@ export function HardwareCard({
     if (!device) return;
     const r = await testDevice(device.id);
     void logAudit({ action: "hardware.test", entity: kind, details: r });
-    r.ok ? toast.success(r.message) : toast.error(r.message);
+    if (r.ok) {
+      toast.success(r.message);
+    } else {
+      toast.error(r.message);
+    }
   };
 
   return (

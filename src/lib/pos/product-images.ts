@@ -59,7 +59,7 @@ export function useProductImageUrl(pathOrUrl: string | null | undefined) {
     let cancelled = false;
     let objectUrl: string | null = null;
 
-    const useBlob = (blob: Blob) => {
+    const applyBlob = (blob: Blob) => {
       if (cancelled) return;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       objectUrl = URL.createObjectURL(blob);
@@ -73,14 +73,14 @@ export function useProductImageUrl(pathOrUrl: string | null | undefined) {
 
     void (async () => {
       const cached = await readPersistentImage(pathOrUrl).catch(() => null);
-      if (cached) useBlob(cached);
+      if (cached) applyBlob(cached);
 
       if (!isOnlineNow()) return;
 
       const downloadUrl = await resolveDownloadUrl(pathOrUrl);
       if (!downloadUrl || cancelled) return;
       try {
-        useBlob(await fetchAndPersistImage(pathOrUrl, downloadUrl));
+        applyBlob(await fetchAndPersistImage(pathOrUrl, downloadUrl));
       } catch {
         // Some third-party image hosts block CORS. They can still render while
         // online, but cannot be persisted by the WebView cache.
