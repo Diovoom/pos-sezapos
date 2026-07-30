@@ -78,51 +78,12 @@ function realtimeTopic(storeId: string) {
   return `customer-display:${storeId}`;
 }
 
-const publisherChannels = new Map<string, ReturnType<typeof supabase.channel>>();
-const publisherReady = new Map<string, Promise<ReturnType<typeof supabase.channel>>>();
-
-function getPublisherChannel(storeId: string) {
-  const existing = publisherChannels.get(storeId);
-  if (existing) return Promise.resolve(existing);
-
-  const pending = publisherReady.get(storeId);
-  if (pending) return pending;
-
-  const channel = supabase.channel(realtimeTopic(storeId), {
-    config: { private: true, broadcast: { self: false, ack: false } },
-  });
-
-  const ready = new Promise<ReturnType<typeof supabase.channel>>((resolve, reject) => {
-    const timeout = window.setTimeout(() => {
-      publisherReady.delete(storeId);
-      void supabase.removeChannel(channel);
-      reject(new Error("Customer display connection timed out"));
-    }, 5_000);
-
-    channel.subscribe((status) => {
-      if (status === "SUBSCRIBED") {
-        window.clearTimeout(timeout);
-        publisherReady.delete(storeId);
-        publisherChannels.set(storeId, channel);
-        resolve(channel);
-      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-        window.clearTimeout(timeout);
-        publisherReady.delete(storeId);
-        publisherChannels.delete(storeId);
-        reject(new Error(`Customer display channel ${status.toLowerCase()}`));
-      }
-    });
-  });
-
-  publisherReady.set(storeId, ready);
-  return ready;
-}
-
 /**
  * Publish through three layers:
  * 1) localStorage for Firefox/Linux polling,
  * 2) BroadcastChannel for same-browser instant updates,
- * 3) Supabase Realtime broadcast for Android/web registers on another device.
+ * 3) a server function that verifies store membership and signs the payload
+ *    before broadcasting it to remote registers/displays.
  */
 export async function publishCustomerDisplay(payload: CustomerDisplayPayload): Promise<void> {
   if (typeof window !== "undefined") {
@@ -143,12 +104,13 @@ export async function publishCustomerDisplay(payload: CustomerDisplayPayload): P
 
   if (!payload.storeId || typeof navigator === "undefined" || !navigator.onLine) return;
   try {
-    const channel = await getPublisherChannel(payload.storeId);
-    await channel.send({ type: "broadcast", event: EVENT, payload });
+    const { publishCustomerDisplayUpdate } = await import("./customer-display.functions");
+    await publishCustomerDisplayUpdate({ data: payload });
   } catch {
     // Remote display failure must never affect checkout.
   }
 }
+
 
 export function subscribeCustomerDisplay(
   storeId: string | null,
