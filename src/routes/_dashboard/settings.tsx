@@ -78,6 +78,7 @@ import { loadUiPreferences, saveUiPreferences, type UiPreferences } from "@/lib/
 import { useMe } from "@/hooks/useMe";
 import { isNativeMode } from "@/lib/native";
 import { PasskeyPanel } from "@/components/settings/PasskeyPanel";
+import { AndroidDevicePanel } from "@/components/settings/AndroidDevicePanel";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   head: () => ({
@@ -447,6 +448,7 @@ export function SettingsPage() {
             </TabsContent>
             <TabsContent value="security" className="mt-0 space-y-4">
               <PasskeyPanel />
+              <AndroidDevicePanel />
               <PrefPanel
                 prefKey="security"
                 title="Security"

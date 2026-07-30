@@ -17,7 +17,10 @@
     "verify:security": "node scripts/verify-security.mjs",
     "lint:full": "eslint src --cache --cache-location .eslintcache",
     "lint:fix": "eslint src --cache --cache-location .eslintcache --fix",
-    "format:check": "prettier --check src"
+    "format:check": "prettier --check src",
+    "typecheck": "tsc --noEmit",
+    "android:debug": "npm run android:sync && cd android && ./gradlew assembleDebug",
+    "android:release": "npm run android:sync && cd android && ./gradlew assembleRelease"
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^8.2.0",
