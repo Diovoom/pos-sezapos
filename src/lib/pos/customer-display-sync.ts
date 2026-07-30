@@ -124,15 +124,29 @@ export function subscribeCustomerDisplay(
 
   const channel = supabase
     .channel(realtimeTopic(storeId), {
-      config: { private: true, broadcast: { self: false, ack: false } },
+      config: { broadcast: { self: false, ack: false } },
     })
     .on("broadcast", { event: EVENT }, ({ payload }) => {
-      const next = payload as CustomerDisplayPayload;
-      if (next?.type === "seza-pos-display" && next.storeId === storeId) onPayload(next);
+      const received = payload as CustomerDisplayPayload & { signature?: string };
+      if (received?.type !== "seza-pos-display" || received.storeId !== storeId) return;
+      const { signature, ...next } = received;
+      if (!signature) return; // Unsigned payloads are spoof attempts.
+      void (async () => {
+        try {
+          const { verifyCustomerDisplayUpdate } = await import("./customer-display.functions");
+          const { valid } = await verifyCustomerDisplayUpdate({
+            data: { payload: next, signature },
+          });
+          if (valid) onPayload(next as CustomerDisplayPayload);
+        } catch {
+          // Reject anything we cannot verify.
+        }
+      })();
     })
     .subscribe((status) => {
       onConnectionChange?.(status === "SUBSCRIBED");
     });
+
 
   return () => {
     onConnectionChange?.(false);
