@@ -15,12 +15,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { KeyRound, Loader2, LogIn } from "lucide-react";
+import { Fingerprint, KeyRound, Loader2, LogIn } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { hasAnyPlatformRole } from "@/lib/platform-roles";
 import { marketingUrl } from "@/lib/host";
 import { secureOwnerPasswordSignIn, securePasswordReset } from "@/lib/auth/auth.functions";
 import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/auth";
+import { startAuthentication } from "@simplewebauthn/browser";
+import { beginPasskeyLogin, finishPasskeyLogin } from "@/lib/auth/passkeys.functions";
 
 const PLATFORM_STAFF_MSG = "Platform administrators cannot sign in here. Use admin.sezapos.com.";
 const OWNER_ONLY_MSG =
@@ -134,6 +136,8 @@ function OwnerEmailLogin() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const signIn = useServerFn(secureOwnerPasswordSignIn);
+  const beginPasskey = useServerFn(beginPasskeyLogin);
+  const finishPasskey = useServerFn(finishPasskeyLogin);
   const cooldown = useAuthCooldown();
   const [captchaToken, setCaptchaToken] = useState<string>();
   const [captchaReset, setCaptchaReset] = useState(0);
@@ -170,6 +174,30 @@ function OwnerEmailLogin() {
     } finally {
       setBusy(false);
       setCaptchaReset((value) => value + 1);
+    }
+  };
+
+  const handlePasskey = async () => {
+    if (!email.trim()) {
+      toast.error("Enter your owner email first.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const started = await beginPasskey({ data: { email: email.trim().toLowerCase() } });
+      const response = await startAuthentication({ optionsJSON: started.options as any });
+      const completed = await finishPasskey({ data: { challengeId: started.challengeId, response } });
+      const { data, error } = await supabase.auth.verifyOtp({
+        type: "magiclink",
+        token_hash: completed.tokenHash,
+      });
+      if (error || !data.user) throw error ?? new Error("Could not create session");
+      if (!(await ensureOwnerWebsiteAccess(data.user.id))) return;
+      navigate({ to: "/dashboard", replace: true });
+    } catch (error: any) {
+      toast.error(error?.message || "Passkey sign-in failed.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -251,6 +279,10 @@ function OwnerEmailLogin() {
             required
           />
         </div>
+        <Button type="button" variant="outline" className="h-11 w-full" onClick={handlePasskey} disabled={busy || !email.trim()}>
+          <Fingerprint className="mr-2 size-4" /> Sign in with passkey
+        </Button>
+        <div className="relative"><div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or password</span></div></div>
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
           <Input

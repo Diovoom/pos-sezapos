@@ -51,7 +51,10 @@ const PLAN_LABELS: Record<string, string> = {
 };
 
 const schema = z.object({
-  businessName: z.string().trim().min(2, "Business name is required").max(120),
+  businessName: z.string().trim().min(2, "Legal business name is required").max(120),
+  phone: z.string().trim().min(10, "Business phone is required").max(30),
+  address: z.string().trim().min(5, "Business address is required").max(160),
+  zip: z.string().trim().min(5, "ZIP code is required").max(10),
   email: z
     .string()
     .trim()
@@ -81,6 +84,9 @@ function SignupPage() {
 
   const [form, setForm] = useState({
     businessName: "",
+    phone: "",
+    address: "",
+    zip: "",
     email: "",
     password: "",
     accept: false,
@@ -108,6 +114,9 @@ function SignupPage() {
       const result = await signUp({
         data: {
           businessName: form.businessName,
+          phone: form.phone,
+          address: form.address,
+          zip: form.zip,
           email: form.email,
           password: form.password,
           timeZone: detectedTz,
@@ -178,7 +187,7 @@ function SignupPage() {
             <CardContent>
               <form onSubmit={submit} className="space-y-4" noValidate>
                 <div className="space-y-2">
-                  <Label htmlFor="businessName">Business name</Label>
+                  <Label htmlFor="businessName">Legal business name</Label>
                   <Input
                     id="businessName"
                     value={form.businessName}
@@ -187,6 +196,22 @@ function SignupPage() {
                     autoComplete="organization"
                     required
                   />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Business phone</Label>
+                    <Input id="phone" type="tel" value={form.phone} onChange={(e) => update("phone", e.target.value)} autoComplete="tel" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zip">ZIP code</Label>
+                    <Input id="zip" inputMode="numeric" value={form.zip} onChange={(e) => update("zip", e.target.value)} autoComplete="postal-code" required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address">Business street address</Label>
+                  <Input id="address" value={form.address} onChange={(e) => update("address", e.target.value)} autoComplete="street-address" required />
+                  <p className="text-xs text-muted-foreground">Used securely to enforce one free trial per business.</p>
                 </div>
 
                 <div className="space-y-2">

@@ -77,6 +77,7 @@ import { useTranslation } from "react-i18next";
 import { loadUiPreferences, saveUiPreferences, type UiPreferences } from "@/lib/ui-preferences";
 import { useMe } from "@/hooks/useMe";
 import { isNativeMode } from "@/lib/native";
+import { PasskeyPanel } from "@/components/settings/PasskeyPanel";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   head: () => ({
@@ -444,7 +445,8 @@ export function SettingsPage() {
                 ]}
               />
             </TabsContent>
-            <TabsContent value="security" className="mt-0">
+            <TabsContent value="security" className="mt-0 space-y-4">
+              <PasskeyPanel />
               <PrefPanel
                 prefKey="security"
                 title="Security"

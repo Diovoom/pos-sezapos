@@ -152,6 +152,9 @@ export const secureAdminPasswordSignIn = createServerFn({ method: "POST" })
 
 const signupInput = z.object({
   businessName: z.string().trim().min(2).max(120),
+  phone: z.string().trim().min(10).max(30),
+  address: z.string().trim().min(5).max(160),
+  zip: z.string().trim().min(5).max(10),
   email: emailSchema,
   password: passwordSchema,
   timeZone: z.string().trim().min(1).max(100),
@@ -182,6 +185,33 @@ export const secureMerchantSignUp = createServerFn({ method: "POST" })
     try {
       const request = getRequest();
       if (!request) throw new Error("Request unavailable");
+      const fingerprintSecret = process.env.TRIAL_FINGERPRINT_SECRET;
+      if (!fingerprintSecret || fingerprintSecret.length < 32) {
+        throw new Error("Trial security is not configured");
+      }
+      const normalize = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      const identity = [normalize(data.businessName), normalize(data.address), normalize(data.zip), normalize(data.phone)].join("|");
+      const sign = async (value: string) => {
+        const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(fingerprintSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+        return Buffer.from(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value))).toString("hex");
+      };
+      const businessFingerprint = await sign(`business:${identity}`);
+      const { getClientIp } = await import("@/lib/security/rate-limit.server");
+      const ipHash = await sign(`ip:${getClientIp(request)}`);
+      const emailHash = await sign(`email:${data.email}`);
+      const userAgentHash = await sign(`ua:${request.headers.get("user-agent") || "unknown"}`);
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const [{ count: ipCount }, { data: priorBusiness }] = await Promise.all([
+        (supabaseAdmin as any).from("signup_risk_events").select("id", { count: "exact", head: true }).eq("ip_hash", ipHash).gte("created_at", since),
+        (supabaseAdmin as any).from("business_trial_registry").select("status").eq("business_fingerprint", businessFingerprint).maybeSingle(),
+      ]);
+      if (priorBusiness && ["trial_active", "trial_used", "paid", "blocked"].includes(priorBusiness.status)) {
+        await (supabaseAdmin as any).from("signup_risk_events").insert({ event_type: "duplicate_business_blocked", ip_hash: ipHash, email_hash: emailHash, business_fingerprint: businessFingerprint, user_agent_hash: userAgentHash, risk_score: 100 });
+        return { ok: false, error: "This business has already used its SEZA free trial. Sign in or choose a paid plan." };
+      }
+      const riskScore = Math.min(60, Math.max(0, Number(ipCount || 0) - 2) * 10);
+      await (supabaseAdmin as any).from("signup_risk_events").insert({ event_type: "signup_attempt", ip_hash: ipHash, email_hash: emailHash, business_fingerprint: businessFingerprint, user_agent_hash: userAgentHash, risk_score: riskScore, details: { recent_ip_signups: ipCount || 0 } });
       const { createPublicAuthClient, safeDashboardOrigin } = await import("./auth.server");
       const auth = createPublicAuthClient();
       const planQuery = data.selectedPlan ? `?plan=${encodeURIComponent(data.selectedPlan)}` : "";
@@ -194,6 +224,11 @@ export const secureMerchantSignUp = createServerFn({ method: "POST" })
           captchaToken: data.captchaToken,
           data: {
             business_name: data.businessName,
+            business_phone: data.phone,
+            phone: data.phone,
+            business_address: data.address,
+            business_zip: data.zip,
+            business_fingerprint: businessFingerprint,
             time_zone: data.timeZone,
             country: "US",
             selected_plan: data.selectedPlan ?? null,
@@ -210,6 +245,9 @@ export const secureMerchantSignUp = createServerFn({ method: "POST" })
           ok: false,
           error: "We could not create the account. Check your information or try again later.",
         };
+      }
+      if (signedUp.user?.id) {
+        await (supabaseAdmin as any).from("signup_risk_events").update({ user_id: signedUp.user.id, event_type: "signup_created" }).eq("email_hash", emailHash).eq("business_fingerprint", businessFingerprint).eq("event_type", "signup_attempt");
       }
       return {
         ok: true,
