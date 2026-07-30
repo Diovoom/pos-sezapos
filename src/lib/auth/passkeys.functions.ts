@@ -27,7 +27,7 @@ export const beginPasskeyRegistration = createServerFn({ method: "POST" })
     const options = await generateRegistrationOptions({
       rpName: RP_NAME, rpID: RP_ID, userID: enc.encode(user.id), userName: user.email!,
       attestationType: "none", timeout: 60000,
-      excludeCredentials: (existing ?? []).map((r) => ({ id: r.credential_id, transports: (r.transports ?? []) as any })),
+      excludeCredentials: ((existing ?? []) as any[]).map((r: any) => ({ id: r.credential_id, transports: (r.transports ?? []) as any })),
       authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
     });
     const { data: challenge, error } = await (supabaseAdmin as any).from("passkey_challenges").insert({ purpose:"registration", challenge:options.challenge, user_id:user.id, expires_at:new Date(Date.now()+5*60_000).toISOString() }).select("id").single();
@@ -80,7 +80,7 @@ export const beginPasskeyLogin = createServerFn({ method: "POST" })
     const userId = profile?.id as string | undefined;
     const { data: creds } = userId ? await (supabaseAdmin as any).from("passkey_credentials").select("credential_id,transports").eq("user_id",userId) : { data:[] as any[] };
     if (!userId || !creds?.length) throw new Error("No passkey is available for this account.");
-    const options = await generateAuthenticationOptions({ rpID:RP_ID, timeout:60000, userVerification:"required", allowCredentials:creds.map((r) => ({ id:r.credential_id, transports:(r.transports ?? []) as any })) });
+    const options = await generateAuthenticationOptions({ rpID:RP_ID, timeout:60000, userVerification:"required", allowCredentials:(creds as any[]).map((r: any) => ({ id:r.credential_id, transports:(r.transports ?? []) as any })) });
     const { data: challenge, error } = await (supabaseAdmin as any).from("passkey_challenges").insert({ purpose:"authentication", challenge:options.challenge, user_id:userId, email_hash:emailHash, expires_at:new Date(Date.now()+5*60_000).toISOString() }).select("id").single();
     if (error) throw error;
     return { challengeId:challenge.id, options };

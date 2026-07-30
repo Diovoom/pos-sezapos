@@ -861,7 +861,7 @@ export function PosPage() {
         paymentMethod: rd.paymentMethod,
         amountTendered: rd.amountTendered ?? null,
         changeDue: rd.changeDue ?? null,
-        receiptNumber: rd.receiptNumber,
+        receiptNumber: rd.receiptNumber == null ? null : String(rd.receiptNumber),
         updatedAt: new Date().toISOString(),
       };
       setDisplayCompletion(completedDisplay);
