@@ -27,7 +27,7 @@ export const beginPasskeyRegistration = createServerFn({ method: "POST" })
     const options = await generateRegistrationOptions({
       rpName: RP_NAME, rpID: RP_ID, userID: enc.encode(user.id), userName: user.email!,
       attestationType: "none", timeout: 60000,
-      excludeCredentials: (existing ?? []).map((r) => ({ id: r.credential_id, transports: (r.transports ?? []) as any })),
+      excludeCredentials: ((existing ?? []) as any[]).map((r: any) => ({ id: r.credential_id, transports: (r.transports ?? []) as any })),
       authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
     });
     const { data: challenge, error } = await (supabaseAdmin as any).from("passkey_challenges").insert({ purpose:"registration", challenge:options.challenge, user_id:user.id, expires_at:new Date(Date.now()+5*60_000).toISOString() }).select("id").single();
