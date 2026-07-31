@@ -7,6 +7,7 @@ import com.sezapos.security.SezaSecureStoragePlugin;
 import com.sezapos.screen.SezaScreenCapturePlugin;
 import com.sezapos.share.SezaPdfSharePlugin;
 import com.sezapos.device.SezaDeviceControlPlugin;
+import com.sezapos.device.SezaUsbPrinterPlugin;
 
 public class MainActivity extends BridgeActivity {
     @Override
@@ -15,6 +16,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SezaSecureStoragePlugin.class);
         registerPlugin(SezaPdfSharePlugin.class);
         registerPlugin(SezaDeviceControlPlugin.class);
+        registerPlugin(SezaUsbPrinterPlugin.class);
         super.onCreate(savedInstanceState);
         SezaDeviceControlPlugin.applyWindowPreferences(this);
     }
