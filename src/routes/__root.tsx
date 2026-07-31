@@ -26,6 +26,7 @@ import { installSessionBridge } from "@/integrations/supabase/session-bridge";
 import { detectAndPersistNative, isPathAllowedInNative } from "@/lib/native";
 import { NativeLoadingOverlay } from "@/components/NativeLoadingOverlay";
 import { NativeRuntime } from "@/components/NativeRuntime";
+import { NativeConnectionBanner } from "@/components/NativeConnectionBanner";
 import { currentApp, dashboardUrl, marketingUrl } from "@/lib/host";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { SOCIAL_LINKS } from "@/lib/social";
@@ -404,6 +405,7 @@ function RootComponent() {
       <RouteScrollManager />
       <GlobalLanguageRuntime />
       <NativeRuntime queryClient={queryClient} />
+      <NativeConnectionBanner />
       <PaymentTestModeBanner />
       <AppUpdateNotice />
       <Outlet />

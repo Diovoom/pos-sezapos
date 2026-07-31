@@ -15,7 +15,8 @@ export type CustomerDisplayPayload = {
   storeName: string;
   logoUrl?: string | null;
   currency: string;
-  phase: "idle" | "sale" | "complete";
+  phase: "idle" | "sale" | "processing" | "complete" | "declined" | "cancelled";
+  statusMessage?: string | null;
   lines: CustomerDisplayLine[];
   subtotal: number;
   discount: number;

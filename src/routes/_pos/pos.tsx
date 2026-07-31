@@ -220,6 +220,10 @@ export function PosPage() {
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [displayCompletion, setDisplayCompletion] = useState<CustomerDisplayPayload | null>(null);
+  const [displayStatus, setDisplayStatus] = useState<{
+    phase: "processing" | "declined" | "cancelled";
+    message?: string;
+  } | null>(null);
   const [ageOpen, setAgeOpen] = useState(false);
   const [ageVerification, setAgeVerification] = useState<SuccessfulVerification | null>(null);
   const [voidLine, setVoidLine] = useState<CartLine | null>(null);
@@ -864,6 +868,7 @@ export function PosPage() {
         receiptNumber: rd.receiptNumber == null ? null : String(rd.receiptNumber),
         updatedAt: new Date().toISOString(),
       };
+      setDisplayStatus(null);
       setDisplayCompletion(completedDisplay);
       window.setTimeout(() => setDisplayCompletion(null), 4_500);
       toast.success(
@@ -914,6 +919,8 @@ export function PosPage() {
             ? e.cause.message
             : e.message
           : undefined;
+      setDisplayStatus({ phase: "declined", message: friendly });
+      window.setTimeout(() => setDisplayStatus(null), 4_500);
       toast.error(friendly, detail ? { description: detail } : undefined);
     },
   });
@@ -965,6 +972,9 @@ export function PosPage() {
       void publishCustomerDisplay(displayCompletion);
       return;
     }
+    const activeStatus = finalize.isPending
+      ? { phase: "processing" as const, message: "Please wait while payment is confirmed." }
+      : displayStatus;
     const payload: CustomerDisplayPayload = {
       type: "seza-pos-display",
       version: 2,
@@ -972,7 +982,8 @@ export function PosPage() {
       storeName: store?.name ?? "Store",
       logoUrl: store?.logo_url ?? null,
       currency,
-      phase: cart.length ? "sale" : "idle",
+      phase: activeStatus?.phase ?? (cart.length ? "sale" : "idle"),
+      statusMessage: activeStatus?.message ?? null,
       lines: cart.map((line) => ({
         id: line.product.id,
         name: line.product.name,
@@ -999,6 +1010,8 @@ export function PosPage() {
     store?.name,
     store?.logo_url,
     displayCompletion,
+    displayStatus,
+    finalize.isPending,
   ]);
 
   const cartPanel = (
@@ -1424,7 +1437,16 @@ export function PosPage() {
 
       <PaymentDialog
         open={payOpen}
-        onOpenChange={setPayOpen}
+        onOpenChange={(open) => {
+          setPayOpen(open);
+          if (!open && !finalize.isPending && cart.length > 0) {
+            setDisplayStatus({
+              phase: "cancelled",
+              message: "Payment was cancelled at the register.",
+            });
+            window.setTimeout(() => setDisplayStatus(null), 2_500);
+          }
+        }}
         method={tender}
         total={total}
         currency={currency}

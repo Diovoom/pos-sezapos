@@ -129,6 +129,9 @@ function CustomerDisplayPage() {
   }, [storeId]);
 
   const completed = sale.phase === "complete";
+  const processing = sale.phase === "processing";
+  const declined = sale.phase === "declined";
+  const cancelled = sale.phase === "cancelled";
   const isFresh = useMemo(() => {
     const updated = Date.parse(sale.updatedAt);
     return Number.isFinite(updated) && Date.now() - updated < 15_000;
@@ -154,7 +157,15 @@ function CustomerDisplayPage() {
         </div>
         <div className="text-right">
           <p className="text-sm text-emerald-300">
-            {completed ? "Payment complete" : "Register ready"}
+            {completed
+              ? "Payment complete"
+              : processing
+                ? "Processing payment"
+                : declined
+                  ? "Payment declined"
+                  : cancelled
+                    ? "Sale cancelled"
+                    : "Register ready"}
           </p>
           <p className="mt-1 text-xs text-white/45">
             {connected ? "Connected to register" : "Waiting for register"}
@@ -163,7 +174,43 @@ function CustomerDisplayPage() {
       </header>
 
       <section className="flex-1 min-h-0 py-7 overflow-y-auto">
-        {completed ? (
+        {processing || declined || cancelled ? (
+          <div className="h-full min-h-[320px] grid place-items-center text-center">
+            <div>
+              <div
+                className={`mx-auto grid size-20 place-items-center rounded-full text-4xl ${
+                  processing
+                    ? "bg-blue-400/15 text-blue-300"
+                    : declined
+                      ? "bg-rose-400/15 text-rose-300"
+                      : "bg-amber-400/15 text-amber-300"
+                }`}
+              >
+                {processing ? "…" : declined ? "×" : "–"}
+              </div>
+              <p className="mt-6 text-4xl md:text-6xl font-black">
+                {processing
+                  ? "Processing payment"
+                  : declined
+                    ? "Payment declined"
+                    : "Sale cancelled"}
+              </p>
+              <p className="mt-3 text-xl text-white/60">
+                {sale.statusMessage ??
+                  (processing
+                    ? "Please wait and keep your card near the reader."
+                    : declined
+                      ? "Please try another payment method."
+                      : "The register is ready for a new sale.")}
+              </p>
+              {processing ? (
+                <p className="mt-6 text-4xl font-mono font-bold">
+                  {fmtCurrency(sale.total, sale.currency)}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : completed ? (
           <div className="h-full min-h-[320px] grid place-items-center text-center">
             <div>
               <div className="mx-auto grid size-20 place-items-center rounded-full bg-emerald-400/15 text-4xl text-emerald-300">
