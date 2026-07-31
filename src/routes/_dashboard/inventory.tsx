@@ -44,11 +44,13 @@ import {
   Loader2,
   Pencil,
   Trash2,
+  Power,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtCurrency } from "@/lib/format";
 import { useProductImageUrl } from "@/lib/pos/product-images";
 import { toast } from "sonner";
+import { applyInventoryDrafts, loadInventoryDrafts, saveInventoryDraft } from "@/lib/inventory-drafts";
 
 export const Route = createFileRoute("/_dashboard/inventory")({
   head: () => ({
@@ -76,6 +78,7 @@ type ProductRow = {
   category_id: string | null;
   updated_at?: string | null;
   created_at?: string | null;
+  status?: string | null;
 };
 
 type CategoryRow = { id: string; name: string };
@@ -196,6 +199,7 @@ function InventoryPage() {
   const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<ProductRow | null>(null);
   const [editForm, setEditForm] = useState<InventoryEditForm | null>(null);
+  const [draftTick, setDraftTick] = useState(0);
   const queryClient = useQueryClient();
 
   const refreshProducts = async () => {
@@ -207,53 +211,35 @@ function InventoryPage() {
 
   const updateProduct = useMutation({
     mutationFn: async () => {
-      if (!editingProduct || !editForm) throw new Error("No product selected");
-      const price = Number(editForm.price);
-      const cost = Number(editForm.cost);
-      const stock = Number(editForm.stock);
-      const minStock = Number(editForm.min_stock);
+      if (!editingProduct || !editForm || !store?.id) throw new Error("No product selected");
+      const price = Number(editForm.price), cost = Number(editForm.cost), stock = Number(editForm.stock), minStock = Number(editForm.min_stock);
       if (!editForm.name.trim()) throw new Error("Product name is required");
-      if (![price, cost, stock, minStock].every(Number.isFinite))
-        throw new Error("Enter valid numbers");
-      if (price < 0 || cost < 0 || stock < 0 || minStock < 0)
-        throw new Error("Price, cost, stock, and low-stock alert cannot be negative");
-      const { error } = await supabase
-        .from("products")
-        .update({
-          name: editForm.name.trim(),
-          sku: editForm.sku.trim() || null,
-          barcode: editForm.barcode.trim() || null,
-          price,
-          cost,
-          stock,
-          min_stock: minStock,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", editingProduct.id);
-      if (error) throw error;
+      if (![price, cost, stock, minStock].every(Number.isFinite) || [price, cost, stock, minStock].some((n) => n < 0)) throw new Error("Enter valid non-negative numbers");
+      const sku = editForm.sku.trim() || null, barcode = editForm.barcode.trim() || null;
+      const duplicate = draftedProducts.find((p) => p.id !== editingProduct.id && ((sku && p.sku?.toLowerCase() === sku.toLowerCase()) || (barcode && p.barcode === barcode)));
+      if (duplicate) throw new Error(sku && duplicate.sku?.toLowerCase() === sku.toLowerCase() ? `SKU already belongs to ${duplicate.name}` : `Barcode already belongs to ${duplicate.name}`);
+      saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "update", productId: editingProduct.id, original: editingProduct as any, changes: { name: editForm.name.trim(), sku, barcode, price, cost, stock, min_stock: minStock }, createdAt: new Date().toISOString() });
     },
-    onSuccess: async () => {
-      toast.success("Product updated");
-      setEditingProduct(null);
-      setEditForm(null);
-      await refreshProducts();
-    },
-    onError: (error: Error) => toast.error(error.message || "Could not update product"),
+    onSuccess: () => { toast.success("Saved as unpublished change"); setEditingProduct(null); setEditForm(null); setDraftTick((v) => v + 1); },
+    onError: (error: Error) => toast.error(error.message || "Could not save product"),
   });
 
   const deleteProduct = useMutation({
     mutationFn: async () => {
-      if (!deletingProduct) throw new Error("No product selected");
-      const { error } = await supabase.from("products").delete().eq("id", deletingProduct.id);
-      if (error) throw error;
+      if (!deletingProduct || !store?.id) throw new Error("No product selected");
+      saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "delete", productId: deletingProduct.id, original: deletingProduct as any, createdAt: new Date().toISOString() });
     },
-    onSuccess: async () => {
-      toast.success("Product deleted");
-      setDeletingProduct(null);
-      await refreshProducts();
-    },
-    onError: (error: Error) => toast.error(error.message || "Could not delete product"),
+    onSuccess: () => { toast.success("Delete staged. Publish to remove it from POS."); setDeletingProduct(null); setDraftTick((v) => v + 1); },
+    onError: (error: Error) => toast.error(error.message || "Could not stage deletion"),
   });
+
+  const stageStatus = (product: ProductRow) => {
+    if (!store?.id) return;
+    const status = product.status === "inactive" ? "active" : "inactive";
+    saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "update", productId: product.id, original: product as any, changes: { status }, createdAt: new Date().toISOString() });
+    toast.success(`${product.name} will be ${status} after publishing`);
+    setDraftTick((v) => v + 1);
+  };
 
   const { data: store } = useQuery({
     queryKey: ["store"],
@@ -276,12 +262,15 @@ function InventoryPage() {
       const { data } = await supabase
         .from("products")
         .select(
-          "id,name,sku,barcode,price,cost,stock,min_stock,image_url,category_id,updated_at,created_at",
+          "id,name,sku,barcode,price,cost,stock,min_stock,image_url,category_id,updated_at,created_at,status",
         )
         .order("name");
       return (data as ProductRow[]) ?? [];
     },
   });
+
+  void draftTick;
+  const draftedProducts = store?.id ? applyInventoryDrafts(products, loadInventoryDrafts(store.id)) : products;
 
   const categoryMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -293,18 +282,18 @@ function InventoryPage() {
     let total = 0,
       low = 0,
       out = 0;
-    for (const p of products) {
+    for (const p of draftedProducts) {
       total++;
       const s = statusOf(p);
       if (s === "low") low++;
       else if (s === "out") out++;
     }
     return { total, low, out, categories: categories.length };
-  }, [products, categories]);
+  }, [draftedProducts, categories]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let rows = products.filter((p) => {
+    let rows = draftedProducts.filter((p) => {
       if (categoryId !== "all" && p.category_id !== categoryId) return false;
       if (stockFilter !== "all" && statusOf(p) !== stockFilter) return false;
       if (!q) return true;
@@ -335,7 +324,7 @@ function InventoryPage() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return rows;
-  }, [products, search, categoryId, stockFilter, sortKey, sortDir]);
+  }, [draftedProducts, search, categoryId, stockFilter, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -600,13 +589,10 @@ function InventoryPage() {
                             >
                               <Pencil className="mr-1.5 size-3.5" /> Edit
                             </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setDeletingProduct(p)}
-                            >
+                            <Button type="button" variant="ghost" size="sm" onClick={() => stageStatus(p)}>
+                              <Power className="mr-1.5 size-3.5" /> {p.status === "inactive" ? "Activate" : "Deactivate"}
+                            </Button>
+                            <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeletingProduct(p)}>
                               <Trash2 className="mr-1.5 size-3.5" /> Delete
                             </Button>
                           </div>
@@ -795,7 +781,7 @@ function InventoryPage() {
             <DialogTitle>Delete product?</DialogTitle>
             <DialogDescription>
               {deletingProduct
-                ? `This permanently removes “${deletingProduct.name}” from the product catalog.`
+                ? `This stages “${deletingProduct.name}” for deletion. It stays on the POS until you press Publish.`
                 : "This permanently removes the selected product."}
             </DialogDescription>
           </DialogHeader>
@@ -812,8 +798,7 @@ function InventoryPage() {
               onClick={() => deleteProduct.mutate()}
               disabled={deleteProduct.isPending}
             >
-              {deleteProduct.isPending && <Loader2 className="mr-2 size-4 animate-spin" />} Delete
-              product
+              {deleteProduct.isPending && <Loader2 className="mr-2 size-4 animate-spin" />} Stage delete
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -25,9 +25,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Star, Loader2, Camera, Wand2, Upload, X, ImageIcon, Pencil } from "lucide-react";
+import { Plus, Search, Star, Loader2, Camera, Wand2, Upload, X, ImageIcon, Pencil, Trash2, Power } from "lucide-react";
 import { toast } from "sonner";
 import { fmtCurrency } from "@/lib/format";
+import { loadInventoryDrafts, saveInventoryDraft, applyInventoryDrafts } from "@/lib/inventory-drafts";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import { lookupBarcode } from "@/lib/barcode-lookup.functions";
 import {
@@ -63,6 +64,7 @@ type ProductRow = {
   age_restricted?: boolean | null;
   min_age?: number | null;
   age_category?: string | null;
+  status?: string | null;
 };
 
 function ProductThumb({ path }: { path: string | null }) {
@@ -83,6 +85,7 @@ function ProductsPage() {
   const [open, setOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
   const [editForm, setEditForm] = useState({ name: "", sku: "", barcode: "", cost: "", price: "", stock: "" });
+  const [draftTick, setDraftTick] = useState(0);
 
   const { data: store } = useQuery({
     queryKey: ["store"],
@@ -96,14 +99,17 @@ function ProductsPage() {
       const { data } = await supabase
         .from("products")
         .select(
-          "id,name,sku,barcode,price,cost,stock,taxable,is_favorite,image_url,age_restricted,min_age,age_category",
+          "id,name,sku,barcode,price,cost,stock,taxable,is_favorite,image_url,age_restricted,min_age,age_category,status",
         )
         .order("created_at", { ascending: false });
       return (data as ProductRow[]) ?? [];
     },
   });
 
-  const filtered = products.filter((p) => {
+  void draftTick;
+  const draftedProducts = store?.id ? applyInventoryDrafts(products, loadInventoryDrafts(store.id)) : products;
+
+  const filtered = draftedProducts.filter((p) => {
     const q = search.toLowerCase();
     if (!q) return true;
     return (
@@ -138,43 +144,40 @@ function ProductsPage() {
 
   const updateProduct = useMutation({
     mutationFn: async () => {
-      if (!editingProduct) throw new Error("No product selected");
-      const price = Number(editForm.price);
-      const cost = Number(editForm.cost);
-      const stock = Number(editForm.stock);
+      if (!editingProduct || !store?.id) throw new Error("No product selected");
+      const price = Number(editForm.price), cost = Number(editForm.cost), stock = Number(editForm.stock);
       if (!editForm.name.trim()) throw new Error("Product name is required");
-      if (![price, cost, stock].every(Number.isFinite)) throw new Error("Enter valid numbers");
-      if (price < 0 || cost < 0 || stock < 0) throw new Error("Cost, price, and stock cannot be negative");
-      const { error } = await supabase
-        .from("products")
-        .update({
-          name: editForm.name.trim(),
-          sku: editForm.sku.trim() || null,
-          barcode: editForm.barcode.trim() || null,
-          cost,
-          price,
-          stock,
-          updated_at: new Date().toISOString(),
-        } as any)
-        .eq("id", editingProduct.id);
-      if (error) throw error;
+      if (![price, cost, stock].every(Number.isFinite) || price < 0 || cost < 0 || stock < 0) throw new Error("Enter valid non-negative numbers");
+      const sku = editForm.sku.trim() || null;
+      const barcode = editForm.barcode.trim() || null;
+      const duplicate = draftedProducts.find((p) => p.id !== editingProduct.id && ((sku && p.sku?.toLowerCase() === sku.toLowerCase()) || (barcode && p.barcode === barcode)));
+      if (duplicate) throw new Error(sku && duplicate.sku?.toLowerCase() === sku.toLowerCase() ? `SKU already belongs to ${duplicate.name}` : `Barcode already belongs to ${duplicate.name}`);
+      saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "update", productId: editingProduct.id, original: editingProduct as any, changes: { name: editForm.name.trim(), sku, barcode, cost, price, stock }, createdAt: new Date().toISOString() });
     },
-    onSuccess: async () => {
-      toast.success("Product updated");
-      setEditingProduct(null);
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["products"] }),
-        qc.invalidateQueries({ queryKey: ["inventory-products"] }),
-      ]);
-    },
-    onError: (error: Error) => toast.error(error.message || "Could not update product"),
+    onSuccess: () => { toast.success("Saved as unpublished change"); setEditingProduct(null); setDraftTick((v) => v + 1); },
+    onError: (error: Error) => toast.error(error.message || "Could not save product"),
   });
+
+  const stageDelete = (product: ProductRow) => {
+    if (!store?.id) return;
+    saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "delete", productId: product.id, original: product as any, createdAt: new Date().toISOString() });
+    toast.success("Delete staged. Publish to remove it from POS.");
+    setDraftTick((v) => v + 1);
+  };
+
+  const stageStatus = (product: ProductRow) => {
+    if (!store?.id) return;
+    const status = product.status === "inactive" ? "active" : "inactive";
+    saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "update", productId: product.id, original: product as any, changes: { status }, createdAt: new Date().toISOString() });
+    toast.success(`${product.name} will be ${status} after publishing`);
+    setDraftTick((v) => v + 1);
+  };
 
   return (
     <>
       <PageHeader
         title="Products"
-        subtitle={`${products.length} items`}
+        subtitle={`${draftedProducts.length} items${store?.id ? ` · ${loadInventoryDrafts(store.id).length} unpublished` : ""}`}
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -279,9 +282,11 @@ function ProductsPage() {
                       <TableCell className="text-right font-mono">{margin.toFixed(1)}%</TableCell>
                       <TableCell className="text-right font-mono">{Number(p.stock)}</TableCell>
                       <TableCell className="text-right">
-                        <Button type="button" variant="outline" size="sm" onClick={() => startEdit(p)}>
-                          <Pencil className="mr-1.5 size-3.5" /> Edit
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button type="button" variant="outline" size="sm" onClick={() => startEdit(p)}><Pencil className="mr-1.5 size-3.5" /> Edit</Button>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => stageStatus(p)}><Power className="mr-1.5 size-3.5" />{p.status === "inactive" ? "Activate" : "Deactivate"}</Button>
+                          <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => stageDelete(p)}><Trash2 className="mr-1.5 size-3.5" /> Delete</Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -408,24 +413,16 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const { error } = await supabase.from("products").insert({
-      store_id: storeId,
-      name: form.name,
-      sku: form.sku || null,
-      barcode: form.barcode || null,
-      price: Number(form.price) || 0,
-      cost: Number(form.cost) || 0,
-      stock: Number(form.stock) || 0,
-      taxable: form.taxable,
-      is_favorite: form.is_favorite,
-      image_url: imagePath,
-      age_restricted: form.age_restricted,
-      min_age: form.age_restricted ? Number(form.min_age) || 21 : null,
-      age_category: form.age_restricted ? form.age_category : null,
-    } as any);
+    if (!storeId) { setBusy(false); return toast.error("Store not found"); }
+    const sku = form.sku.trim() || null, barcode = form.barcode.trim() || null;
+    const { data: duplicates } = await supabase.from("products").select("id,name,sku,barcode").eq("store_id", storeId);
+    const allDrafts = loadInventoryDrafts(storeId);
+    const duplicate = (duplicates ?? []).find((p: any) => (sku && p.sku?.toLowerCase() === sku.toLowerCase()) || (barcode && p.barcode === barcode)) || allDrafts.find((d) => (sku && String(d.changes?.sku ?? "").toLowerCase() === sku.toLowerCase()) || (barcode && d.changes?.barcode === barcode));
+    if (duplicate) { setBusy(false); return toast.error("That SKU or barcode already exists"); }
+    const id = crypto.randomUUID();
+    saveInventoryDraft(storeId, { id: crypto.randomUUID(), operation: "create", productId: id, changes: { name: form.name.trim(), sku, barcode, price: Number(form.price) || 0, cost: Number(form.cost) || 0, stock: Number(form.stock) || 0, taxable: form.taxable, is_favorite: form.is_favorite, image_url: imagePath, age_restricted: form.age_restricted, min_age: form.age_restricted ? Number(form.min_age) || 21 : null, age_category: form.age_restricted ? form.age_category : null, status: "active" }, createdAt: new Date().toISOString() });
     setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Product created");
+    toast.success("Product saved as draft. Press Publish when ready.");
     onCreated();
   };
 
