@@ -55,7 +55,6 @@ const NAV: {
   { to: "/payroll", label: "Payroll", icon: BarChart3 },
   { to: "/shifts", label: "Shifts", icon: Clock },
   { to: "/devices", label: "POS Devices", icon: Monitor },
-  { to: "/pos", label: "Web POS (Temporary)", icon: ScanLine },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -193,10 +192,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <div>{me?.user?.email}</div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
-                <Settings className="size-4 mr-2" /> Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                 <LogOut className="size-4 mr-2" /> Sign out
               </DropdownMenuItem>
@@ -235,9 +230,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <div className="truncate">{me?.user?.email}</div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
-                <Settings className="size-4 mr-2" /> Settings
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                 <LogOut className="size-4 mr-2" /> Sign out
               </DropdownMenuItem>
@@ -331,10 +323,7 @@ export function PageHeader({
         <h1 className="text-base md:text-lg font-semibold tracking-tight truncate">{title}</h1>
         {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-2 flex-wrap justify-end">
-        {actions}
-        <DeviceStatusMenu />
-      </div>
+      <div className="flex items-center gap-2 flex-wrap justify-end">{actions}</div>
     </header>
   );
 }

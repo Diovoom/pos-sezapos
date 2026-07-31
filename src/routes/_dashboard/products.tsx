@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Star, Loader2, Camera, Wand2, Upload, X, ImageIcon } from "lucide-react";
+import { Plus, Search, Star, Loader2, Camera, Wand2, Upload, X, ImageIcon, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { fmtCurrency } from "@/lib/format";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
@@ -81,6 +81,8 @@ function ProductsPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", sku: "", barcode: "", cost: "", price: "", stock: "" });
 
   const { data: store } = useQuery({
     queryKey: ["store"],
@@ -120,6 +122,52 @@ function ProductsPage() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
+  });
+
+  const startEdit = (product: ProductRow) => {
+    setEditingProduct(product);
+    setEditForm({
+      name: product.name,
+      sku: product.sku ?? "",
+      barcode: product.barcode ?? "",
+      cost: String(product.cost ?? 0),
+      price: String(product.price ?? 0),
+      stock: String(product.stock ?? 0),
+    });
+  };
+
+  const updateProduct = useMutation({
+    mutationFn: async () => {
+      if (!editingProduct) throw new Error("No product selected");
+      const price = Number(editForm.price);
+      const cost = Number(editForm.cost);
+      const stock = Number(editForm.stock);
+      if (!editForm.name.trim()) throw new Error("Product name is required");
+      if (![price, cost, stock].every(Number.isFinite)) throw new Error("Enter valid numbers");
+      if (price < 0 || cost < 0 || stock < 0) throw new Error("Cost, price, and stock cannot be negative");
+      const { error } = await supabase
+        .from("products")
+        .update({
+          name: editForm.name.trim(),
+          sku: editForm.sku.trim() || null,
+          barcode: editForm.barcode.trim() || null,
+          cost,
+          price,
+          stock,
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq("id", editingProduct.id);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      toast.success("Product updated");
+      setEditingProduct(null);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["products"] }),
+        qc.invalidateQueries({ queryKey: ["inventory-products"] }),
+      ]);
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not update product"),
   });
 
   return (
@@ -172,18 +220,19 @@ function ProductsPage() {
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">Margin</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
+                <TableHead className="w-24 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-10">
+                  <TableCell colSpan={10} className="text-center py-10">
                     <Loader2 className="size-5 animate-spin inline" />
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-10 text-muted-foreground">
                     No products yet - click "New product" to add one.
                   </TableCell>
                 </TableRow>
@@ -229,6 +278,11 @@ function ProductsPage() {
                       </TableCell>
                       <TableCell className="text-right font-mono">{margin.toFixed(1)}%</TableCell>
                       <TableCell className="text-right font-mono">{Number(p.stock)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button type="button" variant="outline" size="sm" onClick={() => startEdit(p)}>
+                          <Pencil className="mr-1.5 size-3.5" /> Edit
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })
@@ -237,6 +291,55 @@ function ProductsPage() {
           </Table>
         </Card>
       </div>
+
+      <Dialog
+        open={Boolean(editingProduct)}
+        onOpenChange={(next) => {
+          if (!next && !updateProduct.isPending) setEditingProduct(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit product</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="product-edit-name">Product name</Label>
+              <Input id="product-edit-name" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="product-edit-sku">SKU</Label>
+                <Input id="product-edit-sku" value={editForm.sku} onChange={(e) => setEditForm({ ...editForm, sku: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="product-edit-barcode">Barcode</Label>
+                <Input id="product-edit-barcode" value={editForm.barcode} onChange={(e) => setEditForm({ ...editForm, barcode: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="product-edit-cost">Cost</Label>
+                <Input id="product-edit-cost" type="number" min="0" step="0.01" value={editForm.cost} onChange={(e) => setEditForm({ ...editForm, cost: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="product-edit-price">Price</Label>
+                <Input id="product-edit-price" type="number" min="0" step="0.01" value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="product-edit-stock">Stock</Label>
+                <Input id="product-edit-stock" type="number" min="0" step="1" value={editForm.stock} onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingProduct(null)} disabled={updateProduct.isPending}>Cancel</Button>
+            <Button onClick={() => updateProduct.mutate()} disabled={updateProduct.isPending}>
+              {updateProduct.isPending && <Loader2 className="mr-2 size-4 animate-spin" />} Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
