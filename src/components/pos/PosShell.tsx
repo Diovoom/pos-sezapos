@@ -51,26 +51,26 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ManagerOverrideDialog } from "@/components/pos/ManagerOverrideDialog";
-import { dashboardUrl } from "@/lib/host";
 import { StoreLogo } from "@/components/brand/StoreLogo";
 import { UserAvatar } from "@/components/brand/UserAvatar";
-import { roleDotClass, roleTextClass } from "@/lib/role-visual";
 import { Settings as SettingsIcon } from "lucide-react";
 import { useStoreLanguageSync } from "@/hooks/useStoreLanguageSync";
 import { useTranslation } from "react-i18next";
 import { usePermissions } from "@/hooks/usePermissions";
+import { sendPosHeartbeat } from "@/lib/pos/heartbeat";
+import { pendingCounts } from "@/lib/offline/sync";
 
-const POS_NAV = [
-  { to: "/pos", labelKey: "posNav.sell", icon: ScanBarcode },
-  { to: "/register", labelKey: "posNav.register", icon: Wallet },
-  { to: "/refunds", labelKey: "posNav.refunds", icon: RotateCcw },
-  { to: "/timeclock", labelKey: "posNav.timeclock", icon: Clock },
-  { to: "/shifts", labelKey: "posNav.shift", icon: Receipt },
-] as const;
-
-const MANAGER_ROLES = new Set(["owner", "admin", "manager"]);
+const POS_NAV: ReadonlyArray<{ to: string; labelKey: string; icon: typeof ScanBarcode }> = [];
 
 const sb = supabase as any;
+
+function compactEmployeeName(value?: string | null) {
+  const cleaned = (value ?? "").trim();
+  if (!cleaned) return "Cashier";
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0]?.toUpperCase() ?? ""}.`;
+}
 
 export function PosShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -81,7 +81,6 @@ export function PosShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const permissions = usePermissions();
   useStoreLanguageSync();
-  const canDashboard = (me?.roles ?? []).some((r) => MANAGER_ROLES.has(r));
   const storeId = me?.store?.id as string | undefined;
   // Every signed-in register employee needs the core cashier navigation.
   // Actual sensitive actions remain protected inside their workflows with a
@@ -125,6 +124,7 @@ export function PosShell({ children }: { children: ReactNode }) {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [openShiftWarn, setOpenShiftWarn] = useState(false);
   const [managerGate, setManagerGate] = useState(false);
+  const [dashboardGate, setDashboardGate] = useState(false);
   const [drawerDialog, setDrawerDialog] = useState(false);
 
   // Native APK exposes Support + Settings in the mobile menu. Web POS is
@@ -163,135 +163,62 @@ export function PosShell({ children }: { children: ReactNode }) {
     ? `On shift · opened ${new Date(openShift.data.opened_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
     : "No open shift";
 
+  useEffect(() => {
+    if (!isNativeShell || !storeId) return;
+    let cancelled = false;
+    const beat = async () => {
+      const counts = await pendingCounts().catch(() => ({ pendingSales: 0, pendingCash: 0 } as any));
+      if (cancelled) return;
+      await sendPosHeartbeat({
+        storeId,
+        employeeId: me?.user?.id ?? null,
+        employeeName: compactEmployeeName(me?.profile?.full_name ?? me?.user?.email),
+        shiftId: openShift.data?.id ?? null,
+        pendingSync: Number(counts.pendingSales ?? 0) + Number(counts.pendingCash ?? 0),
+      }).catch(() => {});
+    };
+    void beat();
+    const timer = window.setInterval(beat, 20_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [isNativeShell, storeId, me?.user?.id, me?.profile?.full_name, openShift.data?.id]);
+
   return (
     <div className="flex h-[100dvh] w-full bg-background text-foreground overflow-hidden">
-      <aside className="hidden md:flex w-16 lg:w-56 border-r bg-surface/60 flex-col shrink-0">
-        <div className="h-16 px-4 border-b flex items-center gap-3">
-          <StoreLogo className="size-8 rounded-lg" />
-
-          <div className="hidden lg:flex flex-col leading-tight">
-            <span className="font-semibold tracking-tight text-sm">POS Register</span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
-              {me?.store?.name ?? "Store"}
-            </span>
-          </div>
+      <aside className="hidden md:flex w-[76px] border-r bg-surface/60 flex-col shrink-0 items-center">
+        <div className="h-20 w-full border-b flex flex-col items-center justify-center gap-1 px-2">
+          <StoreLogo className="size-9 rounded-xl" />
+          <span className="max-w-full truncate text-[10px] font-semibold text-center">
+            {me?.store?.name ?? "Store"}
+          </span>
         </div>
 
-        <nav aria-label="POS navigation" className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {visibleNav.map((item) => {
-            const Icon = item.icon;
-            const active = pathname === item.to || pathname.startsWith(item.to + "/");
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                aria-label={t(item.labelKey)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                  active
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
-              >
-                <Icon className="size-4 shrink-0" aria-hidden="true" />
-                <span className="hidden lg:inline">{t(item.labelKey)}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="flex-1" />
 
-        {/* Cash drawer control  -  always visible above the cashier row per POS spec. */}
         {openShift.data && (
-          <div className="p-2 border-t">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-center"
-              onClick={() => setDrawerDialog(true)}
-              aria-label={t("posNav.open_drawer")}
-            >
-              <DoorOpen className="size-4 lg:mr-2" />
-              <span className="hidden lg:inline">Open Cash Drawer</span>
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-12 rounded-2xl mb-2"
+            onClick={() => setDrawerDialog(true)}
+            aria-label={t("posNav.open_drawer")}
+            title="Open Drawer"
+          >
+            <DoorOpen className="size-5" />
+          </Button>
         )}
 
-        {canDashboard && (
-          <div className="p-2 border-t">
-            <Button asChild variant="outline" size="sm" className="w-full">
-              <a href={dashboardUrl("/dashboard")}>
-                <LayoutDashboard className="size-4 lg:mr-2" />
-                <span className="hidden lg:inline">Dashboard</span>
-              </a>
-            </Button>
-          </div>
-        )}
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-12 rounded-2xl mb-3"
+          onClick={() => setDashboardGate(true)}
+          aria-label="Open manager dashboard"
+          title="Dashboard"
+        >
+          <LayoutDashboard className="size-5" />
+        </Button>
 
-        <div className="p-2 border-t">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-accent transition-colors text-left">
-                <div className="relative shrink-0">
-                  <UserAvatar
-                    name={me?.profile?.full_name ?? me?.user?.email ?? "?"}
-                    photoUrl={me?.profile?.avatar_url ?? me?.profile?.photo_url}
-                    role={role}
-                    className="size-9 text-sm"
-                  />
-                  <span
-                    className={cn(
-                      "absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-background",
-                      roleDotClass(role),
-                    )}
-                    aria-hidden="true"
-                  />
-                </div>
-                <div className="hidden lg:flex flex-col min-w-0 flex-1">
-                  <span className="text-xs font-semibold truncate">
-                    {me?.profile?.full_name ?? me?.user?.email}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-[10px] font-medium uppercase tracking-wider",
-                      roleTextClass(role),
-                    )}
-                  >
-                    {role ?? "cashier"} · {openShift.data ? "On shift" : "Off shift"}
-                  </span>
-                </div>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div className="text-xs font-normal text-muted-foreground">Signed in as</div>
-                <div>{me?.user?.email}</div>
-                {me?.profile?.employee_id && (
-                  <div className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                    ID {me.profile.employee_id}
-                  </div>
-                )}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate({ to: "/register" })}>
-                <Wallet className="size-4 mr-2" /> Close shift
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate({ to: "/timeclock" })}>
-                <Clock className="size-4 mr-2" /> Time clock
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
-                <SettingsIcon className="size-4 mr-2" /> Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSwitchEmployee}>
-                <ArrowLeftRight className="size-4 mr-2" /> Switch employee
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={requestSignOut} className="text-destructive">
-                <LogOut className="size-4 mr-2" /> Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+
       </aside>
 
       {/* Mobile top bar  -  hosts logo + cashier menu trigger. Desktop uses the sidebar. */}
@@ -319,7 +246,10 @@ export function PosShell({ children }: { children: ReactNode }) {
             </Button>
           )}
           <StoreLogo className="size-7 rounded-md" />
-          <span className="text-sm font-semibold truncate">{me?.store?.name ?? "Store"}</span>
+          <div className="min-w-0 leading-tight">
+            <div className="truncate text-sm font-semibold">{me?.store?.name ?? "Store"}</div>
+            <div className="truncate text-[10px] text-muted-foreground">{compactEmployeeName(me?.profile?.full_name ?? me?.user?.email)}</div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <OfflineIndicator />
@@ -424,16 +354,14 @@ export function PosShell({ children }: { children: ReactNode }) {
                     navigate({ to: "/timeclock" });
                   }}
                 />
-                {canDashboard && !isNativeShell && (
-                  <MobileMenuRow
-                    icon={LayoutDashboard}
-                    label="Dashboard"
-                    onClick={() => {
-                      setMobileMenu(false);
-                      window.location.href = dashboardUrl("/dashboard");
-                    }}
-                  />
-                )}
+                <MobileMenuRow
+                  icon={LayoutDashboard}
+                  label="Dashboard"
+                  onClick={() => {
+                    setMobileMenu(false);
+                    setDashboardGate(true);
+                  }}
+                />
                 {isNativeShell && (
                   <>
                     <MobileMenuRow
@@ -556,6 +484,22 @@ export function PosShell({ children }: { children: ReactNode }) {
         onApprove={() => {
           setManagerGate(false);
           void doSignOut();
+        }}
+      />
+
+      <ManagerOverrideDialog
+        open={dashboardGate}
+        onOpenChange={setDashboardGate}
+        action="dashboard.open"
+        description="Enter a manager or owner PIN to open management tools without switching the cashier."
+        details={{
+          cashier_id: me?.profile?.id,
+          store_id: storeId,
+          shift_id: openShift.data?.id,
+        }}
+        onApprove={() => {
+          setDashboardGate(false);
+          navigate({ to: "/dashboard" });
         }}
       />
 

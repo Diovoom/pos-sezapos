@@ -79,6 +79,7 @@ import { useMe } from "@/hooks/useMe";
 import { isNativeMode } from "@/lib/native";
 import { PasskeyPanel } from "@/components/settings/PasskeyPanel";
 import { AndroidDevicePanel } from "@/components/settings/AndroidDevicePanel";
+import { NativeUsbPrinterPanel } from "@/components/settings/NativeUsbPrinterPanel";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   head: () => ({
@@ -1156,6 +1157,15 @@ function PrinterCompatibilityPanel() {
 }
 
 function UnifiedHardwarePanel() {
+  if (isNativeMode()) {
+    return (
+      <div className="max-w-3xl space-y-4">
+        <NativeUsbPrinterPanel />
+        <HardwareCard kind="scanner" title="Barcode scanner" description="USB/HID scanner assigned to this register." transports={["hid", "usb"]} />
+        <HardwareCard kind="display" title="Customer display" description="Customer-facing secondary display assigned to this register." transports={["usb"]} />
+      </div>
+    );
+  }
   return (
     <Card className="max-w-3xl">
       <CardHeader>

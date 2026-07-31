@@ -19,10 +19,11 @@
 
 import { isNativeMode } from "@/lib/native";
 import * as escposBle from "./escpos-ble";
+import * as escposUsb from "./escpos-usb";
 import { buildReceipt, escposBuilder, type ReceiptPayload } from "./escpos";
 import * as stripeTerminal from "./terminal-stripe";
 
-export type PrinterDriverId = "none" | "escpos-ble" | "star" | "epson";
+export type PrinterDriverId = "none" | "escpos-usb" | "escpos-ble" | "star" | "epson";
 export type TerminalDriverId = "none" | "stripe-tap-to-pay" | "stripe-wisepos" | "stripe-wisepad3";
 
 export interface PrinterDriver {
@@ -63,6 +64,24 @@ const nullPrinter: PrinterDriver = {
   },
   async kickDrawer() {
     /* noop */
+  },
+};
+
+
+const escposUsbDriver: PrinterDriver = {
+  id: "escpos-usb",
+  label: "Generic ESC/POS (USB)",
+  async capable() {
+    return isNativeMode();
+  },
+  async isReady() {
+    return escposUsb.usbPrinterReady();
+  },
+  async printReceipt(payload) {
+    await escposUsb.writeUsb(buildReceipt(payload));
+  },
+  async kickDrawer(pulseMs?: number) {
+    await escposUsb.writeUsb(escposBuilder.kickDrawer(pulseMs));
   },
 };
 
@@ -126,6 +145,7 @@ const epsonDriver: PrinterDriver = {
 
 export const printerDrivers: Record<PrinterDriverId, PrinterDriver> = {
   none: nullPrinter,
+  "escpos-usb": escposUsbDriver,
   "escpos-ble": escposBleDriver,
   star: starDriver,
   epson: epsonDriver,

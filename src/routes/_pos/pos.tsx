@@ -388,6 +388,8 @@ export function PosPage() {
 
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["products", store?.id ?? "unassigned"],
+    refetchInterval: online ? 20_000 : false,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       if (!isOnlineNow()) {
         const cached = await loadCachedProducts();
@@ -706,7 +708,7 @@ export function PosPage() {
         return {
           sale: {
             id: localId,
-            receipt_number: `LOCAL-${seq}`,
+            receipt_number: null,
             created_at: new Date().toISOString(),
             _offline: !isOnlineNow(),
             _localFirst: true,
@@ -817,7 +819,7 @@ export function PosPage() {
       const isLocalFirst = (sale as any)._localFirst === true;
       const rd: ReceiptData = {
         store: store ?? {},
-        receiptNumber: sale.receipt_number ?? sale.id.slice(0, 8),
+        receiptNumber: sale.receipt_number ?? "Pending final number",
         transactionId: sale.id,
         cashierName: profile?.full_name ?? profile?.email ?? null,
         employeeId: null,
@@ -1239,8 +1241,12 @@ export function PosPage() {
   return (
     <>
       <PageHeader
-        title={t("nav.checkout")}
-        subtitle={`${store?.name ?? "Store"} · Terminal 01`}
+        title={store?.name ?? "Store"}
+        subtitle={(() => {
+          const full = (me.data?.profile?.full_name ?? me.data?.user?.email ?? "Cashier").trim();
+          const parts = full.split(/\s+/);
+          return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]?.toUpperCase() ?? ""}.` : parts[0];
+        })()}
         actions={
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="size-2 rounded-full bg-success animate-pulse" /> Shift active

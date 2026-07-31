@@ -25,6 +25,8 @@ export function OfflineIndicator() {
   });
   const [sales, setSales] = useState<OfflineSale[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [cloudReachable, setCloudReachable] = useState<boolean | null>(null);
+  const [lastCloudCheck, setLastCloudCheck] = useState<string | null>(null);
 
   const refresh = async () => {
     try {
@@ -39,17 +41,55 @@ export function OfflineIndicator() {
     installAutoSync();
     void refresh();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkCloud = async () => {
+      if (!online) {
+        if (!cancelled) setCloudReachable(false);
+        return;
+      }
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 6_000);
+      try {
+        const response = await fetch(`/api/public/health?ts=${Date.now()}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const body = response.ok ? await response.json().catch(() => null) : null;
+        if (!cancelled) {
+          setCloudReachable(Boolean(response.ok && body?.status === "operational"));
+          setLastCloudCheck(new Date().toISOString());
+        }
+      } catch {
+        if (!cancelled) {
+          setCloudReachable(false);
+          setLastCloudCheck(new Date().toISOString());
+        }
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    };
+    void checkCloud();
+    const timer = window.setInterval(checkCloud, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [online]);
   useEffect(() => {
     void refresh();
   }, [evt, online]);
 
   const state: "offline" | "syncing" | "issue" | "online" = !online
     ? "offline"
-    : syncing || evt?.type === "start" || evt?.type === "progress"
-      ? "syncing"
-      : counts.failedSales > 0
-        ? "issue"
-        : "online";
+    : cloudReachable === false
+      ? "issue"
+      : syncing || evt?.type === "start" || evt?.type === "progress"
+        ? "syncing"
+        : counts.failedSales > 0
+          ? "issue"
+          : "online";
 
   const label =
     state === "offline"
@@ -124,12 +164,22 @@ export function OfflineIndicator() {
           )}
           {state === "issue" && (
             <p className="mt-2 text-xs text-destructive">
-              {counts.failedSales} record{counts.failedSales === 1 ? "" : "s"} could not sync. Retry
-              below.
+              {cloudReachable === false
+                ? "The device has a network connection, but SEZA Cloud did not answer the health check."
+                : `${counts.failedSales} record${counts.failedSales === 1 ? "" : "s"} could not sync. Retry below.`}
             </p>
           )}
         </div>
         <div className="p-4 space-y-2 text-sm">
+          <Row label="Network" value={online ? "Connected" : "Disconnected"} />
+          <Row
+            label="SEZA Cloud"
+            value={cloudReachable === null ? "Checking" : cloudReachable ? "Reachable" : "Unavailable"}
+          />
+          <Row
+            label="Cloud checked"
+            value={lastCloudCheck ? new Date(lastCloudCheck).toLocaleTimeString() : " - "}
+          />
           <Row label="Pending sales" value={counts.pendingSales} />
           <Row label="Pending cash movements" value={counts.pendingCash} />
           <Row label="Failed records" value={counts.failedSales} />
@@ -150,7 +200,7 @@ export function OfflineIndicator() {
                 >
                   <div className="min-w-0">
                     <div className="font-mono truncate">
-                      #{s.local_seq} · {s.id.slice(0, 8)}
+                      Pending receipt · {new Date(s.local_created_at).toLocaleTimeString()}
                     </div>
                     <div className="text-muted-foreground">
                       {s.total.toFixed(2)} {s.currency}

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
@@ -31,12 +31,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Search,
   Package,
   AlertTriangle,
@@ -45,7 +39,6 @@ import {
   Plus,
   Upload,
   Download,
-  MoreVertical,
   ImageIcon,
   ArrowUpDown,
   Loader2,
@@ -56,6 +49,7 @@ import { cn } from "@/lib/utils";
 import { fmtCurrency } from "@/lib/format";
 import { useProductImageUrl } from "@/lib/pos/product-images";
 import { toast } from "sonner";
+import { applyInventoryDrafts, clearInventoryDrafts, loadInventoryDrafts, saveInventoryDraft, type InventoryDraft } from "@/lib/inventory-drafts";
 
 export const Route = createFileRoute("/_dashboard/inventory")({
   head: () => ({
@@ -203,6 +197,7 @@ function InventoryPage() {
   const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<ProductRow | null>(null);
   const [editForm, setEditForm] = useState<InventoryEditForm | null>(null);
+  const [drafts, setDrafts] = useState<InventoryDraft[]>([]);
   const queryClient = useQueryClient();
 
   const refreshProducts = async () => {
@@ -224,23 +219,20 @@ function InventoryPage() {
         throw new Error("Enter valid numbers");
       if (price < 0 || cost < 0 || stock < 0 || minStock < 0)
         throw new Error("Price, cost, stock, and low-stock alert cannot be negative");
-      const { error } = await supabase
-        .from("products")
-        .update({
-          name: editForm.name.trim(),
-          sku: editForm.sku.trim() || null,
-          barcode: editForm.barcode.trim() || null,
-          price,
-          cost,
-          stock,
-          min_stock: minStock,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", editingProduct.id);
-      if (error) throw error;
+      if (!store?.id) throw new Error("Store not loaded");
+      saveInventoryDraft(store.id, {
+        id: crypto.randomUUID(),
+        operation: "update",
+        productId: editingProduct.id,
+        changes: {
+          name: editForm.name.trim(), sku: editForm.sku.trim() || null, barcode: editForm.barcode.trim() || null,
+          price, cost, stock, min_stock: minStock, updated_at: new Date().toISOString(),
+        },
+        createdAt: new Date().toISOString(),
+      });
     },
     onSuccess: async () => {
-      toast.success("Product updated");
+      toast.success("Change saved as draft — press Publish to send it to the POS");
       setEditingProduct(null);
       setEditForm(null);
       await refreshProducts();
@@ -251,11 +243,11 @@ function InventoryPage() {
   const deleteProduct = useMutation({
     mutationFn: async () => {
       if (!deletingProduct) throw new Error("No product selected");
-      const { error } = await supabase.from("products").delete().eq("id", deletingProduct.id);
-      if (error) throw error;
+      if (!store?.id) throw new Error("Store not loaded");
+      saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "delete", productId: deletingProduct.id, createdAt: new Date().toISOString() });
     },
     onSuccess: async () => {
-      toast.success("Product deleted");
+      toast.success("Deletion saved as draft — publish when ready");
       setDeletingProduct(null);
       await refreshProducts();
     },
@@ -269,6 +261,14 @@ function InventoryPage() {
   });
   const currency = store?.currency ?? "USD";
 
+  useEffect(() => {
+    if (!store?.id) return;
+    const refresh = () => setDrafts(loadInventoryDrafts(store.id));
+    refresh();
+    window.addEventListener("inventory-drafts-change", refresh);
+    return () => window.removeEventListener("inventory-drafts-change", refresh);
+  }, [store?.id]);
+
   const { data: categories = [] } = useQuery<CategoryRow[]>({
     queryKey: ["categories"],
     queryFn: async () => {
@@ -277,7 +277,7 @@ function InventoryPage() {
     },
   });
 
-  const { data: products = [], isLoading } = useQuery<ProductRow[]>({
+  const { data: serverProducts = [], isLoading } = useQuery<ProductRow[]>({
     queryKey: ["inventory-products"],
     queryFn: async () => {
       const { data } = await supabase
@@ -288,6 +288,26 @@ function InventoryPage() {
         .order("name");
       return (data as ProductRow[]) ?? [];
     },
+  });
+
+  const products = useMemo(() => applyInventoryDrafts(serverProducts, drafts), [serverProducts, drafts]);
+
+  const publishDrafts = useMutation({
+    mutationFn: async () => {
+      if (!store?.id || drafts.length === 0) return;
+      for (const draft of drafts) {
+        if (draft.operation === "delete") {
+          const { error } = await supabase.from("products").delete().eq("id", draft.productId).eq("store_id", store.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("products").update(draft.changes ?? {}).eq("id", draft.productId).eq("store_id", store.id);
+          if (error) throw error;
+        }
+      }
+      clearInventoryDrafts(store.id);
+    },
+    onSuccess: async () => { toast.success("Inventory published to every POS"); await refreshProducts(); },
+    onError: (error: Error) => toast.error(error.message || "Could not publish inventory"),
   });
 
   const categoryMap = useMemo(() => {
@@ -404,10 +424,9 @@ function InventoryPage() {
                 <Plus className="size-4 mr-1.5" /> Add Product
               </Link>
             </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/products">
-                <Upload className="size-4 mr-1.5" /> Import
-              </Link>
+            <Button size="sm" onClick={() => publishDrafts.mutate()} disabled={drafts.length === 0 || publishDrafts.isPending}>
+              {publishDrafts.isPending ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Upload className="size-4 mr-1.5" />}
+              Publish{drafts.length > 0 ? ` (${drafts.length})` : ""}
             </Button>
             <Button variant="outline" size="sm" onClick={exportCsv}>
               <Download className="size-4 mr-1.5" /> Export
@@ -417,6 +436,15 @@ function InventoryPage() {
       />
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex flex-col gap-2 rounded-xl border bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="font-semibold">{drafts.length} unpublished change{drafts.length === 1 ? "" : "s"}</div>
+            <p className="text-sm text-muted-foreground">Scanning and edits stay on this phone or tablet until Publish sends them to every POS.</p>
+          </div>
+          <Button onClick={() => publishDrafts.mutate()} disabled={drafts.length === 0 || publishDrafts.isPending}>
+            {publishDrafts.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Upload className="mr-2 size-4" />}Publish to POS
+          </Button>
+        </div>
         {/* Summary cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <SummaryCard icon={Package} label="Total Products" value={summary.total} tone="primary" />
@@ -595,48 +623,28 @@ function InventoryPage() {
                           {updated ? new Date(updated).toLocaleDateString() : " - "}
                         </TableCell>
                         <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="size-8">
-                                <MoreVertical className="size-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onSelect={() => {
-                                  setEditingProduct(p);
-                                  setEditForm(productToEditForm(p));
-                                }}
-                              >
-                                <Pencil className="mr-2 size-4" /> Edit price & stock
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={() => {
-                                  setEditingProduct(p);
-                                  setEditForm({
-                                    ...productToEditForm(p),
-                                    stock: String(Number(p.stock) + 1),
-                                  });
-                                }}
-                              >
-                                <Plus className="mr-2 size-4" /> Add stock
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={() => {
-                                  setEditingProduct(p);
-                                  setEditForm(productToEditForm(p));
-                                }}
-                              >
-                                <Package className="mr-2 size-4" /> Full product details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onSelect={() => setDeletingProduct(p)}
-                              >
-                                <Trash2 className="mr-2 size-4" /> Delete product
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-2"
+                              onClick={() => {
+                                setEditingProduct(p);
+                                setEditForm(productToEditForm(p));
+                              }}
+                            >
+                              <Pencil className="mr-1 size-3.5" /> Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-destructive hover:text-destructive"
+                              onClick={() => setDeletingProduct(p)}
+                              aria-label={`Delete ${p.name}`}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
