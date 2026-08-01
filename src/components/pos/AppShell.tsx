@@ -41,7 +41,6 @@ import {
 
 const MORE_NAV = [
   { to: "/sales", label: "Sales", icon: Receipt },
-  { to: "/products", label: "Products", icon: Package },
   { to: "/inventory", label: "Inventory", icon: Boxes },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/reports", label: "Reports", icon: BarChart3 },
@@ -103,7 +102,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
       <DropdownMenuItem
-        onClick={() => navigate({ to: "/settings", search: { section: "profile" } as any })}
+        onClick={() => navigate({ to: "/profile" })}
       >
         <UserRound className="mr-2 size-4" /> My profile
       </DropdownMenuItem>
@@ -223,6 +222,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </Link>
           <div className="flex items-center gap-1">
+            <Link
+              to="/products"
+              aria-label="Products"
+              title="Products"
+              className={cn(
+                "grid size-10 place-items-center rounded-full hover:bg-accent",
+                pathname.startsWith("/products") && "bg-primary/10 text-primary",
+              )}
+            >
+              <Package className="size-5" />
+            </Link>
             <CatalogPublishButton compact />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -260,7 +270,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           </DropdownMenu>
         </nav>
 
-        <div className="fixed right-5 top-4 z-30 hidden md:flex">
+        <div className="fixed right-5 top-4 z-30 hidden items-center gap-2 md:flex">
+          <Button asChild variant="outline" size="icon" title="Products" aria-label="Products">
+            <Link to="/products"><Package className="size-4" /></Link>
+          </Button>
           <CatalogPublishButton />
         </div>
         <Link

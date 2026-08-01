@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
 import { TrialCountdown } from "@/components/TrialCountdown";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fmtCurrency, fmtNumber } from "@/lib/format";
 import {
   TrendingUp,
@@ -16,6 +18,8 @@ import {
   Trophy,
   Clock,
   Wallet,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -30,377 +34,329 @@ import {
 } from "recharts";
 
 const sb = supabase as any;
+type DetailKey =
+  | "sales"
+  | "transactions"
+  | "items"
+  | "cash"
+  | "card"
+  | "tax"
+  | "refunds"
+  | "discounts"
+  | "net"
+  | "best"
+  | "hour"
+  | "employees";
 
 export const Route = createFileRoute("/_dashboard/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard  -  SEZA POS" },
-      {
-        name: "description",
-        content:
-          "Live overview of today's sales, transactions, tax, refunds, best sellers, and busiest hour.",
-      },
+      { title: "Dashboard - SEZA POS" },
+      { name: "description", content: "Interactive daily business summary for SEZA POS owners." },
     ],
   }),
   component: DashboardPage,
 });
 
+function hourLabel(hour: number) {
+  return new Date(2000, 0, 1, hour).toLocaleTimeString([], { hour: "numeric" });
+}
+
 function DashboardPage() {
-  const { data } = useQuery({
+  const [detail, setDetail] = useState<DetailKey | null>(null);
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["dashboard-today"],
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
     queryFn: async () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const week = new Date(today);
-      week.setDate(week.getDate() - 7);
+      week.setDate(week.getDate() - 6);
 
-      const [salesRes, refundsRes, products, lowStock, store, openShifts, employeesToday] =
+      const [salesRes, refundsRes, products, lowStock, store, openShifts, timeEntries] =
         await Promise.all([
           sb
             .from("sales")
-            .select("id,total,subtotal,tax,discount,created_at,payment_method,cashier_id,status")
+            .select("id,receipt_number,total,subtotal,tax,discount,created_at,payment_method,cashier_id,status")
             .gte("created_at", week.toISOString())
-            .order("created_at"),
+            .order("created_at", { ascending: false }),
           sb
             .from("refunds")
-            .select("total,created_at,refund_type")
-            .gte("created_at", today.toISOString()),
+            .select("id,total,created_at,refund_type,reason,sale_id")
+            .gte("created_at", today.toISOString())
+            .order("created_at", { ascending: false }),
           sb.from("products").select("id,price,stock", { count: "exact" }),
           sb
             .from("products")
             .select("id,name,stock,min_stock")
             .lte("stock", 5)
             .order("stock")
-            .limit(5),
+            .limit(8),
           sb.from("stores").select("currency").limit(1).maybeSingle(),
+          sb.from("register_sessions").select("id,opened_by,opened_at,cash_sales").eq("status", "open"),
           sb
-            .from("register_sessions")
-            .select("id,opened_by,opened_at,cash_sales")
-            .eq("status", "open"),
-          sb.from("time_entries").select("user_id").gte("clock_in", today.toISOString()),
+            .from("time_entries")
+            .select("user_id,clock_in,clock_out")
+            .gte("clock_in", today.toISOString())
+            .order("clock_in", { ascending: false }),
         ]);
+
+      if (salesRes.error) throw salesRes.error;
+      if (refundsRes.error) throw refundsRes.error;
 
       const allSales = (salesRes.data ?? []) as any[];
       const completed = allSales.filter((s) => s.status === "completed");
       const todays = completed.filter((s) => new Date(s.created_at) >= today);
-
-      const todayTotal = todays.reduce((a, s) => a + Number(s.total), 0);
-      const weekTotal = completed.reduce((a, s) => a + Number(s.total), 0);
-      const cashSales = todays
-        .filter((s) => s.payment_method === "cash")
-        .reduce((a, s) => a + Number(s.total), 0);
-      const cardSales = todays
-        .filter((s) => s.payment_method !== "cash")
-        .reduce((a, s) => a + Number(s.total), 0);
+      const todayTotal = todays.reduce((a, s) => a + Number(s.total || 0), 0);
+      const cashSales = todays.filter((s) => s.payment_method === "cash");
+      const cardSales = todays.filter((s) => s.payment_method !== "cash");
+      const cashTotal = cashSales.reduce((a, s) => a + Number(s.total || 0), 0);
+      const cardTotal = cardSales.reduce((a, s) => a + Number(s.total || 0), 0);
       const totalTax = todays.reduce((a, s) => a + Number(s.tax || 0), 0);
       const totalDiscount = todays.reduce((a, s) => a + Number(s.discount || 0), 0);
-
-      const refundAmount = (refundsRes.data ?? [])
-        .filter((r: any) => r.refund_type !== "void")
-        .reduce((a: number, r: any) => a + Number(r.total || 0), 0);
+      const refunds = (refundsRes.data ?? []) as any[];
+      const refundAmount = refunds
+        .filter((r) => r.refund_type !== "void")
+        .reduce((a, r) => a + Number(r.total || 0), 0);
       const netRevenue = todayTotal - refundAmount;
 
-      // Best-selling product & busiest hour (today only)
       const saleIds = todays.map((s) => s.id);
       const items = saleIds.length
-        ? ((
-            await sb
-              .from("sale_items")
-              .select("product_name,quantity,line_total")
-              .in("sale_id", saleIds)
-          ).data ?? [])
+        ? (((await sb.from("sale_items").select("sale_id,product_name,quantity,line_total").in("sale_id", saleIds)).data ?? []) as any[])
         : [];
       const perProduct = new Map<string, { name: string; qty: number; revenue: number }>();
-
-      for (const it of items as any[]) {
-        const e = perProduct.get(it.product_name) ?? { name: it.product_name, qty: 0, revenue: 0 };
-        e.qty += Number(it.quantity || 0);
-        e.revenue += Number(it.line_total || 0);
-        perProduct.set(it.product_name, e);
+      for (const item of items) {
+        const name = item.product_name || "Unnamed item";
+        const current = perProduct.get(name) ?? { name, qty: 0, revenue: 0 };
+        current.qty += Number(item.quantity || 0);
+        current.revenue += Number(item.line_total || 0);
+        perProduct.set(name, current);
       }
-      const topProducts = Array.from(perProduct.values())
-        .sort((a, b) => b.qty - a.qty)
-        .slice(0, 5);
-      const bestSelling = topProducts[0]?.name ?? " - ";
+      const topProducts = Array.from(perProduct.values()).sort((a, b) => b.qty - a.qty || b.revenue - a.revenue);
+      const itemsSold = topProducts.reduce((sum, item) => sum + item.qty, 0);
 
-      const byHour = new Array(24).fill(0).map((_, h) => ({ hour: h, sales: 0, count: 0 }));
-      for (const s of todays) {
-        const h = new Date(s.created_at).getHours();
-        byHour[h].sales += Number(s.total);
-        byHour[h].count += 1;
+      const hourlyChart = new Array(24).fill(0).map((_, hour) => ({
+        hour,
+        label: hourLabel(hour),
+        sales: 0,
+        transactions: 0,
+        items: 0,
+      }));
+      for (const sale of todays) {
+        const hour = new Date(sale.created_at).getHours();
+        hourlyChart[hour].sales += Number(sale.total || 0);
+        hourlyChart[hour].transactions += 1;
       }
-      const busiestHour = byHour.reduce((best, x) => (x.count > best.count ? x : best), byHour[0]);
-      const hourlyChart = byHour.filter((h) => h.count > 0);
+      for (const item of items) {
+        const sale = todays.find((candidate) => candidate.id === item.sale_id);
+        if (sale) hourlyChart[new Date(sale.created_at).getHours()].items += Number(item.quantity || 0);
+      }
+      const busiestHour = hourlyChart.reduce(
+        (best, current) => current.transactions > best.transactions ? current : best,
+        hourlyChart[0],
+      );
 
-      // 7-day trend
       const buckets: Record<string, number> = {};
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        buckets[d.toISOString().slice(0, 10)] = 0;
+      for (let index = 6; index >= 0; index--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - index);
+        buckets[date.toISOString().slice(0, 10)] = 0;
       }
-      for (const s of completed) {
-        const key = new Date(s.created_at).toISOString().slice(0, 10);
-        if (key in buckets) buckets[key] += Number(s.total);
+      for (const sale of completed) {
+        const key = new Date(sale.created_at).toISOString().slice(0, 10);
+        if (key in buckets) buckets[key] += Number(sale.total || 0);
       }
       const chart = Object.entries(buckets).map(([date, total]) => ({
-        date: new Date(date).toLocaleDateString(undefined, { weekday: "short" }),
+        date: new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short" }),
         total: Math.round(total * 100) / 100,
       }));
 
-      const inventoryValue = (products.data ?? []).reduce(
-        (s: number, p: any) => s + Number(p.price) * Number(p.stock),
-        0,
-      );
-
-      const employeesWorked = new Set((employeesToday.data ?? []).map((t: any) => t.user_id)).size;
-
-      const openShiftCount = (openShifts.data ?? []).length;
-      const itemsSold = items.length;
+      const employeeIds = [...new Set((timeEntries.data ?? []).map((entry: any) => entry.user_id).filter(Boolean))];
+      const employeeProfiles = employeeIds.length
+        ? (((await sb.from("profiles").select("id,full_name,employee_id").in("id", employeeIds)).data ?? []) as any[])
+        : [];
+      const employeeMap = new Map(employeeProfiles.map((profile) => [profile.id, profile]));
+      const employees = (timeEntries.data ?? []).map((entry: any) => ({
+        ...entry,
+        name: employeeMap.get(entry.user_id)?.full_name ?? "Employee",
+        employeeId: employeeMap.get(entry.user_id)?.employee_id ?? null,
+      }));
 
       return {
         todayTotal,
-        weekTotal,
-        cashSales,
-        cardSales,
+        cashTotal,
+        cardTotal,
         totalTax,
         totalDiscount,
         refundAmount,
         netRevenue,
         txCount: todays.length,
         itemsSold,
-        bestSelling,
-        busiestHour: busiestHour.count > 0 ? `${busiestHour.hour}:00` : " - ",
-        employeesWorked,
-        openShiftCount,
+        bestSelling: topProducts[0]?.name ?? "No sales yet",
+        busiestHour: busiestHour.transactions ? busiestHour.label : "No sales yet",
+        busiestHourData: busiestHour,
+        employeesWorked: employeeIds.length,
+        openShiftCount: (openShifts.data ?? []).length,
         topProducts,
         hourlyChart,
         chart,
-        productCount: products.count ?? 0,
-        inventoryValue,
         lowStock: lowStock.data ?? [],
         currency: store.data?.currency ?? "USD",
+        todays,
+        cashSales,
+        cardSales,
+        refunds,
+        employees,
+        weekTotal: Object.values(buckets).reduce((sum, total) => sum + total, 0),
       };
     },
   });
 
   const cur = data?.currency ?? "USD";
+  const kpis = [
+    { key: "sales" as const, icon: TrendingUp, label: "Today's sales", value: fmtCurrency(data?.todayTotal ?? 0, cur) },
+    { key: "transactions" as const, icon: Receipt, label: "Transactions", value: fmtNumber(data?.txCount ?? 0) },
+    { key: "items" as const, icon: Package, label: "Items sold", value: fmtNumber(data?.itemsSold ?? 0) },
+    { key: "cash" as const, icon: Wallet, label: "Cash sales", value: fmtCurrency(data?.cashTotal ?? 0, cur) },
+    { key: "card" as const, icon: Wallet, label: "Card sales", value: fmtCurrency(data?.cardTotal ?? 0, cur) },
+    { key: "tax" as const, icon: Percent, label: "Tax collected", value: fmtCurrency(data?.totalTax ?? 0, cur) },
+    { key: "refunds" as const, icon: RotateCcw, label: "Refunds", value: fmtCurrency(data?.refundAmount ?? 0, cur) },
+    { key: "discounts" as const, icon: Percent, label: "Discounts", value: fmtCurrency(data?.totalDiscount ?? 0, cur) },
+    { key: "net" as const, icon: TrendingUp, label: "Net revenue", value: fmtCurrency(data?.netRevenue ?? 0, cur), highlight: true },
+    { key: "best" as const, icon: Trophy, label: "Best seller", value: data?.bestSelling ?? "No sales yet", small: true },
+    { key: "hour" as const, icon: Clock, label: "Busiest hour", value: data?.busiestHour ?? "No sales yet" },
+    { key: "employees" as const, icon: Users, label: "Employees today", value: fmtNumber(data?.employeesWorked ?? 0) },
+  ];
 
   return (
     <>
-      <PageHeader
-        title="Daily Summary"
-        subtitle="Live overview of today's business · updates every 30s"
-      />
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <PageHeader title="Daily Summary" subtitle="Tap any summary card for the full details · updates every 30 seconds" />
+      <div className="space-y-6 p-4 md:p-6">
         <TrialCountdown />
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-          <Kpi
-            icon={TrendingUp}
-            label="Today's sales"
-            value={fmtCurrency(data?.todayTotal ?? 0, cur)}
-          />
-          <Kpi icon={Receipt} label="Transactions" value={fmtNumber(data?.txCount ?? 0)} />
-          <Kpi icon={Package} label="Items sold" value={fmtNumber(data?.itemsSold ?? 0)} />
-          <Kpi icon={Wallet} label="Cash sales" value={fmtCurrency(data?.cashSales ?? 0, cur)} />
-          <Kpi icon={Wallet} label="Card sales" value={fmtCurrency(data?.cardSales ?? 0, cur)} />
-          <Kpi icon={Percent} label="Tax collected" value={fmtCurrency(data?.totalTax ?? 0, cur)} />
-          <Kpi icon={RotateCcw} label="Refunds" value={fmtCurrency(data?.refundAmount ?? 0, cur)} />
-          <Kpi
-            icon={Percent}
-            label="Discounts"
-            value={fmtCurrency(data?.totalDiscount ?? 0, cur)}
-          />
-          <Kpi
-            icon={TrendingUp}
-            label="Net revenue"
-            value={fmtCurrency(data?.netRevenue ?? 0, cur)}
-            highlight
-          />
-          <Kpi icon={Trophy} label="Best seller" value={data?.bestSelling ?? " - "} small />
-          <Kpi icon={Clock} label="Busiest hour" value={data?.busiestHour ?? " - "} />
-          <Kpi icon={Users} label="Employees today" value={fmtNumber(data?.employeesWorked ?? 0)} />
-        </div>
+        {isLoading ? (
+          <div className="flex min-h-56 items-center justify-center text-muted-foreground"><Loader2 className="mr-2 size-5 animate-spin" />Loading today's summary…</div>
+        ) : isError ? (
+          <Card><CardContent className="p-6 text-sm text-muted-foreground">Today's summary could not be loaded. Please refresh or try again shortly.</CardContent></Card>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+              {kpis.map((kpi) => <Kpi key={kpi.key} {...kpi} onClick={() => setDetail(kpi.key)} />)}
+            </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Sales · last 7 days</CardTitle>
-              <span className="text-xs text-muted-foreground">
-                Week total: {fmtCurrency(data?.weekTotal ?? 0, cur)}
-              </span>
-            </CardHeader>
-            <CardContent className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data?.chart ?? []}>
-                  <defs>
-                    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="var(--color-border)"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="date"
-                    stroke="var(--color-muted-foreground)"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--color-card)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                    formatter={(v: number) => fmtCurrency(v, cur)}
-                  />
-                  <Area
-                    dataKey="total"
-                    stroke="var(--color-primary)"
-                    fill="url(#g)"
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-base">Sales · last 7 days</CardTitle>
+                  <span className="text-xs text-muted-foreground">Week total: {fmtCurrency(data?.weekTotal ?? 0, cur)}</span>
+                </CardHeader>
+                <CardContent className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={data?.chart ?? []}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                      <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} />
+                      <Tooltip formatter={(value: number) => fmtCurrency(value, cur)} />
+                      <Area dataKey="total" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.14} strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Sales by hour · today</CardTitle>
-            </CardHeader>
-            <CardContent className="h-64">
-              {(data?.hourlyChart?.length ?? 0) === 0 ? (
-                <div className="text-sm text-muted-foreground">No sales yet today.</div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data!.hourlyChart}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis dataKey="hour" tickFormatter={(h) => `${h}:00`} fontSize={11} />
-                    <YAxis fontSize={11} />
-                    <Tooltip
-                      formatter={(v: number) => fmtCurrency(v, cur)}
-                      labelFormatter={(h) => `${h}:00`}
-                    />
-                    <Bar dataKey="sales" fill="var(--color-primary)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              <Card className="cursor-pointer transition hover:border-primary/40" onClick={() => setDetail("hour")}>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-base">Busiest times · today</CardTitle>
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data?.hourlyChart ?? []}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                      <XAxis dataKey="hour" tickFormatter={(hour) => hour % 3 === 0 ? hourLabel(hour) : ""} fontSize={10} />
+                      <YAxis allowDecimals={false} fontSize={11} />
+                      <Tooltip labelFormatter={(hour) => hourLabel(Number(hour))} />
+                      <Bar dataKey="transactions" name="Transactions" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-base">Top products today</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {(data?.topProducts?.length ?? 0) === 0 ? (
-                <p className="text-sm text-muted-foreground">No products sold yet today.</p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="text-left text-xs text-muted-foreground border-b">
-                    <tr>
-                      <th className="py-2">Product</th>
-                      <th className="text-right">Qty</th>
-                      <th className="text-right">Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data!.topProducts.map((p, i) => (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="py-2">{p.name}</td>
-                        <td className="text-right tabular-nums">{p.qty.toFixed(2)}</td>
-                        <td className="text-right tabular-nums">{fmtCurrency(p.revenue, cur)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </CardContent>
-          </Card>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <Card className="cursor-pointer lg:col-span-2" onClick={() => setDetail("best")}>
+                <CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-base">Top products today</CardTitle><ChevronRight className="size-4 text-muted-foreground" /></CardHeader>
+                <CardContent><ProductRanking products={(data?.topProducts ?? []).slice(0, 5)} currency={cur} /></CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Wallet className="size-4" /> Register status</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Open shifts</span><span className="text-xl font-semibold">{data?.openShiftCount ?? 0}</span></div>
+                  <Link to="/shifts" className="block text-sm text-primary hover:underline">Review shifts and time clock →</Link>
+                </CardContent>
+              </Card>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Wallet className="size-4" /> Register status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Open shifts</span>
-                <span className="text-xl font-semibold">{data?.openShiftCount ?? 0}</span>
-              </div>
-              <Link to="/register" className="block text-sm text-primary hover:underline">
-                Open / close register →
-              </Link>
-              <Link to="/shifts" className="block text-sm text-primary hover:underline">
-                All shift reports →
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <AlertTriangle className="size-4 text-warning" /> Low stock
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(data?.lowStock?.length ?? 0) === 0 ? (
-              <p className="text-sm text-muted-foreground">All products are well stocked.</p>
-            ) : (
-              <div className="divide-y">
-                {data!.lowStock.map((p: { id: string; name: string; stock: number }) => (
-                  <div key={p.id} className="flex items-center justify-between py-3 text-sm">
-                    <span className="font-medium">{p.name}</span>
-                    <span className="font-mono text-warning">{Number(p.stock)} left</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="size-4 text-warning" /> Low stock</CardTitle></CardHeader>
+              <CardContent>
+                {(data?.lowStock?.length ?? 0) === 0 ? <p className="text-sm text-muted-foreground">All products are well stocked.</p> : (
+                  <div className="divide-y">{data!.lowStock.map((product: any) => <div key={product.id} className="flex items-center justify-between py-3 text-sm"><span className="font-medium">{product.name}</span><span className="font-mono text-warning">{Number(product.stock)} left</span></div>)}</div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
+      <SummaryDialog detail={detail} onOpenChange={(open) => !open && setDetail(null)} data={data} currency={cur} />
     </>
   );
 }
 
-function Kpi({
-  icon: Icon,
-  label,
-  value,
-  highlight,
-  small,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  highlight?: boolean;
-  small?: boolean;
-}) {
+function Kpi({ icon: Icon, label, value, highlight, small, onClick }: any) {
   return (
-    <Card className={highlight ? "border-primary/40 bg-primary/5" : ""}>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-            {label}
-          </span>
-          <Icon className="size-3.5 text-muted-foreground" />
-        </div>
-        <div className={`font-bold font-mono ${small ? "text-sm truncate" : "text-xl"}`}>
-          {value}
-        </div>
-      </CardContent>
-    </Card>
+    <button type="button" className="min-w-0 text-left" onClick={onClick}>
+      <Card className={`h-full transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm ${highlight ? "border-primary/40 bg-primary/5" : ""}`}>
+        <CardContent className="p-4">
+          <div className="mb-1.5 flex items-center justify-between"><span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span><Icon className="size-3.5 text-muted-foreground" /></div>
+          <div className={`font-mono font-bold ${small ? "truncate text-sm" : "text-xl"}`}>{value}</div>
+          <div className="mt-2 flex items-center text-[10px] font-medium text-primary">View details <ChevronRight className="ml-0.5 size-3" /></div>
+        </CardContent>
+      </Card>
+    </button>
   );
 }
+
+function ProductRanking({ products, currency }: { products: any[]; currency: string }) {
+  if (!products.length) return <p className="text-sm text-muted-foreground">No products sold yet today.</p>;
+  return <div className="divide-y">{products.map((product, index) => <div key={`${product.name}-${index}`} className="grid grid-cols-[2rem_1fr_auto] items-center gap-3 py-3"><div className="grid size-7 place-items-center rounded-full bg-muted text-xs font-bold">{index + 1}</div><div className="min-w-0"><div className="truncate font-medium">{product.name}</div><div className="text-xs text-muted-foreground">{fmtNumber(product.qty)} sold</div></div><div className="font-mono text-sm">{fmtCurrency(product.revenue, currency)}</div></div>)}</div>;
+}
+
+function SaleList({ sales, currency }: { sales: any[]; currency: string }) {
+  if (!sales.length) return <p className="text-sm text-muted-foreground">No matching transactions today.</p>;
+  return <div className="max-h-[55vh] divide-y overflow-y-auto">{sales.slice(0, 40).map((sale) => <div key={sale.id} className="flex items-center justify-between gap-4 py-3"><div><div className="font-medium">Receipt {sale.receipt_number || "Pending"}</div><div className="text-xs text-muted-foreground">{new Date(sale.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · {String(sale.payment_method || "payment").replaceAll("_", " ")}</div></div><div className="font-mono font-semibold">{fmtCurrency(Number(sale.total || 0), currency)}</div></div>)}</div>;
+}
+
+function SummaryDialog({ detail, onOpenChange, data, currency }: any) {
+  const titles: Record<DetailKey, string> = { sales: "Today's sales", transactions: "Transactions", items: "Items sold", cash: "Cash sales", card: "Card sales", tax: "Tax collected", refunds: "Refunds", discounts: "Discounts", net: "Net revenue", best: "Best sellers", hour: "Busiest hours", employees: "Employees today" };
+  return (
+    <Dialog open={Boolean(detail)} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
+        {detail && <><DialogHeader><DialogTitle>{titles[detail]}</DialogTitle><DialogDescription>Live details for today.</DialogDescription></DialogHeader><div className="mt-2">
+          {detail === "sales" && <><div className="mb-4 grid grid-cols-2 gap-3"><Mini label="Gross sales" value={fmtCurrency(data?.todayTotal ?? 0, currency)} /><Mini label="Net revenue" value={fmtCurrency(data?.netRevenue ?? 0, currency)} /></div><SaleList sales={data?.todays ?? []} currency={currency} /></>}
+          {detail === "transactions" && <SaleList sales={data?.todays ?? []} currency={currency} />}
+          {detail === "items" && <ProductRanking products={data?.topProducts ?? []} currency={currency} />}
+          {detail === "cash" && <SaleList sales={data?.cashSales ?? []} currency={currency} />}
+          {detail === "card" && <SaleList sales={data?.cardSales ?? []} currency={currency} />}
+          {detail === "tax" && <Breakdown rows={[ ["Tax collected", data?.totalTax], ["Taxable sales", data?.todayTotal] ]} currency={currency} />}
+          {detail === "discounts" && <Breakdown rows={[ ["Discounts given", data?.totalDiscount], ["Gross sales", data?.todayTotal] ]} currency={currency} />}
+          {detail === "net" && <Breakdown rows={[ ["Gross sales", data?.todayTotal], ["Refunds", -(data?.refundAmount ?? 0)], ["Net revenue", data?.netRevenue] ]} currency={currency} />}
+          {detail === "best" && <ProductRanking products={data?.topProducts ?? []} currency={currency} />}
+          {detail === "refunds" && ((data?.refunds?.length ?? 0) ? <div className="divide-y">{data.refunds.map((refund: any) => <div key={refund.id} className="flex justify-between py-3"><div><div className="font-medium">{refund.refund_type === "void" ? "Void" : "Refund"}</div><div className="text-xs text-muted-foreground">{refund.reason || "No reason entered"} · {new Date(refund.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div></div><div className="font-mono">{fmtCurrency(Number(refund.total || 0), currency)}</div></div>)}</div> : <p className="text-sm text-muted-foreground">No refunds today.</p>)}
+          {detail === "hour" && <div className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={data?.hourlyChart ?? []}><CartesianGrid strokeDasharray="3 3" opacity={0.2} /><XAxis dataKey="hour" tickFormatter={(hour) => hour % 2 === 0 ? hourLabel(hour) : ""} fontSize={10} /><YAxis allowDecimals={false} /><Tooltip labelFormatter={(hour) => hourLabel(Number(hour))} /><Bar dataKey="transactions" name="Transactions" fill="var(--color-primary)" radius={[4,4,0,0]} /></BarChart></ResponsiveContainer></div>}
+          {detail === "employees" && ((data?.employees?.length ?? 0) ? <div className="divide-y">{data.employees.map((employee: any, index: number) => <div key={`${employee.user_id}-${index}`} className="flex justify-between py-3"><div><div className="font-medium">{employee.name}</div><div className="text-xs text-muted-foreground">{employee.employeeId ? `ID ${employee.employeeId} · ` : ""}{employee.clock_out ? "Clocked out" : "Currently clocked in"}</div></div><div className="text-sm">{new Date(employee.clock_in).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div></div>)}</div> : <p className="text-sm text-muted-foreground">No employees clocked in today.</p>)}
+        </div></>}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Mini({ label, value }: { label: string; value: string }) { return <div className="rounded-lg border p-3"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 font-mono text-lg font-bold">{value}</div></div>; }
+function Breakdown({ rows, currency }: { rows: [string, number][]; currency: string }) { return <div className="divide-y rounded-lg border px-4">{rows.map(([label, value]) => <div key={label} className="flex justify-between py-4"><span>{label}</span><span className="font-mono font-semibold">{fmtCurrency(Number(value || 0), currency)}</span></div>)}</div>; }

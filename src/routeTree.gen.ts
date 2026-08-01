@@ -57,6 +57,7 @@ import { Route as DashboardSetupRouteImport } from './routes/_dashboard/setup'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard/settings'
 import { Route as DashboardSalesRouteImport } from './routes/_dashboard/sales'
 import { Route as DashboardReportsRouteImport } from './routes/_dashboard/reports'
+import { Route as DashboardProfileRouteImport } from './routes/_dashboard/profile'
 import { Route as DashboardProductsRouteImport } from './routes/_dashboard/products'
 import { Route as DashboardPayrollRouteImport } from './routes/_dashboard/payroll'
 import { Route as DashboardOnboardingRouteImport } from './routes/_dashboard/onboarding'
@@ -349,6 +350,11 @@ const DashboardSalesRoute = DashboardSalesRouteImport.update({
 const DashboardReportsRoute = DashboardReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardProfileRoute = DashboardProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardProductsRoute = DashboardProductsRouteImport.update({
@@ -693,6 +699,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof DashboardOnboardingRoute
   '/payroll': typeof DashboardPayrollRoute
   '/products': typeof DashboardProductsRoute
+  '/profile': typeof DashboardProfileRoute
   '/reports': typeof DashboardReportsRoute
   '/sales': typeof DashboardSalesRoute
   '/settings': typeof DashboardSettingsRoute
@@ -796,6 +803,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof DashboardOnboardingRoute
   '/payroll': typeof DashboardPayrollRoute
   '/products': typeof DashboardProductsRoute
+  '/profile': typeof DashboardProfileRoute
   '/reports': typeof DashboardReportsRoute
   '/sales': typeof DashboardSalesRoute
   '/settings': typeof DashboardSettingsRoute
@@ -903,6 +911,7 @@ export interface FileRoutesById {
   '/_dashboard/onboarding': typeof DashboardOnboardingRoute
   '/_dashboard/payroll': typeof DashboardPayrollRoute
   '/_dashboard/products': typeof DashboardProductsRoute
+  '/_dashboard/profile': typeof DashboardProfileRoute
   '/_dashboard/reports': typeof DashboardReportsRoute
   '/_dashboard/sales': typeof DashboardSalesRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
@@ -1008,6 +1017,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/payroll'
     | '/products'
+    | '/profile'
     | '/reports'
     | '/sales'
     | '/settings'
@@ -1111,6 +1121,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/payroll'
     | '/products'
+    | '/profile'
     | '/reports'
     | '/sales'
     | '/settings'
@@ -1217,6 +1228,7 @@ export interface FileRouteTypes {
     | '/_dashboard/onboarding'
     | '/_dashboard/payroll'
     | '/_dashboard/products'
+    | '/_dashboard/profile'
     | '/_dashboard/reports'
     | '/_dashboard/sales'
     | '/_dashboard/settings'
@@ -1685,6 +1697,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof DashboardReportsRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/_dashboard/profile': {
+      id: '/_dashboard/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof DashboardProfileRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/products': {
@@ -2172,6 +2191,7 @@ interface DashboardRouteRouteChildren {
   DashboardOnboardingRoute: typeof DashboardOnboardingRoute
   DashboardPayrollRoute: typeof DashboardPayrollRoute
   DashboardProductsRoute: typeof DashboardProductsRoute
+  DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardReportsRoute: typeof DashboardReportsRoute
   DashboardSalesRoute: typeof DashboardSalesRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
@@ -2189,6 +2209,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardOnboardingRoute: DashboardOnboardingRoute,
   DashboardPayrollRoute: DashboardPayrollRoute,
   DashboardProductsRoute: DashboardProductsRoute,
+  DashboardProfileRoute: DashboardProfileRoute,
   DashboardReportsRoute: DashboardReportsRoute,
   DashboardSalesRoute: DashboardSalesRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
