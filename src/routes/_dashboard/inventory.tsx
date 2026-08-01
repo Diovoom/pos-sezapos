@@ -14,7 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CatalogPublishButton } from "@/components/CatalogPublishButton";
 import {
   Table,
   TableBody,
@@ -33,9 +35,6 @@ import {
 import {
   Search,
   Package,
-  AlertTriangle,
-  XCircle,
-  Tags,
   Plus,
   Upload,
   Download,
@@ -149,44 +148,32 @@ function Thumb({ path }: { path: string | null }) {
   return <img src={url} alt="" className="size-10 rounded-lg object-cover shrink-0" />;
 }
 
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-  tone = "primary",
-  href,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string | number;
-  tone?: "primary" | "warning" | "destructive" | "success";
-  href?: string;
-}) {
-  const toneMap = {
-    primary: "bg-primary/10 text-primary",
-    warning: "bg-warning/15 text-warning",
-    destructive: "bg-destructive/10 text-destructive",
-    success: "bg-success/15 text-success",
-  };
+function InventorySkeleton() {
   return (
-    <Card className="shadow-sm hover:shadow-md transition-shadow">
-      <CardContent className="p-5 flex items-center gap-4">
-        <div className={cn("size-12 rounded-2xl grid place-items-center", toneMap[tone])}>
-          <Icon className="size-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-            {label}
+    <div className="space-y-3" aria-label="Loading inventory">
+      {[0, 1, 2, 3, 4].map((row) => (
+        <div key={row} className="flex items-center gap-3 border-b px-3 py-4 last:border-b-0">
+          <Skeleton className="size-11 shrink-0 rounded-xl" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-3 w-1/2" />
           </div>
-          <div className="text-2xl font-bold mt-0.5 tabular-nums">{value}</div>
-          {href && (
-            <Link to={href} className="text-xs text-primary hover:underline">
-              View →
-            </Link>
-          )}
+          <div className="space-y-2 text-right">
+            <Skeleton className="ml-auto h-4 w-16" />
+            <Skeleton className="ml-auto h-3 w-12" />
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      ))}
+    </div>
+  );
+}
+
+function InventoryMetric({ label, value, tone }: { label: string; value: number; tone?: "warning" | "destructive" }) {
+  return (
+    <div className="min-w-[4.2rem] px-3 py-2 text-center">
+      <div className={cn("text-lg font-black tabular-nums", tone === "warning" && "text-warning", tone === "destructive" && "text-destructive")}>{value}</div>
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+    </div>
   );
 }
 
@@ -271,7 +258,8 @@ function InventoryPage() {
   });
 
   void draftTick;
-  const draftedProducts = store?.id ? applyInventoryDrafts(products, loadInventoryDrafts(store.id)) : products;
+  const drafts = store?.id ? loadInventoryDrafts(store.id) : [];
+  const draftedProducts = store?.id ? applyInventoryDrafts(products, drafts) : products;
 
   const categoryMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -382,31 +370,41 @@ function InventoryPage() {
         subtitle="Manage your products, stock levels, and inventory in real time."
         actions={
           <>
-            <Button asChild size="sm">
+            <CatalogPublishButton compact />
+            <Button asChild size="sm" className="rounded-xl">
               <Link to="/products">
-                <Plus className="size-4 mr-1.5" /> Add Product
+                <Plus className="mr-1.5 size-4" /> Add product
               </Link>
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="sm" asChild className="hidden rounded-xl sm:inline-flex">
               <Link to="/products">
-                <Upload className="size-4 mr-1.5" /> Import
+                <Upload className="mr-1.5 size-4" /> Import
               </Link>
             </Button>
-            <Button variant="outline" size="sm" onClick={exportCsv}>
-              <Download className="size-4 mr-1.5" /> Export
+            <Button variant="outline" size="sm" onClick={exportCsv} className="hidden rounded-xl sm:inline-flex">
+              <Download className="mr-1.5 size-4" /> Export
             </Button>
           </>
         }
       />
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Summary cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <SummaryCard icon={Package} label="Total Products" value={summary.total} tone="primary" />
-          <SummaryCard icon={AlertTriangle} label="Low Stock" value={summary.low} tone="warning" />
-          <SummaryCard icon={XCircle} label="Out of Stock" value={summary.out} tone="destructive" />
-          <SummaryCard icon={Tags} label="Categories" value={summary.categories} tone="success" />
-        </div>
+      <div className="space-y-5 p-4 md:p-6">
+        <section className="seza-inventory-strip overflow-hidden rounded-2xl border">
+          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Inventory pulse</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {summary.total} products · {drafts.length} unpublished {drafts.length === 1 ? "change" : "changes"}
+              </p>
+            </div>
+            <div className="grid grid-cols-4 divide-x rounded-xl border bg-background/80">
+              <InventoryMetric label="Products" value={summary.total} />
+              <InventoryMetric label="Low" value={summary.low} tone="warning" />
+              <InventoryMetric label="Out" value={summary.out} tone="destructive" />
+              <InventoryMetric label="Groups" value={summary.categories} />
+            </div>
+          </div>
+        </section>
 
         {/* Search + Filters */}
         <div className="flex flex-col lg:flex-row gap-3">
@@ -490,8 +488,60 @@ function InventoryPage() {
           </div>
         </div>
 
-        {/* Table */}
-        <Card className="shadow-sm overflow-hidden">
+        {/* Phone-first product list: compact, retail-focused, no generic statistic-card grid. */}
+        <Card className="overflow-hidden md:hidden">
+          {isLoading ? (
+            <InventorySkeleton />
+          ) : pageRows.length === 0 ? (
+            <div className="px-5 py-14 text-center">
+              <Package className="mx-auto size-8 text-muted-foreground/60" />
+              <p className="mt-3 font-semibold">No matching products</p>
+              <p className="mt-1 text-sm text-muted-foreground">Try another search or filter.</p>
+            </div>
+          ) : (
+            <div>
+              {pageRows.map((product) => {
+                const status = statusOf(product);
+                return (
+                  <article key={product.id} className="seza-inventory-row flex gap-3 border-b p-3 last:border-b-0">
+                    <Thumb path={product.image_url} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h2 className="truncate text-sm font-bold">{product.name}</h2>
+                          <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                            {product.barcode || product.sku || "No barcode or SKU"}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="text-sm font-bold">{fmtCurrency(Number(product.price), currency)}</div>
+                          <div className={cn("text-xs font-semibold", status === "low" && "text-warning", status === "out" && "text-destructive")}>
+                            Stock {Number(product.stock)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <StatusBadge status={status} />
+                        <Button type="button" size="sm" variant="outline" className="h-8 rounded-lg px-3" onClick={() => { setEditingProduct(product); setEditForm(productToEditForm(product)); }}>
+                          <Pencil className="mr-1 size-3.5" /> Edit
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" className="h-8 rounded-lg px-2" onClick={() => stageStatus(product)}>
+                          <Power className="mr-1 size-3.5" /> {product.status === "inactive" ? "Activate" : "Pause"}
+                        </Button>
+                        <Button type="button" size="icon" variant="ghost" className="ml-auto size-8 rounded-lg text-destructive" onClick={() => setDeletingProduct(product)} aria-label={`Delete ${product.name}`}>
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        {/* Desktop table keeps dense operational detail without oversized cards. */}
+        <Card className="hidden overflow-hidden md:block">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -525,11 +575,21 @@ function InventoryPage() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={11} className="text-center py-16">
-                      <Loader2 className="size-6 animate-spin inline text-muted-foreground" />
-                    </TableCell>
-                  </TableRow>
+                  Array.from({ length: 6 }).map((_, index) => (
+                    <TableRow key={`inventory-skeleton-${index}`}>
+                      <TableCell><Skeleton className="size-10 rounded-lg" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="ml-auto h-4 w-14" /></TableCell>
+                      <TableCell><Skeleton className="ml-auto h-4 w-14" /></TableCell>
+                      <TableCell><Skeleton className="ml-auto h-4 w-10" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="ml-auto h-8 w-28" /></TableCell>
+                    </TableRow>
+                  ))
                 ) : pageRows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={11} className="text-center py-16 text-muted-foreground">

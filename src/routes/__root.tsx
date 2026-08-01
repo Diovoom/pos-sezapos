@@ -18,6 +18,7 @@ import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { Logo } from "@/components/brand/Logo";
 import { initializeAppUpdateWorkflow } from "@/lib/app-update";
+import { clearOwnerQueryCache, persistOwnerQueryCache, restoreOwnerQueryCache } from "@/lib/owner-query-cache";
 
 import "@/i18n";
 import { applyLanguage } from "@/i18n";
@@ -278,12 +279,40 @@ function RootComponent() {
   }, []);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    if (typeof window === "undefined") return;
+    const app = currentApp();
+    const ownerPath = ["/dashboard", "/sales", "/products", "/inventory", "/customers", "/employees", "/reports", "/shifts", "/settings", "/help", "/profile"].some(
+      (prefix) => window.location.pathname === prefix || window.location.pathname.startsWith(`${prefix}/`),
+    );
+    if (app !== "dashboard" && !(app === "unknown" && ownerPath)) return;
+
+    let stopPersistence: (() => void) | undefined;
+    void supabase.auth.getSession().then(({ data }) => {
+      const userId = data.session?.user.id;
+      if (!userId) return;
+      restoreOwnerQueryCache(queryClient, userId);
+      stopPersistence = persistOwnerQueryCache(queryClient, userId);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
-      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+      if (event === "SIGNED_OUT") {
+        stopPersistence?.();
+        clearOwnerQueryCache();
+        return;
+      }
+      const userId = session?.user.id;
+      if (userId) {
+        stopPersistence?.();
+        restoreOwnerQueryCache(queryClient, userId);
+        stopPersistence = persistOwnerQueryCache(queryClient, userId);
+      }
+      queryClient.invalidateQueries();
     });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      stopPersistence?.();
+      sub.subscription.unsubscribe();
+    };
   }, [router, queryClient]);
 
   // Keep each public hostname on one clear product surface. This is host-aware

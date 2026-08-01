@@ -287,12 +287,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           {children}
         </div>
 
-        <nav className="fixed inset-x-0 bottom-0 z-40 grid min-h-16 grid-cols-3 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+        <nav className="seza-mobile-glass-nav fixed bottom-[calc(.65rem_+_env(safe-area-inset-bottom))] left-1/2 z-40 grid min-h-[4.15rem] w-[min(92vw,28rem)] -translate-x-1/2 grid-cols-3 px-2 md:hidden">
           <MobileNavLink to="/dashboard" label="Home" icon={LayoutDashboard} active={pathname === "/dashboard"} />
           <MobileNavLink to="/employees" label="Staff" icon={UserPlus} active={pathname.startsWith("/employees")} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className={cn("flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium", moreActive ? "text-primary" : "text-muted-foreground")}>
+              <button className={cn("seza-mobile-tab flex flex-col items-center justify-center gap-0.5 rounded-[1.35rem] text-[10px] font-semibold", moreActive ? "is-active text-primary" : "text-muted-foreground")}>
                 <MoreVertical className="size-5" /> More
               </button>
             </DropdownMenuTrigger>
@@ -303,7 +303,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link
           to="/help"
           aria-label={unreadSupportCount ? `${unreadSupportCount} unread support message${unreadSupportCount === 1 ? "" : "s"}` : "Contact Support"}
-          className="fixed bottom-[calc(5rem_+_env(safe-area-inset-bottom))] right-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:opacity-90 md:bottom-5"
+          className="fixed bottom-[calc(5.55rem_+_env(safe-area-inset-bottom))] right-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:opacity-90 md:bottom-5"
         >
           <span className="relative">
             <LifeBuoy className="size-4" />
@@ -341,7 +341,7 @@ function DesktopNavLink({ to, label, icon: Icon, active }: { to: string; label: 
 
 function MobileNavLink({ to, label, icon: Icon, active }: { to: string; label: string; icon: any; active: boolean }) {
   return (
-    <Link to={to} className={cn("flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium", active ? "text-primary" : "text-muted-foreground")}>
+    <Link to={to} className={cn("seza-mobile-tab flex flex-col items-center justify-center gap-0.5 rounded-[1.35rem] text-[10px] font-semibold", active ? "is-active text-primary" : "text-muted-foreground")}>
       <Icon className="size-5" /> {label}
     </Link>
   );
