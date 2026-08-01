@@ -2,6 +2,7 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { LegalDocumentView } from "@/components/legal/LegalDocumentView";
 import { getLegalDoc } from "@/lib/legal";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export const Route = createFileRoute("/legal/$slug")({
   loader: ({ params }) => {
@@ -44,7 +45,7 @@ export const Route = createFileRoute("/legal/$slug")({
     <MarketingShell>
       <div className="max-w-3xl mx-auto px-6 py-24 text-center">
         <h1 className="text-3xl font-bold text-foreground">Something went wrong</h1>
-        <p className="mt-3 text-muted-foreground">{error.message}</p>
+        <p className="mt-3 text-muted-foreground">{userFacingError(error, "This page could not be loaded. Please try again.")}</p>
         <button className="mt-6 underline text-primary" onClick={reset}>
           Try again
         </button>

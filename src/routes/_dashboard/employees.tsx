@@ -39,6 +39,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { Loader2, Plus, KeyRound, Ban, Check, Copy } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/employees")({
@@ -106,7 +107,7 @@ function EmployeesPage() {
       toast.success("Employee status updated");
       qc.invalidateQueries({ queryKey: ["employees"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => toast.error(userFacingError(e, "Failed")),
   });
 
   const [resetInfo, setResetInfo] = useState<{ email: string; temp: string } | null>(null);
@@ -121,7 +122,7 @@ function EmployeesPage() {
       setResetInfo(data);
       qc.invalidateQueries({ queryKey: ["employees"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => toast.error(userFacingError(e, "Failed")),
   });
 
   if (pathname.startsWith("/employees/")) {
@@ -376,7 +377,7 @@ function CreateEmployeeDialog({
         hire_date: new Date().toISOString().slice(0, 10),
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not create employee");
+      toast.error(userFacingError(err, "Could not create employee"));
     } finally {
       setBusy(false);
     }

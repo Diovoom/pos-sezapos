@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { fmtCurrency } from "@/lib/format";
 
 export const Route = createFileRoute("/_dashboard/customers")({
@@ -114,7 +115,7 @@ function CustomersPage() {
       qc.invalidateQueries({ queryKey: ["customers"] });
     },
     onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Could not remove customer"),
+      toast.error(userFacingError(error, "Could not remove customer")),
   });
 
   const startNew = () => {
@@ -329,7 +330,7 @@ function CustomerDialog({
       toast.success(customer ? "Customer updated" : "Customer created");
       onSaved();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save customer");
+      toast.error(userFacingError(error, "Could not save customer"));
     } finally {
       setSaving(false);
     }

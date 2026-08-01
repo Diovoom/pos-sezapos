@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { Loader2, Send } from "lucide-react";
 import { SMS_PROVIDERS, type SmsProviderId, type SmsSettings } from "@/lib/sms/types";
 import { sendSms } from "@/lib/sms/send";
@@ -145,7 +146,7 @@ export function SmsSettingsPanel() {
       qc.invalidateQueries({ queryKey: ["sms-settings"] });
       qc.invalidateQueries({ queryKey: ["sms-settings-default-country"] });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save");
+      toast.error(userFacingError(err, "Failed to save"));
     } finally {
       setSaving(false);
     }

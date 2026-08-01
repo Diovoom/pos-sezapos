@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import {
   Loader2,
   Store,
@@ -553,7 +554,7 @@ function ChangePinPanel() {
       setPinVal("");
       setConfirm("");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Update failed");
+      toast.error(userFacingError(e, "Update failed"));
     } finally {
       setBusy(false);
     }
@@ -603,7 +604,7 @@ function ChangePasswordPanel() {
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password: pw });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(userFacingError(error, "This update could not be saved. Please try again."));
     toast.success("Password updated");
     setPw("");
     setConfirm("");
@@ -674,7 +675,7 @@ function ProfilePanel() {
         phone: form.phone || null,
       })
       .eq("id", p.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(userFacingError(error, "This update could not be saved. Please try again."));
     toast.success("Profile updated");
     qc.invalidateQueries({ queryKey: ["me"] });
     qc.invalidateQueries({ queryKey: ["me-profile"] });
@@ -799,7 +800,7 @@ function SupportPanel({ kind }: { kind: "contact" | "website" | "status" | "rele
       desc: "Live service health.",
       body: (
         <Button asChild>
-          <a href="https://status.sezapos.com" target="_blank" rel="noreferrer">
+          <a href="https://sezapos.com/status" target="_blank" rel="noreferrer">
             Open status page <ExternalLink className="size-4 ml-2" />
           </a>
         </Button>
@@ -903,7 +904,7 @@ function GeneralPanel({ canEdit }: { canEdit: boolean }) {
       toast.success("Store settings saved");
       qc.invalidateQueries({ queryKey: ["store"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => toast.error(userFacingError(e, "Save failed")),
   });
 
   const F = ({

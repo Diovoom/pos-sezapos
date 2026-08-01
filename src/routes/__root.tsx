@@ -314,7 +314,7 @@ function RootComponent() {
       "/reports",
       "/devices",
       "/settings",
-      "/support",
+      "/help",
       "/setup",
       "/onboarding",
       "/customer-display",

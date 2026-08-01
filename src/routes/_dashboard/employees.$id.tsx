@@ -67,6 +67,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export const Route = createFileRoute("/_dashboard/employees/$id")({
   head: () => ({
@@ -343,7 +344,7 @@ function ProfileCard({
       toast.success("Photo updated");
       onChanged();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+      toast.error(userFacingError(e, "Upload failed"));
     } finally {
       setUploading(false);
     }
@@ -542,7 +543,7 @@ function EditDetailsCard({
       toast.success("Employee updated");
       onChanged();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => toast.error(userFacingError(e, "Save failed")),
   });
 
   // Only owners can promote to owner/admin; admins can only assign manager/cashier.
@@ -649,7 +650,7 @@ function EmployeeIdCard({ profile, onChanged }: { profile: Profile; onChanged: (
       setManual("");
       onChanged();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => toast.error(userFacingError(e, "Failed")),
   });
   const regenM = useMutation({
     mutationFn: async () => regen({ data: { user_id: profile.id } }),
@@ -657,7 +658,7 @@ function EmployeeIdCard({ profile, onChanged }: { profile: Profile; onChanged: (
       toast.success(`New ID: ${r.employee_id}`);
       onChanged();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => toast.error(userFacingError(e, "Failed")),
   });
 
   return (
@@ -740,7 +741,7 @@ function PinCard({ profile, onChanged }: { profile: Profile; onChanged: () => vo
       setIssued(r.pin ?? null);
       onChanged();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => toast.error(userFacingError(e, "Failed")),
   });
   const setM = useMutation({
     mutationFn: async () =>
@@ -757,7 +758,7 @@ function PinCard({ profile, onChanged }: { profile: Profile; onChanged: () => vo
       setManual("");
       onChanged();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => toast.error(userFacingError(e, "Failed")),
   });
   const clearM = useMutation({
     mutationFn: async () =>
@@ -773,7 +774,7 @@ function PinCard({ profile, onChanged }: { profile: Profile; onChanged: () => vo
       toast.success("PIN cleared");
       onChanged();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => toast.error(userFacingError(e, "Failed")),
   });
 
   return (
@@ -918,7 +919,7 @@ function PayScheduleCard({ userId }: { userId: string }) {
       qc.invalidateQueries({ queryKey: ["employee-pay", userId] });
       qc.invalidateQueries({ queryKey: ["payroll-profiles"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => toast.error(userFacingError(e, "Save failed")),
   });
   return (
     <Card>
@@ -1064,7 +1065,7 @@ function DangerZoneCard({
       );
       onDeleted();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    onError: (e) => toast.error(userFacingError(e, "Failed")),
   });
 
   const expectedName = (profile.full_name || profile.email || "").trim();
@@ -1366,7 +1367,7 @@ function TimeEntryEditDialog({
       toast.success("Time entry adjusted");
       onSaved();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => toast.error(userFacingError(e, "Save failed")),
   });
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>

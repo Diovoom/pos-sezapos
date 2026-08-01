@@ -60,13 +60,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const role = me?.roles?.[0];
 
   useEffect(() => {
+    document.documentElement.classList.add("owner-dashboard-web");
     let cleanup: (() => void) | undefined;
     try {
       cleanup = initializeUiPreferences();
     } catch (error) {
       console.error("SEZA appearance startup failed; using fallback.", error);
     }
-    return () => cleanup?.();
+    return () => {
+      cleanup?.();
+      document.documentElement.classList.remove("owner-dashboard-web");
+    };
   }, []);
 
   useEffect(() => {
@@ -74,6 +78,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       navigate({ to: "/onboarding", replace: true });
     }
   }, [me?.profile?.must_change_password, pathname, navigate]);
+
+  useEffect(() => {
+    const scrollContainer = document.getElementById("owner-dashboard-scroll");
+    scrollContainer?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname]);
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -121,7 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground">
+    <div className="flex h-dvh min-h-0 w-full overflow-hidden bg-background text-foreground">
       <aside className="hidden w-16 shrink-0 flex-col border-r bg-surface/60 md:flex lg:w-60">
         <div className="flex h-16 items-center gap-3 border-b px-4">
           <StoreLogo className="size-8 rounded-lg" />
@@ -205,7 +214,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex h-14 shrink-0 items-center justify-between border-b bg-surface/60 px-3 md:hidden">
           <Link to="/dashboard" className="flex min-w-0 items-center gap-2">
             <StoreLogo className="size-8 shrink-0 rounded-lg" />
@@ -231,9 +240,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="min-w-0 flex-1 overflow-hidden pb-16 md:pb-0">{children}</div>
+        <div
+          id="owner-dashboard-scroll"
+          className="min-h-0 min-w-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-y-contain pb-[calc(5.5rem_+_env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] md:pb-6"
+        >
+          {children}
+        </div>
 
-        <nav className="fixed inset-x-0 bottom-0 z-40 grid h-16 grid-cols-3 border-t bg-background/95 backdrop-blur md:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-40 grid min-h-16 grid-cols-3 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
           <MobileNavLink to="/dashboard" label="Home" icon={LayoutDashboard} active={pathname === "/dashboard"} />
           <MobileNavLink to="/employees" label="Staff" icon={UserPlus} active={pathname.startsWith("/employees")} />
           <DropdownMenu>
@@ -251,7 +265,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <Link
           to="/help"
-          className="fixed bottom-20 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:opacity-90 md:bottom-5"
+          className="fixed bottom-[calc(5rem_+_env(safe-area-inset-bottom))] right-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:opacity-90 md:bottom-5"
         >
           <LifeBuoy className="size-4" />
           <span className="hidden sm:inline">Contact Support</span>

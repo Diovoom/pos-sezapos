@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Send, Loader2, MessageSquare, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export const Route = createFileRoute("/_dashboard/help/$ticketId")({
   head: () => ({
@@ -116,8 +117,13 @@ function MerchantSupportChat() {
       if (error) throw error;
       setMessage("");
       refresh();
-    } catch (error: any) {
-      toast.error(error?.message ?? "Could not send message");
+    } catch (error) {
+      toast.error(
+        userFacingError(
+          error,
+          "Your message could not be sent. Check your connection and try again.",
+        ),
+      );
     } finally {
       setBusy(false);
     }
@@ -143,7 +149,7 @@ function MerchantSupportChat() {
   const closed = ticket.status === "closed";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
+    <div className="mx-auto w-full max-w-4xl space-y-5 p-4 sm:p-5 md:p-6">
       <Link
         to="/help"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -202,14 +208,14 @@ function MerchantSupportChat() {
               return (
                 <div key={item.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`max-w-[85%] rounded-xl px-3 py-2 ${mine ? "bg-primary text-primary-foreground" : fromSeza ? "bg-emerald-500/10" : "bg-muted"}`}
+                    className={`min-w-0 max-w-[92%] overflow-hidden rounded-xl px-3 py-2 sm:max-w-[85%] ${mine ? "bg-primary text-primary-foreground" : fromSeza ? "bg-emerald-500/10" : "bg-muted"}`}
                   >
                     <div
                       className={`mb-1 text-[11px] ${mine ? "text-primary-foreground/75" : "text-muted-foreground"}`}
                     >
                       {label} · {format(new Date(item.created_at), "MMM d, h:mm a")}
                     </div>
-                    <div className="whitespace-pre-wrap text-sm">{item.body}</div>
+                    <div className="whitespace-pre-wrap break-words text-sm">{item.body}</div>
                   </div>
                 </div>
               );
@@ -235,7 +241,7 @@ function MerchantSupportChat() {
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Reply to SEZA Support…"
               />
-              <Button onClick={sendMessage} disabled={busy || !message.trim()}>
+              <Button className="w-full sm:w-auto" onClick={sendMessage} disabled={busy || !message.trim()}>
                 {busy ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (

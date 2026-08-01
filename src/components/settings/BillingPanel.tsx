@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { format } from "date-fns";
 import { Loader2, CreditCard, AlertTriangle, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -49,7 +50,7 @@ export function BillingPanel() {
       if ("error" in result) throw new Error(result.error);
       window.open(result.url, "_blank", "noopener,noreferrer");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not open the billing portal");
+      toast.error(userFacingError(err, "Could not open the billing portal"));
     } finally {
       setPortalLoading(false);
     }

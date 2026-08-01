@@ -1,9 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Activity, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { marketingUrl } from "@/lib/host";
 
 export const Route = createFileRoute("/status")({
   head: () => ({
@@ -42,9 +43,9 @@ function StatusPage() {
   const operational = health.data?.status === "operational";
   return (
     <MarketingShell>
-      <div className="mx-auto max-w-4xl px-6 py-16">
+      <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-16">
         <div
-          className={`flex items-center gap-4 rounded-2xl border p-6 ${operational ? "border-emerald-300 bg-emerald-50 dark:border-emerald-500/25 dark:bg-emerald-500/10" : "bg-muted/30"}`}
+          className={`flex flex-col items-start gap-4 rounded-2xl border p-5 sm:flex-row sm:items-center sm:p-6 ${operational ? "border-emerald-300 bg-emerald-50 dark:border-emerald-500/25 dark:bg-emerald-500/10" : "bg-muted/30"}`}
         >
           <div
             className={`grid size-12 place-items-center rounded-full ${operational ? "bg-emerald-600 text-white" : "bg-primary/10 text-primary"}`}
@@ -58,7 +59,7 @@ function StatusPage() {
             )}
           </div>
           <div>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-xl font-bold sm:text-2xl">
               {health.isLoading
                 ? "Checking SEZA services…"
                 : operational
@@ -103,19 +104,19 @@ function StatusPage() {
           </CardContent>
         </Card>
 
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5">
+        <div className="mt-8 flex flex-col items-stretch justify-between gap-4 rounded-2xl border p-5 sm:flex-row sm:items-center">
           <div>
             <div className="font-semibold">Experiencing a register issue?</div>
             <p className="text-sm text-muted-foreground">
               Contact customer service with the store name, device and time of the issue.
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button asChild>
-              <Link to="/support">Contact support</Link>
+          <div className="grid gap-2 sm:flex">
+            <Button asChild className="w-full sm:w-auto">
+              <a href={marketingUrl("/support")}>Contact support</a>
             </Button>
-            <Button asChild variant="outline">
-              <Link to="/contact">Report an issue</Link>
+            <Button asChild variant="outline" className="w-full sm:w-auto">
+              <a href={marketingUrl("/contact")}>Report an issue</a>
             </Button>
           </div>
         </div>

@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
 import { Globe } from "lucide-react";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
   const { i18n } = useTranslation();
@@ -47,7 +48,7 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
       }
       toast.success("Language updated");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save language");
+      toast.error(userFacingError(error, "Could not save language"));
     }
   };
 

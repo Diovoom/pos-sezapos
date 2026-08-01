@@ -19,7 +19,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Logo } from "@/components/brand/Logo";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
-import { dashboardUrl } from "@/lib/host";
+import { dashboardUrl, marketingUrl } from "@/lib/host";
 import { CookieConsent, OPEN_COOKIE_SETTINGS_EVENT } from "@/components/marketing/CookieConsent";
 import { SocialLinks } from "@/components/marketing/SocialLinks";
 import { WebsiteLiveChat, openWebsiteLiveChat } from "@/components/marketing/WebsiteLiveChat";
@@ -112,9 +112,8 @@ function MenuGlyph({ open }: { open: boolean }) {
 
 function MorphingBrand({ progress }: { progress: number }) {
   return (
-    <Link
-      to="/"
-      resetScroll
+    <a
+      href={marketingUrl("/")}
       aria-label="SEZA POS home"
       className="group relative block h-12 w-[156px] self-center"
     >
@@ -133,7 +132,7 @@ function MorphingBrand({ progress }: { progress: number }) {
       >
         SEZA POS
       </span>
-    </Link>
+    </a>
   );
 }
 

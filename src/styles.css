@@ -338,3 +338,20 @@ html[data-ui-touch="true"] [role="button"] {
     animation: none;
   }
 }
+
+/* Owner dashboard mobile behavior. Keep the browser dashboard usable like a
+   smartphone app without changing the Android POS shell. */
+html.owner-dashboard-web {
+  overscroll-behavior-y: contain;
+}
+
+html.owner-dashboard-web [role="dialog"],
+html.owner-dashboard-web [role="alertdialog"] {
+  max-height: calc(100dvh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  max-width: calc(100vw - 1.5rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}

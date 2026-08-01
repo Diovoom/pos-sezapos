@@ -50,6 +50,7 @@ import { cn } from "@/lib/utils";
 import { fmtCurrency } from "@/lib/format";
 import { useProductImageUrl } from "@/lib/pos/product-images";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { applyInventoryDrafts, loadInventoryDrafts, saveInventoryDraft } from "@/lib/inventory-drafts";
 
 export const Route = createFileRoute("/_dashboard/inventory")({
@@ -221,7 +222,7 @@ function InventoryPage() {
       saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "update", productId: editingProduct.id, original: editingProduct as any, changes: { name: editForm.name.trim(), sku, barcode, price, cost, stock, min_stock: minStock }, createdAt: new Date().toISOString() });
     },
     onSuccess: () => { toast.success("Saved as unpublished change"); setEditingProduct(null); setEditForm(null); setDraftTick((v) => v + 1); },
-    onError: (error: Error) => toast.error(error.message || "Could not save product"),
+    onError: (error: Error) => toast.error(userFacingError(error, "Could not save product")),
   });
 
   const deleteProduct = useMutation({
@@ -230,7 +231,7 @@ function InventoryPage() {
       saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "delete", productId: deletingProduct.id, original: deletingProduct as any, createdAt: new Date().toISOString() });
     },
     onSuccess: () => { toast.success("Delete staged. Publish to remove it from POS."); setDeletingProduct(null); setDraftTick((v) => v + 1); },
-    onError: (error: Error) => toast.error(error.message || "Could not stage deletion"),
+    onError: (error: Error) => toast.error(userFacingError(error, "Could not stage deletion")),
   });
 
   const stageStatus = (product: ProductRow) => {

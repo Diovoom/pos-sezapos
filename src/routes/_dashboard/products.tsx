@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Search, Star, Loader2, Camera, Wand2, Upload, X, ImageIcon, Pencil, Trash2, Power } from "lucide-react";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { fmtCurrency } from "@/lib/format";
 import { loadInventoryDrafts, saveInventoryDraft, applyInventoryDrafts } from "@/lib/inventory-drafts";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
@@ -155,7 +156,7 @@ function ProductsPage() {
       saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "update", productId: editingProduct.id, original: editingProduct as any, changes: { name: editForm.name.trim(), sku, barcode, cost, price, stock }, createdAt: new Date().toISOString() });
     },
     onSuccess: () => { toast.success("Saved as unpublished change"); setEditingProduct(null); setDraftTick((v) => v + 1); },
-    onError: (error: Error) => toast.error(error.message || "Could not save product"),
+    onError: (error: Error) => toast.error(userFacingError(error, "Could not save product")),
   });
 
   const stageDelete = (product: ProductRow) => {
@@ -391,7 +392,7 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
         `Loaded from ${result.source === "openfoodfacts" ? "Open Food Facts" : "UPC database"}`,
       );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Lookup failed");
+      toast.error(userFacingError(e, "Lookup failed"));
     } finally {
       setLooking(false);
     }
@@ -404,7 +405,7 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
       const path = await uploadProductImage(file);
       setImagePath(path);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+      toast.error(userFacingError(e, "Upload failed"));
     } finally {
       setUploading(false);
     }

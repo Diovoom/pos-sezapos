@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { Loader2, Upload, Trash2, Image as ImageIcon } from "lucide-react";
 import { logAudit } from "@/lib/audit-log";
 
@@ -66,7 +67,7 @@ export function BusinessBrandingPanel() {
       .eq("id", storeId);
     setSaving(null);
     if (error) {
-      toast.error(error.message);
+      toast.error(userFacingError(error, "This update could not be completed. Please try again."));
       return;
     }
     toast.success(
@@ -93,7 +94,7 @@ export function BusinessBrandingPanel() {
       const url = await fileToResizedDataUrl(file);
       await save(field, url);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+      toast.error(userFacingError(e, "Upload failed"));
     }
   };
 

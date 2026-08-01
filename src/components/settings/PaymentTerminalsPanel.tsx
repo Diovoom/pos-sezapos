@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { CreditCard, Loader2, LockKeyhole, Plus, Search, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
 import { logAudit } from "@/lib/audit-log";
@@ -192,7 +193,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       qc.invalidateQueries({ queryKey: ["payment_terminals"] });
     },
     onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "Could not save this terminal."),
+      toast.error(userFacingError(error, "Could not save this terminal.")),
   });
 
   const remove = useMutation({

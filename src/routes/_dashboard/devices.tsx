@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import {
   Copy,
   KeyRound,
@@ -164,7 +165,7 @@ function DevicesPage() {
       setIssued(res);
       qc.invalidateQueries({ queryKey: ["pos-devices"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not create code"),
+    onError: (e) => toast.error(userFacingError(e, "Could not create code")),
   });
 
   const [confirm, setConfirm] = useState<{ id: string; label: string } | null>(null);
@@ -177,7 +178,7 @@ function DevicesPage() {
       setReason("");
       qc.invalidateQueries({ queryKey: ["pos-devices"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not revoke"),
+    onError: (e) => toast.error(userFacingError(e, "Could not revoke")),
   });
 
   const devices = (devicesQ.data?.devices ?? []) as Device[];

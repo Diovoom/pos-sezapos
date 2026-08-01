@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Upload, Loader2, RotateCcw, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -83,7 +84,7 @@ export function CatalogPublishButton({ compact = false }: { compact?: boolean })
       toast.success(`Catalog version ${release.version} published to POS`);
       setOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Catalog publish failed");
+      toast.error(userFacingError(error, "Catalog publish failed"));
     } finally {
       setPublishing(false);
     }

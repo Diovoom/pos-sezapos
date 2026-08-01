@@ -14,17 +14,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export const OPEN_PUBLIC_LIVE_CHAT_EVENT = "seza-open-public-live-chat";
 const CHAT_SESSION_KEY = "seza-public-live-chat-session";
 function publicChatError(value: unknown): string {
-  const message = value instanceof Error ? value.message : String(value ?? "");
-  const technical =
-    /schema cache|column|relation|postgres|supabase|sql|permission denied|violates|uuid|stack|syntax/i;
-  if (!message || technical.test(message)) {
-    return "Live chat is temporarily unavailable. Please call or try again shortly.";
-  }
-  return message;
+  return userFacingError(
+    value,
+    "Live chat is temporarily unavailable. Please call SEZA Support or try again shortly.",
+  );
 }
 
 type ChatMessage = {
@@ -50,11 +48,24 @@ type ChatState = StoredSession & {
 async function liveChatRequest(payload: Record<string, unknown>) {
   const response = await fetch("/api/public/live-chat", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify(payload),
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(publicChatError(data?.error));
+
+  const contentType = response.headers.get("content-type") ?? "";
+  const data = contentType.includes("application/json")
+    ? await response.json().catch(() => ({}))
+    : {};
+
+  if (!response.ok) {
+    throw new Error(
+      publicChatError(
+        data && typeof data === "object" && "error" in data
+          ? (data as { error?: unknown }).error
+          : undefined,
+      ),
+    );
+  }
   return data;
 }
 

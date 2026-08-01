@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { ALL_PERMISSIONS, ROLES, useRolePermissions, type Role } from "@/hooks/usePermissions";
 import { useMe } from "@/hooks/useMe";
 import { logAudit } from "@/lib/audit-log";
@@ -59,7 +60,7 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
       toast.success(`${vars.role} permission ${vars.enabled ? "enabled" : "removed"}`);
       void qc.invalidateQueries({ queryKey: ["role_permissions"] });
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
+    onError: (e) => toast.error(userFacingError(e, "Update failed")),
   });
 
   const groups = Array.from(new Set(ALL_PERMISSIONS.map((p) => p.group)));

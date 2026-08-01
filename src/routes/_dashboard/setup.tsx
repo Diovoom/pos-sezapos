@@ -412,7 +412,7 @@ function SetupWizardPage() {
       toast.success("Setup complete!");
       return true;
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Setup could not be completed");
+      toast.error(userFacingError(error, "Setup could not be completed"));
       return false;
     } finally {
       setFinishing(false);
@@ -435,7 +435,7 @@ function SetupWizardPage() {
       else await supabase.from("stores").update({ receipt_logo_url: url }).eq("id", store.id);
       toast.success("Logo uploaded");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+      toast.error(userFacingError(e, "Upload failed"));
     }
   };
 

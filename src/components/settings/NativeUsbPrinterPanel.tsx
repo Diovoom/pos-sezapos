@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Printer, RefreshCw, Usb, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { isNativeMode } from "@/lib/native";
 import {
   clearUsbDevice,
@@ -29,7 +30,7 @@ export function NativeUsbPrinterPanel() {
       setDevices(await listUsbPrinters());
       setReady(await usbPrinterReady());
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not scan USB devices");
+      toast.error(userFacingError(error, "Could not scan USB devices"));
     } finally {
       setBusy(false);
     }
@@ -77,7 +78,7 @@ export function NativeUsbPrinterPanel() {
                     setReady(await usbPrinterReady());
                     toast.success("USB printer configured in SEZA POS");
                   } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Could not configure printer");
+                    toast.error(userFacingError(error, "Could not configure printer"));
                   } finally { setBusy(false); }
                 }}
               >
@@ -90,7 +91,7 @@ export function NativeUsbPrinterPanel() {
           <Button disabled={!ready || busy} onClick={async () => {
             setBusy(true);
             try { await nativeUsbTestPrint(); toast.success("SEZA test receipt printed"); }
-            catch (error) { toast.error(error instanceof Error ? error.message : "Test print failed"); }
+            catch (error) { toast.error(userFacingError(error, "Test print failed")); }
             finally { setBusy(false); }
           }}>Test print</Button>
           <Button variant="outline" disabled={selected == null || busy} onClick={() => {

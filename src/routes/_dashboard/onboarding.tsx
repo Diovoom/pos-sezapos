@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { Loader2, KeyRound } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/onboarding")({
@@ -45,7 +46,7 @@ export function OnboardingPage() {
       toast.success("Account secured. Welcome!");
       navigate({ to: "/pos", replace: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save");
+      toast.error(userFacingError(err, "Could not save"));
     } finally {
       setBusy(false);
     }

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import {
   type HardwareKind,
@@ -82,7 +83,7 @@ export function HardwareCard({
     if (r.ok) {
       toast.success(r.message);
     } else {
-      toast.error(r.message);
+      toast.error(userFacingError(r, "This update could not be completed. Please try again."));
     }
   };
 
