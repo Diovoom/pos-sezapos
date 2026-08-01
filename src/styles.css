@@ -373,15 +373,26 @@ html.owner-dashboard-web [role="alertdialog"] {
   backdrop-filter: blur(22px) saturate(145%);
 }
 
+
+.seza-mobile-glass-slider {
+  position: absolute;
+  inset-block: 0.45rem;
+  left: 0.5rem;
+  width: calc((100% - 1rem) / 3);
+  border-radius: 1.25rem;
+  background: color-mix(in srgb, hsl(var(--primary)) 14%, rgba(255,255,255,.72));
+  border: 1px solid color-mix(in srgb, hsl(var(--primary)) 24%, rgba(255,255,255,.8));
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .12), inset 0 1px 0 rgba(255,255,255,.75);
+  transition: transform 220ms cubic-bezier(.22,1,.36,1);
+  pointer-events: none;
+}
+
 .seza-mobile-tab {
   position: relative;
   margin-block: 0.35rem;
   transition: background-color 180ms ease, transform 180ms ease, color 180ms ease;
 }
 
-.seza-mobile-tab.is-active {
-  background: color-mix(in oklab, var(--primary) 11%, transparent);
-}
 
 .seza-mobile-tab:active {
   transform: scale(0.97);

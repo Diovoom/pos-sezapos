@@ -96,6 +96,7 @@ type InventoryEditForm = {
   price: string;
   stock: string;
   min_stock: string;
+  category_id: string;
 };
 
 function productToEditForm(product: ProductRow): InventoryEditForm {
@@ -107,6 +108,7 @@ function productToEditForm(product: ProductRow): InventoryEditForm {
     price: String(product.price ?? 0),
     stock: String(product.stock ?? 0),
     min_stock: String(product.min_stock ?? 0),
+    category_id: product.category_id ?? "",
   };
 }
 
@@ -206,7 +208,7 @@ function InventoryPage() {
       const sku = editForm.sku.trim() || null, barcode = editForm.barcode.trim() || null;
       const duplicate = draftedProducts.find((p) => p.id !== editingProduct.id && ((sku && p.sku?.toLowerCase() === sku.toLowerCase()) || (barcode && p.barcode === barcode)));
       if (duplicate) throw new Error(sku && duplicate.sku?.toLowerCase() === sku.toLowerCase() ? `SKU already belongs to ${duplicate.name}` : `Barcode already belongs to ${duplicate.name}`);
-      saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "update", productId: editingProduct.id, original: editingProduct as any, changes: { name: editForm.name.trim(), sku, barcode, price, cost, stock, min_stock: minStock }, createdAt: new Date().toISOString() });
+      saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "update", productId: editingProduct.id, original: editingProduct as any, changes: { name: editForm.name.trim(), sku, barcode, price, cost, stock, min_stock: minStock, category_id: editForm.category_id || null }, createdAt: new Date().toISOString() });
     },
     onSuccess: () => { toast.success("Saved as unpublished change"); setEditingProduct(null); setEditForm(null); setDraftTick((v) => v + 1); },
     onError: (error: Error) => toast.error(userFacingError(error, "Could not save product")),
@@ -237,9 +239,11 @@ function InventoryPage() {
   const currency = store?.currency ?? "USD";
 
   const { data: categories = [] } = useQuery<CategoryRow[]>({
-    queryKey: ["categories"],
+    queryKey: ["categories", store?.id ?? "unassigned"],
+    enabled: Boolean(store?.id),
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id,name").order("name");
+      const { data, error } = await supabase.from("categories").select("id,name").eq("store_id", store!.id).order("name");
+      if (error) throw error;
       return (data as CategoryRow[]) ?? [];
     },
   });
@@ -443,6 +447,18 @@ function InventoryPage() {
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Inventory categories">
+          <button type="button" onClick={() => { setCategoryId("all"); setPage(1); }} className={cn("shrink-0 rounded-xl border px-3 py-2 text-sm font-semibold", categoryId === "all" ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-accent")}>All products</button>
+          {categories.map((category) => {
+            const count = draftedProducts.filter((product) => product.category_id === category.id).length;
+            return (
+              <button key={category.id} type="button" onClick={() => { setCategoryId(category.id); setPage(1); }} className={cn("shrink-0 rounded-xl border px-3 py-2 text-sm font-semibold", categoryId === category.id ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-accent")}>
+                {category.name} <span className="ml-1 opacity-70">{count}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Stock filter pills */}

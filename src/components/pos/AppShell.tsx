@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
@@ -127,6 +127,26 @@ export function AppShell({ children }: { children: ReactNode }) {
   const moreActive = !["/dashboard", "/employees"].some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
+  const activeMobileIndex = pathname === "/dashboard" ? 0 : pathname.startsWith("/employees") ? 1 : 2;
+  const [dragMobileIndex, setDragMobileIndex] = useState<number | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const mobileNavRef = useRef<HTMLElement>(null);
+
+  const mobileIndexFromPointer = (event: PointerEvent<HTMLElement>) => {
+    const bounds = mobileNavRef.current?.getBoundingClientRect();
+    if (!bounds) return activeMobileIndex;
+    const relative = Math.max(0, Math.min(bounds.width - 1, event.clientX - bounds.left));
+    return Math.max(0, Math.min(2, Math.floor((relative / bounds.width) * 3)));
+  };
+
+  const finishMobileDrag = (event: PointerEvent<HTMLElement>) => {
+    if (dragMobileIndex === null) return;
+    const index = mobileIndexFromPointer(event);
+    setDragMobileIndex(null);
+    if (index === 0) navigate({ to: "/dashboard" });
+    else if (index === 1) navigate({ to: "/employees" });
+    else setMoreOpen(true);
+  };
 
   const accountMenu = (
     <DropdownMenuContent align="end" className="w-60">
@@ -287,12 +307,29 @@ export function AppShell({ children }: { children: ReactNode }) {
           {children}
         </div>
 
-        <nav className="seza-mobile-glass-nav fixed bottom-[calc(.65rem_+_env(safe-area-inset-bottom))] left-1/2 z-40 grid min-h-[4.15rem] w-[min(92vw,28rem)] -translate-x-1/2 grid-cols-3 px-2 md:hidden">
+        <nav
+          ref={mobileNavRef}
+          className="seza-mobile-glass-nav fixed bottom-[calc(.65rem_+_env(safe-area-inset-bottom))] left-1/2 z-40 grid min-h-[4.15rem] w-[min(92vw,28rem)] -translate-x-1/2 touch-none grid-cols-3 px-2 md:hidden"
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setDragMobileIndex(mobileIndexFromPointer(event));
+          }}
+          onPointerMove={(event) => {
+            if (dragMobileIndex !== null) setDragMobileIndex(mobileIndexFromPointer(event));
+          }}
+          onPointerUp={finishMobileDrag}
+          onPointerCancel={() => setDragMobileIndex(null)}
+        >
+          <span
+            aria-hidden="true"
+            className="seza-mobile-glass-slider"
+            style={{ transform: `translateX(${(dragMobileIndex ?? activeMobileIndex) * 100}%)` }}
+          />
           <MobileNavLink to="/dashboard" label="Home" icon={LayoutDashboard} active={pathname === "/dashboard"} />
           <MobileNavLink to="/employees" label="Staff" icon={UserPlus} active={pathname.startsWith("/employees")} />
-          <DropdownMenu>
+          <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
             <DropdownMenuTrigger asChild>
-              <button className={cn("seza-mobile-tab flex flex-col items-center justify-center gap-0.5 rounded-[1.35rem] text-[10px] font-semibold", moreActive ? "is-active text-primary" : "text-muted-foreground")}>
+              <button className={cn("seza-mobile-tab relative z-10 flex flex-col items-center justify-center gap-0.5 rounded-[1.35rem] text-[10px] font-semibold", moreActive ? "text-primary" : "text-muted-foreground")} onClick={() => setMoreOpen(true)}>
                 <MoreVertical className="size-5" /> More
               </button>
             </DropdownMenuTrigger>
@@ -341,7 +378,7 @@ function DesktopNavLink({ to, label, icon: Icon, active }: { to: string; label: 
 
 function MobileNavLink({ to, label, icon: Icon, active }: { to: string; label: string; icon: any; active: boolean }) {
   return (
-    <Link to={to} className={cn("seza-mobile-tab flex flex-col items-center justify-center gap-0.5 rounded-[1.35rem] text-[10px] font-semibold", active ? "is-active text-primary" : "text-muted-foreground")}>
+    <Link to={to} className={cn("seza-mobile-tab relative z-10 flex flex-col items-center justify-center gap-0.5 rounded-[1.35rem] text-[10px] font-semibold", active ? "text-primary" : "text-muted-foreground")}>
       <Icon className="size-5" /> {label}
     </Link>
   );
