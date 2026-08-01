@@ -18,13 +18,6 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -73,7 +66,6 @@ type ProductRow = {
   min_age?: number | null;
   age_category?: string | null;
   status?: string | null;
-  category_id?: string | null;
 };
 
 function ProductThumb({ path }: { path: string | null }) {
@@ -92,6 +84,7 @@ function ProductsPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [newProductSession, setNewProductSession] = useState(0);
   const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
   const [editForm, setEditForm] = useState({ name: "", sku: "", barcode: "", cost: "", price: "", stock: "" });
   const [draftTick, setDraftTick] = useState(0);
@@ -102,27 +95,13 @@ function ProductsPage() {
   });
   const cur = store?.currency ?? "USD";
 
-  const { data: categories = [] } = useQuery<{ id: string; name: string }[]>({
-    queryKey: ["categories", store?.id ?? "unassigned"],
-    enabled: Boolean(store?.id),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("id,name")
-        .eq("store_id", store!.id)
-        .order("name");
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
   const { data: products = [], isLoading } = useQuery<ProductRow[]>({
     queryKey: ["products"],
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
         .select(
-          "id,name,sku,barcode,price,cost,stock,taxable,is_favorite,image_url,age_restricted,min_age,age_category,status,category_id",
+          "id,name,sku,barcode,price,cost,stock,taxable,is_favorite,image_url,age_restricted,min_age,age_category,status",
         )
         .order("created_at", { ascending: false });
       return (data as ProductRow[]) ?? [];
@@ -202,20 +181,25 @@ function ProductsPage() {
         title="Products"
         subtitle={`${draftedProducts.length} items${store?.id ? ` · ${loadInventoryDrafts(store.id).length} unpublished` : ""}`}
         actions={
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog
+            open={open}
+            onOpenChange={(next) => {
+              setOpen(next);
+              if (!next) setNewProductSession((value) => value + 1);
+            }}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Plus className="size-4 mr-1" /> New product
               </Button>
             </DialogTrigger>
             <NewProductDialog
+              key={newProductSession}
               onCreated={() => {
+                setOpen(false);
                 qc.invalidateQueries({ queryKey: ["products"] });
               }}
-              onClose={() => setOpen(false)}
               storeId={store?.id}
-              categories={categories}
-              onCategoryCreated={() => qc.invalidateQueries({ queryKey: ["categories"] })}
             />
           </Dialog>
         }
@@ -374,7 +358,7 @@ function ProductsPage() {
   );
 }
 
-function NewProductDialog({ onCreated, onClose, storeId, categories, onCategoryCreated }: { onCreated: () => void; onClose: () => void; storeId?: string; categories: { id: string; name: string }[]; onCategoryCreated: () => void }) {
+function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; storeId?: string }) {
   const [form, setForm] = useState({
     name: "",
     sku: "",
@@ -387,7 +371,6 @@ function NewProductDialog({ onCreated, onClose, storeId, categories, onCategoryC
     age_restricted: false,
     min_age: "21",
     age_category: "alcohol",
-    category_id: "",
   });
   const [imagePath, setImagePath] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -397,58 +380,6 @@ function NewProductDialog({ onCreated, onClose, storeId, categories, onCategoryC
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrl = useProductImageUrl(imagePath);
   const lookup = useServerFn(lookupBarcode);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [addingCategory, setAddingCategory] = useState(false);
-
-  const resetForNextItem = () => {
-    setForm({
-      name: "",
-      sku: "",
-      barcode: "",
-      price: "",
-      cost: "",
-      stock: "0",
-      taxable: true,
-      is_favorite: false,
-      age_restricted: false,
-      min_age: "21",
-      age_category: "alcohol",
-      category_id: "",
-    });
-    setImagePath(null);
-    setScanning(false);
-    setLooking(false);
-    setNewCategoryName("");
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const addCategory = async () => {
-    const name = newCategoryName.trim();
-    if (!storeId || !name) return;
-    if (categories.some((category) => category.name.toLowerCase() === name.toLowerCase())) {
-      const existing = categories.find((category) => category.name.toLowerCase() === name.toLowerCase());
-      if (existing) setForm((current) => ({ ...current, category_id: existing.id }));
-      setNewCategoryName("");
-      return toast.info("That category already exists");
-    }
-    setAddingCategory(true);
-    try {
-      const { data, error } = await supabase
-        .from("categories")
-        .insert({ store_id: storeId, name })
-        .select("id,name")
-        .single();
-      if (error) throw error;
-      onCategoryCreated();
-      setForm((current) => ({ ...current, category_id: data.id }));
-      setNewCategoryName("");
-      toast.success(`${data.name} category added`);
-    } catch (error) {
-      toast.error(userFacingError(error, "Could not add category"));
-    } finally {
-      setAddingCategory(false);
-    }
-  };
 
   const runLookup = async (barcode: string) => {
     if (!barcode.trim()) return toast.error("Enter a barcode first");
@@ -456,7 +387,8 @@ function NewProductDialog({ onCreated, onClose, storeId, categories, onCategoryC
     try {
       const result = await lookup({ data: { barcode: barcode.trim() } });
       if (!result.name) {
-        toast.error("No product found for that barcode");
+        setForm((f) => ({ ...f, barcode: result.barcode }));
+        toast.info("Barcode captured. Product details are not in the lookup databases yet, so add the name and price manually.");
         return;
       }
       const name = result.brand ? `${result.brand} ${result.name}` : result.name;
@@ -465,9 +397,15 @@ function NewProductDialog({ onCreated, onClose, storeId, categories, onCategoryC
         const path = await importRemoteProductImage(result.image_url);
         if (path) setImagePath(path);
       }
-      toast.success(
-        `Loaded from ${result.source === "openfoodfacts" ? "Open Food Facts" : "UPC database"}`,
-      );
+      const sourceLabel: Record<string, string> = {
+        openfoodfacts: "Open Food Facts",
+        openbeautyfacts: "Open Beauty Facts",
+        openpetfoodfacts: "Open Pet Food Facts",
+        openproductsfacts: "Open Products Facts",
+        openlibrary: "Open Library",
+        upcitemdb: "UPC database",
+      };
+      toast.success(`Loaded from ${sourceLabel[result.source ?? ""] ?? "barcode database"}`);
     } catch (e) {
       toast.error(userFacingError(e, "Lookup failed"));
     } finally {
@@ -498,11 +436,27 @@ function NewProductDialog({ onCreated, onClose, storeId, categories, onCategoryC
     const duplicate = (duplicates ?? []).find((p: any) => (sku && p.sku?.toLowerCase() === sku.toLowerCase()) || (barcode && p.barcode === barcode)) || allDrafts.find((d) => (sku && String(d.changes?.sku ?? "").toLowerCase() === sku.toLowerCase()) || (barcode && d.changes?.barcode === barcode));
     if (duplicate) { setBusy(false); return toast.error("That SKU or barcode already exists"); }
     const id = crypto.randomUUID();
-    saveInventoryDraft(storeId, { id: crypto.randomUUID(), operation: "create", productId: id, changes: { name: form.name.trim(), sku, barcode, price: Number(form.price) || 0, cost: Number(form.cost) || 0, stock: Number(form.stock) || 0, taxable: form.taxable, is_favorite: form.is_favorite, image_url: imagePath, age_restricted: form.age_restricted, min_age: form.age_restricted ? Number(form.min_age) || 21 : null, age_category: form.age_restricted ? form.age_category : null, category_id: form.category_id || null, status: "active" }, createdAt: new Date().toISOString() });
+    saveInventoryDraft(storeId, { id: crypto.randomUUID(), operation: "create", productId: id, changes: { name: form.name.trim(), sku, barcode, price: Number(form.price) || 0, cost: Number(form.cost) || 0, stock: Number(form.stock) || 0, taxable: form.taxable, is_favorite: form.is_favorite, image_url: imagePath, age_restricted: form.age_restricted, min_age: form.age_restricted ? Number(form.min_age) || 21 : null, age_category: form.age_restricted ? form.age_category : null, status: "active" }, createdAt: new Date().toISOString() });
     setBusy(false);
-    toast.success("Product saved as draft. Ready to scan the next item.");
+    toast.success("Product saved as draft. Press Publish when ready.");
+    setForm({
+      name: "",
+      sku: "",
+      barcode: "",
+      price: "",
+      cost: "",
+      stock: "0",
+      taxable: true,
+      is_favorite: false,
+      age_restricted: false,
+      min_age: "21",
+      age_category: "alcohol",
+    });
+    setImagePath(null);
+    setScanning(false);
+    setLooking(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     onCreated();
-    resetForNextItem();
   };
 
   return (
@@ -511,9 +465,6 @@ function NewProductDialog({ onCreated, onClose, storeId, categories, onCategoryC
         <DialogTitle>New product</DialogTitle>
       </DialogHeader>
       <form onSubmit={submit} className="space-y-4">
-        <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
-          <span className="font-semibold text-primary">Ready to scan.</span> Save this item and the form will clear automatically for the next product.
-        </div>
         <div className="flex gap-3">
           <div className="size-20 rounded-lg border bg-muted overflow-hidden grid place-items-center shrink-0">
             {previewUrl ? (
@@ -609,27 +560,6 @@ function NewProductDialog({ onCreated, onClose, storeId, categories, onCategoryC
             <p className="text-xs text-muted-foreground">
               A USB/Bluetooth scanner that sends Enter will look up the item automatically.
             </p>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label>Inventory category</Label>
-          <Select value={form.category_id || "uncategorized"} onValueChange={(value) => setForm({ ...form, category_id: value === "uncategorized" ? "" : value })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Choose a category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="uncategorized">Uncategorized</SelectItem>
-              {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="flex gap-2">
-            <Input value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void addCategory(); } }} placeholder="Add category, e.g. Alcohol or Retail" />
-            <Button type="button" variant="outline" onClick={() => void addCategory()} disabled={addingCategory || !newCategoryName.trim()}>
-              {addingCategory ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-              <span className="sr-only">Add category</span>
-            </Button>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3">
@@ -733,10 +663,9 @@ function NewProductDialog({ onCreated, onClose, storeId, categories, onCategoryC
             </div>
           )}
         </div>
-        <DialogFooter className="gap-2 sm:justify-between">
-          <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Done</Button>
+        <DialogFooter>
           <Button type="submit" disabled={busy}>
-            {busy && <Loader2 className="size-4 animate-spin mr-2" />}Save draft & scan next
+            {busy && <Loader2 className="size-4 animate-spin mr-2" />}Create
           </Button>
         </DialogFooter>
       </form>
