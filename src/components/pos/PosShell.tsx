@@ -500,7 +500,7 @@ export function PosShell({ children }: { children: ReactNode }) {
         }}
         onApprove={() => {
           setDashboardGate(false);
-          navigate({ to: "/dashboard" });
+          navigate({ to: "/manager-tools" as any });
         }}
       />
 

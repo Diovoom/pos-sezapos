@@ -59,6 +59,7 @@ const ALLOWED_PREFIXES = [
   "/settings",
   "/support",
   "/pending-sync",
+  "/manager-tools",
   "/onboarding",
   "/reset-password",
   "/r/",

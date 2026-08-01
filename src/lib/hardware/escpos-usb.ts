@@ -8,6 +8,8 @@ export type UsbPrinterDevice = {
   manufacturer?: string | null;
   permission: boolean;
   printerCandidate: boolean;
+  endpointType?: number;
+  interfaceCount?: number;
 };
 
 type UsbPrinterPlugin = {

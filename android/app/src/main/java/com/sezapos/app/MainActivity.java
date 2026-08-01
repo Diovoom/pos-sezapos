@@ -8,6 +8,7 @@ import com.sezapos.screen.SezaScreenCapturePlugin;
 import com.sezapos.share.SezaPdfSharePlugin;
 import com.sezapos.device.SezaDeviceControlPlugin;
 import com.sezapos.device.SezaUsbPrinterPlugin;
+import com.sezapos.device.SezaCustomerDisplayPlugin;
 
 public class MainActivity extends BridgeActivity {
     @Override
@@ -17,6 +18,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SezaPdfSharePlugin.class);
         registerPlugin(SezaDeviceControlPlugin.class);
         registerPlugin(SezaUsbPrinterPlugin.class);
+        registerPlugin(SezaCustomerDisplayPlugin.class);
         super.onCreate(savedInstanceState);
         SezaDeviceControlPlugin.applyWindowPreferences(this);
     }

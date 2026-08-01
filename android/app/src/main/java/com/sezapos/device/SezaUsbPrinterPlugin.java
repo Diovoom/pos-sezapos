@@ -74,7 +74,10 @@ public class SezaUsbPrinterPlugin extends Plugin {
             row.put("name", d.getProductName() != null ? d.getProductName() : d.getDeviceName());
             row.put("manufacturer", d.getManufacturerName());
             row.put("permission", manager.hasPermission(d));
-            row.put("printerCandidate", findBulkOut(d) != null);
+            row.put("printerCandidate", findOutputEndpoint(d) != null);
+            UsbEndpoint candidate = findOutputEndpoint(d);
+            row.put("endpointType", candidate != null ? candidate.getType() : -1);
+            row.put("interfaceCount", d.getInterfaceCount());
             rows.put(row);
         }
         JSObject out = new JSObject();
@@ -106,7 +109,7 @@ public class SezaUsbPrinterPlugin extends Plugin {
         JSObject out = new JSObject();
         out.put("connected", d != null);
         out.put("permission", d != null && manager.hasPermission(d));
-        out.put("ready", d != null && manager.hasPermission(d) && findBulkOut(d) != null);
+        out.put("ready", d != null && manager.hasPermission(d) && findOutputEndpoint(d) != null);
         call.resolve(out);
     }
 
@@ -144,43 +147,51 @@ public class SezaUsbPrinterPlugin extends Plugin {
         return null;
     }
 
-    private UsbEndpoint findBulkOut(UsbDevice d) {
+    private UsbEndpoint findOutputEndpoint(UsbDevice d) {
+        UsbEndpoint interruptFallback = null;
         for (int i=0; i<d.getInterfaceCount(); i++) {
             UsbInterface intf = d.getInterface(i);
             for (int e=0; e<intf.getEndpointCount(); e++) {
                 UsbEndpoint ep = intf.getEndpoint(e);
-                if (ep.getDirection() == UsbConstants.USB_DIR_OUT && ep.getType() == UsbConstants.USB_ENDPOINT_XFER_BULK) return ep;
+                if (ep.getDirection() != UsbConstants.USB_DIR_OUT) continue;
+                if (ep.getType() == UsbConstants.USB_ENDPOINT_XFER_BULK) return ep;
+                if (ep.getType() == UsbConstants.USB_ENDPOINT_XFER_INT && interruptFallback == null) interruptFallback = ep;
             }
         }
-        return null;
+        return interruptFallback;
     }
 
     private int writeBytes(UsbDevice d, byte[] bytes) throws Exception {
-        UsbInterface chosen = null; UsbEndpoint out = null;
-        for (int i=0; i<d.getInterfaceCount() && out == null; i++) {
+        Exception lastError = null;
+        for (int i=0; i<d.getInterfaceCount(); i++) {
             UsbInterface intf = d.getInterface(i);
             for (int e=0; e<intf.getEndpointCount(); e++) {
                 UsbEndpoint ep = intf.getEndpoint(e);
-                if (ep.getDirection() == UsbConstants.USB_DIR_OUT && ep.getType() == UsbConstants.USB_ENDPOINT_XFER_BULK) { chosen = intf; out = ep; break; }
+                if (ep.getDirection() != UsbConstants.USB_DIR_OUT) continue;
+                if (ep.getType() != UsbConstants.USB_ENDPOINT_XFER_BULK && ep.getType() != UsbConstants.USB_ENDPOINT_XFER_INT) continue;
+                UsbDeviceConnection connection = manager.openDevice(d);
+                if (connection == null) { lastError = new Exception("Could not open USB device"); continue; }
+                try {
+                    if (!connection.claimInterface(intf, true)) throw new Exception("Could not claim interface " + i);
+                    int offset = 0;
+                    while (offset < bytes.length) {
+                        int length = Math.min(4096, bytes.length - offset);
+                        byte[] chunk = new byte[length];
+                        System.arraycopy(bytes, offset, chunk, 0, length);
+                        int sent = connection.bulkTransfer(ep, chunk, length, 5000);
+                        if (sent <= 0) throw new Exception("Endpoint " + e + " rejected printer data");
+                        offset += sent;
+                    }
+                    return offset;
+                } catch (Exception error) {
+                    lastError = error;
+                } finally {
+                    try { connection.releaseInterface(intf); } catch (Exception ignored) {}
+                    connection.close();
+                }
             }
         }
-        if (chosen == null || out == null) throw new Exception("No USB bulk output endpoint");
-        UsbDeviceConnection connection = manager.openDevice(d);
-        if (connection == null) throw new Exception("Could not open USB device");
-        try {
-            if (!connection.claimInterface(chosen, true)) throw new Exception("Could not claim printer interface");
-            int offset = 0;
-            while (offset < bytes.length) {
-                int length = Math.min(4096, bytes.length - offset);
-                byte[] chunk = new byte[length]; System.arraycopy(bytes, offset, chunk, 0, length);
-                int sent = connection.bulkTransfer(out, chunk, length, 5000);
-                if (sent < 0) throw new Exception("Printer stopped accepting data");
-                offset += sent;
-            }
-            return offset;
-        } finally {
-            try { connection.releaseInterface(chosen); } catch (Exception ignored) {}
-            connection.close();
-        }
+        if (lastError != null) throw lastError;
+        throw new Exception("No writable USB printer endpoint");
     }
 }
