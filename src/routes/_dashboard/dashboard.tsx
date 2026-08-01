@@ -2,9 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { PageHeader } from "@/components/pos/AppShell";
+import { useMe } from "@/hooks/useMe";
+import { OwnerDashboardFooter } from "@/components/OwnerDashboardFooter";
 import { TrialCountdown } from "@/components/TrialCountdown";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fmtCurrency, fmtNumber } from "@/lib/format";
 import {
@@ -20,6 +23,8 @@ import {
   Wallet,
   ChevronRight,
   Loader2,
+  CalendarDays,
+  Info,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -63,13 +68,23 @@ function hourLabel(hour: number) {
 }
 
 function DashboardPage() {
+  const { data: me } = useMe();
   const [detail, setDetail] = useState<DetailKey | null>(null);
+  const [dateDialogOpen, setDateDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
+  const ownerFirstName = String(me?.profile?.full_name || me?.user?.email || "Owner").trim().split(/\s+/)[0];
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dashboard-today"],
+    queryKey: ["dashboard-day", selectedDate, me?.store?.id],
     refetchInterval: 30_000,
     queryFn: async () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = new Date(`${selectedDate}T00:00:00`);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
       const week = new Date(today);
       week.setDate(week.getDate() - 6);
 
@@ -79,11 +94,13 @@ function DashboardPage() {
             .from("sales")
             .select("id,receipt_number,total,subtotal,tax,discount,created_at,payment_method,cashier_id,status")
             .gte("created_at", week.toISOString())
+            .lt("created_at", tomorrow.toISOString())
             .order("created_at", { ascending: false }),
           sb
             .from("refunds")
             .select("id,total,created_at,refund_type,reason,sale_id")
             .gte("created_at", today.toISOString())
+            .lt("created_at", tomorrow.toISOString())
             .order("created_at", { ascending: false }),
           sb.from("products").select("id,price,stock", { count: "exact" }),
           sb
@@ -98,6 +115,7 @@ function DashboardPage() {
             .from("time_entries")
             .select("user_id,clock_in,clock_out")
             .gte("clock_in", today.toISOString())
+            .lt("clock_in", tomorrow.toISOString())
             .order("clock_in", { ascending: false }),
         ]);
 
@@ -106,7 +124,9 @@ function DashboardPage() {
 
       const allSales = (salesRes.data ?? []) as any[];
       const completed = allSales.filter((s) => s.status === "completed");
-      const todays = completed.filter((s) => new Date(s.created_at) >= today);
+      const todays = completed.filter((s) => { const created = new Date(s.created_at); return created >= today && created < tomorrow; });
+      const previousDaySales = completed.filter((s) => { const created = new Date(s.created_at); return created >= yesterday && created < today; });
+      const previousTotal = previousDaySales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
       const todayTotal = todays.reduce((a, s) => a + Number(s.total || 0), 0);
       const cashSales = todays.filter((s) => s.payment_method === "cash");
       const cardSales = todays.filter((s) => s.payment_method !== "cash");
@@ -184,6 +204,7 @@ function DashboardPage() {
 
       return {
         todayTotal,
+        previousTotal,
         cashTotal,
         cardTotal,
         totalTax,
@@ -228,10 +249,35 @@ function DashboardPage() {
     { key: "employees" as const, icon: Users, label: "Employees today", value: fmtNumber(data?.employeesWorked ?? 0) },
   ];
 
+  const selected = new Date(`${selectedDate}T12:00:00`);
+  const todayKey = (() => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`; })();
+  const isToday = selectedDate === todayKey;
+  const periodName = isToday ? "Today" : selected.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const prior = new Date(selected); prior.setDate(prior.getDate() - 1);
+  const comparisonName = isToday ? "Yesterday" : prior.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const comparisonChange = data?.previousTotal ? (((data.todayTotal - data.previousTotal) / data.previousTotal) * 100) : null;
+
   return (
     <>
-      <PageHeader title="Daily Summary" subtitle="Tap any summary card for the full details · updates every 30 seconds" />
       <div className="space-y-6 p-4 md:p-6">
+        <section className="rounded-3xl border bg-gradient-to-br from-background via-background to-primary/5 p-5 shadow-sm md:p-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-primary">Owner overview</p>
+              <h1 className="mt-1 text-3xl font-black tracking-tight md:text-4xl">Welcome, {ownerFirstName}!</h1>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-lg font-bold">
+                <span>{periodName}</span><span className="font-normal text-muted-foreground">vs.</span><span>{comparisonName}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>Data updates every 30 seconds</span><Info className="size-4" />
+                {comparisonChange !== null ? <span className={comparisonChange >= 0 ? "font-semibold text-emerald-600" : "font-semibold text-destructive"}>{comparisonChange >= 0 ? "+" : ""}{comparisonChange.toFixed(1)}% sales</span> : null}
+              </div>
+            </div>
+            <Button variant="outline" className="gap-2 self-start rounded-full lg:self-auto" onClick={() => setDateDialogOpen(true)}>
+              <CalendarDays className="size-4" /> Edit date
+            </Button>
+          </div>
+        </section>
         <TrialCountdown />
         {isLoading ? (
           <div className="flex min-h-56 items-center justify-center text-muted-foreground"><Loader2 className="mr-2 size-5 animate-spin" />Loading today's summary…</div>
@@ -304,7 +350,23 @@ function DashboardPage() {
             </Card>
           </>
         )}
+        <OwnerDashboardFooter />
       </div>
+      <Dialog open={dateDialogOpen} onOpenChange={setDateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Choose a business date</DialogTitle>
+            <DialogDescription>Daily Summary will compare the selected date with the day before it.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input type="date" value={selectedDate} max={todayKey} onChange={(event) => setSelectedDate(event.target.value)} />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setSelectedDate(todayKey)}>Today</Button>
+              <Button onClick={() => setDateDialogOpen(false)}>View summary</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <SummaryDialog detail={detail} onOpenChange={(open) => !open && setDetail(null)} data={data} currency={cur} />
     </>
   );

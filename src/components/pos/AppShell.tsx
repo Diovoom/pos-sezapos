@@ -25,7 +25,8 @@ import { useMe } from "@/hooks/useMe";
 import { cn } from "@/lib/utils";
 import { initializeUiPreferences } from "@/lib/ui-preferences";
 import { roleDotClass, roleTextClass } from "@/lib/role-visual";
-import { StoreLogo } from "@/components/brand/StoreLogo";
+import { Logo } from "@/components/brand/Logo";
+import { OwnerStoreSwitcher } from "@/components/OwnerStoreSwitcher";
 import { UserAvatar } from "@/components/brand/UserAvatar";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { CatalogPublishButton } from "@/components/CatalogPublishButton";
@@ -131,14 +132,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-dvh min-h-0 w-full overflow-hidden bg-background text-foreground">
       <aside className="hidden w-16 shrink-0 flex-col border-r bg-surface/60 md:flex lg:w-60">
-        <div className="flex h-16 items-center gap-3 border-b px-4">
-          <StoreLogo className="size-8 rounded-lg" />
-          <div className="hidden min-w-0 flex-col leading-tight lg:flex">
-            <span className="text-sm font-semibold tracking-tight">SEZA Dashboard</span>
-            <span className="truncate text-[10px] uppercase tracking-wider text-muted-foreground">
-              {me?.store?.name ?? "Store"}
-            </span>
-          </div>
+        <div className="flex h-16 items-center justify-center border-b px-3">
+          <Link to="/dashboard" aria-label="SEZA dashboard" title="SEZA POS">
+            <Logo className="size-10 rounded-xl" />
+          </Link>
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-2" aria-label="Owner navigation">
@@ -214,14 +211,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex h-14 shrink-0 items-center justify-between border-b bg-surface/60 px-3 md:hidden">
-          <Link to="/dashboard" className="flex min-w-0 items-center gap-2">
-            <StoreLogo className="size-8 shrink-0 rounded-lg" />
-            <span className="truncate text-sm font-semibold">
-              {me?.store?.name ?? "SEZA Dashboard"}
-            </span>
+        <div className="relative flex h-14 shrink-0 items-center justify-between border-b bg-surface/80 px-3 backdrop-blur md:h-16 md:px-5">
+          <Link to="/dashboard" className="grid size-10 shrink-0 place-items-center rounded-xl hover:bg-accent md:hidden" aria-label="SEZA dashboard">
+            <Logo className="size-8 rounded-lg" />
           </Link>
-          <div className="flex items-center gap-1">
+          <div className="absolute left-1/2 max-w-[62vw] -translate-x-1/2">
+            <OwnerStoreSwitcher />
+          </div>
+          <div className="ml-auto flex items-center gap-1">
             <Link
               to="/products"
               aria-label="Products"
@@ -270,12 +267,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           </DropdownMenu>
         </nav>
 
-        <div className="fixed right-5 top-4 z-30 hidden items-center gap-2 md:flex">
-          <Button asChild variant="outline" size="icon" title="Products" aria-label="Products">
-            <Link to="/products"><Package className="size-4" /></Link>
-          </Button>
-          <CatalogPublishButton />
-        </div>
         <Link
           to="/help"
           className="fixed bottom-[calc(5rem_+_env(safe-area-inset-bottom))] right-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:opacity-90 md:bottom-5"
