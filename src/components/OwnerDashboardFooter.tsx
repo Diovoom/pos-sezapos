@@ -10,7 +10,7 @@ const legalLinks = [
 ] as const;
 
 const helpLinks = [
-  ["Support & Training", "/help"],
+  ["Support & Training", "/training"],
   ["System Status", "/status"],
   ["Security Center", "/legal/security-center"],
 ] as const;

@@ -1,6 +1,7 @@
 import { termsOfService } from "./docs/terms";
 import { merchantAgreement } from "./docs/merchant-agreement";
 import { privacyPolicy } from "./docs/privacy";
+import { privacyChoices } from "./docs/privacy-choices";
 import {
   cookiePolicy,
   refundPolicy,
@@ -22,6 +23,7 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
   termsOfService,
   merchantAgreement,
   privacyPolicy,
+  privacyChoices,
   cookiePolicy,
   refundPolicy,
   acceptableUsePolicy,

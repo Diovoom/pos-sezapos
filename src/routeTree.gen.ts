@@ -52,6 +52,7 @@ import { Route as PosTimeclockRouteImport } from './routes/_pos/timeclock'
 import { Route as PosRegisterRouteImport } from './routes/_pos/register'
 import { Route as PosRefundsRouteImport } from './routes/_pos/refunds'
 import { Route as PosPosRouteImport } from './routes/_pos/pos'
+import { Route as DashboardTrainingRouteImport } from './routes/_dashboard/training'
 import { Route as DashboardShiftsRouteImport } from './routes/_dashboard/shifts'
 import { Route as DashboardSetupRouteImport } from './routes/_dashboard/setup'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard/settings'
@@ -326,6 +327,11 @@ const PosPosRoute = PosPosRouteImport.update({
   id: '/pos',
   path: '/pos',
   getParentRoute: () => PosRouteRoute,
+} as any)
+const DashboardTrainingRoute = DashboardTrainingRouteImport.update({
+  id: '/training',
+  path: '/training',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardShiftsRoute = DashboardShiftsRouteImport.update({
   id: '/shifts',
@@ -705,6 +711,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof DashboardSettingsRoute
   '/setup': typeof DashboardSetupRoute
   '/shifts': typeof DashboardShiftsRoute
+  '/training': typeof DashboardTrainingRoute
   '/pos': typeof PosPosRoute
   '/refunds': typeof PosRefundsRoute
   '/register': typeof PosRegisterRoute
@@ -809,6 +816,7 @@ export interface FileRoutesByTo {
   '/settings': typeof DashboardSettingsRoute
   '/setup': typeof DashboardSetupRoute
   '/shifts': typeof DashboardShiftsRoute
+  '/training': typeof DashboardTrainingRoute
   '/pos': typeof PosPosRoute
   '/refunds': typeof PosRefundsRoute
   '/register': typeof PosRegisterRoute
@@ -917,6 +925,7 @@ export interface FileRoutesById {
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/setup': typeof DashboardSetupRoute
   '/_dashboard/shifts': typeof DashboardShiftsRoute
+  '/_dashboard/training': typeof DashboardTrainingRoute
   '/_pos/pos': typeof PosPosRoute
   '/_pos/refunds': typeof PosRefundsRoute
   '/_pos/register': typeof PosRegisterRoute
@@ -1023,6 +1032,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/setup'
     | '/shifts'
+    | '/training'
     | '/pos'
     | '/refunds'
     | '/register'
@@ -1127,6 +1137,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/setup'
     | '/shifts'
+    | '/training'
     | '/pos'
     | '/refunds'
     | '/register'
@@ -1234,6 +1245,7 @@ export interface FileRouteTypes {
     | '/_dashboard/settings'
     | '/_dashboard/setup'
     | '/_dashboard/shifts'
+    | '/_dashboard/training'
     | '/_pos/pos'
     | '/_pos/refunds'
     | '/_pos/register'
@@ -1663,6 +1675,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/pos'
       preLoaderRoute: typeof PosPosRouteImport
       parentRoute: typeof PosRouteRoute
+    }
+    '/_dashboard/training': {
+      id: '/_dashboard/training'
+      path: '/training'
+      fullPath: '/training'
+      preLoaderRoute: typeof DashboardTrainingRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/shifts': {
       id: '/_dashboard/shifts'
@@ -2197,6 +2216,7 @@ interface DashboardRouteRouteChildren {
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardSetupRoute: typeof DashboardSetupRoute
   DashboardShiftsRoute: typeof DashboardShiftsRoute
+  DashboardTrainingRoute: typeof DashboardTrainingRoute
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
@@ -2215,6 +2235,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardSetupRoute: DashboardSetupRoute,
   DashboardShiftsRoute: DashboardShiftsRoute,
+  DashboardTrainingRoute: DashboardTrainingRoute,
 }
 
 const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(

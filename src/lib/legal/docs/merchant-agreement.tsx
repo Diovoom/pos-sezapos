@@ -248,9 +248,108 @@ export const merchantAgreement: LegalDocument = {
         "Merchant may not assign the Agreement without SEZA's written consent, except in connection with a bona fide merger or sale of substantially all assets if the successor accepts the Agreement. SEZA may assign the Agreement as part of a corporate transaction or to an affiliate. Neither party is liable for delay caused by events beyond reasonable control. Failure to enforce a provision is not a waiver. If a provision is unenforceable, it will be limited to the minimum extent necessary and the remainder remains effective. The Agreement is the complete agreement regarding its subject matter and may be accepted electronically.",
       ),
     },
+
+    {
+      id: "taxes-records",
+      title: "23. Taxes, Receipts, and Business Records",
+      body: P(
+        "Merchant is solely responsible for determining, collecting, reporting, and remitting all sales, use, excise, payroll, income, and other taxes applicable to its business. SEZA tax settings, reports, exports, receipt templates, and calculations are operational tools and are not tax, accounting, or legal advice. Merchant must review tax rates, exemptions, rounding, tips, discounts, fees, and receipt disclosures before use and retain independent records required by law.",
+      ),
+    },
+    {
+      id: "inventory-pricing",
+      title: "24. Inventory, Pricing, and Catalog Publication",
+      body: P(
+        "Merchant controls product names, descriptions, images, barcodes, SKUs, costs, prices, categories, stock values, age restrictions, and tax assignments. Draft inventory changes may remain unpublished until Merchant publishes them. Merchant must review each catalog publication before making it available to registers. SEZA is not responsible for losses caused by incorrect prices, duplicate barcodes, negative or inaccurate stock, unpublished drafts, accidental deletion, or failure to review a catalog version before use.",
+      ),
+    },
+    {
+      id: "employee-management",
+      title: "25. Employees, Timekeeping, and Manager Approvals",
+      body: P(
+        "Merchant is the employer or contracting party for its personnel and is solely responsible for hiring, wages, scheduling, breaks, overtime, payroll, benefits, workplace rules, and compliance with labor law. SEZA time clocks, shifts, PINs, roles, permissions, and manager approvals are administrative tools and do not determine legal employee status or payroll obligations. Merchant must review time records and restrict manager PINs and elevated permissions to authorized personnel.",
+      ),
+    },
+    {
+      id: "transactions-refunds",
+      title: "26. Sales, Refunds, Voids, Discounts, and Cash Handling",
+      body: P(
+        "Merchant is responsible for each sale, refund, return, void, discount, price override, no-sale drawer opening, paid-in, paid-out, safe drop, and cash reconciliation performed through its account. Merchant must establish customer-facing refund policies, train staff, investigate discrepancies, and maintain sufficient documentation. SEZA audit records assist review but do not prevent all fraud, employee misconduct, customer disputes, or cash loss.",
+      ),
+    },
+    {
+      id: "receipts-numbers",
+      title: "27. Receipt Numbers and Offline Transactions",
+      body: P(
+        "Online transactions may receive a final server receipt number immediately. During an outage, a device may temporarily use a hidden local queue identifier until synchronization succeeds. Merchant must not represent a temporary local identifier as a final legal or tax receipt number. Merchant is responsible for reviewing pending sales, duplicate attempts, failed synchronization, final receipt assignment, and any customer communication needed after reconnection.",
+      ),
+    },
+    {
+      id: "payments-risk",
+      title: "28. Payment Acceptance Risk",
+      body: P(
+        "Merchant decides which payment methods to accept and bears the risk of fraudulent cards, chargebacks, reversals, refunds, declined transactions, duplicate authorizations, offline approvals, tips, cash shortages, and payment-provider holds or reserves. SEZA does not guarantee authorization, settlement, payout timing, fraud detection, or recovery of disputed funds. Merchant must follow the rules and security requirements of each connected payment provider and card network.",
+      ),
+    },
+    {
+      id: "third-party-services",
+      title: "29. Third-Party Services and Integrations",
+      body: P(
+        "The Service may connect to payment processors, banks, email and SMS providers, hardware vendors, app stores, analytics, identity services, and other third parties. SEZA does not control and is not responsible for their availability, pricing, security, decisions, data practices, account suspension, feature changes, or contractual obligations. Merchant authorizes SEZA to exchange information reasonably necessary to operate enabled integrations and must maintain its own third-party accounts in good standing.",
+      ),
+    },
+    {
+      id: "backups-business-continuity",
+      title: "30. Backups and Business Continuity",
+      body: P(
+        "Merchant must maintain reasonable contingency procedures for internet, power, hardware, payment, printing, and staffing failures. This may include backup internet, spare paper, manual receipt procedures, alternate payment methods, periodic exports, and independent copies of legally required records. SEZA backups and offline features reduce risk but are not a substitute for Merchant's own continuity plan.",
+      ),
+    },
+    {
+      id: "security-incidents",
+      title: "31. Security Incidents and Device Loss",
+      body: P(
+        "Merchant must immediately revoke lost or stolen registers, remove former employees, reset compromised credentials, and contact SEZA regarding suspected unauthorized access. Merchant must not disable security controls, share owner credentials, or allow public access to administrative accounts. Merchant remains responsible for activity occurring before SEZA receives and reasonably acts on a valid security notice.",
+      ),
+    },
+    {
+      id: "beta-features",
+      title: "32. Beta, Preview, and Experimental Features",
+      body: P(
+        "Features identified as beta, preview, pilot, early access, experimental, or test may be incomplete, changed, suspended, or discontinued without notice. They may contain errors or have limited support and must not be used as the sole basis for critical financial, legal, payroll, tax, safety, or compliance decisions. Merchant uses those features at its own risk.",
+      ),
+    },
+    {
+      id: "no-professional-advice",
+      title: "33. No Legal, Tax, Accounting, Employment, or Financial Advice",
+      body: P(
+        "SEZA provides business software, not professional advice. Reports, dashboards, alerts, settings, templates, support responses, and training materials are general operational information. Merchant should consult qualified legal, tax, accounting, employment, insurance, cybersecurity, and financial professionals for advice specific to its business and jurisdiction.",
+      ),
+    },
+    {
+      id: "warranty-detail",
+      title: "34. Additional Warranty Disclaimer",
+      body: P(
+        "To the fullest extent permitted by law, SEZA does not warrant that the Service will meet every Merchant requirement, operate without interruption, detect every error or fraud event, preserve every record indefinitely, work with every device or integration, or produce results suitable for a particular regulatory or business purpose. No oral statement, training material, sales presentation, support response, roadmap, or demonstration creates a warranty unless expressly stated in a signed written agreement. Some jurisdictions do not allow certain exclusions, so legally non-waivable rights remain unaffected.",
+      ),
+    },
+    {
+      id: "claim-procedure",
+      title: "35. Notice of Claims and Opportunity to Cure",
+      body: P(
+        `Before filing a lawsuit or other formal proceeding, Merchant must send a written notice describing the claim, relevant account and transaction information, requested relief, and supporting documents to ${C.legalEmail}. The parties will allow at least 30 days for good-faith investigation and resolution unless urgent injunctive relief is reasonably necessary or applicable law prohibits this requirement.`,
+      ),
+    },
+    {
+      id: "electronic-contracting",
+      title: "36. Electronic Acceptance and Communications",
+      body: P(
+        "Merchant agrees that clicking acceptance, creating an account, using the Service after notice, or electronically signing an order may form a binding agreement. Merchant consents to receive contractual notices, invoices, policy updates, security notices, and support communications electronically at the account email or through the Service and is responsible for maintaining a valid monitored address.",
+      ),
+    },
     {
       id: "contact",
-      title: "23. Contact",
+      title: "37. Contact",
       body: (
         <p>
           Questions about this Merchant Agreement may be sent to <a href={`mailto:${C.legalEmail}`}>{C.legalEmail}</a>.

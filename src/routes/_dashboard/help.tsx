@@ -32,6 +32,7 @@ import {
   Mail,
   MessageSquareText,
   Phone,
+  ChevronDown,
   Send,
 } from "lucide-react";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
@@ -65,6 +66,7 @@ export function HelpPage() {
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState<SupportCategory>("other");
   const [priority, setPriority] = useState<"low" | "normal" | "high" | "urgent">("normal");
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const ticketsQuery = useQuery({
     queryKey: ["my-support-tickets"],
@@ -277,60 +279,57 @@ export function HelpPage() {
       </Card>
 
       <Card id="support-tickets" className="scroll-mt-6">
-        <CardHeader>
-          <CardTitle>Your support history</CardTitle>
-          <CardDescription>Open a case to read replies or continue the conversation.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {ticketsQuery.isLoading ? (
-            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" /> Loading your support requests…
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-3 p-6 text-left"
+          onClick={() => setHistoryOpen((value) => !value)}
+          aria-expanded={historyOpen}
+        >
+          <div>
+            <div className="font-semibold">Your support history</div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              {tickets.length ? `${tickets.length} saved case${tickets.length === 1 ? "" : "s"}` : "Past conversations stay saved here."}
             </div>
-          ) : ticketsQuery.isError ? (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
-              Your support history could not be loaded. Refresh the page or contact SEZA directly.
-            </div>
-          ) : tickets.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-8 text-center">
-              <LifeBuoy className="mx-auto size-8 text-muted-foreground" />
-              <div className="mt-3 font-semibold">No support requests yet</div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                New requests and SEZA replies will appear here.
-              </p>
-            </div>
-          ) : (
-            <ul className="divide-y">
-              {tickets.map((ticket) => (
-                <li
-                  key={ticket.id}
-                  className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <Link
-                      to="/help/$ticketId"
-                      params={{ ticketId: ticket.id }}
-                      className="break-words font-medium text-primary hover:underline"
-                    >
-                      Case #{ticket.ticket_number ?? "Pending"} · {ticket.subject}
-                    </Link>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Opened {new Date(ticket.created_at).toLocaleString()}
+          </div>
+          <ChevronDown className={`size-5 shrink-0 transition-transform ${historyOpen ? "rotate-180" : ""}`} />
+        </button>
+        {historyOpen && (
+          <CardContent className="border-t pt-5">
+            {ticketsQuery.isLoading ? (
+              <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Loading your support requests…
+              </div>
+            ) : ticketsQuery.isError ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+                Your support history could not be loaded. Refresh the page or contact SEZA directly.
+              </div>
+            ) : tickets.length === 0 ? (
+              <div className="rounded-xl border border-dashed p-8 text-center">
+                <LifeBuoy className="mx-auto size-8 text-muted-foreground" />
+                <div className="mt-3 font-semibold">No support requests yet</div>
+                <p className="mt-1 text-sm text-muted-foreground">New requests and SEZA replies will appear here.</p>
+              </div>
+            ) : (
+              <ul className="divide-y">
+                {tickets.map((ticket) => (
+                  <li key={ticket.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="break-words font-medium">Case #{ticket.ticket_number ?? "Pending"} · {ticket.subject}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">Opened {new Date(ticket.created_at).toLocaleString()}</div>
                     </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
-                    {ticket.priority && <Badge variant="outline">{ticket.priority}</Badge>}
-                    <Badge>{ticket.status}</Badge>
-                    <Button asChild size="sm" variant="outline">
-                      <Link to="/help/$ticketId" params={{ ticketId: ticket.id }}>
-                        Open conversation
-                      </Link>
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
+                    <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
+                      {ticket.priority && <Badge variant="outline">{ticket.priority}</Badge>}
+                      <Badge>{ticket.status}</Badge>
+                      <Button asChild size="sm">
+                        <Link to="/help/$ticketId" params={{ ticketId: ticket.id }}>Open conversation</Link>
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        )}
       </Card>
     </div>
   );

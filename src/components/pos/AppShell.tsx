@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
   Bell,
@@ -58,6 +58,39 @@ export function AppShell({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const { data: me } = useMe();
   const role = me?.roles?.[0];
+  const storeId = me?.store?.id as string | undefined;
+  const unreadSupport = useQuery({
+    queryKey: ["owner-support-unread", storeId],
+    enabled: Boolean(storeId),
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const { data: tickets, error: ticketError } = await (supabase.from as any)("support_tickets")
+        .select("id,last_merchant_read_at,status")
+        .eq("store_id", storeId)
+        .not("status", "eq", "closed");
+      if (ticketError) throw ticketError;
+      const ids = (tickets ?? []).map((ticket: any) => ticket.id);
+      if (!ids.length) return 0;
+      const { data: adminMessages, error: noteError } = await (supabase.from as any)("support_ticket_notes")
+        .select("ticket_id,created_at,sender_kind")
+        .in("ticket_id", ids)
+        .eq("internal", false)
+        .eq("sender_kind", "admin")
+        .order("created_at", { ascending: false });
+      if (noteError) throw noteError;
+      const latestByTicket = new Map<string, string>();
+      for (const note of adminMessages ?? []) {
+        if (!latestByTicket.has(note.ticket_id)) latestByTicket.set(note.ticket_id, note.created_at);
+      }
+      return (tickets ?? []).filter((ticket: any) => {
+        const latestAdmin = latestByTicket.get(ticket.id);
+        if (!latestAdmin) return false;
+        if (!ticket.last_merchant_read_at) return true;
+        return new Date(latestAdmin).getTime() > new Date(ticket.last_merchant_read_at).getTime();
+      }).length;
+    },
+  });
+  const unreadSupportCount = unreadSupport.data ?? 0;
 
   useEffect(() => {
     document.documentElement.classList.add("owner-dashboard-web");
@@ -269,10 +302,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <Link
           to="/help"
+          aria-label={unreadSupportCount ? `${unreadSupportCount} unread support message${unreadSupportCount === 1 ? "" : "s"}` : "Contact Support"}
           className="fixed bottom-[calc(5rem_+_env(safe-area-inset-bottom))] right-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:opacity-90 md:bottom-5"
         >
-          <LifeBuoy className="size-4" />
+          <span className="relative">
+            <LifeBuoy className="size-4" />
+            {unreadSupportCount > 0 && <span className="absolute -right-2 -top-2 size-3 rounded-full border-2 border-primary bg-red-500" />}
+          </span>
           <span className="hidden sm:inline">Contact Support</span>
+          {unreadSupportCount > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-red-500 px-1.5 text-[10px] text-white">{Math.min(unreadSupportCount, 99)}</span>}
         </Link>
       </main>
     </div>
