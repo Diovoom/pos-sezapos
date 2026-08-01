@@ -23,6 +23,7 @@ import {
 import { OpenDrawerDialog } from "@/components/pos/OpenDrawerDialog";
 import { OfflineIndicator } from "@/components/pos/OfflineIndicator";
 import { cn } from "@/lib/utils";
+import { roleDotClass, roleTextClass } from "@/lib/role-visual";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
