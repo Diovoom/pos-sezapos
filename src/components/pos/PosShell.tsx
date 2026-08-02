@@ -434,7 +434,23 @@ export function PosShell({ children }: { children: ReactNode }) {
       <SupportRequestListener />
       <main className="flex-1 min-w-0 flex flex-col overflow-hidden pt-12 md:pt-0 pb-14 md:pb-0">
         <div className="hidden md:flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
-          <div className="min-w-0"><div className="truncate font-bold">{me?.store?.name ?? "Store"}</div><div className="text-xs text-muted-foreground">{compactEmployeeName(me?.profile?.full_name ?? me?.user?.email)} · {role ?? "cashier"}</div></div>
+          <div className="flex min-w-0 items-center gap-2">
+            {pathname !== "/pos" && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-9 shrink-0"
+                aria-label="Go back to previous POS screen"
+                onClick={() => {
+                  try { router.history.back(); } catch { navigate({ to: "/pos" }); }
+                }}
+              >
+                <ArrowLeft className="size-5" />
+              </Button>
+            )}
+            <div className="min-w-0"><div className="truncate font-bold">{me?.store?.name ?? "Store"}</div><div className="text-xs text-muted-foreground">{compactEmployeeName(me?.profile?.full_name ?? me?.user?.email)} · {role ?? "cashier"}</div></div>
+          </div>
           <div className="flex items-center gap-2">
             <OfflineIndicator />
             <Button variant="outline" size="sm" onClick={() => setDrawerDialog(true)} disabled={!openShift.data}><DoorOpen className="mr-2 size-4"/>Open drawer</Button>

@@ -134,12 +134,76 @@ public class SezaUsbPrinterPlugin extends Plugin {
         int deviceId = call.getInt("deviceId", -1);
         UsbDevice d = findDevice(deviceId);
         if (d == null || !manager.hasPermission(d)) { call.reject("USB printer is not ready"); return; }
+        UsbEndpoint endpoint = findOutputEndpoint(d);
+        String manufacturer = d.getManufacturerName() != null ? d.getManufacturerName() : "Unknown";
+        String model = d.getProductName() != null ? d.getProductName() : d.getDeviceName();
+        String serial = "Unavailable";
+        try {
+            String value = d.getSerialNumber();
+            if (value != null && !value.trim().isEmpty()) serial = value;
+        } catch (SecurityException ignored) {}
+        String endpointType = endpoint == null ? "None" :
+            endpoint.getType() == UsbConstants.USB_ENDPOINT_XFER_BULK ? "USB BULK" :
+            endpoint.getType() == UsbConstants.USB_ENDPOINT_XFER_INT ? "USB INTERRUPT" : "USB OTHER";
+
+        StringBuilder report = new StringBuilder();
+        report.append("SEZA POS\n");
+        report.append("PRINTER DIAGNOSTIC TEST\n");
+        report.append("================================\n");
+        report.append("Result: READY\n");
+        report.append("Date: ").append(new java.util.Date()).append("\n");
+        report.append("\nPRINTER INFORMATION\n");
+        report.append("Manufacturer: ").append(manufacturer).append("\n");
+        report.append("Model: ").append(model).append("\n");
+        report.append("Serial: ").append(serial).append("\n");
+        report.append("Vendor ID: ").append(d.getVendorId()).append("\n");
+        report.append("Product ID: ").append(d.getProductId()).append("\n");
+        report.append("Device ID: ").append(d.getDeviceId()).append("\n");
+        report.append("Interfaces: ").append(d.getInterfaceCount()).append("\n");
+        report.append("Transport: ").append(endpointType).append("\n");
+        report.append("USB permission: GRANTED\n");
+        report.append("\nANDROID INFORMATION\n");
+        report.append("Android SDK: ").append(Build.VERSION.SDK_INT).append("\n");
+        report.append("Android: ").append(Build.VERSION.RELEASE).append("\n");
+        report.append("SEZA package: ").append(getContext().getPackageName()).append("\n");
+        report.append("\nPRINT QUALITY TEST\n");
+        report.append("ABCDEFGHIJKLMNOPQRSTUVWXYZ\n");
+        report.append("abcdefghijklmnopqrstuvwxyz\n");
+        report.append("0123456789 !@#$%^&*()\n");
+        report.append("--------------------------------\n");
+        report.append("LEFT\n");
+        report.append("          CENTER\n");
+        report.append("                         RIGHT\n");
+        report.append("--------------------------------\n");
+        report.append("Drawer control: Supported by SEZA\n");
+        report.append("Auto cut: Command sent below\n");
+        report.append("\nTEST COMPLETE - PRINTER READY\n");
+        report.append("Keep this receipt for diagnostics.\n\n\n");
+
         byte[] init = new byte[]{0x1b, 0x40};
-        byte[] text = ("SEZA POS\nUSB PRINTER TEST\n" + new java.util.Date() + "\n\n\n").getBytes(StandardCharsets.UTF_8);
+        byte[] boldOn = new byte[]{0x1b, 0x45, 0x01};
+        byte[] boldOff = new byte[]{0x1b, 0x45, 0x00};
+        byte[] title = "SEZA POS PRINTER TEST\n".getBytes(StandardCharsets.UTF_8);
+        byte[] text = report.toString().getBytes(StandardCharsets.UTF_8);
         byte[] cut = new byte[]{0x1d, 0x56, 0x42, 0x00};
-        byte[] all = new byte[init.length + text.length + cut.length];
-        System.arraycopy(init,0,all,0,init.length); System.arraycopy(text,0,all,init.length,text.length); System.arraycopy(cut,0,all,init.length+text.length,cut.length);
-        try { writeBytes(d, all); call.resolve(); } catch (Exception e) { call.reject("Test print failed", e); }
+        byte[] all = new byte[init.length + boldOn.length + title.length + boldOff.length + text.length + cut.length];
+        int offset = 0;
+        System.arraycopy(init,0,all,offset,init.length); offset += init.length;
+        System.arraycopy(boldOn,0,all,offset,boldOn.length); offset += boldOn.length;
+        System.arraycopy(title,0,all,offset,title.length); offset += title.length;
+        System.arraycopy(boldOff,0,all,offset,boldOff.length); offset += boldOff.length;
+        System.arraycopy(text,0,all,offset,text.length); offset += text.length;
+        System.arraycopy(cut,0,all,offset,cut.length);
+        try {
+            int written = writeBytes(d, all);
+            JSObject out = new JSObject();
+            out.put("bytesWritten", written);
+            out.put("manufacturer", manufacturer);
+            out.put("model", model);
+            out.put("vendorId", d.getVendorId());
+            out.put("productId", d.getProductId());
+            call.resolve(out);
+        } catch (Exception e) { call.reject("Test print failed: " + e.getMessage(), e); }
     }
 
     private UsbDevice findDevice(int id) {

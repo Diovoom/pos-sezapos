@@ -58,7 +58,9 @@ export function OfflineIndicator() {
         });
         const body = response.ok ? await response.json().catch(() => null) : null;
         if (!cancelled) {
-          setCloudReachable(Boolean(response.ok && body?.status === "operational"));
+          // A successful 2xx response proves the packaged Android app reached SEZA.
+          // Some deployments return a minimal body instead of { status: "operational" }.
+          setCloudReachable(Boolean(response.ok && (!body || body?.status === "operational" || body?.ok === true)));
           setLastCloudCheck(new Date().toISOString());
         }
       } catch {
@@ -105,9 +107,7 @@ export function OfflineIndicator() {
       ? WifiOff
       : state === "syncing"
         ? RefreshCw
-        : state === "issue"
-          ? AlertTriangle
-          : Wifi;
+        : Wifi;
 
   const color =
     state === "offline"
@@ -115,8 +115,8 @@ export function OfflineIndicator() {
       : state === "syncing"
         ? "text-primary bg-white border-slate-200"
         : state === "issue"
-          ? "text-red-600 bg-white border-slate-200"
-          : "text-emerald-600 bg-white border-slate-200";
+          ? "text-slate-950 bg-white border-slate-300"
+          : "text-slate-950 bg-white border-slate-300";
 
   const pending = counts.pendingSales + counts.pendingCash;
 

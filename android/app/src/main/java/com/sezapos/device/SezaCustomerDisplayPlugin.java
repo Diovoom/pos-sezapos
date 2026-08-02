@@ -146,10 +146,25 @@ public class SezaCustomerDisplayPlugin extends Plugin {
             settings.setMediaPlaybackRequiresUserGesture(false);
             settings.setLoadWithOverviewMode(true);
             settings.setUseWideViewPort(true);
-            webView.setWebViewClient(new WebViewClient());
+            final String baseUrl = url.contains("/customer-display") ? url.substring(0, url.indexOf("/customer-display")) + "/" : url;
+            webView.setWebViewClient(new WebViewClient() {
+                private boolean routed = false;
+                @Override public void onPageFinished(WebView view, String finishedUrl) {
+                    super.onPageFinished(view, finishedUrl);
+                    if (routed) return;
+                    routed = true;
+                    String escaped = url.replace("\\", "\\\\").replace("'", "\\'");
+                    view.evaluateJavascript(
+                        "window.history.replaceState({},'', '" + escaped + "');" +
+                        "window.dispatchEvent(new PopStateEvent('popstate'));",
+                        null
+                    );
+                }
+            });
             webView.setBackgroundColor(android.graphics.Color.rgb(2, 6, 23));
             setContentView(webView);
-            webView.loadUrl(url);
+            // Load the SPA root first so Capacitor does not serve an error page for a deep link.
+            webView.loadUrl(baseUrl);
         }
     }
 }

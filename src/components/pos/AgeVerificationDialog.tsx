@@ -86,6 +86,12 @@ export function AgeVerificationDialog({
   const [parsed, setParsed] = useState<ParsedID | null>(null);
   const [manualDob, setManualDob] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    (window as any).__SEZA_ID_SCAN_ACTIVE__ = true;
+    return () => { (window as any).__SEZA_ID_SCAN_ACTIVE__ = false; };
+  }, [open]);
   const [managerOpen, setManagerOpen] = useState(false);
   const [manualManagerOk, setManualManagerOk] = useState<ManagerOverrideResult | null>(null);
   const [manualMode, setManualMode] = useState<"manual" | "override">("manual");

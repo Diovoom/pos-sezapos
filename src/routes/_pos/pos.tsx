@@ -475,6 +475,9 @@ export function PosPage() {
     window.setTimeout(() => searchRef.current?.focus(), 50);
 
     const onKey = (e: KeyboardEvent) => {
+      // Government-ID verification owns the scanner while its dialog is open.
+      // Never route PDF417 ID data into product lookup.
+      if ((window as any).__SEZA_ID_SCAN_ACTIVE__) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         searchRef.current?.focus();
