@@ -19,6 +19,10 @@ import {
   ChevronRight,
   DoorOpen,
   LifeBuoy,
+  MoreVertical,
+  Printer,
+  Monitor,
+  Usb,
 } from "lucide-react";
 import { OpenDrawerDialog } from "@/components/pos/OpenDrawerDialog";
 import { OfflineIndicator } from "@/components/pos/OfflineIndicator";
@@ -60,6 +64,9 @@ import { useTranslation } from "react-i18next";
 import { usePermissions } from "@/hooks/usePermissions";
 import { sendPosHeartbeat } from "@/lib/pos/heartbeat";
 import { pendingCounts } from "@/lib/offline/sync";
+import { PosManagerDashboardDialog } from "@/components/pos/PosManagerDashboardDialog";
+import { usbPrinterReady } from "@/lib/hardware/escpos-usb";
+import { nativeCustomerDisplayStatus } from "@/lib/hardware/customer-display-native";
 
 const POS_NAV: ReadonlyArray<{ to: string; labelKey: string; icon: typeof ScanBarcode }> = [];
 
@@ -127,6 +134,9 @@ export function PosShell({ children }: { children: ReactNode }) {
   const [managerGate, setManagerGate] = useState(false);
   const [dashboardGate, setDashboardGate] = useState(false);
   const [drawerDialog, setDrawerDialog] = useState(false);
+  const [managerDashboard, setManagerDashboard] = useState(false);
+  const [printerReady, setPrinterReady] = useState(false);
+  const [displayRunning, setDisplayRunning] = useState(false);
 
   // Native APK exposes Support + Settings in the mobile menu. Web POS is
   // unchanged  -  those live in the merchant dashboard on the web.
@@ -182,6 +192,18 @@ export function PosShell({ children }: { children: ReactNode }) {
     const timer = window.setInterval(beat, 20_000);
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [isNativeShell, storeId, me?.user?.id, me?.profile?.full_name, openShift.data?.id]);
+
+  useEffect(() => {
+    if (!isNativeShell) return;
+    const refreshHardware = async () => {
+      setPrinterReady(await usbPrinterReady().catch(() => false));
+      setDisplayRunning((await nativeCustomerDisplayStatus().catch(() => ({ running:false, displayId:-1 }))).running);
+    };
+    void refreshHardware();
+    window.addEventListener("pos-hardware-change", refreshHardware);
+    window.addEventListener("seza-hardware-status", refreshHardware);
+    return () => { window.removeEventListener("pos-hardware-change", refreshHardware); window.removeEventListener("seza-hardware-status", refreshHardware); };
+  }, [isNativeShell]);
 
   return (
     <div className="flex h-[100dvh] w-full bg-background text-foreground overflow-hidden">
@@ -411,7 +433,26 @@ export function PosShell({ children }: { children: ReactNode }) {
 
       <SupportRequestListener />
       <main className="flex-1 min-w-0 flex flex-col overflow-hidden pt-12 md:pt-0 pb-14 md:pb-0">
-        {children}
+        <div className="hidden md:flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
+          <div className="min-w-0"><div className="truncate font-bold">{me?.store?.name ?? "Store"}</div><div className="text-xs text-muted-foreground">{compactEmployeeName(me?.profile?.full_name ?? me?.user?.email)} · {role ?? "cashier"}</div></div>
+          <div className="flex items-center gap-2">
+            <OfflineIndicator />
+            <Button variant="outline" size="sm" onClick={() => setDrawerDialog(true)} disabled={!openShift.data}><DoorOpen className="mr-2 size-4"/>Open drawer</Button>
+            <Button variant="outline" size="sm" onClick={handleSwitchEmployee}><ArrowLeftRight className="mr-2 size-4"/>Switch user</Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Device status"><MoreVertical className="size-4"/></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel>Device status</DropdownMenuLabel><DropdownMenuSeparator/>
+                <DropdownMenuItem onSelect={(e)=>e.preventDefault()}><Printer className="mr-2 size-4"/>Printer <span className="ml-auto text-xs">{printerReady?"Connected":"Not configured"}</span></DropdownMenuItem>
+                <DropdownMenuItem onSelect={(e)=>e.preventDefault()}><Usb className="mr-2 size-4"/>Scanner <span className="ml-auto text-xs">USB / keyboard</span></DropdownMenuItem>
+                <DropdownMenuItem onSelect={(e)=>e.preventDefault()}><DoorOpen className="mr-2 size-4"/>Drawer <span className="ml-auto text-xs">{printerReady?"Available":"Needs printer"}</span></DropdownMenuItem>
+                <DropdownMenuItem onSelect={(e)=>e.preventDefault()}><Monitor className="mr-2 size-4"/>Customer display <span className="ml-auto text-xs">{displayRunning?"Running":"Not started"}</span></DropdownMenuItem>
+                <DropdownMenuSeparator/><DropdownMenuItem onClick={()=>setDashboardGate(true)}><SettingsIcon className="mr-2 size-4"/>Configure hardware</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
       </main>
 
       {/* Mobile POS bottom nav */}
@@ -500,8 +541,15 @@ export function PosShell({ children }: { children: ReactNode }) {
         }}
         onApprove={() => {
           setDashboardGate(false);
-          navigate({ to: "/manager-tools" as any });
+          setManagerDashboard(true);
         }}
+      />
+
+      <PosManagerDashboardDialog
+        open={managerDashboard}
+        onOpenChange={setManagerDashboard}
+        storeId={storeId ?? ""}
+        storeName={me?.store?.name ?? "SEZA POS"}
       />
 
       <OpenDrawerDialog

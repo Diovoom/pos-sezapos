@@ -26,9 +26,11 @@ public class SezaCustomerDisplayPlugin extends Plugin {
     @PluginMethod
     public void listDisplays(PluginCall call) {
         DisplayManager dm = (DisplayManager) getContext().getSystemService(Context.DISPLAY_SERVICE);
-        Display[] displays = dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION);
+        Display[] displays = dm.getDisplays();
         JSArray rows = new JSArray();
+        int defaultId = getActivity() != null && getActivity().getDisplay() != null ? getActivity().getDisplay().getDisplayId() : Display.DEFAULT_DISPLAY;
         for (Display display : displays) {
+            if (display.getDisplayId() == defaultId) continue;
             JSObject row = new JSObject();
             row.put("displayId", display.getDisplayId());
             row.put("name", display.getName());
@@ -49,8 +51,10 @@ public class SezaCustomerDisplayPlugin extends Plugin {
         String storeId = call.getString("storeId", "");
         DisplayManager dm = (DisplayManager) getContext().getSystemService(Context.DISPLAY_SERVICE);
         Display chosen = null;
-        Display[] displays = dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION);
+        Display[] displays = dm.getDisplays();
+        int defaultId = getActivity() != null && getActivity().getDisplay() != null ? getActivity().getDisplay().getDisplayId() : Display.DEFAULT_DISPLAY;
         for (Display display : displays) {
+            if (display.getDisplayId() == defaultId) continue;
             if ((requestedId < 0 || display.getDisplayId() == requestedId) && display.isValid()) {
                 chosen = display;
                 break;

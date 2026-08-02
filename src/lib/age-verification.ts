@@ -122,27 +122,44 @@ function parseAamvaDate(v?: string): Date | undefined {
  * if the string isn't a recognizable AAMVA payload.
  */
 export function parseIdBarcode(raw: string): ParsedID {
-  const s = raw || "";
-  // AAMVA payloads begin with "@" and contain "ANSI " header.
-  const isAamva = /@/.test(s) && /ANSI\s?\d{6}/i.test(s);
-  if (!isAamva) return { format: "unknown", raw: s };
+  // PDF417 scanners may send control characters, group separators, or one long
+  // line instead of preserving the printed AAMVA newlines. Normalize all of
+  // those forms before looking for fields.
+  const original = raw || "";
+  const s = Array.from(original)
+    .map((character) => {
+      const code = character.charCodeAt(0);
 
-  // Extract subfile  -  split on newlines, entries like "DAA...", "DBB..." etc.
-  const lines = s
-    .split(/[\r\n]+/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+      // PDF417/AAMVA separators become line breaks.
+      if (code >= 0x1c && code <= 0x1f) return "\n";
+
+      // Keep tabs, line breaks, carriage returns, and printable characters.
+      if (code === 0x09 || code === 0x0a || code === 0x0d || code >= 0x20) {
+        return character;
+      }
+
+      // Remove unsupported control characters.
+      return "";
+    })
+    .join("")
+    .replace(/\r/g, "\n");
+  const isAamva = /ANSI\s*\d{6}/i.test(s) || /(?:^|\n|\s)D(?:A|B)[A-Z][^\n]{2,}/.test(s);
+  if (!isAamva) return { format: "unknown", raw: original };
+
   const field = (code: string): string | undefined => {
-    const hit = lines.find((l) => l.startsWith(code));
-    return hit ? hit.slice(code.length).trim() : undefined;
+    // Capture until the next AAMVA three-letter field, a newline, or end. This
+    // supports scanners that collapse the complete ID payload onto one line.
+    const re = new RegExp(`${code}\\s*([\\s\\S]*?)(?=(?:D[A-Z]{2})|\\n|$)`, "i");
+    const value = s.match(re)?.[1]?.trim();
+    return value || undefined;
   };
 
-  const dobRaw = field("DBB") ?? field("DAB");
-  const expRaw = field("DBA") ?? field("DAE");
+  const dobRaw = field("DBB");
+  const expRaw = field("DBA");
   const first = field("DAC") ?? field("DCT");
-  const last = field("DCS") ?? field("DAB");
+  const last = field("DCS");
   const middle = field("DAD");
-  const doc = field("DAQ") ?? field("DBJ");
+  const doc = field("DAQ");
   const fullFromDaa = field("DAA");
   const composed = [first, middle, last].filter(Boolean).join(" ").trim();
   const fullName = fullFromDaa ?? (composed || undefined);
@@ -156,7 +173,7 @@ export function parseIdBarcode(raw: string): ParsedID {
     dob: parseAamvaDate(dobRaw),
     expires: parseAamvaDate(expRaw),
     documentNumber: doc,
-    raw: s,
+    raw: original,
   };
 }
 

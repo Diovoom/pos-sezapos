@@ -166,8 +166,12 @@ type Product = {
 type Category = { id: string; name: string };
 type CartLine = { product: Product; qty: number };
 
+function normalizeRetailText(value: string) {
+  return value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 const RETAIL_DEPARTMENTS = [
-  { id: "dept:alcohol", label: "Alcohol", terms: ["alcohol", "beer", "wine", "liquor", "spirits"] },
+  { id: "dept:alcohol", label: "Alcohol", terms: ["alcohol", "beer", "cerveza", "wine", "liquor", "spirits", "modelo", "corona", "heineken", "budweiser", "coors", "malt"] },
   { id: "dept:soda", label: "Soda", terms: ["soda", "soft drink", "cola"] },
   { id: "dept:juice", label: "Juice", terms: ["juice", "water", "beverage", "drink"] },
   { id: "dept:grocery", label: "Grocery", terms: ["grocery", "food", "pantry", "canned"] },
@@ -421,8 +425,8 @@ export function PosPage() {
       if (activeCategory.startsWith("dept:")) {
         const department = RETAIL_DEPARTMENTS.find((item) => item.id === activeCategory);
         const categoryName = categories.find((item) => item.id === p.category_id)?.name ?? "";
-        const haystack = `${categoryName} ${p.name} ${p.sku ?? ""}`.toLowerCase();
-        if (department && !department.terms.some((term) => haystack.includes(term))) return false;
+        const haystack = normalizeRetailText(`${categoryName} ${p.name} ${p.sku ?? ""} ${p.age_category ?? ""}`);
+        if (department && !department.terms.some((term) => haystack.includes(normalizeRetailText(term)))) return false;
       } else if (
         activeCategory !== "fav" &&
         activeCategory !== "all" &&
@@ -1350,7 +1354,7 @@ export function PosPage() {
                 title={canManage ? "Add a custom item" : "Owner or manager approval required"}
               >
                 <Plus className="size-4 mr-2" />
-                Add item
+                Open item
               </Button>
               <Button
                 variant="outline"

@@ -110,9 +110,11 @@ export function AgeVerificationDialog({
 
   // Keyboard-wedge USB barcode scanner: focus a hidden input while dialog is up
   useEffect(() => {
-    if (!open || mode !== "choose") return;
-    const t = setTimeout(() => wedgeRef.current?.focus(), 50);
-    return () => clearTimeout(t);
+    if (!open || (mode !== "choose" && mode !== "scan")) return;
+    const focus = () => wedgeRef.current?.focus();
+    const t = setTimeout(focus, 80);
+    window.addEventListener("pointerdown", focus);
+    return () => { clearTimeout(t); window.removeEventListener("pointerdown", focus); };
   }, [open, mode]);
 
   const handleParsed = (raw: string) => {
@@ -333,7 +335,11 @@ export function AgeVerificationDialog({
                     icon={ScanLine}
                     title="Scan government ID"
                     subtitle="USB scanner or 2D barcode reader"
-                    onClick={() => wedgeRef.current?.focus()}
+                    onClick={() => {
+                      setMode("scan");
+                      setScanNote("ID scanner ready. Scan the PDF417 barcode on the back of the ID.");
+                      window.setTimeout(() => wedgeRef.current?.focus(), 60);
+                    }}
                     accent
                   />
                   <ActionCard
@@ -409,6 +415,32 @@ export function AgeVerificationDialog({
                   </Button>
                 </div>
               </>
+            )}
+
+            {mode === "scan" && (
+              <div className="space-y-5 text-center">
+                <div className="mx-auto grid size-20 place-items-center rounded-full bg-primary/10 text-primary">
+                  <ScanLine className="size-10" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Scanner ready</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">Scan the PDF417 barcode on the back of the government ID. Product scanning is paused until this ID check finishes.</p>
+                </div>
+                <Input
+                  ref={wedgeRef}
+                  value={wedge}
+                  onChange={(e) => setWedge(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleWedgeSubmit(); } }}
+                  className="mx-auto max-w-xl font-mono"
+                  autoComplete="off"
+                  aria-label="Government ID scanner input"
+                />
+                {scanNote ? <p className="text-sm text-primary">{scanNote}</p> : null}
+                <div className="flex justify-center gap-2">
+                  <Button variant="outline" onClick={() => { setMode("choose"); setWedge(""); }}>Back</Button>
+                  <Button onClick={handleWedgeSubmit} disabled={!wedge.trim()}>Verify scanned ID</Button>
+                </div>
+              </div>
             )}
 
             {mode === "manual" && (

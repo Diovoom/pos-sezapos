@@ -17,6 +17,7 @@ type DeviceControlPlugin = {
   startKiosk(): Promise<void>;
   stopKiosk(): Promise<void>;
   relaunch(): Promise<void>;
+  exitToLauncher(): Promise<void>;
 };
 
 const NativeDeviceControl = registerPlugin<DeviceControlPlugin>("SezaDeviceControl");
@@ -30,4 +31,5 @@ export const deviceControl = {
   startKiosk: () => NativeDeviceControl.startKiosk(),
   stopKiosk: () => NativeDeviceControl.stopKiosk(),
   relaunch: () => NativeDeviceControl.relaunch(),
+  exitToLauncher: () => NativeDeviceControl.exitToLauncher(),
 };

@@ -32,7 +32,18 @@ export function NativeCustomerDisplayPanel({ storeId, storeName }: { storeId: st
     } finally { setBusy(false); }
   };
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    void (async () => {
+      await refresh();
+      const saved = Number(localStorage.getItem("pos.hardware.customerDisplayId"));
+      if (Number.isInteger(saved) && saved >= 0) {
+        try {
+          await startNativeCustomerDisplay(saved, storeId);
+          setRunning(true); setActiveId(saved);
+        } catch { /* display may be unplugged; leave setup available */ }
+      }
+    })();
+  }, [storeId]);
 
   const sendPreview = async () => {
     await publishCustomerDisplay({
@@ -85,6 +96,7 @@ export function NativeCustomerDisplayPanel({ storeId, storeName }: { storeId: st
                 setBusy(true);
                 try {
                   await startNativeCustomerDisplay(display.displayId, storeId);
+                  localStorage.setItem("pos.hardware.customerDisplayId", String(display.displayId));
                   localStorage.setItem("pos.hw.display.status", "connected");
                   localStorage.setItem("pos.hw.display.lastSeen", String(Date.now()));
                   setRunning(true); setActiveId(display.displayId);
@@ -103,6 +115,7 @@ export function NativeCustomerDisplayPanel({ storeId, storeName }: { storeId: st
             setBusy(true);
             try {
               await stopNativeCustomerDisplay();
+              localStorage.removeItem("pos.hardware.customerDisplayId");
               localStorage.setItem("pos.hw.display.status", "disconnected");
               setRunning(false); setActiveId(-1);
               toast.info("Customer display stopped");

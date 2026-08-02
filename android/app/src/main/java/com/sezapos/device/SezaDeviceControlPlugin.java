@@ -119,6 +119,18 @@ public class SezaDeviceControlPlugin extends Plugin {
         });
     }
 
+    @PluginMethod
+    public void exitToLauncher(PluginCall call) {
+        call.resolve();
+        getActivity().runOnUiThread(() -> {
+            try { getActivity().stopLockTask(); } catch (Exception ignored) {}
+            android.content.Intent home = new android.content.Intent(android.content.Intent.ACTION_MAIN);
+            home.addCategory(android.content.Intent.CATEGORY_HOME);
+            home.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(home);
+        });
+    }
+
     private boolean isDeviceOwner() {
         DevicePolicyManager dpm = (DevicePolicyManager) getContext().getSystemService(Context.DEVICE_POLICY_SERVICE);
         return dpm != null && dpm.isDeviceOwnerApp(getContext().getPackageName());

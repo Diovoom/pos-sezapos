@@ -109,6 +109,16 @@ export function usePermissions() {
     myRoles.includes("admin") ||
     rows.some((r) => myRoles.includes(r.role) && r.permission === "*");
 
-  const has = (p: string) => isSuper || mine.has("*") || mine.has(p);
-  return { has, isSuper, myRoles, loading: me.isLoading || perms.isLoading };
+  const managerDefaults = new Set([
+    "sales.create", "sales.void", "sales.discount", "sales.price_override",
+    "refunds.create", "refunds.approve", "products.quick_add",
+    "reports.view", "register.open", "register.close", "payment.cancel",
+    "employees.view", "settings.view", "hardware.configure", "audit.view",
+  ]);
+  const isManager = myRoles.includes("manager");
+  // A missing/empty role_permissions table must never reduce a signed-in manager
+  // to cashier-only mode on a register. Explicit store rows can still add more.
+  const has = (p: string) =>
+    isSuper || mine.has("*") || mine.has(p) || (isManager && managerDefaults.has(p));
+  return { has, isSuper, isManager, myRoles, loading: me.isLoading || perms.isLoading };
 }
