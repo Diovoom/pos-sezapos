@@ -35,7 +35,7 @@ export interface ReceiptPayload {
   tender?: { method: string; amount: number };
   change?: number;
   currency?: string;
-  columns?: 32 | 42 | 48; // 58mm≈32, 80mm≈42/48
+  columns?: 32 | 42 | 48; // 58mm≈32, 80mm Font A≈42
 }
 
 const enc = new TextEncoder();
@@ -59,6 +59,8 @@ const CMD = {
   align: (a: "left" | "center" | "right") =>
     bytes(ESC, 0x61, a === "left" ? 0 : a === "center" ? 1 : 2),
   bold: (on: boolean) => bytes(ESC, 0x45, on ? 1 : 0),
+  font: (font: "a" | "b") => bytes(ESC, 0x4d, font === "a" ? 0 : 1),
+  charSpacing: (dots: number) => bytes(ESC, 0x20, Math.max(0, Math.min(255, Math.round(dots)))),
   size: (n: 1 | 2) => bytes(GS, 0x21, n === 2 ? 0x11 : 0x00),
   feed: (n = 1) => bytes(ESC, 0x64, Math.max(1, Math.min(255, n))),
   cut: () => bytes(GS, 0x56, 0x42, 0x00),
@@ -89,7 +91,8 @@ function money(n: number, currency = "USD"): string {
 export function buildReceipt(p: ReceiptPayload): Uint8Array {
   const cols = p.columns ?? 32;
   const currency = p.currency ?? "USD";
-  const parts: Uint8Array[] = [CMD.init()];
+  const widePaper = cols > 32;
+  const parts: Uint8Array[] = [CMD.init(), CMD.font("a"), CMD.charSpacing(widePaper ? 1 : 0)];
 
   parts.push(CMD.align("center"), CMD.bold(true), CMD.size(2), enc.encode(p.storeName + "\n"));
   parts.push(CMD.size(1), CMD.bold(false));
@@ -144,7 +147,7 @@ export function buildReceipt(p: ReceiptPayload): Uint8Array {
   parts.push(enc.encode("\n"), CMD.align("center"));
   for (const line of p.footer ?? []) parts.push(enc.encode(line + "\n"));
   parts.push(enc.encode("\n\n"));
-  parts.push(CMD.feed(1), CMD.cut());
+  parts.push(CMD.charSpacing(0), CMD.feed(1), CMD.cut());
 
   const total = parts.reduce((n, a) => n + a.length, 0);
   const out = new Uint8Array(total);

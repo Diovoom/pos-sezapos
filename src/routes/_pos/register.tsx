@@ -146,9 +146,9 @@ export function RegisterPage() {
   });
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <PageHeader title="Register" subtitle="Open and close the cash register for this shift" />
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24 space-y-4 md:p-6 md:pb-10">
         {openSession.isLoading ? (
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="size-4 animate-spin" /> Loading…
@@ -167,7 +167,7 @@ export function RegisterPage() {
 
         <HistoryCard sessions={history.data ?? []} />
       </div>
-    </>
+    </div>
   );
 }
 

@@ -1,10 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
 import { PageHeader } from "@/components/pos/AppShell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { LogIn, LogOut, Coffee, PlayCircle, Loader2 } from "lucide-react";
@@ -53,6 +55,7 @@ type TimeEntry = {
 
 export function TimeclockPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const me = useMe();
   const canManage = me.data?.roles.some((r) => r === "owner" || r === "manager");
   const storeId = me.data?.profile?.store_id ?? me.data?.store?.id ?? null;
@@ -108,6 +111,10 @@ export function TimeclockPage() {
   const shiftAmbiguous = (openShiftQ.data?.rows?.length ?? 0) > 1;
 
   const [shiftReviewOpen, setShiftReviewOpen] = useState(false);
+  const [openingCash, setOpeningCash] = useState(() => {
+    const saved = Number(localStorage.getItem("pos.register.lastOpeningCash") ?? "100");
+    return Number.isFinite(saved) && saved >= 0 ? saved.toFixed(2) : "100.00";
+  });
 
   const { data: open } = useQuery<TimeEntry | null>({
     queryKey: ["myOpenEntry", me.data?.user.id],
@@ -271,11 +278,16 @@ export function TimeclockPage() {
     return next;
   };
 
-  const ensureRegisterOpen = async () => {
+  const ensureRegisterOpen = async (requestedOpeningCash?: number) => {
     if (!storeId || !userId || openShiftQ.data?.rows?.[0]) return;
     const openedAt = new Date().toISOString();
     const savedOpening = Number(localStorage.getItem("pos.register.lastOpeningCash") ?? "0");
-    const openingCash = Number.isFinite(savedOpening) && savedOpening >= 0 ? savedOpening : 0;
+    const openingCash = Number.isFinite(requestedOpeningCash) && Number(requestedOpeningCash) >= 0
+      ? Number(requestedOpeningCash)
+      : Number.isFinite(savedOpening) && savedOpening >= 0
+        ? savedOpening
+        : 0;
+    localStorage.setItem("pos.register.lastOpeningCash", String(openingCash));
     if (!isOnlineNow()) {
       const local = {
         id: crypto.randomUUID(),
@@ -320,12 +332,28 @@ export function TimeclockPage() {
 
   const clockIn = useMutation({
     networkMode: "always",
-    mutationFn: () => applyClockAction("clock_in"),
-    onSuccess: (next) => {
+    mutationFn: async () => {
+      const next = await applyClockAction("clock_in");
+      let registerError: unknown = null;
+      try {
+        await ensureRegisterOpen(Number(openingCash));
+      } catch (error) {
+        registerError = error;
+      }
+      return { next, registerError };
+    },
+    onSuccess: ({ next, registerError }) => {
       invalidate(next);
+      if (registerError) {
+        toast.error(userFacingError(registerError, "You are clocked in, but the register could not open."));
+        return;
+      }
       toast.success(
-        isOnlineNow() ? "Clocked in" : "Clocked in offline  -  will sync automatically",
+        isOnlineNow()
+          ? "Clocked in and register opened"
+          : "Clocked in and register opened offline  -  will sync automatically",
       );
+      navigate({ to: "/pos" as any });
     },
     onError: (e) => toast.error(userFacingError(e, "Could not clock in. Try again.")),
   });
@@ -473,10 +501,26 @@ export function TimeclockPage() {
                 </span>
               )}
             </div>
+            {!open && (
+              <div className="grid w-full max-w-xl gap-3 rounded-xl border bg-muted/20 p-4 sm:grid-cols-[180px_1fr] sm:items-end">
+                <div className="space-y-2">
+                  <Label htmlFor="opening-cash">Opening cash</Label>
+                  <Input
+                    id="opening-cash"
+                    inputMode="decimal"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={openingCash}
+                    onChange={(event) => setOpeningCash(event.target.value)}
+                  />
+                </div>
+                <Button size="lg" onClick={() => clockIn.mutate()} disabled={anyBusy || Number(openingCash) < 0}>
+                  <LogIn className="size-4 mr-2" /> Clock in & open register
+                </Button>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
-              <Button size="lg" onClick={() => clockIn.mutate()} disabled={!!open || anyBusy}>
-                <LogIn className="size-4 mr-2" /> Clock in
-              </Button>
               <Button
                 size="lg"
                 variant="outline"

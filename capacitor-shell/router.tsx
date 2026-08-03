@@ -12,7 +12,6 @@ import {
 } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { supabase } from "./supabase";
-import { SplashScreen } from "./screens/SplashScreen";
 
 function lazyNamed<T extends ComponentType<any>>(
   importer: () => Promise<Record<string, unknown>>,
@@ -88,8 +87,30 @@ const CustomerDisplayPage = lazyNamed<ComponentType>(
 );
 
 
+function RouteSkeleton() {
+  return (
+    <div
+      aria-label="Loading page"
+      style={{
+        minHeight: "100dvh",
+        background: "#f8fafc",
+        padding: 20,
+        display: "grid",
+        gridTemplateRows: "64px 1fr",
+        gap: 16,
+      }}
+    >
+      <div style={{ borderRadius: 14, background: "#e2e8f0" }} />
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
+        <div style={{ borderRadius: 16, background: "#eef2f7" }} />
+        <div style={{ borderRadius: 16, background: "#e2e8f0" }} />
+      </div>
+    </div>
+  );
+}
+
 function LazyScreen({ children }: { children: ReactNode }) {
-  return <Suspense fallback={<SplashScreen />}>{children}</Suspense>;
+  return <Suspense fallback={<RouteSkeleton />}>{children}</Suspense>;
 }
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });

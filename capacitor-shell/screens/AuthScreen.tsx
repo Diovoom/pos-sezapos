@@ -222,6 +222,18 @@ export function AuthScreen() {
           ))}
         </div>
         <div style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>{label}</div>
+        <input
+          aria-label={label}
+          inputMode="numeric"
+          autoComplete="off"
+          type={activeIsId ? "text" : "password"}
+          value={value}
+          maxLength={6}
+          onChange={(event) => setValue(event.target.value.replace(/\D/g, "").slice(0, 6))}
+          disabled={busy}
+          placeholder={activeIsId ? "Employee ID" : "6-digit PIN"}
+          style={styles.pinInput}
+        />
         {stage === "id_then_pin" && !collectingId && (
           <button
             type="button"
@@ -263,7 +275,7 @@ export function AuthScreen() {
       )}
 
       <div style={styles.footer}>
-        Connected securely to sezapos.com · v1.2.2
+        Connected securely to sezapos.com · v1.3.2
       </div>
     </div>
   );
@@ -276,7 +288,7 @@ function PadBtn({ children, onClick, disabled, ghost }: {
     <button
       type="button" onClick={onClick} disabled={disabled}
       style={{
-        height: 68, borderRadius: 14, fontSize: 26, fontWeight: 600,
+        height: 52, borderRadius: 12, fontSize: 21, fontWeight: 650,
         background: ghost ? "transparent" : "#fff",
         border: ghost ? "0" : "1px solid #cbd5e1",
         color: ghost ? "#64748b" : "#0f172a",
@@ -298,7 +310,16 @@ const styles: Record<string, React.CSSProperties> = {
     width: 48, height: 48, borderRadius: 12, background: "#1e40af",
     display: "grid", placeItems: "center", boxShadow: "0 8px 24px rgba(30,64,175,.25)",
   },
-  pad: { marginTop: 24, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 },
+  pinInput: {
+    width: "min(100%, 360px)", height: 46, alignSelf: "center", marginTop: 12,
+    border: "1px solid #cbd5e1", borderRadius: 12, background: "#fff",
+    color: "#0f172a", textAlign: "center", fontSize: 20, letterSpacing: 8,
+    outline: "none", padding: "0 16px",
+  },
+  pad: {
+    width: "min(100%, 720px)", alignSelf: "center", marginTop: 18,
+    display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10,
+  },
   errorBox: {
     marginTop: 12, background: "#fef2f2", border: "1px solid #fecaca",
     color: "#b91c1c", padding: "10px 12px", borderRadius: 10, fontSize: 13, textAlign: "center",

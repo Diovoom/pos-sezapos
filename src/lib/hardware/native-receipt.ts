@@ -44,8 +44,10 @@ function lsSet(key: string, val: string) {
   }
 }
 
-export function getPaperColumns(): 32 | 48 {
-  return ls(LS.paperWidth) === "80" ? 48 : 32;
+export function getPaperColumns(): 32 | 42 {
+  // 42 Font-A columns fills an 80mm head more naturally on common Rongta
+  // mechanisms. 48 columns produced the cramped, 58mm-looking output.
+  return ls(LS.paperWidth) === "80" ? 42 : 32;
 }
 
 export function isAutoPrintEnabled(): boolean {

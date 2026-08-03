@@ -61,8 +61,8 @@ function ShellApp() {
           mutations: { networkMode: "always", retry: 0 },
           queries: {
             networkMode: "offlineFirst",
-            staleTime: 30_000,
-            gcTime: 5 * 60_000,
+            staleTime: 5 * 60_000,
+            gcTime: 24 * 60 * 60_000,
             retry: 1,
             refetchOnWindowFocus: false,
           },

@@ -92,7 +92,7 @@ function ShiftsList() {
   const myId = me.data?.user.id;
   const storeId = (me.data?.profile?.store_id ?? me.data?.store?.id) as string | undefined;
 
-  const [range, setRange] = useState<"today" | "week" | "month" | "custom">("week");
+  const [range, setRange] = useState<"today" | "week" | "month" | "year" | "custom">("week");
   const [from, setFrom] = useState(daysAgoStr(7));
   const [to, setTo] = useState(todayStr());
   const [employeeId, setEmployeeId] = useState<string>("all");
@@ -105,7 +105,9 @@ function ShiftsList() {
         ? daysAgoStr(7)
         : range === "month"
           ? daysAgoStr(30)
-          : from;
+          : range === "year"
+            ? daysAgoStr(365)
+            : from;
   const dateTo = range === "custom" ? to : todayStr();
   // Convert the user-facing yyyy-MM-dd range to an inclusive UTC window
   // based on the local business day, so a shift that clocked in at 11pm
@@ -255,7 +257,7 @@ function ShiftsList() {
   };
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <PageHeader
         title="Shift History"
         subtitle="Employee shifts from clock-in to clock-out."
@@ -266,7 +268,7 @@ function ShiftsList() {
           </Button>
         }
       />
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24 space-y-4 md:p-6 md:pb-10">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Filters</CardTitle>
@@ -283,6 +285,7 @@ function ShiftsList() {
                     <SelectItem value="today">Today</SelectItem>
                     <SelectItem value="week">Last 7 days</SelectItem>
                     <SelectItem value="month">Last 30 days</SelectItem>
+                    <SelectItem value="year">This year</SelectItem>
                     <SelectItem value="custom">Custom</SelectItem>
                   </SelectContent>
                 </Select>
@@ -455,7 +458,7 @@ function ShiftsList() {
 
         <RegisterSessionsCard dateFrom={dateFrom} dateTo={dateTo} />
       </div>
-    </>
+    </div>
   );
 }
 

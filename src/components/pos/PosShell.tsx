@@ -167,23 +167,28 @@ export function PosShell({ children }: { children: ReactNode }) {
   };
 
   const goBackInsidePos = () => {
-    const parentByPath: Record<string, string> = {
-      "/payment-terminal": "/settings",
-      "/manager-tools": "/settings",
-      "/pending-sync": "/settings",
-      "/register": "/manager-tools",
-      "/timeclock": "/manager-tools",
-      "/refunds": "/manager-tools",
-      "/settings": "/manager-tools",
-      "/support": "/manager-tools",
-    };
-    const parent = parentByPath[pathname];
-    if (parent) {
-      navigate({ to: parent as any });
+    if (pathname === "/pos") {
+      setManagerDashboard(true);
       return;
     }
-    if (pathname !== "/pos") navigate({ to: "/pos" });
+    // Preserve one predictable hierarchy in the APK:
+    // checkout -> dashboard -> selected tool. Every tool arrow returns to
+    // dashboard; only the dashboard X returns to checkout.
+    try { sessionStorage.setItem("seza.openManagerDashboard", "1"); } catch { /* ignore */ }
+    navigate({ to: "/pos" as any });
   };
+
+  useEffect(() => {
+    if (pathname !== "/pos") return;
+    try {
+      if (sessionStorage.getItem("seza.openManagerDashboard") === "1") {
+        sessionStorage.removeItem("seza.openManagerDashboard");
+        setManagerDashboard(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [pathname]);
 
   const role = me?.roles?.[0];
   const shiftStatus = openShift.data
