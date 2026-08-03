@@ -101,9 +101,27 @@ export function buildReceipt(p: ReceiptPayload): Uint8Array {
   parts.push(enc.encode(`Date:    ${new Date(p.timestamp).toLocaleString()}\n`));
   parts.push(enc.encode("-".repeat(cols) + "\n"));
 
+  const wrap = (value: string, width: number): string[] => {
+    const words = String(value || "").trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return [""];
+    const lines: string[] = [];
+    let current = "";
+    for (const word of words) {
+      if (word.length > width) {
+        if (current) { lines.push(current); current = ""; }
+        for (let i = 0; i < word.length; i += width) lines.push(word.slice(i, i + width));
+        continue;
+      }
+      const next = current ? `${current} ${word}` : word;
+      if (next.length > width) { lines.push(current); current = word; }
+      else current = next;
+    }
+    if (current) lines.push(current);
+    return lines;
+  };
+
   for (const it of p.items) {
-    const line1 = it.name.slice(0, cols);
-    parts.push(enc.encode(line1 + "\n"));
+    for (const nameLine of wrap(it.name, cols)) parts.push(enc.encode(nameLine + "\n"));
     const left = `  ${it.qty} x ${money(it.unitPrice, currency)}`;
     const right = money(it.total, currency);
     parts.push(enc.encode(pad(left, cols - right.length) + right + "\n"));

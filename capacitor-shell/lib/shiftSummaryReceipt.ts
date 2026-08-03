@@ -6,7 +6,7 @@ import { getActivePrinter } from "@/lib/hardware";
 const fmt = (n: number) => `$${Number(n || 0).toFixed(2)}`;
 const enc = new TextEncoder();
 
-function width(paper: "58" | "80") { return paper === "80" ? 42 : 32; }
+function width(paper: "58" | "80") { return paper === "80" ? 48 : 32; }
 function line(cols: number) { return "-".repeat(cols); }
 function pad(label: string, value: string, cols: number) {
   const room = Math.max(1, cols - label.length - value.length);
@@ -69,8 +69,16 @@ export async function printShiftSummary(d: ShiftSummary): Promise<
     return { ok: false, error: "Printer is not configured." };
   }
   try {
-    const escposBle = await import("@/lib/hardware/escpos-ble");
-    await escposBle.write(concat(parts));
+    const raw = concat(parts);
+    if (printer.id === "escpos-usb") {
+      const escposUsb = await import("@/lib/hardware/escpos-usb");
+      await escposUsb.writeUsb(raw);
+    } else if (printer.id === "escpos-ble") {
+      const escposBle = await import("@/lib/hardware/escpos-ble");
+      await escposBle.write(raw);
+    } else {
+      return { ok: false, error: `Report printing is not available for ${printer.label}.` };
+    }
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Printer error" };

@@ -17,6 +17,12 @@ export function NativeLoadingOverlay() {
 
   useEffect(() => {
     if (!isNativeMode()) return;
+    const sessionKey = "seza.native.initialSplashShown";
+    if (window.sessionStorage.getItem(sessionKey) === "1") {
+      setHidden(true);
+      return;
+    }
+    window.sessionStorage.setItem(sessionKey, "1");
     setNative(true);
 
     // Hide the Android SplashScreen the instant the overlay is mounted so

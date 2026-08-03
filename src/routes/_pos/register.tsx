@@ -236,6 +236,7 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
       return data;
     },
     onSuccess: () => {
+      try { localStorage.setItem("pos.register.lastOpeningCash", String(Number(opening) || 0)); } catch { /* ignore */ }
       toast.success(
         isOnlineNow()
           ? "Register opened"

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { CreditCard, Loader2, Plus, Search, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
+import { isNativeMode } from "@/lib/native";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
 import { logAudit } from "@/lib/audit-log";
@@ -46,7 +47,7 @@ const PROVIDERS: Provider[] = [
     id: "stripe",
     label: "Stripe Terminal",
     mode: "integrated",
-    models: ["Tap to Pay on Android", "WisePOS E", "S700", "WisePad 3"],
+    models: ["Simulated reader (test)", "Tap to Pay on Android", "WisePOS E", "S700", "WisePad 3"],
     note: "Automatic approved or declined results when the certified SDK is enabled.",
   },
   {
@@ -124,6 +125,7 @@ const PROVIDERS: Provider[] = [
 function driverForTerminal(terminal: Terminal): TerminalDriverId {
   if (terminal.provider !== "stripe") return "none";
   const model = String(terminal.config?.model ?? "").toLowerCase();
+  if (model.includes("simulated")) return "stripe-tap-to-pay";
   if (model.includes("tap to pay")) return "stripe-tap-to-pay";
   if (model.includes("wisepad")) return "stripe-wisepad3";
   if (model.includes("wisepos")) return "stripe-wisepos";
@@ -184,7 +186,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
           config: {
             model: form.model.trim(),
             mode: provider.mode,
-            setup_source: "owner_dashboard",
+            setup_source: isNativeMode() ? "android_pos" : "owner_dashboard",
           },
         })
         .select()

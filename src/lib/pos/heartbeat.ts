@@ -2,6 +2,7 @@ import { Network } from "@capacitor/network";
 import { getActivePrinter, getActiveTerminal } from "@/lib/hardware";
 import { getDeviceId } from "@/lib/offline/db";
 import { isNativeMode } from "@/lib/native";
+import { supabase } from "@/integrations/supabase/client";
 
 export type PosConnectionState = {
   networkConnected: boolean;
@@ -97,7 +98,19 @@ export async function sendPosHeartbeat(input: {
         cloudReachable = Boolean(response.ok && (!body || body?.status === "operational" || body?.status === "degraded" || body?.ok === true));
         heartbeatAcknowledged = cloudReachable;
       }
-    } catch { cloudReachable = false; heartbeatAcknowledged = false; }
+    } catch {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData.session) {
+          const { error } = await supabase.from("stores").select("id").limit(1);
+          cloudReachable = !error;
+          heartbeatAcknowledged = !error;
+        }
+      } catch {
+        cloudReachable = false;
+        heartbeatAcknowledged = false;
+      }
+    }
     finally { window.clearTimeout(timeout); }
   }
   const state: PosConnectionState = {

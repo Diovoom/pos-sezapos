@@ -6,16 +6,12 @@ import { cn } from "@/lib/utils";
 import { useOnline, useSyncEvents } from "@/lib/offline/useOnline";
 import { pendingCounts, syncNow, installAutoSync } from "@/lib/offline/sync";
 import { getAllOfflineSales, type OfflineSale } from "@/lib/offline/db";
-import { isNativeMode } from "@/lib/native";
-
-const REMOTE_API_ORIGIN = "https://sezapos.com";
-function healthUrl() {
-  const origin = isNativeMode() ? REMOTE_API_ORIGIN : window.location.origin;
-  return `${origin}/api/public/health?ts=${Date.now()}`;
-}
+import { sendPosHeartbeat, readPosConnectionState } from "@/lib/pos/heartbeat";
+import { useMe } from "@/hooks/useMe";
 
 export function OfflineIndicator() {
   const online = useOnline();
+  const { data: me } = useMe();
   const evt = useSyncEvents();
   const [counts, setCounts] = useState<{
     pendingSales: number;
@@ -56,27 +52,23 @@ export function OfflineIndicator() {
         if (!cancelled) setCloudReachable(false);
         return;
       }
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 6_000);
       try {
-        const response = await fetch(healthUrl(), {
-          cache: "no-store",
-          signal: controller.signal,
+        const state = await sendPosHeartbeat({
+          storeId: me?.store?.id,
+          employeeId: me?.user?.id ?? null,
+          employeeName: me?.profile?.full_name ?? me?.user?.email ?? null,
+          pendingSync: counts.pendingSales + counts.pendingCash,
         });
-        const body = response.ok ? await response.json().catch(() => null) : null;
         if (!cancelled) {
-          // A successful 2xx response proves the packaged Android app reached SEZA.
-          // Some deployments return a minimal body instead of { status: "operational" }.
-          setCloudReachable(Boolean(response.ok && (!body || body?.status === "operational" || body?.status === "degraded" || body?.ok === true)));
-          setLastCloudCheck(new Date().toISOString());
+          setCloudReachable(state.cloudReachable);
+          setLastCloudCheck(state.lastCheckedAt);
         }
       } catch {
+        const cached = readPosConnectionState();
         if (!cancelled) {
-          setCloudReachable(false);
-          setLastCloudCheck(new Date().toISOString());
+          setCloudReachable(cached?.cloudReachable ?? false);
+          setLastCloudCheck(cached?.lastCheckedAt ?? new Date().toISOString());
         }
-      } finally {
-        window.clearTimeout(timeout);
       }
     };
     void checkCloud();
@@ -85,7 +77,7 @@ export function OfflineIndicator() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [online]);
+  }, [online, me?.store?.id, me?.user?.id, counts.pendingSales, counts.pendingCash]);
   useEffect(() => {
     void refresh();
   }, [evt, online]);
@@ -173,7 +165,7 @@ export function OfflineIndicator() {
           {state === "issue" && (
             <p className="mt-2 text-xs text-destructive">
               {cloudReachable === false
-                ? "The device has a network connection, but SEZA Cloud did not answer the health check."
+                ? "Network is connected. SEZA is retrying the cloud connection in the background."
                 : `${counts.failedSales} record${counts.failedSales === 1 ? "" : "s"} could not sync. Retry below.`}
             </p>
           )}

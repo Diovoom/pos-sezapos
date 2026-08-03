@@ -1,4 +1,4 @@
-import { Link, useRouter, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -82,7 +82,6 @@ function compactEmployeeName(value?: string | null) {
 export function PosShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const router = useRouter();
   const qc = useQueryClient();
   const { data: me } = useMe();
   const { t } = useTranslation();
@@ -165,6 +164,25 @@ export function PosShell({ children }: { children: ReactNode }) {
     qc.clear();
 
     navigate({ to: "/auth", search: { mode: "pin" } as any, replace: true });
+  };
+
+  const goBackInsidePos = () => {
+    const parentByPath: Record<string, string> = {
+      "/payment-terminal": "/settings",
+      "/manager-tools": "/settings",
+      "/pending-sync": "/settings",
+      "/register": "/manager-tools",
+      "/timeclock": "/manager-tools",
+      "/refunds": "/manager-tools",
+      "/settings": "/manager-tools",
+      "/support": "/manager-tools",
+    };
+    const parent = parentByPath[pathname];
+    if (parent) {
+      navigate({ to: parent as any });
+      return;
+    }
+    if (pathname !== "/pos") navigate({ to: "/pos" });
   };
 
   const role = me?.roles?.[0];
@@ -255,13 +273,7 @@ export function PosShell({ children }: { children: ReactNode }) {
               size="icon"
               className="size-9 shrink-0"
               aria-label="Go back"
-              onClick={() => {
-                try {
-                  router.history.back();
-                } catch {
-                  navigate({ to: "/pos" });
-                }
-              }}
+              onClick={goBackInsidePos}
             >
               <ArrowLeft className="size-5" />
             </Button>
@@ -440,9 +452,7 @@ export function PosShell({ children }: { children: ReactNode }) {
                 size="icon"
                 className="size-9 shrink-0"
                 aria-label="Go back to previous POS screen"
-                onClick={() => {
-                  try { router.history.back(); } catch { navigate({ to: "/pos" }); }
-                }}
+                onClick={goBackInsidePos}
               >
                 <ArrowLeft className="size-5" />
               </Button>

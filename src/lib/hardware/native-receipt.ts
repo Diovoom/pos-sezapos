@@ -44,8 +44,8 @@ function lsSet(key: string, val: string) {
   }
 }
 
-export function getPaperColumns(): 32 | 42 {
-  return ls(LS.paperWidth) === "80" ? 42 : 32;
+export function getPaperColumns(): 32 | 48 {
+  return ls(LS.paperWidth) === "80" ? 48 : 32;
 }
 
 export function isAutoPrintEnabled(): boolean {

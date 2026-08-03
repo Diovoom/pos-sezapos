@@ -271,6 +271,53 @@ export function TimeclockPage() {
     return next;
   };
 
+  const ensureRegisterOpen = async () => {
+    if (!storeId || !userId || openShiftQ.data?.rows?.[0]) return;
+    const openedAt = new Date().toISOString();
+    const savedOpening = Number(localStorage.getItem("pos.register.lastOpeningCash") ?? "0");
+    const openingCash = Number.isFinite(savedOpening) && savedOpening >= 0 ? savedOpening : 0;
+    if (!isOnlineNow()) {
+      const local = {
+        id: crypto.randomUUID(),
+        store_id: storeId,
+        opened_by: userId,
+        opened_at: openedAt,
+        opening_cash: openingCash,
+        status: "open" as const,
+        terminal_id: null,
+      };
+      await cacheMeta("open_register_session", local);
+      await saveOfflineAction({
+        id: crypto.randomUUID(),
+        idempotency_key: `register-open:${local.id}`,
+        kind: "register_open",
+        store_id: storeId,
+        user_id: userId,
+        payload: { id: local.id, opened_at: openedAt, opening_cash: openingCash, notes: "Opened automatically at clock-in" },
+        local_created_at: openedAt,
+        status: "pending",
+        attempts: 0,
+      });
+      qc.setQueryData(["timeclock", "open-shift", storeId, userId], { rows: [local] });
+      return;
+    }
+    const { data, error } = await (supabase as any)
+      .from("register_sessions")
+      .insert({
+        store_id: storeId,
+        opened_by: userId,
+        opening_cash: openingCash,
+        notes: "Opened automatically at clock-in",
+        status: "open",
+      })
+      .select("id, store_id, opened_by, opened_at, opening_cash, status, terminal_id")
+      .single();
+    if (error) throw error;
+    await cacheMeta("open_register_session", data);
+    qc.setQueryData(["timeclock", "open-shift", storeId, userId], { rows: [data] });
+    qc.invalidateQueries({ queryKey: ["pos-shell", "open-shift", storeId] });
+  };
+
   const clockIn = useMutation({
     networkMode: "always",
     mutationFn: () => applyClockAction("clock_in"),
