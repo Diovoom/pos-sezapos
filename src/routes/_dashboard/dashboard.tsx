@@ -286,7 +286,7 @@ function DashboardPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-              {kpis.map((kpi) => <Kpi key={kpi.key} {...kpi} onClick={() => setDetail(kpi.key)} />)}
+              {kpis.map(({ key, ...kpi }) => <Kpi key={key} {...kpi} onClick={() => setDetail(key)} />)}
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -367,7 +367,7 @@ function DashboardPage() {
           </div>
         </DialogContent>
       </Dialog>
-      <SummaryDialog detail={detail} onOpenChange={(open) => !open && setDetail(null)} data={data} currency={cur} />
+      <SummaryDialog detail={detail} onOpenChange={(open: boolean) => !open && setDetail(null)} data={data} currency={cur} />
     </>
   );
 }
@@ -401,7 +401,7 @@ function SummaryDialog({ detail, onOpenChange, data, currency }: any) {
   return (
     <Dialog open={Boolean(detail)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
-        {detail && <><DialogHeader><DialogTitle>{titles[detail]}</DialogTitle><DialogDescription>Live details for today.</DialogDescription></DialogHeader><div className="mt-2">
+        {detail && <><DialogHeader><DialogTitle>{titles[detail as DetailKey]}</DialogTitle><DialogDescription>Live details for today.</DialogDescription></DialogHeader><div className="mt-2">
           {detail === "sales" && <><div className="mb-4 grid grid-cols-2 gap-3"><Mini label="Gross sales" value={fmtCurrency(data?.todayTotal ?? 0, currency)} /><Mini label="Net revenue" value={fmtCurrency(data?.netRevenue ?? 0, currency)} /></div><SaleList sales={data?.todays ?? []} currency={currency} /></>}
           {detail === "transactions" && <SaleList sales={data?.todays ?? []} currency={currency} />}
           {detail === "items" && <ProductRanking products={data?.topProducts ?? []} currency={currency} />}
