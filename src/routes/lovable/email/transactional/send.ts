@@ -140,6 +140,86 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
           );
         }
 
+        // 1b. Receipt emails must describe a real sale owned by the caller's store.
+        // All template fields are re-derived server-side so a signed-in user can
+        // never send fabricated "receipt" content from our verified domain.
+        if (templateName === "receipt") {
+          const saleId = String(templateData.transactionId ?? templateData.saleId ?? "");
+          const isUuid =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(saleId);
+          if (!isUuid) {
+            return jsonResponse(
+              { error: "A valid sale reference is required to email a receipt" },
+              { status: 400 },
+            );
+          }
+
+          const { data: callerProfile } = await supabase
+            .from("profiles")
+            .select("store_id, status")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          if (!callerProfile?.store_id || callerProfile.status !== "active") {
+            return jsonResponse({ error: "Not permitted to send receipts" }, { status: 403 });
+          }
+
+          const { data: sale, error: saleError } = await supabase
+            .from("sales")
+            .select(
+              "id, store_id, receipt_number, created_at, subtotal, tax, discount, total, payment_method, amount_tendered, change_due, customer_name, terminal_ref",
+            )
+            .eq("id", saleId)
+            .eq("store_id", callerProfile.store_id)
+            .maybeSingle();
+
+          if (saleError) {
+            return jsonResponse({ error: "Failed to load the sale" }, { status: 500 });
+          }
+          if (!sale) {
+            return jsonResponse({ error: "Sale not found for this store" }, { status: 404 });
+          }
+
+          const [{ data: items }, { data: store }] = await Promise.all([
+            supabase
+              .from("sale_items")
+              .select("product_name, quantity, unit_price, line_total")
+              .eq("sale_id", sale.id),
+            supabase
+              .from("stores")
+              .select("name, address, phone, email, currency, return_policy, receipt_footer")
+              .eq("id", sale.store_id)
+              .maybeSingle(),
+          ]);
+
+          templateData = {
+            storeName: store?.name ?? undefined,
+            storeAddress: store?.address ?? undefined,
+            storePhone: store?.phone ?? undefined,
+            storeEmail: store?.email ?? undefined,
+            currency: store?.currency ?? "USD",
+            receiptNumber: sale.receipt_number ?? undefined,
+            transactionId: sale.id,
+            customerName: sale.customer_name ?? null,
+            createdAt: sale.created_at,
+            lines: (items ?? []).map((line) => ({
+              name: line.product_name,
+              qty: Number(line.quantity ?? 0),
+              unit_price: Number(line.unit_price ?? 0),
+              line_total: Number(line.line_total ?? 0),
+            })),
+            subtotal: Number(sale.subtotal ?? 0),
+            tax: Number(sale.tax ?? 0),
+            discount: Number(sale.discount ?? 0),
+            total: Number(sale.total ?? 0),
+            paymentMethod: sale.payment_method ?? "cash",
+            amountTendered: sale.amount_tendered ?? null,
+            changeDue: sale.change_due ?? null,
+            returnPolicy: store?.return_policy ?? undefined,
+            thankYou: store?.receipt_footer ?? undefined,
+          };
+        }
+
         // Resolve effective recipient: template-level `to` takes precedence over
         // the caller-provided recipientEmail. This allows notification templates
         // to always send to a fixed address (e.g., site owner from env var).

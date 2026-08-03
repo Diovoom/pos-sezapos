@@ -393,7 +393,7 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
       }
       const name = result.brand ? `${result.brand} ${result.name}` : result.name;
       setForm((f) => ({ ...f, name: f.name || name, barcode: result.barcode }));
-      if (result.image_url && !imagePath) {
+      if (result.image_url && !imagePath && storeId) {
         const path = await importRemoteProductImage(result.image_url, storeId);
         if (path) setImagePath(path);
       }
@@ -415,6 +415,7 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
 
   const handleFile = async (file: File | null) => {
     if (!file) return;
+    if (!storeId) return toast.error("Store not found");
     setUploading(true);
     try {
       const path = await uploadProductImage(file, storeId);
