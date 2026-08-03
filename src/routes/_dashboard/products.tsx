@@ -394,7 +394,7 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
       const name = result.brand ? `${result.brand} ${result.name}` : result.name;
       setForm((f) => ({ ...f, name: f.name || name, barcode: result.barcode }));
       if (result.image_url && !imagePath) {
-        const path = await importRemoteProductImage(result.image_url);
+        const path = await importRemoteProductImage(result.image_url, storeId);
         if (path) setImagePath(path);
       }
       const sourceLabel: Record<string, string> = {
@@ -417,7 +417,7 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
     if (!file) return;
     setUploading(true);
     try {
-      const path = await uploadProductImage(file);
+      const path = await uploadProductImage(file, storeId);
       setImagePath(path);
     } catch (e) {
       toast.error(userFacingError(e, "Upload failed"));

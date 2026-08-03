@@ -13,8 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   ScanLine,
   CheckCircle2,
-  XCircle,
-  ShieldAlert,
   Calendar,
   Camera,
   KeyRound,
@@ -131,17 +129,17 @@ export function AgeVerificationDialog({
       return;
     }
     const r = evaluateId(p, requiredAge);
-    setOutcome(r);
-    setMode("result");
     if (r.ok) {
-      finalize({
+      void finalize({
         method: "id_scan",
         minAge: requiredAge,
         ageYears: r.ageYears,
         parsed: p,
       });
     } else {
-      logEvent({
+      setOutcome(r);
+      setMode("result");
+      void logEvent({
         method: "id_scan",
         result:
           r.reason === "underage"
@@ -192,7 +190,8 @@ export function AgeVerificationDialog({
         ageYears: data.ageYears,
         masked,
       });
-      onOpenChange(false);
+      setOutcome({ ok: true, ageYears: data.ageYears });
+      setMode("result");
     } finally {
       setSaving(false);
     }
@@ -271,8 +270,6 @@ export function AgeVerificationDialog({
       return;
     }
     const r = evaluateManualDob(manualDob, requiredAge);
-    setOutcome(r);
-    setMode("result");
     if (r.ok) {
       await finalize({
         method: trustedManager ? "override" : "manual",
@@ -282,6 +279,8 @@ export function AgeVerificationDialog({
         manager: trustedManager,
       });
     } else {
+      setOutcome(r);
+      setMode("result");
       await logEvent({
         method: "manual",
         result: r.reason === "underage" ? "underage" : "rejected",
@@ -300,18 +299,29 @@ export function AgeVerificationDialog({
     });
   };
 
+  useEffect(() => {
+    if (mode !== "result" || !outcome) return;
+    const delay = outcome.ok ? 1_000 : 3_000;
+    const timer = window.setTimeout(() => {
+      if (outcome.ok) {
+        onOpenChange(false);
+      } else {
+        setMode("choose");
+        setOutcome(null);
+        setParsed(null);
+        setWedge("");
+      }
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [mode, outcome, onOpenChange]);
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-3xl p-0 overflow-hidden">
-          <div className="bg-gradient-to-br from-warning/15 via-warning/5 to-transparent p-6 border-b">
+          <div className="border-b bg-background p-6">
             <DialogHeader className="text-left">
-              <DialogTitle className="flex items-center gap-3 text-2xl">
-                <div className="size-10 rounded-full bg-warning/20 grid place-items-center">
-                  <ShieldAlert className="size-6 text-warning" />
-                </div>
-                Age Verification Required
-              </DialogTitle>
+              <DialogTitle className="text-2xl">Age verification required</DialogTitle>
               <DialogDescription className="mt-1">
                 This sale cannot continue until the customer's age is verified.
               </DialogDescription>
@@ -343,7 +353,7 @@ export function AgeVerificationDialog({
                     subtitle="USB scanner or 2D barcode reader"
                     onClick={() => {
                       setMode("scan");
-                      setScanNote("ID scanner ready. Scan the PDF417 barcode on the back of the ID.");
+                      setScanNote("ID scanner ready. Scan the barcode on the back of the ID.");
                       window.setTimeout(() => wedgeRef.current?.focus(), 60);
                     }}
                     accent
@@ -351,7 +361,7 @@ export function AgeVerificationDialog({
                   <ActionCard
                     icon={Camera}
                     title="Use camera"
-                    subtitle="Scan PDF417 barcode on back of ID"
+                    subtitle="Scan the barcode on the back of the ID"
                     onClick={() => setScannerOpen(true)}
                   />
                   {settings.allowManualEntry && (
@@ -430,7 +440,7 @@ export function AgeVerificationDialog({
                 </div>
                 <div>
                   <h3 className="text-xl font-bold">Scanner ready</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">Scan the PDF417 barcode on the back of the government ID. Product scanning is paused until this ID check finishes.</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Scan the barcode on the back of the government ID. Product scanning is paused until this ID check finishes.</p>
                 </div>
                 <Input
                   ref={wedgeRef}
@@ -527,7 +537,7 @@ export function AgeVerificationDialog({
               seenCodesRef.current.add(code);
               toast.error("Barcode read, but not a recognized government ID.");
               setScanNote(
-                "Barcode read but not a recognized government ID  -  try the PDF417 on the back of a driver's license, or use manual entry.",
+                "Barcode read but not recognized as a government ID. Scan the barcode on the back of the ID, or use manual entry.",
               );
             }
             return; // keep camera open
@@ -609,9 +619,6 @@ function ResultView({
   outcome,
   parsed,
   requiredAge,
-  onRetry,
-  onRemove,
-  onCancel,
 }: {
   outcome: VerificationOutcome;
   parsed: ParsedID | null;
@@ -622,47 +629,34 @@ function ResultView({
 }) {
   if (outcome.ok) {
     return (
-      <div className="text-center py-8">
-        <div className="size-16 rounded-full bg-success/15 grid place-items-center mx-auto mb-4">
-          <CheckCircle2 className="size-10 text-success" />
+      <div className="py-10">
+        <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-5 py-4 text-center text-xl font-bold text-emerald-800">
+          Age verified
         </div>
-        <h3 className="text-2xl font-bold">Age Verified</h3>
-        <p className="text-muted-foreground mt-1">
-          Customer is {outcome.ageYears} years old. Checkout may continue.
-        </p>
       </div>
     );
   }
 
-  const title =
-    outcome.reason === "underage"
-      ? "Sale Blocked  -  Customer does not meet the minimum legal age"
-      : outcome.reason === "expired_id"
-        ? "Sale Blocked  -  Government ID has expired"
-        : "Sale Blocked  -  Date of birth could not be read";
-
-  const detail =
-    outcome.reason === "underage"
-      ? `Minimum age required: ${requiredAge}. Customer age: ${outcome.ageYears ?? "unknown"}.`
-      : outcome.reason === "expired_id"
-        ? `The scanned ID expired on ${parsed?.expires?.toISOString().slice(0, 10) ?? "an unknown date"}. A valid, unexpired ID is required.`
-        : "The scanner could not read a valid date of birth from that ID.";
+  const expired = outcome.reason === "expired_id";
+  const title = expired ? "ID expired" : outcome.reason === "underage" ? "Under age" : "ID could not be verified";
+  const detail = expired
+    ? `Expired ${parsed?.expires?.toISOString().slice(0, 10) ?? ""}`
+    : outcome.reason === "underage"
+      ? `Minimum age is ${requiredAge}. Customer age is ${outcome.ageYears ?? "unknown"}.`
+      : "Scan the barcode on the back of the ID again or use manual date of birth.";
 
   return (
-    <div className="text-center py-4">
-      <div className="size-16 rounded-full bg-destructive/15 grid place-items-center mx-auto mb-4">
-        <XCircle className="size-10 text-destructive" />
-      </div>
-      <h3 className="text-xl font-bold text-destructive">{title}</h3>
-      <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">{detail}</p>
-      <div className="mt-6 flex justify-center gap-2">
-        <Button variant="outline" onClick={onRetry}>
-          Try again
-        </Button>
-        <Button onClick={onRemove}>Remove restricted items</Button>
-        <Button variant="ghost" onClick={onCancel}>
-          Cancel sale
-        </Button>
+    <div className="py-10">
+      <div
+        className={cn(
+          "rounded-lg border px-5 py-4 text-center",
+          expired
+            ? "border-amber-300 bg-amber-50 text-amber-900"
+            : "border-red-300 bg-red-50 text-red-800",
+        )}
+      >
+        <div className="text-xl font-bold">{title}</div>
+        <div className="mt-1 text-sm">{detail}</div>
       </div>
     </div>
   );

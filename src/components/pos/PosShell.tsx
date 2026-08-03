@@ -14,7 +14,6 @@ import {
   LogOut,
   ArrowLeftRight,
   LayoutDashboard,
-  Receipt,
   Menu,
   ChevronRight,
   DoorOpen,
@@ -132,7 +131,6 @@ export function PosShell({ children }: { children: ReactNode }) {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [openShiftWarn, setOpenShiftWarn] = useState(false);
   const [managerGate, setManagerGate] = useState(false);
-  const [dashboardGate, setDashboardGate] = useState(false);
   const [drawerDialog, setDrawerDialog] = useState(false);
   const [managerDashboard, setManagerDashboard] = useState(false);
   const [printerReady, setPrinterReady] = useState(false);
@@ -234,7 +232,7 @@ export function PosShell({ children }: { children: ReactNode }) {
           variant="outline"
           size="icon"
           className="size-12 rounded-2xl mb-3"
-          onClick={() => setDashboardGate(true)}
+          onClick={() => setManagerDashboard(true)}
           aria-label="Open manager dashboard"
           title="Dashboard"
         >
@@ -382,7 +380,7 @@ export function PosShell({ children }: { children: ReactNode }) {
                   label="Dashboard"
                   onClick={() => {
                     setMobileMenu(false);
-                    setDashboardGate(true);
+                    setManagerDashboard(true);
                   }}
                 />
                 {isNativeShell && (
@@ -453,7 +451,6 @@ export function PosShell({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-2">
             <OfflineIndicator />
-            <Button variant="outline" size="sm" onClick={() => setDrawerDialog(true)} disabled={!openShift.data}><DoorOpen className="mr-2 size-4"/>Open drawer</Button>
             <Button variant="outline" size="sm" onClick={handleSwitchEmployee}><ArrowLeftRight className="mr-2 size-4"/>Switch user</Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Device status"><MoreVertical className="size-4"/></Button></DropdownMenuTrigger>
@@ -463,7 +460,7 @@ export function PosShell({ children }: { children: ReactNode }) {
                 <DropdownMenuItem onSelect={(e)=>e.preventDefault()}><Usb className="mr-2 size-4"/>Scanner <span className="ml-auto text-xs">USB / keyboard</span></DropdownMenuItem>
                 <DropdownMenuItem onSelect={(e)=>e.preventDefault()}><DoorOpen className="mr-2 size-4"/>Drawer <span className="ml-auto text-xs">{printerReady?"Available":"Needs printer"}</span></DropdownMenuItem>
                 <DropdownMenuItem onSelect={(e)=>e.preventDefault()}><Monitor className="mr-2 size-4"/>Customer display <span className="ml-auto text-xs">{displayRunning?"Running":"Not started"}</span></DropdownMenuItem>
-                <DropdownMenuSeparator/><DropdownMenuItem onClick={()=>setDashboardGate(true)}><SettingsIcon className="mr-2 size-4"/>Configure hardware</DropdownMenuItem>
+                <DropdownMenuSeparator/><DropdownMenuItem onClick={()=>navigate({ to: "/manager-tools" as any })}><SettingsIcon className="mr-2 size-4"/>Configure hardware</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -542,22 +539,6 @@ export function PosShell({ children }: { children: ReactNode }) {
         onApprove={() => {
           setManagerGate(false);
           void doSignOut();
-        }}
-      />
-
-      <ManagerOverrideDialog
-        open={dashboardGate}
-        onOpenChange={setDashboardGate}
-        action="dashboard.open"
-        description="Enter a manager or owner PIN to open management tools without switching the cashier."
-        details={{
-          cashier_id: me?.profile?.id,
-          store_id: storeId,
-          shift_id: openShift.data?.id,
-        }}
-        onApprove={() => {
-          setDashboardGate(false);
-          setManagerDashboard(true);
         }}
       />
 

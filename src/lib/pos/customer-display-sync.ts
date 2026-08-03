@@ -125,7 +125,7 @@ export function subscribeCustomerDisplay(
 
   const channel = supabase
     .channel(realtimeTopic(storeId), {
-      config: { broadcast: { self: false, ack: false } },
+      config: { private: true, broadcast: { self: false, ack: false } },
     })
     .on("broadcast", { event: EVENT }, ({ payload }) => {
       const received = payload as CustomerDisplayPayload & { signature?: string };

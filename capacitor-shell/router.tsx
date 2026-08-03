@@ -63,8 +63,8 @@ const OnboardingScreen = lazyNamed<ComponentType>(
   "OnboardingScreen",
 );
 const SettingsScreen = lazyNamed<ComponentType>(
-  () => import("./screens/SettingsScreen"),
-  "SettingsScreen",
+  () => import("@/components/pos/RegisterAppSettingsPage"),
+  "RegisterAppSettingsPage",
 );
 const ScannerSettingsScreen = lazyNamed<ComponentType>(
   () => import("./screens/ScannerSettingsScreen"),
@@ -74,6 +74,19 @@ const PendingSyncScreen = lazyNamed<ComponentType>(
   () => import("./screens/PendingSyncScreen"),
   "PendingSyncScreen",
 );
+const PosManagerToolsPage = lazyNamed<ComponentType>(
+  () => import("@/routes/_pos/manager-tools"),
+  "PosManagerToolsPage",
+);
+const PaymentTerminalPage = lazyNamed<ComponentType>(
+  () => import("@/components/pos/PaymentTerminalPage"),
+  "PaymentTerminalPage",
+);
+const CustomerDisplayPage = lazyNamed<ComponentType>(
+  () => import("@/routes/customer-display"),
+  "CustomerDisplayPage",
+);
+
 
 function LazyScreen({ children }: { children: ReactNode }) {
   return <Suspense fallback={<SplashScreen />}>{children}</Suspense>;
@@ -133,10 +146,21 @@ const shellRoute = (
     ),
   });
 
+const customerDisplayRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/customer-display",
+  component: () => (
+    <LazyScreen>
+      <CustomerDisplayPage />
+    </LazyScreen>
+  ),
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   authRoute,
   pairRoute,
+  customerDisplayRoute,
   shellRoute("/pos", PosPage),
   shellRoute("/register", RegisterPage),
   shellRoute("/refunds", RefundsPage),
@@ -148,13 +172,29 @@ const routeTree = rootRoute.addChildren([
   shellRoute("/settings/scanner", ScannerSettingsScreen),
   shellRoute("/onboarding", OnboardingScreen),
   shellRoute("/pending-sync", PendingSyncScreen),
+  shellRoute("/manager-tools", PosManagerToolsPage),
+  shellRoute("/payment-terminal", PaymentTerminalPage),
 ]);
+
+function initialShellEntry(): string {
+  if (typeof window === "undefined") return "/";
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("sezaCustomerDisplay") === "1") {
+      const store = url.searchParams.get("store") ?? "";
+      return `/customer-display?store=${encodeURIComponent(store)}`;
+    }
+    return url.pathname && url.pathname !== "/" ? `${url.pathname}${url.search}` : "/";
+  } catch {
+    return "/";
+  }
+}
 
 export function createShellRouter(queryClient: QueryClient) {
   return createRouter({
     routeTree,
     context: { queryClient },
-    history: createMemoryHistory({ initialEntries: ["/"] }),
+    history: createMemoryHistory({ initialEntries: [initialShellEntry()] }),
     defaultPreloadStaleTime: 0,
   });
 }

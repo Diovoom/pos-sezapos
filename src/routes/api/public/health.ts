@@ -1,8 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+const CORS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Max-Age": "86400",
+};
+
 export const Route = createFileRoute("/api/public/health")({
   server: {
     handlers: {
+      OPTIONS: () => new Response(null, { status: 204, headers: CORS }),
       GET: async ({ request }) => {
         const { guardApiRequest } = await import("@/lib/security/api-security.server");
         const blocked = await guardApiRequest(request, {
@@ -14,7 +22,11 @@ export const Route = createFileRoute("/api/public/health")({
           allowMissingOrigin: true,
           skipOriginCheck: false,
         });
-        if (blocked) return blocked;
+        if (blocked) {
+          const headers = new Headers(blocked.headers);
+          for (const [key, value] of Object.entries(CORS)) headers.set(key, value);
+          return new Response(blocked.body, { status: blocked.status, headers });
+        }
         const started = Date.now();
         let database = "operational";
         try {
@@ -44,7 +56,7 @@ export const Route = createFileRoute("/api/public/health")({
             checkedAt: new Date().toISOString(),
             version: "1.3.2",
           },
-          { headers: { "cache-control": "no-store" } },
+          { headers: { "cache-control": "no-store", ...CORS } },
         );
       },
     },

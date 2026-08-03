@@ -15,6 +15,12 @@ export type PosConnectionState = {
 };
 
 const KEY = "seza.pos.connectionState";
+const REMOTE_API_ORIGIN = "https://sezapos.com";
+
+function apiOrigin(): string {
+  if (typeof window === "undefined") return REMOTE_API_ORIGIN;
+  return isNativeMode() ? REMOTE_API_ORIGIN : window.location.origin;
+}
 function save(state: PosConnectionState) {
   localStorage.setItem(KEY, JSON.stringify(state));
   window.dispatchEvent(new CustomEvent("seza-pos-connection", { detail: state }));
@@ -59,7 +65,7 @@ export async function sendPosHeartbeat(input: {
     try {
       const creds = credentials();
       if (creds && (!input.storeId || creds.store_id === input.storeId)) {
-        const response = await fetch("/api/public/pos/device-heartbeat", {
+        const response = await fetch(`${apiOrigin()}/api/public/pos/device-heartbeat`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
@@ -86,9 +92,9 @@ export async function sendPosHeartbeat(input: {
         cloudReachable = response.status < 500;
         heartbeatAcknowledged = response.ok;
       } else {
-        const response = await fetch(`/api/public/health?ts=${Date.now()}`, { cache: "no-store", signal: controller.signal });
+        const response = await fetch(`${apiOrigin()}/api/public/health?ts=${Date.now()}`, { cache: "no-store", signal: controller.signal });
         const body = response.ok ? await response.json().catch(() => null) : null;
-        cloudReachable = Boolean(response.ok && body?.status === "operational");
+        cloudReachable = Boolean(response.ok && (!body || body?.status === "operational" || body?.status === "degraded" || body?.ok === true));
         heartbeatAcknowledged = cloudReachable;
       }
     } catch { cloudReachable = false; heartbeatAcknowledged = false; }

@@ -98,9 +98,10 @@ export function useProductImageUrl(pathOrUrl: string | null | undefined) {
 }
 
 /** Upload a single image file, returns the storage path stored in `products.image_url`. */
-export async function uploadProductImage(file: File): Promise<string> {
+export async function uploadProductImage(file: File, storeId: string): Promise<string> {
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${crypto.randomUUID()}.${ext}`;
+  if (!storeId) throw new Error("Store is required for product image uploads");
+  const path = `${storeId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     cacheControl: "31536000",
     contentType: file.type || "image/jpeg",
@@ -111,14 +112,14 @@ export async function uploadProductImage(file: File): Promise<string> {
 }
 
 /** Download a remote image URL (e.g. Open Food Facts) and store it in the bucket. */
-export async function importRemoteProductImage(url: string): Promise<string | null> {
+export async function importRemoteProductImage(url: string, storeId: string): Promise<string | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
     const ext = (blob.type.split("/")[1] || "jpg").split("+")[0];
     const file = new File([blob], `imported.${ext}`, { type: blob.type });
-    return await uploadProductImage(file);
+    return await uploadProductImage(file, storeId);
   } catch {
     return null;
   }

@@ -6,6 +6,13 @@ import { cn } from "@/lib/utils";
 import { useOnline, useSyncEvents } from "@/lib/offline/useOnline";
 import { pendingCounts, syncNow, installAutoSync } from "@/lib/offline/sync";
 import { getAllOfflineSales, type OfflineSale } from "@/lib/offline/db";
+import { isNativeMode } from "@/lib/native";
+
+const REMOTE_API_ORIGIN = "https://sezapos.com";
+function healthUrl() {
+  const origin = isNativeMode() ? REMOTE_API_ORIGIN : window.location.origin;
+  return `${origin}/api/public/health?ts=${Date.now()}`;
+}
 
 export function OfflineIndicator() {
   const online = useOnline();
@@ -52,7 +59,7 @@ export function OfflineIndicator() {
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 6_000);
       try {
-        const response = await fetch(`/api/public/health?ts=${Date.now()}`, {
+        const response = await fetch(healthUrl(), {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -60,7 +67,7 @@ export function OfflineIndicator() {
         if (!cancelled) {
           // A successful 2xx response proves the packaged Android app reached SEZA.
           // Some deployments return a minimal body instead of { status: "operational" }.
-          setCloudReachable(Boolean(response.ok && (!body || body?.status === "operational" || body?.ok === true)));
+          setCloudReachable(Boolean(response.ok && (!body || body?.status === "operational" || body?.status === "degraded" || body?.ok === true)));
           setLastCloudCheck(new Date().toISOString());
         }
       } catch {
@@ -119,6 +126,7 @@ export function OfflineIndicator() {
           : "text-slate-950 bg-white border-slate-300";
 
   const pending = counts.pendingSales + counts.pendingCash;
+  const visibleSales = sales.filter((sale) => sale.status !== "synced");
 
   return (
     <Popover>
@@ -188,9 +196,9 @@ export function OfflineIndicator() {
             value={counts.lastSync ? new Date(counts.lastSync).toLocaleTimeString() : " - "}
           />
         </div>
-        {sales.length > 0 && (
+        {visibleSales.length > 0 && (
           <div className="border-t max-h-48 overflow-auto">
-            {sales
+            {visibleSales
               .slice(-10)
               .reverse()
               .map((s) => (

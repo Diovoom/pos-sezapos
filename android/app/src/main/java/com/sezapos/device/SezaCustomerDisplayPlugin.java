@@ -104,7 +104,7 @@ public class SezaCustomerDisplayPlugin extends Plugin {
         String base = getBridge().getServerUrl().toString();
         if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
         String encoded = android.net.Uri.encode(storeId == null ? "" : storeId);
-        return base + "/customer-display?store=" + encoded;
+        return base + "/?sezaCustomerDisplay=1&store=" + encoded;
     }
 
     private void stopPresentation() {
@@ -146,25 +146,11 @@ public class SezaCustomerDisplayPlugin extends Plugin {
             settings.setMediaPlaybackRequiresUserGesture(false);
             settings.setLoadWithOverviewMode(true);
             settings.setUseWideViewPort(true);
-            final String baseUrl = url.contains("/customer-display") ? url.substring(0, url.indexOf("/customer-display")) + "/" : url;
-            webView.setWebViewClient(new WebViewClient() {
-                private boolean routed = false;
-                @Override public void onPageFinished(WebView view, String finishedUrl) {
-                    super.onPageFinished(view, finishedUrl);
-                    if (routed) return;
-                    routed = true;
-                    String escaped = url.replace("\\", "\\\\").replace("'", "\\'");
-                    view.evaluateJavascript(
-                        "window.history.replaceState({},'', '" + escaped + "');" +
-                        "window.dispatchEvent(new PopStateEvent('popstate'));",
-                        null
-                    );
-                }
-            });
+            webView.setWebViewClient(new WebViewClient());
             webView.setBackgroundColor(android.graphics.Color.rgb(2, 6, 23));
             setContentView(webView);
-            // Load the SPA root first so Capacitor does not serve an error page for a deep link.
-            webView.loadUrl(baseUrl);
+            // The query marker lets the Capacitor memory router open the dedicated display route.
+            webView.loadUrl(url);
         }
     }
 }

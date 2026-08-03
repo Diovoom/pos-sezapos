@@ -1,10 +1,8 @@
 /**
  * Server-only helpers for the customer-facing display channel.
  *
- * The realtime topic is readable by anyone who knows a store id, so every
- * payload is signed server-side with an HMAC. Displays reject any payload that
- * is not signed, which prevents outsiders from pushing fake totals or a fake
- * "payment complete" screen.
+ * The Realtime topic is private and store-scoped. Every payload is also signed
+ * server-side with an HMAC, so displays reject forged or cross-store messages.
  */
 
 function signingSecret(): string {
@@ -31,10 +29,22 @@ async function hmac(message: string): Promise<string> {
     .join("");
 }
 
-/** Stable string used for signing: only the fields a display trusts. */
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([key]) => key !== "signature")
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => [key, stableValue(child)]),
+    );
+  }
+  return value;
+}
+
+/** Stable string used for signing, including every nested line-item field. */
 export function displayCanonicalPayload(payload: Record<string, unknown>): string {
-  const { signature: _signature, ...rest } = payload as { signature?: string };
-  return JSON.stringify(rest, Object.keys(rest).sort());
+  return JSON.stringify(stableValue(payload));
 }
 
 export async function signDisplayPayload(payload: Record<string, unknown>): Promise<string> {
@@ -66,7 +76,7 @@ export async function broadcastDisplayPayload(
       apikey: serviceKey,
     },
     body: JSON.stringify({
-      messages: [{ topic: `customer-display:${storeId}`, event, payload, private: false }],
+      messages: [{ topic: `customer-display:${storeId}`, event, payload, private: true }],
     }),
   });
 

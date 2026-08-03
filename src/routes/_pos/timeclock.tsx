@@ -154,11 +154,12 @@ export function TimeclockPage() {
 
   const { data: whosIn = [] } = useQuery({
     enabled: !!canManage,
-    queryKey: ["whosIn"],
+    queryKey: ["whosIn", storeId],
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("time_entries")
         .select("id, user_id, clock_in, break_start")
+        .eq("store_id", storeId)
         .is("clock_out", null);
       const rows =
         (data as { id: string; user_id: string; clock_in: string; break_start: string | null }[]) ??
@@ -174,10 +175,16 @@ export function TimeclockPage() {
     },
   });
 
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["myOpenEntry"] });
-    qc.invalidateQueries({ queryKey: ["myTimeHistory"] });
-    qc.invalidateQueries({ queryKey: ["whosIn"] });
+  const invalidate = (next?: TimeEntry | null) => {
+    if (next !== undefined) {
+      qc.setQueryData(["myOpenEntry", userId], next);
+      qc.setQueryData(["pos-clock-status", userId], next ? { id: next.id } : null);
+    }
+    qc.invalidateQueries({ queryKey: ["myOpenEntry", userId] });
+    qc.invalidateQueries({ queryKey: ["pos-clock-status", userId] });
+    qc.invalidateQueries({ queryKey: ["myTimeHistory", userId] });
+    qc.invalidateQueries({ queryKey: ["whosIn", storeId] });
+    qc.invalidateQueries({ queryKey: ["pos-shell", "open-shift", storeId] });
   };
 
   const applyClockAction = async (action: EmployeeTimeClockAction) => {
@@ -267,11 +274,11 @@ export function TimeclockPage() {
   const clockIn = useMutation({
     networkMode: "always",
     mutationFn: () => applyClockAction("clock_in"),
-    onSuccess: () => {
+    onSuccess: (next) => {
+      invalidate(next);
       toast.success(
         isOnlineNow() ? "Clocked in" : "Clocked in offline  -  will sync automatically",
       );
-      invalidate();
     },
     onError: (e) => toast.error(userFacingError(e, "Could not clock in. Try again.")),
   });
@@ -279,11 +286,11 @@ export function TimeclockPage() {
   const clockOut = useMutation({
     networkMode: "always",
     mutationFn: () => applyClockAction("clock_out"),
-    onSuccess: () => {
+    onSuccess: (next) => {
+      invalidate(next);
       toast.success(
         isOnlineNow() ? "Clocked out" : "Clocked out offline  -  will sync automatically",
       );
-      invalidate();
     },
     onError: (e) => toast.error(userFacingError(e, "Could not clock out. Try again.")),
   });
@@ -291,9 +298,9 @@ export function TimeclockPage() {
   const startBreak = useMutation({
     networkMode: "always",
     mutationFn: () => applyClockAction("start_break"),
-    onSuccess: () => {
+    onSuccess: (next) => {
+      invalidate(next);
       toast.success(isOnlineNow() ? "Break started" : "Break started offline");
-      invalidate();
     },
     onError: (e) => toast.error(userFacingError(e, "Could not update the break. Try again.")),
   });
@@ -301,9 +308,9 @@ export function TimeclockPage() {
   const endBreak = useMutation({
     networkMode: "always",
     mutationFn: () => applyClockAction("end_break"),
-    onSuccess: () => {
+    onSuccess: (next) => {
+      invalidate(next);
       toast.success(isOnlineNow() ? "Break ended" : "Break ended offline");
-      invalidate();
     },
     onError: (e) => toast.error(userFacingError(e, "Could not update the break. Try again.")),
   });
@@ -392,9 +399,9 @@ export function TimeclockPage() {
   };
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <PageHeader title="Time Clock" subtitle="Clock in, take breaks, clock out." />
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24 space-y-4 md:p-6 md:pb-10">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
@@ -617,7 +624,7 @@ export function TimeclockPage() {
           }}
         />
       )}
-    </>
+    </div>
   );
 }
 

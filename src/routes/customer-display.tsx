@@ -32,7 +32,7 @@ function requestedStoreId() {
   }
 }
 
-function CustomerDisplayPage() {
+export function CustomerDisplayPage() {
   const [storeId, setStoreId] = useState<string | null>(() => requestedStoreId());
   const [sale, setSale] = useState<CustomerDisplayPayload>(() => {
     const local = readLocalCustomerDisplay();

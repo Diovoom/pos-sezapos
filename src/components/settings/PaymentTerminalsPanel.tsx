@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { CreditCard, Loader2, LockKeyhole, Plus, Search, ShieldCheck, Trash2 } from "lucide-react";
+import { CreditCard, Loader2, Plus, Search, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
 import { logAudit } from "@/lib/audit-log";
+import { setActiveTerminal, type TerminalDriverId } from "@/lib/hardware";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -120,6 +121,15 @@ const PROVIDERS: Provider[] = [
   },
 ];
 
+function driverForTerminal(terminal: Terminal): TerminalDriverId {
+  if (terminal.provider !== "stripe") return "none";
+  const model = String(terminal.config?.model ?? "").toLowerCase();
+  if (model.includes("tap to pay")) return "stripe-tap-to-pay";
+  if (model.includes("wisepad")) return "stripe-wisepad3";
+  if (model.includes("wisepos")) return "stripe-wisepos";
+  return "none";
+}
+
 export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
   const { data: me } = useMe();
   const storeId = me?.store?.id as string | undefined;
@@ -188,12 +198,47 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       });
     },
     onSuccess: () => {
-      toast.success("Terminal saved. Finish pairing on the POS.");
+      toast.success("Terminal saved. Select Use on this POS to activate it.");
       setForm({ label: "", provider: "stripe", model: "", serial: "", location: "Front counter" });
       qc.invalidateQueries({ queryKey: ["payment_terminals"] });
     },
     onError: (error) =>
       toast.error(userFacingError(error, "Could not save this terminal.")),
+  });
+
+  const activate = useMutation({
+    mutationFn: async (terminal: Terminal) => {
+      if (!storeId) throw new Error("Your store is not ready yet.");
+      const { error: clearError } = await sb
+        .from("payment_terminals")
+        .update({ status: "inactive" })
+        .eq("store_id", storeId);
+      if (clearError) throw clearError;
+      const { error } = await sb
+        .from("payment_terminals")
+        .update({ status: "active", last_seen_at: new Date().toISOString() })
+        .eq("id", terminal.id)
+        .eq("store_id", storeId);
+      if (error) throw error;
+      const driver = driverForTerminal(terminal);
+      setActiveTerminal(driver);
+      await logAudit({
+        action: "terminal.activate",
+        entity: "payment_terminal",
+        entity_id: terminal.id,
+        details: { provider: terminal.provider, driver },
+      });
+      return { driver };
+    },
+    onSuccess: ({ driver }) => {
+      qc.invalidateQueries({ queryKey: ["payment_terminals", storeId] });
+      if (driver === "none") {
+        toast.info("Terminal saved as external. Automatic card approval needs a supported integration.");
+      } else {
+        toast.success("This terminal is now active on the POS.");
+      }
+    },
+    onError: (error) => toast.error(userFacingError(error, "Could not activate this terminal.")),
   });
 
   const remove = useMutation({
@@ -241,30 +286,6 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <LockKeyhole className="size-5" /> Sensitive payment changes
-          </CardTitle>
-          <CardDescription>
-            Changing the payout account, processor credentials, or default terminal requires owner
-            verification again, even when already signed in.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
-          <Button variant="outline" disabled={!canEdit}>
-            Verify with passkey
-          </Button>
-          <Button variant="outline" disabled={!canEdit}>
-            Send email or SMS code
-          </Button>
-          <p className="sm:col-span-2 text-xs text-muted-foreground">
-            Passkey is the preferred method. Email or SMS is available as a fallback. Verification
-            expires after 10 minutes and every change is audited.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle>Connected terminals</CardTitle>
           <CardDescription>
             Only a certified integrated connection can return an automatic approval. External
@@ -294,6 +315,11 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs capitalize">{terminal.status}</span>
+                  {canEdit && terminal.status !== "active" && (
+                    <Button size="sm" variant="outline" onClick={() => activate.mutate(terminal)} disabled={activate.isPending}>
+                      Use on this POS
+                    </Button>
+                  )}
                   {canEdit && (
                     <Button size="icon" variant="ghost" onClick={() => remove.mutate(terminal.id)}>
                       <Trash2 className="size-4" />
@@ -384,7 +410,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
               <div className="mt-1 text-muted-foreground">{provider.note}</div>
             </div>
             <Button onClick={() => add.mutate()} disabled={add.isPending}>
-              <Plus className="mr-2 size-4" /> Save and continue on POS
+              <Plus className="mr-2 size-4" /> Save terminal
             </Button>
           </CardContent>
         </Card>

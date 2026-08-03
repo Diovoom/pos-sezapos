@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/pos/AppShell";
 import { fmtCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -131,6 +130,15 @@ function friendlyDbMessage(err: unknown, fallback: string): string {
   }
 }
 
+function isConnectivityFailure(err: unknown): boolean {
+  const value = err as { message?: string; status?: number } | null | undefined;
+  const message = String(value?.message ?? err ?? "").toLowerCase();
+  return (
+    /network|failed to fetch|fetch failed|timeout|timed out|connection|offline|abort/.test(message) ||
+    Number(value?.status ?? 0) >= 500
+  );
+}
+
 export const Route = createFileRoute("/_pos/pos")({
   head: () => ({
     meta: [
@@ -246,7 +254,8 @@ export function PosPage() {
   const canDiscount = perms.has("sales.discount") || perms.isSuper;
   const canRefund = perms.has("refunds.create") || perms.isSuper;
   const canCancelTender = perms.has("payment.cancel") || perms.isSuper;
-  const canManage = perms.has("employees.manage") || perms.isSuper;
+  const canOpenItem =
+    perms.isSuper || perms.isManager || perms.has("products.create") || perms.has("products.quick_add");
   const canQuickAdd = perms.has("products.quick_add") || perms.isSuper;
   const isMobile = useIsMobile();
   const online = useOnline();
@@ -639,6 +648,71 @@ export function PosPage() {
   const total = Math.max(0, Math.round((subtotal - discountAmount + tax) * 100) / 100);
   const loyaltyEarn = loyalty ? Math.floor(Math.max(0, subtotal - discountAmount)) : 0;
 
+  const queueOfflineCashSale = async (payment: CompletedPayment) => {
+    const { data: sess } = await supabase.auth.getSession();
+    const cachedProfile = await readMeta<{ id?: string } | null>("profile");
+    const uid = sess.session?.user?.id ?? cachedProfile?.id ?? profile?.id ?? null;
+    if (!uid) {
+      throw new SaleError("auth", "You are signed out. Sign in while online, then try again.");
+    }
+    const offlineStoreId =
+      store?.id ?? (await readMeta<{ id?: string } | null>("store"))?.id ?? null;
+    if (!offlineStoreId) {
+      throw new SaleError(
+        "auth",
+        "Store information has not synced to this device yet. Connect once to prepare offline mode.",
+      );
+    }
+    const localId = crypto.randomUUID();
+    const seq = await nextSeq();
+    let registerSessionId: string | null = null;
+    try {
+      const rs = await readMeta<{ id: string } | null>("open_register_session");
+      registerSessionId = rs?.id ?? null;
+    } catch {
+      // A cached register session is optional for offline cash checkout.
+    }
+    await saveOfflineSale({
+      id: localId,
+      idempotency_key: localId,
+      correlation_id: crypto.randomUUID(),
+      payload_version: OFFLINE_PAYLOAD_VERSION,
+      store_id: offlineStoreId,
+      register_session_id: registerSessionId,
+      cashier_id: uid,
+      device_id: getDeviceId(),
+      local_seq: seq,
+      local_created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      status: "pending",
+      attempts: 0,
+      subtotal,
+      tax,
+      discount: discountAmount,
+      total,
+      amount_tendered: payment.amountTendered,
+      change_due: payment.changeDue,
+      currency,
+      items: cart.map((line) => ({
+        product_id: line.product.id.startsWith("custom-") ? null : line.product.id,
+        product_name: line.product.name,
+        quantity: line.qty,
+        unit_price: line.product.price,
+        line_total: Math.round(line.product.price * line.qty * 100) / 100,
+      })),
+    });
+    return {
+      sale: {
+        id: localId,
+        receipt_number: null,
+        created_at: new Date().toISOString(),
+        _offline: true,
+        _localFirst: true,
+      },
+      payment,
+    };
+  };
+
   // Sale is written ONLY after payment is confirmed.
   const finalize = useMutation({
     // React Query's default online network mode pauses mutations while the
@@ -652,80 +726,18 @@ export function PosPage() {
           "Checkout is locked because this terminal has unsynced records from another store. Open Pending Sync or contact support.",
         );
       }
-      // ---- LOCAL-FIRST CASH PATH -----------------------------------------
-      // Cash checkout commits to the register first, even while online. The
-      // durable queue then synchronizes one atomic sale in the background.
-      // This keeps checkout fast and prevents a cloud interruption from
-      // losing an already accepted cash payment.
-      if (payment.method === "cash") {
-        // getSession() reads from local storage (no network). getUser()
-        // hits /auth/v1/user and stalls / fails while offline, which
-        // previously prevented the sale from ever persisting.
-        const { data: sess } = await supabase.auth.getSession();
-        const cachedProfile = await readMeta<{ id?: string } | null>("profile");
-        const uid = sess.session?.user?.id ?? cachedProfile?.id ?? profile?.id ?? null;
-        if (!uid)
-          throw new SaleError("auth", "You are signed out. Sign in while online, then try again.");
-        const storeId = store?.id ?? (await readMeta<{ id?: string } | null>("store"))?.id ?? null;
-        if (!storeId) {
-          throw new SaleError(
-            "auth",
-            "Store information hasn't synced to this device yet. Connect to the internet once to prepare offline mode.",
-          );
-        }
-        const localId = crypto.randomUUID();
-        const seq = await nextSeq();
-        // Best-effort register session from cache (never fatal offline).
-        let registerSessionId: string | null = null;
-        try {
-          const rs = await readMeta<{ id: string } | null>("open_register_session");
-          registerSessionId = rs?.id ?? null;
-        } catch {
-          /* noop */
-        }
-        await saveOfflineSale({
-          id: localId,
-          idempotency_key: localId,
-          correlation_id: crypto.randomUUID(),
-          payload_version: OFFLINE_PAYLOAD_VERSION,
-          store_id: storeId,
-          register_session_id: registerSessionId,
-          cashier_id: uid,
-          device_id: getDeviceId(),
-          local_seq: seq,
-          local_created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          status: "pending",
-          attempts: 0,
-          subtotal,
-          tax,
-          discount: discountAmount,
-          total,
-          amount_tendered: payment.amountTendered,
-          change_due: payment.changeDue,
-          currency,
-          items: cart.map((l) => ({
-            product_id: l.product.id.startsWith("custom-") ? null : l.product.id,
-            product_name: l.product.name,
-            quantity: l.qty,
-            unit_price: l.product.price,
-            line_total: Math.round(l.product.price * l.qty * 100) / 100,
-          })),
-        });
-        return {
-          sale: {
-            id: localId,
-            receipt_number: null,
-            created_at: new Date().toISOString(),
-            _offline: !isOnlineNow(),
-            _localFirst: true,
-          },
-          payment,
-        };
+      // Online cash sales finalize through SEZA Cloud immediately so the
+      // customer receives a permanent receipt number. Only true offline
+      // checkout is written to the local queue.
+      if (payment.method === "cash" && !isOnlineNow()) {
+        return queueOfflineCashSale(payment);
       }
       // 1. Auth
       const { data: u, error: authErr } = await supabase.auth.getUser();
       if (authErr || !u.user) {
+        if (payment.method === "cash" && isConnectivityFailure(authErr)) {
+          return queueOfflineCashSale(payment);
+        }
         throw new SaleError("auth", "Your session has expired. Please sign in again.", authErr);
       }
 
@@ -810,6 +822,9 @@ export function PosPage() {
         p_payments: paymentRows,
       });
       if (saleErr || !sale?.id) {
+        if (payment.method === "cash" && isConnectivityFailure(saleErr)) {
+          return queueOfflineCashSale(payment);
+        }
         const isStock = /stock|inventory|negative/i.test(saleErr?.message ?? "");
         throw new SaleError(
           isStock ? "inventory" : "sale_insert",
@@ -1025,7 +1040,7 @@ export function PosPage() {
 
   const cartPanel = (
     <>
-      <div className="px-4 py-3 flex items-center justify-between">
+      <div className="px-3 py-2 flex items-center justify-between">
         <h2 className="text-sm font-bold">
           Order · {cart.length} line{cart.length === 1 ? "" : "s"}
         </h2>
@@ -1039,7 +1054,7 @@ export function PosPage() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 space-y-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 space-y-1.5">
         {cart.length === 0 ? (
           <div className="h-full grid place-items-center text-sm text-muted-foreground py-10">
             {t("pos.cart_empty")}
@@ -1096,10 +1111,10 @@ export function PosPage() {
       </div>
 
       <div
-        className="p-4 border-t bg-surface/40"
-        style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+        className="p-3 border-t bg-surface/40"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
-        <div className="space-y-1.5 mb-4">
+        <div className="space-y-1 mb-2">
           <Row label={t("pos.subtotal")} value={fmtCurrency(subtotal, currency)} />
           {discount && (
             <div className="flex justify-between text-sm text-success">
@@ -1131,7 +1146,7 @@ export function PosPage() {
             label={`${t("pos.tax")} (${(taxRate * 100).toFixed(2)}%)`}
             value={fmtCurrency(tax, currency)}
           />
-          <div className="flex justify-between text-2xl font-bold pt-2 border-t border-dashed">
+          <div className="flex justify-between text-xl font-bold pt-1.5 border-t border-dashed">
             <span>{t("pos.total")}</span>
             <span className="font-mono">{fmtCurrency(total, currency)}</span>
           </div>
@@ -1149,7 +1164,7 @@ export function PosPage() {
             returns. Card payments require an internet connection.
           </div>
         )}
-        <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="grid grid-cols-2 gap-2 mb-2">
           {TENDER.map((t) => {
             const Icon = t.icon;
             const active = tender === t.id;
@@ -1168,7 +1183,7 @@ export function PosPage() {
                 aria-disabled={disabled}
                 title={disabled ? "Card payments require an internet connection." : undefined}
                 className={cn(
-                  "h-11 border rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors",
+                  "h-9 border rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors",
                   active ? "border-primary bg-primary/5 text-primary" : "bg-card hover:bg-accent",
                   disabled && "opacity-40 cursor-not-allowed hover:bg-card",
                 )}
@@ -1204,7 +1219,7 @@ export function PosPage() {
         <Button
           onClick={openPayment}
           disabled={cart.length === 0 || finalize.isPending || !canCreateSale || storeSwitchBlocked}
-          className="w-full h-16 text-lg font-bold rounded-xl shadow-[var(--shadow-charge)]"
+          className="w-full h-12 text-base font-bold rounded-xl shadow-[var(--shadow-charge)]"
         >
           {finalize.isPending ? (
             <Loader2 className="size-5 animate-spin" />
@@ -1246,21 +1261,7 @@ export function PosPage() {
   }
 
   return (
-    <>
-      <PageHeader
-        title={store?.name ?? "Store"}
-        subtitle={(() => {
-          const full = (me.data?.profile?.full_name ?? me.data?.user?.email ?? "Cashier").trim();
-          const parts = full.split(/\s+/);
-          return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]?.toUpperCase() ?? ""}.` : parts[0];
-        })()}
-        actions={
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="size-2 rounded-full bg-success animate-pulse" /> Shift active
-          </div>
-        }
-      />
-
+    <div className="flex h-full min-h-0 flex-col">
       {storeSwitchBlocked && (
         <div className="mx-3 mt-3 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
           <AlertTriangle className="size-4 mt-0.5 shrink-0" />
@@ -1274,9 +1275,9 @@ export function PosPage() {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        <section className="flex-1 md:basis-[80%] flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
-          <div className="p-4 flex flex-col gap-3">
+      <div className="min-h-0 flex-1 flex flex-col md:flex-row overflow-hidden">
+        <section className="flex-1 md:basis-[76%] flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
+          <div className="p-3 flex flex-col gap-2">
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -1353,8 +1354,8 @@ export function PosPage() {
                 variant="outline"
                 className="h-9 text-xs"
                 onClick={() => setCustomOpen(true)}
-                disabled={!canManage}
-                title={canManage ? "Add a custom item" : "Owner or manager approval required"}
+                disabled={!canOpenItem}
+                title={canOpenItem ? "Add a custom item" : "Owner or manager approval required"}
               >
                 <Plus className="size-4 mr-2" />
                 Open item
@@ -1389,7 +1390,7 @@ export function PosPage() {
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 pt-0 pb-[calc(10rem+env(safe-area-inset-bottom))] md:pb-4 overscroll-contain">
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 pt-0 pb-[calc(10rem+env(safe-area-inset-bottom))] md:pb-4 overscroll-contain">
             <h2 className="sr-only">Product catalog</h2>
             {productsLoading ? (
               <div className="grid place-items-center h-full text-muted-foreground">
@@ -1414,7 +1415,7 @@ export function PosPage() {
           </div>
         </section>
 
-        <section className="hidden md:flex md:basis-[20%] min-w-[248px] max-w-[330px] flex-none flex-col bg-card">
+        <section className="hidden md:flex md:basis-[24%] min-w-[290px] max-w-[390px] flex-none flex-col bg-card">
           {cartPanel}
         </section>
       </div>
@@ -1600,7 +1601,7 @@ export function PosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
 
