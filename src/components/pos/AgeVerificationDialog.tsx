@@ -98,6 +98,10 @@ export function AgeVerificationDialog({
   const [wedge, setWedge] = useState("");
   const seenCodesRef = useRef<Set<string>>(new Set());
   const [scanNote, setScanNote] = useState<string | null>(null);
+  const liveScanBufferRef = useRef("");
+  const scanLastKeyAtRef = useRef(0);
+  const scanIdleTimerRef = useRef<number | null>(null);
+  const processScanRef = useRef<(raw: string) => void>(() => undefined);
 
   useEffect(() => {
     if (open) {
@@ -108,6 +112,12 @@ export function AgeVerificationDialog({
       setManualManagerOk(null);
       setWedge("");
       setScanNote(null);
+      liveScanBufferRef.current = "";
+      scanLastKeyAtRef.current = 0;
+      if (scanIdleTimerRef.current !== null) {
+        window.clearTimeout(scanIdleTimerRef.current);
+        scanIdleTimerRef.current = null;
+      }
       seenCodesRef.current = new Set();
     }
   }, [open]);
@@ -125,7 +135,11 @@ export function AgeVerificationDialog({
     const p = parseIdBarcode(raw);
     setParsed(p);
     if (p.format === "unknown") {
-      toast.error("Unrecognized ID barcode format. Try again or use manual entry.");
+      setMode("scan");
+      setScanNote(
+        "ID data was received, but it was not a readable AAMVA ID barcode. Scan the large PDF417 barcode on the back of the ID with a 2D/PDF417-capable scanner.",
+      );
+      toast.error("ID barcode not recognized. Confirm the scanner supports PDF417 and scan the back of the ID again.");
       return;
     }
     const r = evaluateId(p, requiredAge);
@@ -152,12 +166,106 @@ export function AgeVerificationDialog({
     }
   };
 
+  processScanRef.current = handleParsed;
+
   const handleWedgeSubmit = () => {
-    const v = wedge.trim();
-    if (!v) return;
+    const v = wedge;
+    if (!v.trim()) return;
+    if (v.replace(/\s/g, "").length < 20) {
+      setScanNote(
+        "The scanner sent too little data for a government ID. Use a 2D/PDF417 scanner and scan the large barcode on the back of the ID.",
+      );
+      return;
+    }
+    liveScanBufferRef.current = "";
     setWedge("");
     handleParsed(v);
   };
+
+  // Capture the complete keyboard-wedge payload at the window level. AAMVA
+  // PDF417 data commonly contains embedded carriage returns, so submitting on
+  // the first Enter key truncates the ID. Instead, keep every field separator
+  // and process the payload only after the scanner becomes idle. This also
+  // supports scanners configured with Tab or with no final suffix.
+  useEffect(() => {
+    if (!open || (mode !== "choose" && mode !== "scan") || managerOpen || scannerOpen) return;
+
+    const flush = () => {
+      scanIdleTimerRef.current = null;
+      const raw = liveScanBufferRef.current;
+      liveScanBufferRef.current = "";
+      const meaningfulLength = raw.replace(/\s/g, "").length;
+      if (meaningfulLength < 20) {
+        if (meaningfulLength >= 3) {
+          setScanNote(
+            "A short barcode was received, but an ID requires the large PDF417 barcode on the back. Confirm this is a 2D/PDF417 scanner.",
+          );
+        }
+        return;
+      }
+      setWedge("");
+      setScanNote("ID received. Verifying age…");
+      processScanRef.current(raw);
+    };
+
+    const scheduleFlush = () => {
+      if (scanIdleTimerRef.current !== null) window.clearTimeout(scanIdleTimerRef.current);
+      scanIdleTimerRef.current = window.setTimeout(flush, 320);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const now = Date.now();
+      if (now - scanLastKeyAtRef.current > 700) liveScanBufferRef.current = "";
+      scanLastKeyAtRef.current = now;
+
+      if (event.key === "Enter" || event.key === "Tab") {
+        if (liveScanBufferRef.current) {
+          liveScanBufferRef.current += "\n";
+          setWedge(liveScanBufferRef.current);
+          setScanNote("Reading ID…");
+          scheduleFlush();
+          event.preventDefault();
+        }
+        return;
+      }
+
+      if (event.key === "Backspace") {
+        liveScanBufferRef.current = liveScanBufferRef.current.slice(0, -1);
+        setWedge(liveScanBufferRef.current);
+        scheduleFlush();
+        return;
+      }
+
+      if (event.key.length === 1) {
+        liveScanBufferRef.current += event.key;
+        setWedge(liveScanBufferRef.current);
+        if (liveScanBufferRef.current.length > 6) setScanNote("Reading ID…");
+        scheduleFlush();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      if (scanIdleTimerRef.current !== null) {
+        window.clearTimeout(scanIdleTimerRef.current);
+        scanIdleTimerRef.current = null;
+      }
+    };
+  }, [open, mode, managerOpen, scannerOpen]);
+
+  useEffect(() => {
+    if (!open || mode !== "scan") return;
+    const timer = window.setTimeout(() => {
+      if (!liveScanBufferRef.current) {
+        setScanNote(
+          "No ID data received yet. Confirm the scanner supports 2D PDF417 barcodes, then scan the large barcode on the back of the ID.",
+        );
+      }
+    }, 6_000);
+    return () => window.clearTimeout(timer);
+  }, [open, mode]);
 
   const finalize = async (data: {
     method: "id_scan" | "manual" | "override";
@@ -415,10 +523,7 @@ export function AgeVerificationDialog({
                   value={wedge}
                   onChange={(e) => setWedge(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleWedgeSubmit();
-                    }
+                    if (e.key === "Enter" || e.key === "Tab") e.preventDefault();
                   }}
                   className="sr-only"
                   aria-hidden
@@ -446,7 +551,7 @@ export function AgeVerificationDialog({
                   ref={wedgeRef}
                   value={wedge}
                   onChange={(e) => setWedge(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleWedgeSubmit(); } }}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Tab") e.preventDefault(); }}
                   className="mx-auto max-w-xl font-mono"
                   autoComplete="off"
                   aria-label="Government ID scanner input"

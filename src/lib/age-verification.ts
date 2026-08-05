@@ -143,13 +143,17 @@ export function parseIdBarcode(raw: string): ParsedID {
     })
     .join("")
     .replace(/\r/g, "\n");
-  const isAamva = /ANSI\s*\d{6}/i.test(s) || /(?:^|\n|\s)D(?:A|B)[A-Z][^\n]{2,}/.test(s);
+  const coreFieldCount = (s.match(/D(?:AQ|CS|AC|CT|AD|BB|BA)/gi) ?? []).length;
+  const isAamva = /ANSI\s*\d{6}/i.test(s) || coreFieldCount >= 2;
   if (!isAamva) return { format: "unknown", raw: original };
 
   const field = (code: string): string | undefined => {
     // Capture until the next AAMVA three-letter field, a newline, or end. This
     // supports scanners that collapse the complete ID payload onto one line.
-    const re = new RegExp(`${code}\\s*([\\s\\S]*?)(?=(?:D[A-Z]{2})|\\n|$)`, "i");
+    const re = new RegExp(
+      `${code}\\s*([\\s\\S]*?)(?=(?:D[ABCD][A-Z]|Z[A-Z0-9]{2})|\\n|$)`,
+      "i",
+    );
     const value = s.match(re)?.[1]?.trim();
     return value || undefined;
   };

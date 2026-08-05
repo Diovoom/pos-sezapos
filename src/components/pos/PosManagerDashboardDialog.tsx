@@ -3,7 +3,6 @@ import {
   Clock,
   Cloud,
   CreditCard,
-  LogOut,
   MonitorCog,
   RotateCcw,
   Settings,
@@ -15,7 +14,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { deviceControl } from "@/lib/device-control";
 import { useMe } from "@/hooks/useMe";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -120,22 +118,6 @@ export function PosManagerDashboardDialog({
                   <div className="mt-1 text-sm text-muted-foreground">{tool.description}</div>
                 </button>
               ))}
-            {isManager && (
-              <button
-                type="button"
-                onClick={async () => {
-                  await deviceControl.stopKiosk().catch(() => undefined);
-                  await deviceControl.exitToLauncher();
-                }}
-                className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-left text-destructive"
-              >
-                <LogOut className="size-5" />
-                <div className="mt-3 font-bold">Exit to Android</div>
-                <div className="mt-1 text-sm opacity-80">
-                  Leave SEZA and return to the Android launcher.
-                </div>
-              </button>
-            )}
           </div>
         </div>
       </DialogContent>
