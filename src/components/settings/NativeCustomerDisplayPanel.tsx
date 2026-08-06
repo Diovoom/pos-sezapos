@@ -38,7 +38,7 @@ export function NativeCustomerDisplayPanel({ storeId, storeName }: { storeId: st
       const saved = Number(localStorage.getItem("pos.hardware.customerDisplayId"));
       if (Number.isInteger(saved) && saved >= 0) {
         try {
-          await startNativeCustomerDisplay(saved, storeId);
+          await startNativeCustomerDisplay(saved, storeId, storeName);
           setRunning(true); setActiveId(saved);
         } catch { /* display may be unplugged; leave setup available */ }
       }
@@ -84,7 +84,7 @@ export function NativeCustomerDisplayPanel({ storeId, storeName }: { storeId: st
         <Button variant="outline" onClick={() => void refresh()} disabled={busy}>
           {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <RefreshCw className="mr-2 size-4" />} Detect displays
         </Button>
-        {displays.length === 0 && !busy ? <p className="text-sm text-muted-foreground">No Android presentation display detected. Make sure extended desktop mode is active.</p> : null}
+        {displays.length === 0 && !busy ? <p className="text-sm text-muted-foreground">No secondary display detected. Connect the customer screen, keep the touchscreen as Android’s primary display, then tap Detect displays.</p> : null}
         <div className="space-y-2">
           {displays.map((display) => (
             <div key={display.displayId} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -95,7 +95,7 @@ export function NativeCustomerDisplayPanel({ storeId, storeName }: { storeId: st
               <Button disabled={busy || (running && activeId === display.displayId)} onClick={async () => {
                 setBusy(true);
                 try {
-                  await startNativeCustomerDisplay(display.displayId, storeId);
+                  await startNativeCustomerDisplay(display.displayId, storeId, storeName);
                   localStorage.setItem("pos.hardware.customerDisplayId", String(display.displayId));
                   localStorage.setItem("pos.hw.display.status", "connected");
                   localStorage.setItem("pos.hw.display.lastSeen", String(Date.now()));

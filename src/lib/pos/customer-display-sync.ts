@@ -87,6 +87,19 @@ function realtimeTopic(storeId: string) {
  *    before broadcasting it to remote registers/displays.
  */
 export async function publishCustomerDisplay(payload: CustomerDisplayPayload): Promise<void> {
+  // The Android customer display is a native secondary-screen Presentation in
+  // the same APK. Update it first so cart/payment changes never depend on a
+  // browser window, URL, Supabase, or internet access.
+  try {
+    const { isNativeMode } = await import("@/lib/native");
+    if (isNativeMode()) {
+      const { updateNativeCustomerDisplay } = await import("@/lib/hardware/customer-display-native");
+      await updateNativeCustomerDisplay(payload);
+    }
+  } catch {
+    // A missing/unplugged second display must never block checkout.
+  }
+
   if (typeof window !== "undefined") {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
