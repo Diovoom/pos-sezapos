@@ -26,10 +26,12 @@ export function ReceiptDialog({
   open,
   onOpenChange,
   data,
+  autoPrint = true,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   data: ReceiptData | null;
+  autoPrint?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [emailOpen, setEmailOpen] = useState(false);
@@ -66,7 +68,7 @@ export function ReceiptDialog({
   // Native APK only: auto-print and (cash) auto-open drawer once per sale.
   // Never throws  -  hardware failure must never fail a completed sale.
   useEffect(() => {
-    if (!open || !data || !isNativeMode()) return;
+    if (!open || !data || !isNativeMode() || !autoPrint) return;
     let cancelled = false;
     (async () => {
       const p = await autoPrintOnComplete(data);
@@ -84,7 +86,7 @@ export function ReceiptDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, data?.transactionId]);
+  }, [open, data?.transactionId, autoPrint]);
 
   const handlePrint = () => {
     if (!ref.current) return;

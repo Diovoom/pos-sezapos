@@ -14,7 +14,7 @@ export function PaymentTerminalPage() {
           <div>
             <h1 className="text-lg font-black">Payment terminal</h1>
             <p className="text-xs text-muted-foreground">
-              Connect and select the card terminal used by this register.
+              Complete owner processor setup, then pair and test the certified reader used by this register.
             </p>
           </div>
         </div>
@@ -23,7 +23,7 @@ export function PaymentTerminalPage() {
         <div className="mx-auto max-w-4xl">
           <PaymentTerminalsPanel canEdit={canEdit} />
           <p className="mt-3 text-xs text-muted-foreground">
-            Automatic card approvals require a supported processor account and compatible terminal.
+            A saved terminal is not considered connected until its provider SDK confirms the physical reader.
           </p>
         </div>
       </div>

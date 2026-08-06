@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
@@ -33,7 +33,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { fmtCurrency } from "@/lib/format";
 import { toast } from "sonner";
-import { RotateCcw, Search, Loader2 } from "lucide-react";
+import { RotateCcw, Search, Loader2, Printer, RefreshCw } from "lucide-react";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import type { ReceiptData } from "@/components/pos/Receipt";
 import {
@@ -42,6 +42,8 @@ import {
 } from "@/components/pos/ManagerOverrideDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { userFacingError } from "@/lib/user-error";
+import { getAllOfflineSales, type OfflineSale } from "@/lib/offline/db";
+import { useOnline, useSyncEvents } from "@/lib/offline/useOnline";
 
 export const Route = createFileRoute("/_pos/refunds")({
   head: () => ({
@@ -49,7 +51,7 @@ export const Route = createFileRoute("/_pos/refunds")({
       { title: "Refunds  -  SEZA POS" },
       {
         name: "description",
-        content: "Search sales by receipt number to refund, exchange, or void a transaction.",
+        content: "Search sales by receipt number to refund, exchange, void, or reprint.",
       },
     ],
   }),
@@ -58,16 +60,20 @@ export const Route = createFileRoute("/_pos/refunds")({
 
 type SaleRow = {
   id: string;
-  receipt_number: number | null;
+  receipt_number: number | string | null;
   total: number;
   subtotal: number;
   tax: number;
+  discount?: number | null;
+  amount_tendered?: number | null;
+  change_due?: number | null;
   refunded_amount: number;
   refund_status: string;
   status: string;
   payment_method: string;
   created_at: string;
   customer_name: string | null;
+  localOnly?: boolean;
   sale_items: Array<{
     id: string;
     product_id: string | null;
@@ -77,6 +83,9 @@ type SaleRow = {
     line_total: number;
   }>;
 };
+
+const SALE_SELECT =
+  "id,receipt_number,total,subtotal,tax,discount,amount_tendered,change_due,refunded_amount,refund_status,status,payment_method,created_at,customer_name,sale_items(id,product_id,product_name,quantity,unit_price,line_total)";
 
 const REASONS = [
   { v: "damaged", l: "Damaged" },
@@ -94,10 +103,70 @@ const TYPES = [
   { v: "void", l: "Void Sale" },
 ];
 
+function offlineToSaleRow(sale: OfflineSale): SaleRow {
+  const synced = sale.status === "synced" && Boolean(sale.server_id);
+  return {
+    id: sale.server_id || sale.id,
+    receipt_number:
+      sale.local_receipt_number || sale.server_receipt_number || String(sale.local_seq),
+    total: Number(sale.total || 0),
+    subtotal: Number(sale.subtotal || 0),
+    tax: Number(sale.tax || 0),
+    discount: Number(sale.discount || 0),
+    amount_tendered: Number(sale.amount_tendered || 0),
+    change_due: Number(sale.change_due || 0),
+    refunded_amount: 0,
+    refund_status: "none",
+    status: synced ? "completed" : "pending sync",
+    payment_method: "cash",
+    created_at: sale.local_created_at,
+    customer_name: sale.customer_name ?? null,
+    localOnly: !synced,
+    sale_items: sale.items.map((item, index) => ({
+      id: `offline:${sale.id}:${index}`,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+      line_total: Number(item.line_total),
+    })),
+  };
+}
+
+function receiptDataFromSale(
+  sale: SaleRow,
+  store: Record<string, unknown> | null | undefined,
+): ReceiptData {
+  return {
+    store: (store as ReceiptData["store"]) ?? {},
+    receiptNumber: sale.receipt_number ?? sale.id.slice(0, 8).toUpperCase(),
+    transactionId: sale.id,
+    cashierName: null,
+    customerName: sale.customer_name,
+    createdAt: sale.created_at,
+    lines: sale.sale_items.map((item) => ({
+      name: item.product_name,
+      qty: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+      line_total: Number(item.line_total),
+    })),
+    subtotal: Number(sale.subtotal),
+    tax: Number(sale.tax),
+    discount: Number(sale.discount || 0),
+    total: Number(sale.total),
+    paymentMethod: sale.payment_method,
+    amountTendered: sale.amount_tendered ?? null,
+    changeDue: sale.change_due ?? null,
+  };
+}
+
 export function RefundsPage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<SaleRow | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const online = useOnline();
+  const syncEvent = useSyncEvents();
+  const qc = useQueryClient();
 
   const { data: store } = useQuery({
     queryKey: ["store"],
@@ -105,39 +174,112 @@ export function RefundsPage() {
   });
   const cur = store?.currency ?? "USD";
 
-  const { data: sales = [], isFetching } = useQuery<SaleRow[]>({
-    queryKey: ["refund-sales", query],
+  const salesQuery = useQuery<SaleRow[]>({
+    queryKey: ["refund-sales", query, online],
     queryFn: async () => {
-      let q = supabase
-        .from("sales")
-        .select(
-          "id,receipt_number,total,subtotal,tax,refunded_amount,refund_status,status,payment_method,created_at,customer_name,sale_items(id,product_id,product_name,quantity,unit_price,line_total)",
-        )
-        .order("created_at", { ascending: false })
-        .limit(50);
+      const search = query.trim().replace(/^#/, "");
+      let cloudRows: SaleRow[] = [];
 
-      const num = Number(query);
-      if (query && Number.isFinite(num)) q = q.eq("receipt_number", num);
-      const { data } = await q;
-      return (data as unknown as SaleRow[]) ?? [];
+      if (online) {
+        try {
+          let q = supabase
+            .from("sales")
+            .select(SALE_SELECT)
+            .order("created_at", { ascending: false })
+            .limit(50);
+          const num = Number(search);
+          if (search) {
+            if (Number.isFinite(num)) q = q.eq("receipt_number", num);
+            else q = q.eq("id", search);
+          }
+          const { data, error } = await q;
+          if (error) throw error;
+          cloudRows = (data as unknown as SaleRow[]) ?? [];
+        } catch (error) {
+          console.warn("[refunds] cloud receipt lookup failed; showing local receipts", error);
+        }
+      }
+
+      const offline = await getAllOfflineSales();
+      const matchingOffline = offline
+        .filter((sale) => {
+          if (!search) return sale.status !== "synced";
+          const customerNumber = String(
+            sale.local_receipt_number || sale.server_receipt_number || sale.local_seq,
+          );
+          return (
+            customerNumber === search ||
+            sale.id === search ||
+            sale.server_id === search ||
+            String(sale.server_receipt_number ?? "") === search
+          );
+        })
+        .sort((a, b) => Date.parse(b.local_created_at) - Date.parse(a.local_created_at));
+
+      // When a locally-created sale has synchronized, resolve the real server
+      // row so refund controls work without requiring the cashier to leave and
+      // reopen this screen.
+      const missingServerIds = matchingOffline
+        .filter(
+          (sale) =>
+            online &&
+            sale.status === "synced" &&
+            sale.server_id &&
+            !cloudRows.some((row) => row.id === sale.server_id),
+        )
+        .map((sale) => sale.server_id as string);
+      if (missingServerIds.length) {
+        const { data } = await supabase.from("sales").select(SALE_SELECT).in("id", missingServerIds);
+        cloudRows = [...cloudRows, ...(((data as unknown as SaleRow[]) ?? []))];
+      }
+
+      const represented = new Set(cloudRows.map((row) => row.id));
+      const localRows = matchingOffline
+        .filter((sale) => !sale.server_id || !represented.has(sale.server_id))
+        .map(offlineToSaleRow);
+
+      return [...cloudRows, ...localRows]
+        .filter((row, index, all) => all.findIndex((other) => other.id === row.id) === index)
+        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
     },
+    refetchOnWindowFocus: true,
+    refetchInterval: online ? 15_000 : false,
   });
+
+  useEffect(() => {
+    if (online || syncEvent?.type === "done" || syncEvent?.type === "progress") {
+      void qc.invalidateQueries({ queryKey: ["refund-sales"] });
+    }
+  }, [online, syncEvent, qc]);
+
+  const sales = salesQuery.data ?? [];
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader
-        title="Refunds"
-        subtitle="Search a sale by receipt number to refund, exchange, or void."
+        title="Refunds & receipts"
+        subtitle="Search, reprint, refund, exchange, or void a receipt."
       />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24 space-y-4 md:p-6 md:pb-10">
-        <div className="relative max-w-md">
-          <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Receipt number, e.g. 1042"
-            className="h-11 pl-10"
-          />
+        <div className="flex max-w-2xl items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Receipt number"
+              className="h-11 pl-10"
+            />
+          </div>
+          <Button
+            variant="outline"
+            className="h-11"
+            onClick={() => salesQuery.refetch()}
+            disabled={salesQuery.isFetching}
+          >
+            <RefreshCw className={`size-4 ${salesQuery.isFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </div>
 
         <Card className="overflow-hidden">
@@ -150,11 +292,11 @@ export function RefundsPage() {
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">Refunded</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isFetching && sales.length === 0 ? (
+              {salesQuery.isFetching && sales.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-10 text-center">
                     <Loader2 className="size-4 animate-spin inline" />
@@ -163,48 +305,49 @@ export function RefundsPage() {
               ) : sales.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                    No matching sales.{" "}
-                    <Link className="text-primary" to="/pos">
-                      Go to checkout →
-                    </Link>
+                    {query ? "No receipt matches that number." : "No recent receipts are available yet."}
                   </TableCell>
                 </TableRow>
               ) : (
-                sales.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-mono">
-                      #{s.receipt_number ?? s.id.slice(0, 6)}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {new Date(s.created_at).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {String(s.payment_method).replace("_", " ")}
-                    </TableCell>
+                sales.map((sale) => (
+                  <TableRow key={`${sale.id}:${sale.receipt_number}`}>
+                    <TableCell className="font-mono">#{sale.receipt_number ?? sale.id.slice(0, 6)}</TableCell>
+                    <TableCell className="text-sm">{new Date(sale.created_at).toLocaleString()}</TableCell>
+                    <TableCell className="capitalize">{String(sale.payment_method).replace("_", " ")}</TableCell>
                     <TableCell>
                       <StatusPill
-                        status={
-                          s.refund_status === "none" ? s.status : `refund: ${s.refund_status}`
-                        }
+                        status={sale.refund_status === "none" ? sale.status : `refund: ${sale.refund_status}`}
                       />
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {fmtCurrency(Number(s.total), cur)}
-                    </TableCell>
+                    <TableCell className="text-right font-mono">{fmtCurrency(Number(sale.total), cur)}</TableCell>
                     <TableCell className="text-right font-mono text-destructive">
-                      {Number(s.refunded_amount) > 0
-                        ? `-${fmtCurrency(Number(s.refunded_amount), cur)}`
+                      {Number(sale.refunded_amount) > 0
+                        ? `-${fmtCurrency(Number(sale.refunded_amount), cur)}`
                         : " - "}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={s.refund_status === "full" || s.status === "voided"}
-                        onClick={() => setSelected(s)}
-                      >
-                        <RotateCcw className="size-3.5" /> Refund
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setReceipt(receiptDataFromSale(sale, store))}
+                        >
+                          <Printer className="size-3.5" /> Reprint
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={
+                            sale.localOnly ||
+                            sale.refund_status === "full" ||
+                            sale.status === "voided"
+                          }
+                          title={sale.localOnly ? "Refund becomes available after this sale synchronizes" : undefined}
+                          onClick={() => setSelected(sale)}
+                        >
+                          <RotateCcw className="size-3.5" /> Refund
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -225,7 +368,12 @@ export function RefundsPage() {
         store={store}
       />
 
-      <ReceiptDialog open={!!receipt} onOpenChange={(v) => !v && setReceipt(null)} data={receipt} />
+      <ReceiptDialog
+        open={!!receipt}
+        onOpenChange={(value) => !value && setReceipt(null)}
+        data={receipt}
+        autoPrint={false}
+      />
     </div>
   );
 }
@@ -235,8 +383,8 @@ function StatusPill({ status }: { status: string }) {
   const tone =
     s.includes("full") || s === "voided"
       ? "bg-destructive/10 text-destructive"
-      : s.includes("partial")
-        ? "bg-amber-500/10 text-amber-600"
+      : s.includes("partial") || s.includes("pending") || s.includes("sync")
+        ? "bg-amber-500/10 text-amber-700"
         : "bg-success/10 text-success";
   return (
     <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${tone}`}>

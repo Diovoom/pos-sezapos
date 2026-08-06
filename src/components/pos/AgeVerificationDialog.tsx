@@ -102,6 +102,7 @@ export function AgeVerificationDialog({
   const scanLastKeyAtRef = useRef(0);
   const scanIdleTimerRef = useRef<number | null>(null);
   const processScanRef = useRef<(raw: string) => void>(() => undefined);
+  const flushCapturedScanRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     if (open) {
@@ -135,11 +136,22 @@ export function AgeVerificationDialog({
     const p = parseIdBarcode(raw);
     setParsed(p);
     if (p.format === "unknown") {
+      const compact = raw.replace(/\s/g, "");
+      const isSmallTrackingBarcode = /^\d+$/.test(compact) && compact.length < 80;
       setMode("scan");
+      setWedge("");
+      liveScanBufferRef.current = "";
       setScanNote(
-        "ID data was received, but it was not a readable AAMVA ID barcode. Scan the large PDF417 barcode on the back of the ID with a 2D/PDF417-capable scanner.",
+        isSmallTrackingBarcode
+          ? "Your scanner read the small number barcode. That code has no date of birth. On a Florida ID, scan the large wide rectangular barcode made of many tiny rows on the back."
+          : "Barcode data was received, but it was not a readable AAMVA ID. Scan the large wide PDF417 block made of many tiny rows on the back of the ID.",
       );
-      toast.error("ID barcode not recognized. Confirm the scanner supports PDF417 and scan the back of the ID again.");
+      toast.error(
+        isSmallTrackingBarcode
+          ? "Wrong barcode — scan the large wide barcode on the back."
+          : "ID barcode not recognized. Scan the large wide PDF417 barcode on the back.",
+      );
+      window.setTimeout(() => wedgeRef.current?.focus(), 50);
       return;
     }
     const r = evaluateId(p, requiredAge);
@@ -171,15 +183,39 @@ export function AgeVerificationDialog({
   const handleWedgeSubmit = () => {
     const v = wedge;
     if (!v.trim()) return;
-    if (v.replace(/\s/g, "").length < 20) {
+    const compact = v.replace(/\s/g, "");
+    if (compact.length < 80 || /^\d+$/.test(compact)) {
+      setWedge("");
+      liveScanBufferRef.current = "";
       setScanNote(
-        "The scanner sent too little data for a government ID. Use a 2D/PDF417 scanner and scan the large barcode on the back of the ID.",
+        "Wrong barcode. On a Florida ID, scan the large wide rectangular barcode made of many tiny rows on the back — not the short number barcode.",
       );
+      window.setTimeout(() => wedgeRef.current?.focus(), 50);
       return;
     }
     liveScanBufferRef.current = "";
     setWedge("");
     handleParsed(v);
+  };
+
+  flushCapturedScanRef.current = () => {
+    scanIdleTimerRef.current = null;
+    const raw = liveScanBufferRef.current || wedge;
+    const compact = raw.replace(/\s/g, "");
+    liveScanBufferRef.current = "";
+    setWedge("");
+
+    if (!compact) return;
+    if (compact.length < 80 || /^\d+$/.test(compact)) {
+      setScanNote(
+        "Wrong barcode. The short number barcode has no date of birth. Scan the large wide rectangular PDF417 block on the back of the Florida ID.",
+      );
+      window.setTimeout(() => wedgeRef.current?.focus(), 50);
+      return;
+    }
+
+    setScanNote("ID received. Verifying age…");
+    processScanRef.current(raw);
   };
 
   // Capture the complete keyboard-wedge payload at the window level. AAMVA
@@ -190,27 +226,9 @@ export function AgeVerificationDialog({
   useEffect(() => {
     if (!open || (mode !== "choose" && mode !== "scan") || managerOpen || scannerOpen) return;
 
-    const flush = () => {
-      scanIdleTimerRef.current = null;
-      const raw = liveScanBufferRef.current;
-      liveScanBufferRef.current = "";
-      const meaningfulLength = raw.replace(/\s/g, "").length;
-      if (meaningfulLength < 20) {
-        if (meaningfulLength >= 3) {
-          setScanNote(
-            "A short barcode was received, but an ID requires the large PDF417 barcode on the back. Confirm this is a 2D/PDF417 scanner.",
-          );
-        }
-        return;
-      }
-      setWedge("");
-      setScanNote("ID received. Verifying age…");
-      processScanRef.current(raw);
-    };
-
     const scheduleFlush = () => {
       if (scanIdleTimerRef.current !== null) window.clearTimeout(scanIdleTimerRef.current);
-      scanIdleTimerRef.current = window.setTimeout(flush, 320);
+      scanIdleTimerRef.current = window.setTimeout(() => flushCapturedScanRef.current(), 420);
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -254,6 +272,17 @@ export function AgeVerificationDialog({
       }
     };
   }, [open, mode, managerOpen, scannerOpen]);
+
+  // Some USB scanners deliver the whole payload as one input/paste event
+  // instead of individual keydown events. Mirror that value into the same
+  // idle-flush pipeline so both scanner modes work.
+  useEffect(() => {
+    if (!open || (mode !== "choose" && mode !== "scan") || !wedge) return;
+    if (liveScanBufferRef.current === wedge) return;
+    liveScanBufferRef.current = wedge;
+    if (scanIdleTimerRef.current !== null) window.clearTimeout(scanIdleTimerRef.current);
+    scanIdleTimerRef.current = window.setTimeout(() => flushCapturedScanRef.current(), 420);
+  }, [open, mode, wedge]);
 
   useEffect(() => {
     if (!open || mode !== "scan") return;
@@ -461,7 +490,7 @@ export function AgeVerificationDialog({
                     subtitle="USB scanner or 2D barcode reader"
                     onClick={() => {
                       setMode("scan");
-                      setScanNote("ID scanner ready. Scan the barcode on the back of the ID.");
+                      setScanNote("Florida ID: scan the large wide rectangular barcode made of many tiny rows on the back. Do not scan the short number barcode.");
                       window.setTimeout(() => wedgeRef.current?.focus(), 60);
                     }}
                     accent
@@ -521,7 +550,10 @@ export function AgeVerificationDialog({
                 <Input
                   ref={wedgeRef}
                   value={wedge}
-                  onChange={(e) => setWedge(e.target.value)}
+                  onChange={(e) => {
+                    setWedge(e.target.value);
+                    if (e.target.value) setScanNote("Reading ID…");
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === "Tab") e.preventDefault();
                   }}
@@ -545,20 +577,62 @@ export function AgeVerificationDialog({
                 </div>
                 <div>
                   <h3 className="text-xl font-bold">Scanner ready</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">Scan the barcode on the back of the government ID. Product scanning is paused until this ID check finishes.</p>
+                  <p className="mt-2 text-sm text-muted-foreground">On a Florida ID, scan the large wide rectangular barcode made of many tiny black rows on the back. Do not scan the short number barcode. Product scanning is paused until this ID check finishes.</p>
+                </div>
+                <div className="mx-auto grid max-w-xl grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-lg border bg-muted/30 p-3 text-left text-xs">
+                  <div>
+                    <div className="font-semibold text-destructive">Do not scan</div>
+                    <div className="mt-1 flex h-8 items-stretch gap-0.5 rounded border bg-background p-1.5">
+                      {Array.from({ length: 18 }, (_, index) => (
+                        <span
+                          key={index}
+                          className={index % 3 === 0 ? "w-0.5 bg-foreground" : "w-px bg-foreground/60"}
+                        />
+                      ))}
+                    </div>
+                    <div className="mt-1 text-muted-foreground">Short number / tracking barcode</div>
+                  </div>
+                  <div className="font-bold text-muted-foreground">→</div>
+                  <div>
+                    <div className="font-semibold text-success">Scan this</div>
+                    <div className="mt-1 grid h-14 grid-rows-5 gap-0.5 rounded border border-success/50 bg-background p-1.5">
+                      {Array.from({ length: 5 }, (_, row) => (
+                        <span
+                          key={row}
+                          className="block bg-[repeating-linear-gradient(90deg,currentColor_0_1px,transparent_1px_3px,currentColor_3px_5px,transparent_5px_6px)] text-foreground"
+                        />
+                      ))}
+                    </div>
+                    <div className="mt-1 font-medium text-foreground">Large wide PDF417 block</div>
+                  </div>
                 </div>
                 <Input
                   ref={wedgeRef}
                   value={wedge}
-                  onChange={(e) => setWedge(e.target.value)}
+                  onChange={(e) => {
+                    setWedge(e.target.value);
+                    if (e.target.value) setScanNote("Reading ID…");
+                  }}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Tab") e.preventDefault(); }}
                   className="mx-auto max-w-xl font-mono"
                   autoComplete="off"
                   aria-label="Government ID scanner input"
                 />
                 {scanNote ? <p className="text-sm text-primary">{scanNote}</p> : null}
-                <div className="flex justify-center gap-2">
+                <div className="flex flex-wrap justify-center gap-2">
                   <Button variant="outline" onClick={() => { setMode("choose"); setWedge(""); }}>Back</Button>
+                  {settings.allowManualEntry && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setManualMode("manual");
+                        setMode("manual");
+                        setWedge("");
+                      }}
+                    >
+                      Enter DOB instead
+                    </Button>
+                  )}
                   <Button onClick={handleWedgeSubmit} disabled={!wedge.trim()}>Verify scanned ID</Button>
                 </div>
               </div>

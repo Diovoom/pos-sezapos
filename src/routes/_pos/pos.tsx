@@ -79,6 +79,7 @@ import {
   readMeta,
   deleteMeta,
   OFFLINE_PAYLOAD_VERSION,
+  createLocalReceiptNumber,
   type CachedProduct,
 } from "@/lib/offline/db";
 import { syncNow } from "@/lib/offline/sync";
@@ -665,6 +666,9 @@ export function PosPage() {
     }
     const localId = crypto.randomUUID();
     const seq = await nextSeq();
+    const deviceId = getDeviceId();
+    const createdAt = new Date();
+    const customerReceiptNumber = createLocalReceiptNumber(seq, deviceId, createdAt);
     let registerSessionId: string | null = null;
     try {
       const rs = await readMeta<{ id: string } | null>("open_register_session");
@@ -680,10 +684,11 @@ export function PosPage() {
       store_id: offlineStoreId,
       register_session_id: registerSessionId,
       cashier_id: uid,
-      device_id: getDeviceId(),
+      device_id: deviceId,
       local_seq: seq,
-      local_created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      local_receipt_number: customerReceiptNumber,
+      local_created_at: createdAt.toISOString(),
+      updated_at: createdAt.toISOString(),
       status: "pending",
       attempts: 0,
       subtotal,
@@ -704,8 +709,8 @@ export function PosPage() {
     return {
       sale: {
         id: localId,
-        receipt_number: null,
-        created_at: new Date().toISOString(),
+        receipt_number: customerReceiptNumber,
+        created_at: createdAt.toISOString(),
         _offline: true,
         _localFirst: true,
       },
@@ -841,7 +846,7 @@ export function PosPage() {
       const isLocalFirst = (sale as any)._localFirst === true;
       const rd: ReceiptData = {
         store: store ?? {},
-        receiptNumber: sale.receipt_number ?? "Pending final number",
+        receiptNumber: sale.receipt_number ?? sale.id.slice(0, 8).toUpperCase(),
         transactionId: sale.id,
         cashierName: profile?.full_name ?? profile?.email ?? null,
         employeeId: null,
@@ -863,7 +868,10 @@ export function PosPage() {
         last4: payment.last4,
         reference: isLocalFirst ? null : payment.reference,
         paymentAllocations: payment.allocations,
-        pendingSync: isLocalFirst,
+        // Synchronization state stays in the cashier dashboard. Customer
+        // receipts always show their stable receipt number and never expose
+        // internal offline/pending terminology.
+        pendingSync: false,
       };
       setReceipt(rd);
       setReceiptOpen(true);

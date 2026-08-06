@@ -87,7 +87,6 @@ export function receiptDataToPayload(
   if (d.store.phone) header.push(String(d.store.phone));
   if (d.store.receipt_header) header.push(String(d.store.receipt_header));
   if (opts.banner) header.push(`*** ${opts.banner} ***`);
-  if (d.pendingSync) header.push("*** PENDING SYNCHRONIZATION ***");
   if (d.refund) header.push("*** REFUND ***");
   if (opts.copyLabel) header.push(`*** ${opts.copyLabel} ***`);
 
@@ -166,9 +165,7 @@ export async function autoPrintOnComplete(d: ReceiptData): Promise<PrintResult> 
   const key = d.transactionId;
   if (printedTx.has(key)) return { ok: true, copies: 0 };
   printedTx.add(key);
-  const payload = receiptDataToPayload(d, {
-    banner: d.pendingSync ? "OFFLINE SALE" : null,
-  });
+  const payload = receiptDataToPayload(d);
   const res = await printOnceInternal(payload, getCopies());
   void logAudit({
     action: "hardware.print.auto",

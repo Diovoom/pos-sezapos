@@ -120,6 +120,28 @@ export function AuthScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
 
+  // Physical keyboards and USB numeric keypads remain supported without a
+  // second visible PIN field. The six dots are the only PIN display.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (busy || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
+      if (/^\d$/.test(event.key)) {
+        event.preventDefault();
+        press(event.key);
+      } else if (event.key === "Backspace") {
+        event.preventDefault();
+        del();
+      } else if (event.key === "Escape" || event.key === "Delete") {
+        event.preventDefault();
+        clear();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [busy, value]);
+
   async function submit() {
     setBusy(true);
     setError(null);
@@ -222,18 +244,6 @@ export function AuthScreen() {
           ))}
         </div>
         <div style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>{label}</div>
-        <input
-          aria-label={label}
-          inputMode="numeric"
-          autoComplete="off"
-          type={activeIsId ? "text" : "password"}
-          value={value}
-          maxLength={6}
-          onChange={(event) => setValue(event.target.value.replace(/\D/g, "").slice(0, 6))}
-          disabled={busy}
-          placeholder={activeIsId ? "Employee ID" : "6-digit PIN"}
-          style={styles.pinInput}
-        />
         {stage === "id_then_pin" && !collectingId && (
           <button
             type="button"
@@ -309,12 +319,6 @@ const styles: Record<string, React.CSSProperties> = {
   logoBadge: {
     width: 48, height: 48, borderRadius: 12, background: "#1e40af",
     display: "grid", placeItems: "center", boxShadow: "0 8px 24px rgba(30,64,175,.25)",
-  },
-  pinInput: {
-    width: "min(100%, 360px)", height: 46, alignSelf: "center", marginTop: 12,
-    border: "1px solid #cbd5e1", borderRadius: 12, background: "#fff",
-    color: "#0f172a", textAlign: "center", fontSize: 20, letterSpacing: 8,
-    outline: "none", padding: "0 16px",
   },
   pad: {
     width: "min(100%, 720px)", alignSelf: "center", marginTop: 18,

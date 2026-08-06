@@ -17,6 +17,27 @@ export type OfflineSaleItem = {
   line_total: number;
 };
 
+/**
+ * Create a stable numeric customer receipt number while the register is
+ * offline. Format: YYMMDD + 3-digit device hash + 4-digit local sequence.
+ * The original record keeps this number after cloud sync so refunds and
+ * reprints can find the sale using the number printed for the customer.
+ */
+export function createLocalReceiptNumber(
+  seq: number,
+  deviceId: string,
+  when: Date = new Date(),
+): string {
+  let hash = 0;
+  for (const ch of deviceId) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+  const yy = String(when.getFullYear()).slice(-2);
+  const mm = String(when.getMonth() + 1).padStart(2, "0");
+  const dd = String(when.getDate()).padStart(2, "0");
+  const device = String(Math.abs(hash) % 1000).padStart(3, "0");
+  const local = String(Math.abs(seq) % 10000).padStart(4, "0");
+  return `${yy}${mm}${dd}${device}${local}`;
+}
+
 export type OfflineSale = {
   id: string; // local UUID = sale.id
   idempotency_key: string; // dedupe key on server
@@ -35,6 +56,10 @@ export type OfflineSale = {
   last_error?: string | null;
   last_error_code?: string | null;
   next_retry_at?: string | null; // backoff gate
+  // Stable customer-facing number issued locally before cloud sync. It is
+  // intentionally separate from the server sequence so the customer never
+  // sees implementation words such as "offline" or "pending".
+  local_receipt_number?: string | null;
   server_receipt_number?: number | null;
   server_id?: string | null;
   // snapshot

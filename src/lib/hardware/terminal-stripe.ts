@@ -186,6 +186,23 @@ export async function discoverReaders(driver: TerminalDriverId) {
   }));
 }
 
+
+/**
+ * Discover and establish a real Stripe Terminal reader connection. The call
+ * resolves only after the native Stripe SDK confirms the reader is connected.
+ */
+export async function connectReader(
+  driver: TerminalDriverId,
+  onStatus?: (message: string) => void,
+) {
+  const configuration = await activeConfiguration(driver);
+  const { reader } = await ensureReader(configuration, onStatus);
+  return {
+    serialNumber: reader.serialNumber,
+    label: reader.label || reader.serialNumber,
+  };
+}
+
 export function connectedReader() {
   return connected?.driver ?? null;
 }
