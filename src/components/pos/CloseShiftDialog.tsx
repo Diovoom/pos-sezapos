@@ -30,7 +30,7 @@ import {
   saveOfflineAction,
   cacheMeta,
   readMeta,
-  employeeMetaKey,
+  deleteMeta,
 } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import { userFacingError } from "@/lib/user-error";
@@ -47,7 +47,6 @@ type Session = {
 
 type Store = {
   id: string;
-  name?: string | null;
   starting_cash_float?: number | null;
   show_expected_before_count?: boolean | null;
   variance_alert_threshold?: number | null;
@@ -74,7 +73,6 @@ export function CloseShiftDialog({
   session,
   store,
   cashierUserId,
-  cashierName,
   onClosed,
   beforeSignOut,
   skipSignOut,
@@ -84,7 +82,6 @@ export function CloseShiftDialog({
   session: Session;
   store: Store | null;
   cashierUserId?: string;
-  cashierName?: string | null;
   onClosed: () => void;
   /** Runs AFTER the shift closes but BEFORE sign-out (e.g. clock-out). */
   beforeSignOut?: () => Promise<void>;
@@ -112,8 +109,6 @@ export function CloseShiftDialog({
   }>(null);
   const [retrying, setRetrying] = useState(false);
 
-  const registerKey = employeeMetaKey("open_register_session", cashierUserId);
-  const registerHistoryKey = employeeMetaKey("register_history", cashierUserId);
   const threshold = Number(store?.variance_alert_threshold ?? 5);
   const startingFloat = Number(store?.starting_cash_float ?? 100);
   const showExpectedEarly = !!store?.show_expected_before_count;
@@ -364,12 +359,13 @@ export function CloseShiftDialog({
           expected_cash: expected,
           variance,
         };
-        const history = (await readMeta<any[]>(registerHistoryKey)) ?? [];
+        const history = (await readMeta<any[]>("register_history")) ?? [];
         await cacheMeta(
-          registerHistoryKey,
+          "register_history",
           [closedLocal, ...history.filter((row) => row.id !== session.id)].slice(0, 20),
         );
-        await cacheMeta(registerKey, null);
+        await cacheMeta(`open_register_session:${cashierUserId}`, null);
+        await cacheMeta("open_register_session", null).catch(() => {});
         return { ...closedLocal, offline: true };
       }
 
@@ -391,19 +387,6 @@ export function CloseShiftDialog({
           (error.message.includes("offline sales") || error.message.includes("Pending Sync"))
         )
           throw error;
-      }
-
-      // Idempotent close: if a prior tap already closed this shift, treat that
-      // state as success instead of showing "Shift already closed" forever.
-      const { data: existingSession, error: existingError } = await sb
-        .from("register_sessions")
-        .select("*")
-        .eq("id", session.id)
-        .maybeSingle();
-      if (existingError) throw existingError;
-      if (existingSession?.status === "closed") {
-        await cacheMeta(registerKey, null);
-        return { ...existingSession, alreadyClosed: true };
       }
 
       // 1. Record safe drop as a cash_movements row when > 0.
@@ -444,19 +427,18 @@ export function CloseShiftDialog({
 
       if (error) throw error;
       if (!closed) {
-        const { data: current, error: currentError } = await sb
+        // Idempotent close: if the first request committed but its response was
+        // lost (or the button was tapped twice), treat the already-closed row
+        // as success instead of trapping the cashier on Step 5.
+        const { data: existing, error: readError } = await sb
           .from("register_sessions")
           .select("*")
           .eq("id", session.id)
           .maybeSingle();
-        if (currentError) throw currentError;
-        if (current?.status === "closed") {
-          await cacheMeta(registerKey, null);
-          return { ...current, alreadyClosed: true };
-        }
+        if (readError) throw readError;
+        if (existing?.status === "closed") return existing;
         throw new Error("The shift could not be closed. Try again.");
       }
-      await cacheMeta(registerKey, null);
 
       void logAudit({
         action: "register.close",
@@ -481,43 +463,43 @@ export function CloseShiftDialog({
       toast.success(
         offlineClosed ? "Shift closed offline  -  it will sync automatically" : "Shift closed",
       );
-
-      // Print immediately from the locally calculated close totals. A printer
-      // problem must never undo or re-run a successfully closed shift.
-      try {
-        const { printShiftCloseSummary } = await import("@/lib/hardware/native-receipt");
-        const printed = await printShiftCloseSummary({
-          shiftId: session.id,
-          storeName: store?.name ?? "SEZA POS",
-          cashierName,
-          openedAt: session.opened_at,
-          closedAt: String((closed as any)?.closed_at ?? new Date().toISOString()),
-          openingCash: Number(session.opening_cash ?? 0),
-          cashSales: Number(totals.data?.cashSales ?? 0),
-          cardSales: Number(totals.data?.cardSales ?? 0),
-          refunds: Number(totals.data?.totalRefunds ?? 0),
-          expectedCash: expected,
-          countedCash: counted,
-          variance,
-          safeDrop: Number.isFinite(dropAmt) ? dropAmt : 0,
-          cashRemaining: remaining,
-          notes: closeNotes,
-        });
-        if (!printed.ok && printed.reason !== "not_native" && printed.reason !== "no_driver") {
-          toast.error("Shift closed, but the close report could not print. You can retry from reports.");
-        }
-      } catch {
-        // Closing the shift remains successful even when printing is unavailable.
-      }
-
       const ok = await runPostCloseHook();
       if (!ok) return;
+
+      // Print the end-of-shift report immediately while this employee session
+      // is still authenticated. Printing is local USB/ESC-POS; a printer error
+      // never re-opens or invalidates a successfully closed shift.
+      if (typeof window !== "undefined" && (window as any).Capacitor?.isNativePlatform?.()) {
+        try {
+          const [{ fetchShiftSummary }, { printShiftSummary }] = await Promise.all([
+            import("@/lib/shift-summary"),
+            import("../../../capacitor-shell/lib/shiftSummaryReceipt"),
+          ]);
+          const summary = await fetchShiftSummary(session.id);
+          const printed = await printShiftSummary(summary);
+          if (!printed.ok) toast.error("Shift closed, but the shift report could not print.");
+        } catch {
+          toast.error("Shift closed, but the shift report could not print.");
+        }
+      }
+
+      // Clear this employee's local open-state before navigation so the next
+      // PIN login cannot inherit a closed shift/timeclock screen.
+      if (cashierUserId) {
+        await Promise.all([
+          deleteMeta(`open_register_session:${cashierUserId}`).catch(() => {}),
+          deleteMeta(`timeclock_open:${cashierUserId}`).catch(() => {}),
+        ]);
+      }
+      await Promise.all([
+        deleteMeta("open_register_session").catch(() => {}),
+        deleteMeta("timeclock_open").catch(() => {}),
+      ]);
       qc.clear();
-      // Preserve the cached authenticated session while offline. The PIN lock
-      // screen still protects the register, and queued records need the same
-      // authenticated employee session when connectivity returns.
-      if (!skipSignOut && !offlineClosed) {
-        await supabase.auth.signOut();
+
+      if (!skipSignOut) {
+        try { localStorage.setItem("seza.forcePinLogin", "1"); } catch { /* ignore */ }
+        await supabase.auth.signOut({ scope: "local" } as any).catch(() => supabase.auth.signOut());
       }
       onClosed();
     },

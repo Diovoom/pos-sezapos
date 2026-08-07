@@ -9,12 +9,11 @@ import { useNavigate } from "@tanstack/react-router";
 import { SEZA_LOGO_URL } from "../logo";
 import { API_BASE_URL, supabase } from "../supabase";
 import { clearPairing, getPairing } from "../lib/pairing";
-import { cacheMeta } from "@/lib/offline/db";
 
 type Stage = "pin" | "id_then_pin";
 
 type OfflinePinVerifier = {
-  version: 1;
+  version: 2;
   userId: string;
   storeId: string;
   salt: string;
@@ -22,7 +21,8 @@ type OfflinePinVerifier = {
   verifiedAt: string;
 };
 
-const OFFLINE_PIN_KEY = "seza.offline_pin_verifier";
+type OfflinePinVault = { version: 2; entries: OfflinePinVerifier[] };
+const OFFLINE_PIN_KEY = "seza.offline_pin_verifiers";
 
 function bytesToBase64(bytes: Uint8Array) {
   let binary = "";
@@ -52,26 +52,37 @@ async function rememberOfflinePin(pin: string, deviceSecret: string, storeId: st
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const saltB64 = bytesToBase64(salt);
   const verifier: OfflinePinVerifier = {
-    version: 1,
+    version: 2,
     userId,
     storeId,
     salt: saltB64,
     digest: await derivePinDigest(pin, deviceSecret, saltB64),
     verifiedAt: new Date().toISOString(),
   };
-  localStorage.setItem(OFFLINE_PIN_KEY, JSON.stringify(verifier));
+  let vault: OfflinePinVault = { version: 2, entries: [] };
+  try {
+    const parsed = JSON.parse(localStorage.getItem(OFFLINE_PIN_KEY) ?? "null") as OfflinePinVault | null;
+    if (parsed?.version === 2 && Array.isArray(parsed.entries)) vault = parsed;
+  } catch { /* ignore corrupt legacy cache */ }
+  vault.entries = [
+    verifier,
+    ...vault.entries.filter((entry) => !(entry.storeId === storeId && entry.userId === userId)),
+  ].slice(0, 32);
+  localStorage.setItem(OFFLINE_PIN_KEY, JSON.stringify(vault));
 }
 
-async function unlockOffline(pin: string, deviceSecret: string, storeId: string) {
+async function findOfflineEmployee(pin: string, deviceSecret: string, storeId: string) {
   try {
-    const stored = JSON.parse(localStorage.getItem(OFFLINE_PIN_KEY) ?? "null") as OfflinePinVerifier | null;
-    if (!stored || stored.version !== 1 || stored.storeId !== storeId) return false;
-    const { data } = await supabase.auth.getSession();
-    if (!data.session || data.session.user.id !== stored.userId) return false;
-    const digest = await derivePinDigest(pin, deviceSecret, stored.salt);
-    return digest === stored.digest;
+    const parsed = JSON.parse(localStorage.getItem(OFFLINE_PIN_KEY) ?? "null") as OfflinePinVault | null;
+    if (!parsed || parsed.version !== 2 || !Array.isArray(parsed.entries)) return null;
+    for (const entry of parsed.entries) {
+      if (entry.storeId !== storeId) continue;
+      const digest = await derivePinDigest(pin, deviceSecret, entry.salt);
+      if (digest === entry.digest) return entry;
+    }
+    return null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -191,6 +202,10 @@ export function AuthScreen() {
         return;
       }
       if (!data.token_hash) { setError("Sign-in failed. Please try again."); setPin(""); return; }
+      // Always end the previous employee session locally before accepting the
+      // new PIN identity. This prevents a fast Switch user from reusing the
+      // previous owner's auth/query state.
+      await supabase.auth.signOut({ scope: "local" } as any).catch(() => {});
       const { data: verified, error: otpErr } = await supabase.auth.verifyOtp({
         token_hash: data.token_hash, type: "magiclink",
       });
@@ -198,16 +213,15 @@ export function AuthScreen() {
       if (pairing && verified.session?.user?.id) {
         await rememberOfflinePin(pin, pairing.deviceSecret, pairing.storeId, verified.session.user.id).catch(() => {});
       }
-      if (verified.session?.user?.id) {
-        await cacheMeta("authenticated_me_current_user", verified.session.user.id).catch(() => {});
-        localStorage.removeItem("seza.employee_select_required");
-        navigate({ to: "/pos", replace: true });
-      }
     } catch (err) {
-      if (pairing && await unlockOffline(pin, pairing.deviceSecret, pairing.storeId)) {
-        setError(null);
-        navigate({ to: "/pos", replace: true });
-        return;
+      if (pairing) {
+        const offlineEmployee = await findOfflineEmployee(pin, pairing.deviceSecret, pairing.storeId);
+        const { data: current } = await supabase.auth.getSession();
+        if (offlineEmployee && current.session?.user.id === offlineEmployee.userId) {
+          setError(null);
+          navigate({ to: "/pos", replace: true });
+          return;
+        }
       }
       setError(err instanceof Error ? err.message : "Network error. Check your connection.");
       setPin("");

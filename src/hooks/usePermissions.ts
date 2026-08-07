@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
+import { cacheMeta, readMeta } from "@/lib/offline/db";
+import { isOnlineNow } from "@/lib/offline/useOnline";
 
 export const ALL_PERMISSIONS: { key: string; label: string; group: string }[] = [
   { key: "sales.create", label: "Create sales", group: "Sales" },
@@ -80,14 +82,23 @@ export function useRolePermissions() {
     queryKey: ["role_permissions", storeId],
     enabled: !!storeId,
     queryFn: async () => {
-      const { data, error } = await (supabase.from as any)("role_permissions")
-        .select("role, permission")
-        .eq("store_id", storeId);
-      if (error) throw error;
-      return (data ?? []) as { role: Role; permission: string }[];
+      const key = `role_permissions:${storeId}`;
+      const cached = await readMeta<{ role: Role; permission: string }[]>(key).catch(() => undefined);
+      if (!isOnlineNow()) return cached ?? [];
+      try {
+        const { data, error } = await (supabase.from as any)("role_permissions")
+          .select("role, permission")
+          .eq("store_id", storeId);
+        if (error) throw error;
+        const rows = (data ?? []) as { role: Role; permission: string }[];
+        await cacheMeta(key, rows).catch(() => {});
+        return rows;
+      } catch {
+        return cached ?? [];
+      }
     },
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     // Realtime is primary. This small fallback covers deployments where the
     // table was not yet added to the realtime publication.

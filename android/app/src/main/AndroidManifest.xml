@@ -23,14 +23,7 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name="com.sezapos.device.SezaCustomerDisplayActivity"
-            android:theme="@style/AppTheme.NoActionBar"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:finishOnTaskLaunch="false"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density" />
+
 
         <provider
             android:name="androidx.core.content.FileProvider"

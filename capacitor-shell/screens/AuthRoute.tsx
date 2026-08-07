@@ -21,10 +21,15 @@ export function AuthRoute() {
       return;
     }
 
-    // After shift close we intentionally return to employee selection. Do not
-    // bounce the previous employee back into POS just because their cached
-    // Supabase session still exists while offline.
-    if (localStorage.getItem("seza.employee_select_required") === "1") return;
+    // Switch-user explicitly requests the PIN screen even if an Android ROM
+    // briefly exposes the previous Supabase session during teardown.
+    const forcePin = localStorage.getItem("seza.forcePinLogin") === "1";
+    if (forcePin) {
+      localStorage.removeItem("seza.forcePinLogin");
+      return;
+    }
+
+    // If a session already exists (e.g. hot reload) bounce straight to POS.
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/pos", replace: true });
     });

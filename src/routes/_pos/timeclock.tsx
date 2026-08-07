@@ -13,12 +13,12 @@ import { LogIn, LogOut, Coffee, PlayCircle, Loader2 } from "lucide-react";
 import { format, formatDistanceStrict } from "date-fns";
 import { useState } from "react";
 import { CloseShiftDialog } from "@/components/pos/CloseShiftDialog";
-import { cacheMeta, readMeta, saveOfflineAction, employeeMetaKey } from "@/lib/offline/db";
+import { cacheMeta, readMeta, saveOfflineAction } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import type { EmployeeTimeClockAction } from "@/lib/employees.functions";
-import { postTimeClockAction } from "@/lib/timeclock/client";
 import { logAudit } from "@/lib/audit-log";
 import { userFacingError } from "@/lib/user-error";
+import { testDrawer } from "@/lib/hardware/native-receipt";
 
 // Native APK shell detection  -  Clock Out on the APK routes through the
 // existing Shift Review flow when a register shift is open, and enforces
@@ -60,9 +60,6 @@ export function TimeclockPage() {
   const canManage = me.data?.roles.some((r) => r === "owner" || r === "manager");
   const storeId = me.data?.profile?.store_id ?? me.data?.store?.id ?? null;
   const userId = me.data?.user?.id ?? null;
-  const timeclockKey = employeeMetaKey("timeclock_open", userId);
-  const timeclockHistoryKey = employeeMetaKey("timeclock_history", userId);
-  const registerKey = employeeMetaKey("open_register_session", userId);
 
   // Resolve THIS employee's own open register shift. Scoping by store alone
   // could close a coworker's shift on a shared device  -  always narrow by
@@ -85,7 +82,7 @@ export function TimeclockPage() {
         terminal_id: string | null;
       };
       if (!isOnlineNow()) {
-        const cached = await readMeta<OpenShift | null>(registerKey);
+        const cached = await readMeta<OpenShift | null>(`open_register_session:${userId}`);
         return {
           rows: cached && cached.opened_by === userId && cached.status === "open" ? [cached] : [],
         };
@@ -100,13 +97,13 @@ export function TimeclockPage() {
         .order("opened_at", { ascending: false })
         .limit(5);
       if (error) {
-        const cached = await readMeta<OpenShift | null>(registerKey);
+        const cached = await readMeta<OpenShift | null>(`open_register_session:${userId}`);
         return {
           rows: cached && cached.opened_by === userId && cached.status === "open" ? [cached] : [],
         };
       }
       const rows = (data ?? []) as OpenShift[];
-      if (rows[0]) await cacheMeta(registerKey, rows[0]).catch(() => {});
+      if (rows[0]) await cacheMeta(`open_register_session:${userId}`, rows[0]).catch(() => {});
       return { rows };
     },
   });
@@ -123,7 +120,7 @@ export function TimeclockPage() {
     queryKey: ["myOpenEntry", me.data?.user.id],
     enabled: !!me.data?.user.id,
     queryFn: async () => {
-      if (!isOnlineNow()) return (await readMeta<TimeEntry | null>(timeclockKey)) ?? null;
+      if (!isOnlineNow()) return (await readMeta<TimeEntry | null>(`timeclock_open:${me.data!.user.id}`)) ?? null;
 
       const { data, error } = await (supabase as any)
         .from("time_entries")
@@ -134,11 +131,11 @@ export function TimeclockPage() {
         .limit(1)
         .maybeSingle();
       if (error) {
-        const cached = await readMeta<TimeEntry | null>(timeclockKey);
+        const cached = await readMeta<TimeEntry | null>(`timeclock_open:${me.data!.user.id}`);
         if (cached !== undefined) return cached ?? null;
         throw error;
       }
-      await cacheMeta(timeclockKey, data ?? null);
+      await cacheMeta(`timeclock_open:${me.data!.user.id}`, data ?? null);
       return (data as TimeEntry | null) ?? null;
     },
   });
@@ -147,7 +144,7 @@ export function TimeclockPage() {
     queryKey: ["myTimeHistory", me.data?.user.id],
     enabled: !!me.data?.user.id,
     queryFn: async () => {
-      if (!isOnlineNow()) return (await readMeta<TimeEntry[]>(timeclockHistoryKey)) ?? [];
+      if (!isOnlineNow()) return (await readMeta<TimeEntry[]>(`timeclock_history:${me.data!.user.id}`)) ?? [];
 
       const { data, error } = await (supabase as any)
         .from("time_entries")
@@ -155,9 +152,9 @@ export function TimeclockPage() {
         .eq("user_id", me.data!.user.id)
         .order("clock_in", { ascending: false })
         .limit(20);
-      if (error) return (await readMeta<TimeEntry[]>(timeclockHistoryKey)) ?? [];
+      if (error) return (await readMeta<TimeEntry[]>(`timeclock_history:${me.data!.user.id}`)) ?? [];
       const rows = (data as TimeEntry[]) ?? [];
-      await cacheMeta(timeclockHistoryKey, rows);
+      await cacheMeta(`timeclock_history:${me.data!.user.id}`, rows);
       return rows;
     },
   });
@@ -186,126 +183,97 @@ export function TimeclockPage() {
   });
 
   const invalidate = (next?: TimeEntry | null) => {
-    // Clock state is local-authoritative immediately after a successful action.
-    // Do NOT instantly refetch these two keys: the API/read replica can lag a
-    // moment and used to overwrite the just-completed clock-in with "clocked out".
     if (next !== undefined) {
       qc.setQueryData(["myOpenEntry", userId], next);
       qc.setQueryData(["pos-clock-status", userId], next ? { id: next.id } : null);
     }
-    void qc.invalidateQueries({ queryKey: ["myTimeHistory", userId] });
-    void qc.invalidateQueries({ queryKey: ["whosIn", storeId] });
-    void qc.invalidateQueries({ queryKey: ["pos-shell", "open-shift", storeId] });
+    qc.invalidateQueries({ queryKey: ["myOpenEntry", userId] });
+    qc.invalidateQueries({ queryKey: ["pos-clock-status", userId] });
+    qc.invalidateQueries({ queryKey: ["myTimeHistory", userId] });
+    qc.invalidateQueries({ queryKey: ["whosIn", storeId] });
+    qc.invalidateQueries({ queryKey: ["pos-shell", "open-shift", storeId] });
   };
 
   const applyClockAction = async (action: EmployeeTimeClockAction) => {
     if (!userId) throw new Error("Not signed in");
     if (me.data?.profile?.status === "disabled") throw new Error("Account is disabled");
+
     const occurredAt = new Date().toISOString();
+    const openKey = `timeclock_open:${userId}`;
+    const historyKey = `timeclock_history:${userId}`;
+    const current = (await readMeta<TimeEntry | null>(openKey)) ?? open ?? null;
 
-    if (!isOnlineNow()) {
-      const current = (await readMeta<TimeEntry | null>(timeclockKey)) ?? open ?? null;
-      if (action === "clock_in" && current) return current;
-      if (action !== "clock_in" && !current) {
-        if (action === "clock_out") return null;
-        throw new Error("You are not currently clocked in");
-      }
+    if (action === "clock_in" && current) return current;
+    if (action !== "clock_in" && !current) {
+      if (action === "clock_out") return null;
+      throw new Error("You are not currently clocked in");
+    }
 
-      let next: TimeEntry | null = current;
-      if (action === "clock_in") {
-        next = {
-          id: `offline-time-${crypto.randomUUID()}`,
-          user_id: userId,
-          store_id: storeId,
-          clock_in: occurredAt,
-          clock_out: null,
-          break_start: null,
-          break_minutes: 0,
-          notes: "Pending offline sync",
-        };
-      } else if (action === "clock_out" && current) {
-        const extraBreak = current.break_start
-          ? Math.max(0, Math.round((Date.now() - new Date(current.break_start).getTime()) / 60000))
-          : 0;
-        const closed = {
-          ...current,
-          clock_out: occurredAt,
-          break_start: null,
-          break_minutes: (current.break_minutes ?? 0) + extraBreak,
-        };
-        const cachedHistory = (await readMeta<TimeEntry[]>(timeclockHistoryKey)) ?? [];
-        await cacheMeta(
-          timeclockHistoryKey,
-          [closed, ...cachedHistory.filter((entry) => entry.id !== closed.id)].slice(0, 20),
-        );
-        next = null;
-      } else if (action === "start_break" && current) {
-        next = current.break_start ? current : { ...current, break_start: occurredAt };
-      } else if (action === "end_break" && current) {
-        if (current.break_start) {
-          const mins = Math.max(
-            0,
-            Math.round((Date.now() - new Date(current.break_start).getTime()) / 60000),
-          );
-          next = {
-            ...current,
-            break_start: null,
-            break_minutes: (current.break_minutes ?? 0) + mins,
-          };
-        }
-      }
-
-      const queuedId = crypto.randomUUID();
-      await saveOfflineAction({
-        id: queuedId,
-        idempotency_key: `timeclock:${userId}:${action}:${occurredAt}`,
-        kind: "timeclock",
-        store_id: storeId,
+    let next: TimeEntry | null = current;
+    if (action === "clock_in") {
+      next = {
+        id: `local-time-${crypto.randomUUID()}`,
         user_id: userId,
-        payload: { action, occurredAt },
-        local_created_at: occurredAt,
-        status: "pending",
-        attempts: 0,
-      });
-      await cacheMeta(timeclockKey, next);
-      qc.setQueryData(["myOpenEntry", userId], next);
-      return next;
+        store_id: storeId,
+        clock_in: occurredAt,
+        clock_out: null,
+        break_start: null,
+        break_minutes: 0,
+        notes: isOnlineNow() ? null : "Pending offline sync",
+      };
+    } else if (action === "clock_out" && current) {
+      const extraBreak = current.break_start
+        ? Math.max(0, Math.round((Date.now() - new Date(current.break_start).getTime()) / 60000))
+        : 0;
+      const closed = {
+        ...current,
+        clock_out: occurredAt,
+        break_start: null,
+        break_minutes: (current.break_minutes ?? 0) + extraBreak,
+      };
+      const cachedHistory = (await readMeta<TimeEntry[]>(historyKey)) ?? [];
+      await cacheMeta(
+        historyKey,
+        [closed, ...cachedHistory.filter((entry) => entry.id !== closed.id)].slice(0, 20),
+      );
+      next = null;
+    } else if (action === "start_break" && current) {
+      next = current.break_start ? current : { ...current, break_start: occurredAt };
+    } else if (action === "end_break" && current?.break_start) {
+      const mins = Math.max(
+        0,
+        Math.round((Date.now() - new Date(current.break_start).getTime()) / 60000),
+      );
+      next = {
+        ...current,
+        break_start: null,
+        break_minutes: (current.break_minutes ?? 0) + mins,
+      };
     }
 
-    try {
-      const result = await postTimeClockAction({
-        action,
-        occurredAt,
-        idempotencyKey: crypto.randomUUID(),
-      });
-      const next = (result.entry as TimeEntry | null) ?? null;
-      await cacheMeta(timeclockKey, action === "clock_out" ? null : next);
-      return next;
-    } catch (error) {
-      // Clock actions are idempotent from the register's point of view. If a
-      // prior tap reached the server but the response was lost, reconcile the
-      // actual server state instead of trapping the cashier on a stale screen.
-      const { data: current, error: stateError } = await (supabase as any)
-        .from("time_entries")
-        .select("*")
-        .eq("user_id", userId)
-        .is("clock_out", null)
-        .order("clock_in", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (!stateError) {
-        if (action === "clock_out" && !current) {
-          await cacheMeta(timeclockKey, null);
-          return null;
-        }
-        if (action === "clock_in" && current) {
-          const reconciled = current as TimeEntry;
-          await cacheMeta(timeclockKey, reconciled);
-          return reconciled;
-        }
-      }
-      throw error;
+    // Local state is authoritative for the register UI. Queue the cloud write
+    // and sync it in the background instead of making the cashier wait for
+    // Ethernet/Wi-Fi before the screen refreshes.
+    await cacheMeta(openKey, next);
+    qc.setQueryData(["myOpenEntry", userId], next);
+    qc.setQueryData(["pos-clock-status", userId], next ? { id: next.id } : null);
+
+    await saveOfflineAction({
+      id: crypto.randomUUID(),
+      idempotency_key: `timeclock:${userId}:${action}:${occurredAt}`,
+      kind: "timeclock",
+      store_id: storeId,
+      user_id: userId,
+      payload: { action, occurredAt },
+      local_created_at: occurredAt,
+      status: "pending",
+      attempts: 0,
+    });
+
+    if (isOnlineNow()) {
+      void import("@/lib/offline/sync").then(({ syncNow }) => syncNow().catch(() => {}));
     }
+    return next;
   };
 
   const ensureRegisterOpen = async (requestedOpeningCash?: number) => {
@@ -318,71 +286,62 @@ export function TimeclockPage() {
         ? savedOpening
         : 0;
     localStorage.setItem("pos.register.lastOpeningCash", String(openingCash));
-    if (!isOnlineNow()) {
-      const local = {
-        id: crypto.randomUUID(),
-        store_id: storeId,
-        opened_by: userId,
+
+    const local = {
+      id: crypto.randomUUID(),
+      store_id: storeId,
+      opened_by: userId,
+      opened_at: openedAt,
+      opening_cash: openingCash,
+      status: "open" as const,
+      terminal_id: null,
+    };
+
+    await cacheMeta(`open_register_session:${userId}`, local);
+    // Keep the legacy alias empty so a different employee cannot inherit it.
+    await cacheMeta("open_register_session", null).catch(() => {});
+    await saveOfflineAction({
+      id: crypto.randomUUID(),
+      idempotency_key: `register-open:${local.id}`,
+      kind: "register_open",
+      store_id: storeId,
+      user_id: userId,
+      payload: {
+        id: local.id,
         opened_at: openedAt,
         opening_cash: openingCash,
-        status: "open" as const,
-        terminal_id: null,
-      };
-      await cacheMeta(registerKey, local);
-      await saveOfflineAction({
-        id: crypto.randomUUID(),
-        idempotency_key: `register-open:${local.id}`,
-        kind: "register_open",
-        store_id: storeId,
-        user_id: userId,
-        payload: { id: local.id, opened_at: openedAt, opening_cash: openingCash, notes: "Opened automatically at clock-in" },
-        local_created_at: openedAt,
-        status: "pending",
-        attempts: 0,
-      });
-      qc.setQueryData(["timeclock", "open-shift", storeId, userId], { rows: [local] });
-      return;
+        notes: "Opened at clock-in",
+      },
+      local_created_at: openedAt,
+      status: "pending",
+      attempts: 0,
+    });
+    qc.setQueryData(["timeclock", "open-shift", storeId, userId], { rows: [local] });
+    qc.setQueryData(["pos-shell", "open-shift", storeId, userId], {
+      id: local.id,
+      opened_at: local.opened_at,
+    });
+
+    // Opening the register means the cashier is about to count/use the drawer.
+    // Fire the real printer-driven ESC/POS drawer pulse immediately. Failure is
+    // non-fatal: the register stays open and hardware can be retried separately.
+    if (isNativeShell) void testDrawer().catch(() => {});
+
+    if (isOnlineNow()) {
+      void import("@/lib/offline/sync").then(({ syncNow }) => syncNow().catch(() => {}));
     }
-    const { data, error } = await (supabase as any)
-      .from("register_sessions")
-      .insert({
-        store_id: storeId,
-        opened_by: userId,
-        opening_cash: openingCash,
-        notes: "Opened automatically at clock-in",
-        status: "open",
-      })
-      .select("id, store_id, opened_by, opened_at, opening_cash, status, terminal_id")
-      .single();
-    if (error) throw error;
-    await cacheMeta(registerKey, data);
-    qc.setQueryData(["timeclock", "open-shift", storeId, userId], { rows: [data] });
-    qc.invalidateQueries({ queryKey: ["pos-shell", "open-shift", storeId] });
   };
 
   const clockIn = useMutation({
     networkMode: "always",
     mutationFn: async () => {
       const next = await applyClockAction("clock_in");
-      let registerError: unknown = null;
-      try {
-        await ensureRegisterOpen(Number(openingCash));
-      } catch (error) {
-        registerError = error;
-      }
-      return { next, registerError };
+      await ensureRegisterOpen(Number(openingCash));
+      return next;
     },
-    onSuccess: ({ next, registerError }) => {
+    onSuccess: (next) => {
       invalidate(next);
-      if (registerError) {
-        toast.error(userFacingError(registerError, "You are clocked in, but the register could not open."));
-        return;
-      }
-      toast.success(
-        isOnlineNow()
-          ? "Clocked in and register opened"
-          : "Clocked in and register opened offline  -  will sync automatically",
-      );
+      toast.success("Clocked in and register opened");
       navigate({ to: "/pos" as any, replace: true });
     },
     onError: (e) => toast.error(userFacingError(e, "Could not clock in. Try again.")),
@@ -738,19 +697,10 @@ export function TimeclockPage() {
               throw e;
             }
           }}
-          cashierName={me.data?.profile?.full_name ?? me.data?.profile?.first_name ?? undefined}
           onClosed={() => {
             setShiftReviewOpen(false);
-            qc.setQueryData(["timeclock", "open-shift", storeId, userId], { rows: [] });
-            qc.setQueryData(["myOpenEntry", userId], null);
-            qc.setQueryData(["pos-clock-status", userId], null);
-            void cacheMeta(registerKey, null);
-            void cacheMeta(timeclockKey, null);
-            // Closing a shift on the APK always returns to employee selection.
-            // This local lock also works when the network is down and the old
-            // Supabase session must remain cached for pending financial sync.
-            try { localStorage.setItem("seza.employee_select_required", "1"); } catch { /* ignore */ }
-            void navigate({ to: "/auth" as any, replace: true });
+            qc.invalidateQueries({ queryKey: ["timeclock", "open-shift"] });
+            invalidate();
           }}
         />
       )}

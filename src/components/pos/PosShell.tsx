@@ -63,6 +63,8 @@ import { useTranslation } from "react-i18next";
 import { usePermissions } from "@/hooks/usePermissions";
 import { sendPosHeartbeat } from "@/lib/pos/heartbeat";
 import { pendingCounts } from "@/lib/offline/sync";
+import { cacheMeta, deleteMeta, readMeta } from "@/lib/offline/db";
+import { isOnlineNow } from "@/lib/offline/useOnline";
 import { PosManagerDashboardDialog } from "@/components/pos/PosManagerDashboardDialog";
 import { usbPrinterReady } from "@/lib/hardware/escpos-usb";
 import {
@@ -86,11 +88,13 @@ export function PosShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { data: me } = useMe();
+  const meQuery = useMe();
+  const me = meQuery.data;
   const { t } = useTranslation();
   const permissions = usePermissions();
   useStoreLanguageSync();
-  const storeId = me?.store?.id as string | undefined;
+  const storeId = (me?.profile?.store_id ?? me?.store?.id) as string | undefined;
+  const userId = me?.user?.id as string | undefined;
   const storeName = (me?.store?.name as string | undefined) ?? "SEZA POS";
   // Every signed-in register employee needs the core cashier navigation.
   // Actual sensitive actions remain protected inside their workflows with a
@@ -107,19 +111,29 @@ export function PosShell({ children }: { children: ReactNode }) {
 
   // Detect an open shift for this store so Sign Out can warn the cashier.
   const openShift = useQuery({
-    queryKey: ["pos-shell", "open-shift", storeId],
-    enabled: !!storeId,
-    staleTime: 30_000,
+    queryKey: ["pos-shell", "open-shift", storeId, userId],
+    enabled: !!storeId && !!userId,
+    staleTime: 5_000,
     queryFn: async (): Promise<{ id: string; opened_at: string } | null> => {
-      const { data } = await sb
-        .from("register_sessions")
-        .select("id, opened_at")
-        .eq("store_id", storeId)
-        .eq("status", "open")
-        .order("opened_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data ?? null;
+      const localKey = `open_register_session:${userId}`;
+      const cached = await readMeta<any>(localKey).catch(() => undefined);
+      if (!isOnlineNow()) return cached?.status === "open" ? cached : null;
+      try {
+        const { data, error } = await sb
+          .from("register_sessions")
+          .select("id, opened_at, opened_by, status")
+          .eq("store_id", storeId)
+          .eq("opened_by", userId)
+          .eq("status", "open")
+          .order("opened_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) await cacheMeta(localKey, data).catch(() => {});
+        return data ?? (cached?.status === "open" ? cached : null);
+      } catch {
+        return cached?.status === "open" ? cached : null;
+      }
     },
   });
 
@@ -164,10 +178,24 @@ export function PosShell({ children }: { children: ReactNode }) {
 
   const handleSwitchEmployee = async () => {
     setMobileMenu(false);
-    await supabase.auth.signOut();
+    await qc.cancelQueries();
     qc.clear();
 
-    navigate({ to: "/auth", search: { mode: "pin" } as any, replace: true });
+    // Remove only identity aliases that could make the next cashier inherit
+    // the previous employee's header/permissions. Financial/offline records
+    // stay intact and are already keyed by employee/store.
+    await Promise.all([
+      deleteMeta("authenticated_me").catch(() => {}),
+      deleteMeta("profile").catch(() => {}),
+      deleteMeta("timeclock_open").catch(() => {}),
+      deleteMeta("open_register_session").catch(() => {}),
+    ]);
+    try { sessionStorage.removeItem("seza.openManagerDashboard"); } catch { /* ignore */ }
+    try { localStorage.setItem("seza.forcePinLogin", "1"); } catch { /* ignore */ }
+
+    // Local sign-out is immediate and does not wait on Ethernet/Wi-Fi.
+    await supabase.auth.signOut({ scope: "local" } as any).catch(() => supabase.auth.signOut());
+    navigate({ to: "/auth", replace: true });
   };
 
   const goBackInsidePos = () => {
@@ -254,6 +282,21 @@ export function PosShell({ children }: { children: ReactNode }) {
     window.addEventListener("seza-hardware-status", refreshHardware);
     return () => { window.removeEventListener("pos-hardware-change", refreshHardware); window.removeEventListener("seza-hardware-status", refreshHardware); };
   }, [isNativeShell]);
+
+  if (meQuery.isLoading || !me?.profile || !me?.store) {
+    return (
+      <div className="fixed inset-0 z-[2147483000] bg-[#1e40af] text-white flex flex-col items-center justify-center gap-5 p-6">
+        <div className="size-28 rounded-full bg-white shadow-2xl grid place-items-center overflow-hidden">
+          <StoreLogo className="size-20 rounded-full" />
+        </div>
+        <div className="text-2xl font-bold">{me?.store?.name ?? "SEZA POS"}</div>
+        <div className="w-[min(340px,72vw)] h-2 rounded-full bg-white/20 overflow-hidden">
+          <div className="h-full w-2/3 rounded-full bg-white animate-pulse" />
+        </div>
+        <div className="text-sm text-white/80">Loading register…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-[100dvh] w-full bg-background text-foreground overflow-hidden">
