@@ -7,7 +7,7 @@
 import { isNativeMode } from "@/lib/native";
 import { getActivePrinter } from "@/lib/hardware";
 import type { ReceiptPayload } from "@/lib/hardware/escpos";
-import type { ReceiptData } from "@/components/pos/Receipt";
+import { compactReceiptCashierName, type ReceiptData } from "@/components/pos/Receipt";
 import { logAudit } from "@/lib/audit-log";
 
 const LS = {
@@ -90,14 +90,30 @@ export function receiptDataToPayload(
   if (d.refund) header.push("*** REFUND ***");
   if (opts.copyLabel) header.push(`*** ${opts.copyLabel} ***`);
 
+  // Never print processor/internal reference IDs on the customer receipt.
+  // Also strip any legacy "Ref:" line that may still be saved in merchant
+  // receipt text from an older SEZA build.
+  const withoutReferenceLines = (value: string) =>
+    value
+      .split(/\r?\n/)
+      .filter((line) => !/^\s*(?:ref|reference)\s*:/i.test(line))
+      .join("\n")
+      .trim();
+
   const footer: string[] = [];
-  if (d.store.return_policy) footer.push(String(d.store.return_policy));
-  if (d.store.receipt_footer) footer.push(String(d.store.receipt_footer));
+  if (d.store.return_policy) {
+    const value = withoutReferenceLines(String(d.store.return_policy));
+    if (value) footer.push(value);
+  }
+  if (d.store.receipt_footer) {
+    const value = withoutReferenceLines(String(d.store.receipt_footer));
+    if (value) footer.push(value);
+  }
 
   return {
     storeName: d.store.name ?? "Store",
     ticketNumber: d.receiptNumber ?? d.transactionId.slice(0, 8),
-    cashierName: d.cashierName ?? undefined,
+    cashierName: compactReceiptCashierName(d.cashierName) || undefined,
     timestamp: d.createdAt,
     items: d.lines.map((l) => ({
       name: l.name,

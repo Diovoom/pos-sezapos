@@ -8,7 +8,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Display;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -238,6 +237,22 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
     }
 
     @Override
+    protected void handleOnPause() {
+        // Keep the customer display alive. It is a passive, non-focusable and
+        // non-touchable secondary window, so leaving the cashier Activity must
+        // not tear down or mirror the customer screen.
+        super.handleOnPause();
+    }
+
+    @Override
+    protected void handleOnResume() {
+        super.handleOnResume();
+        // Re-render/restore only when Android actually recreated or dropped the
+        // secondary Presentation. Normal app navigation leaves it untouched.
+        new Handler(Looper.getMainLooper()).postDelayed(this::restoreSavedPresentation, 180);
+    }
+
+    @Override
     protected void handleOnDestroy() {
         if (displayManager != null) displayManager.unregisterDisplayListener(this);
         stopPresentation();
@@ -295,6 +310,9 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
                 window.addFlags(
                     WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                         | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                        | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
                 );
                 window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
             }
@@ -306,17 +324,8 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             webView.setBackgroundColor(0xfff8fafc);
             webView.setFocusable(false);
             webView.setFocusableInTouchMode(false);
-            webView.setClickable(true);
+            webView.setClickable(false);
             webView.setLongClickable(false);
-
-            // A few dual-screen Android POS firmwares incorrectly attach the built-in
-            // touchscreen to the presentation display as soon as that display becomes
-            // active. The symptom is exactly: mouse still works on the cashier UI, a
-            // finger hides/moves the pointer, but taps do nothing. Keep the customer
-            // display visually non-interactive and proxy any touch events that Android
-            // routes here back into the cashier Activity. On devices with correct input
-            // routing this listener is never hit, so normal cashier touch is unchanged.
-            webView.setOnTouchListener((view, event) -> forwardTouchToCashier(view, event));
             webView.setWebViewClient(new WebViewClient() {
                 @Override
                 public void onPageFinished(WebView view, String url) {
@@ -326,24 +335,6 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             });
             setContentView(webView);
             webView.loadDataWithBaseURL(null, html(), "text/html", "UTF-8", null);
-        }
-
-        private boolean forwardTouchToCashier(View source, MotionEvent event) {
-            if (cashierActivity == null || cashierActivity.getWindow() == null) return true;
-            View target = cashierActivity.getWindow().getDecorView();
-            if (target == null || source.getWidth() <= 0 || source.getHeight() <= 0
-                || target.getWidth() <= 0 || target.getHeight() <= 0) return true;
-
-            MotionEvent forwarded = MotionEvent.obtain(event);
-            float mappedX = event.getX() * ((float) target.getWidth() / (float) source.getWidth());
-            float mappedY = event.getY() * ((float) target.getHeight() / (float) source.getHeight());
-            forwarded.setLocation(mappedX, mappedY);
-            try {
-                cashierActivity.dispatchTouchEvent(forwarded);
-            } finally {
-                forwarded.recycle();
-            }
-            return true;
         }
 
         void render(String payload) {
@@ -390,7 +381,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
                 "const esc=v=>String(v||'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[m]));",
                 "let main='';",
                 "if(phase==='complete'){",
-                "main=`<div class='center'><div><div class='mark'>&#10003;</div><div class='message'>Thank you!</div><div class='sub'>Payment approved</div><div class='amount'>${money(p.total)}</div>${Number(p.changeDue||0)>0?`<div class='change'>Change due: ${money(p.changeDue)}</div>`:''}</div></div>`;",
+                "main=`<div class='center'><div><div class='mark'>&#10003;</div><div class='message'>Thank you!</div><div class='amount'>${money(p.total)}</div>${Number(p.changeDue||0)>0?`<div class='change'>Change due: ${money(p.changeDue)}</div>`:''}</div></div>`;",
                 "}else if(phase==='processing'){",
                 "main=`<div class='center'><div><div class='message'>Processing payment&hellip;</div><div class='sub'>${esc(p.statusMessage||'Please wait.')}</div><div class='amount'>${money(p.total)}</div></div></div>`;",
                 "}else if(phase==='declined'){",

@@ -676,11 +676,6 @@ function TerminalPanel({
               Please tap, insert, or swipe your card on the payment terminal.
             </p>
           )}
-          {event.reference && (
-            <div className="mt-2 text-[11px] font-mono text-muted-foreground">
-              Ref: {event.reference}
-            </div>
-          )}
         </div>
       </div>
 

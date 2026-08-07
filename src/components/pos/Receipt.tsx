@@ -15,6 +15,15 @@ export type ReceiptPaymentAllocation = {
   last4?: string;
 };
 
+export function compactReceiptCashierName(value?: string | null): string {
+  const cleaned = (value ?? "").trim();
+  if (!cleaned) return "";
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0];
+  const lastInitial = parts[parts.length - 1]?.[0]?.toUpperCase();
+  return lastInitial ? `${parts[0]} ${lastInitial}.` : parts[0];
+}
+
 export type ReceiptData = {
   store: {
     name?: string | null;
@@ -74,13 +83,12 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
 
       {data.refund && <div className="text-center font-bold text-[14px] mb-1">*** REFUND ***</div>}
       <Row l="Receipt #" r={String(data.receiptNumber)} />
-      <Row l="Txn" r={data.transactionId.slice(0, 8).toUpperCase()} />
       <Row l="Date" r={dt.toLocaleDateString()} />
       <Row l="Time" r={dt.toLocaleTimeString()} />
       {data.cashierName && (
         <Row
           l="Cashier"
-          r={`${data.cashierName}${data.employeeId ? ` (#${data.employeeId})` : ""}`}
+          r={`${compactReceiptCashierName(data.cashierName)}${data.employeeId ? ` (#${data.employeeId})` : ""}`}
         />
       )}
       {data.customerName && <Row l="Customer" r={data.customerName} />}
@@ -130,11 +138,6 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
       )}
 
       <Divider />
-
-      <div className="text-center">
-        <div className="my-2 tracking-[0.3em]">{"|| ||| || || ||||| || |||"}</div>
-        <div className="text-[10px]">{data.transactionId}</div>
-      </div>
 
       {data.store.return_policy && (
         <>

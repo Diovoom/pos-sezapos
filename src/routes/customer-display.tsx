@@ -217,7 +217,6 @@ export function CustomerDisplayPage() {
                 ✓
               </div>
               <p className="mt-6 text-4xl md:text-6xl font-black">Thank you!</p>
-              <p className="mt-3 text-xl text-white/60">Payment approved</p>
               <p className="mt-6 text-4xl font-mono font-bold">
                 {fmtCurrency(sale.total, sale.currency)}
               </p>

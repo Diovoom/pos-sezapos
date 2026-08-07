@@ -263,9 +263,21 @@ export function AgeVerificationDialog({
       }
     };
 
+    const onPaste = (event: ClipboardEvent) => {
+      const text = event.clipboardData?.getData("text") ?? "";
+      if (!text) return;
+      liveScanBufferRef.current += text;
+      setWedge(liveScanBufferRef.current);
+      setScanNote("Reading ID…");
+      scheduleFlush();
+      event.preventDefault();
+    };
+
     window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("paste", onPaste, true);
     return () => {
       window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("paste", onPaste, true);
       if (scanIdleTimerRef.current !== null) {
         window.clearTimeout(scanIdleTimerRef.current);
         scanIdleTimerRef.current = null;
