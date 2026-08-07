@@ -14,6 +14,7 @@ import "@/styles.css";
 import { startDeviceHeartbeat } from "./lib/deviceHeartbeat";
 import { SupportRequestListener } from "./support/SupportRequestListener";
 import { initializePairing } from "./lib/pairing";
+import { readMeta } from "@/lib/offline/db";
 
 const STARTUP_TIMEOUT_MS = 8_000;
 
@@ -82,21 +83,31 @@ function ShellApp() {
     let stopHeartbeat = () => {};
 
     const start = async () => {
+      // Paint the register immediately. Hardware lifecycle and cloud session
+      // refresh happen in parallel and must never freeze first launch.
+      void initAndroidLifecycle(router, queryClient).catch(() => {});
+      stopHeartbeat = startDeviceHeartbeat();
       try {
-        await initAndroidLifecycle(router, queryClient);
-        stopHeartbeat = startDeviceHeartbeat();
-
-        const { data } = await withTimeout(
-          supabase.auth.getSession(),
-          STARTUP_TIMEOUT_MS,
-          "Session verification",
-        );
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession().then(({ data }) => ({ session: data.session, timedOut: false })),
+          new Promise<{ session: null; timedOut: true }>((resolve) =>
+            window.setTimeout(() => resolve({ session: null, timedOut: true }), 800),
+          ),
+        ]);
         if (!alive) return;
-        setHasSession(Boolean(data.session));
+        if (sessionResult.session) {
+          setHasSession(true);
+        } else if (sessionResult.timedOut) {
+          const cachedUser = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+          setHasSession(Boolean(cachedUser));
+        } else {
+          setHasSession(false);
+        }
         setSessionReady(true);
-      } catch (error) {
+      } catch {
         if (!alive) return;
-        setRuntimeError(error);
+        const cachedUser = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+        setHasSession(Boolean(cachedUser));
         setSessionReady(true);
       } finally {
         await hideNativeSplash();
@@ -107,13 +118,17 @@ function ShellApp() {
 
     const { data: subscription } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+
+      // A shared register may switch from owner -> cashier (or the reverse).
+      // Never let React Query retain permissions, identity, shift, or POS data
+      // from the employee who was previously signed in.
+      queryClient.clear();
       void router.invalidate();
       if (event === "SIGNED_OUT") {
-        queryClient.clear();
         setHasSession(false);
         setBooted(false);
         void router.navigate({ to: "/auth", replace: true });
-      } else if (event === "SIGNED_IN") {
+      } else {
         setHasSession(true);
         setBooted(false);
       }
@@ -158,7 +173,9 @@ async function bootstrap() {
 
   try {
     assertNativeSupabaseConfiguration();
-    await withTimeout(initializePairing(), STARTUP_TIMEOUT_MS, "Device pairing initialization");
+    // Pairing restoration is background work. The app shell must paint even
+    // when the network or Android USB stack is slow.
+    void initializePairing().catch(() => {});
     createRoot(rootElement).render(
       <StrictMode>
         <ShellApp />

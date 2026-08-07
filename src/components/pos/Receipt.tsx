@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import { fmtCurrency } from "@/lib/format";
+import { compactCashierDisplayName, stripReceiptReferences } from "@/lib/receipt-text";
 
 export type ReceiptLine = {
   name: string;
@@ -15,22 +16,10 @@ export type ReceiptPaymentAllocation = {
   last4?: string;
 };
 
-export function compactReceiptCashierName(value?: string | null): string {
-  const cleaned = (value ?? "").trim();
-  if (!cleaned) return "";
-  const parts = cleaned.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0];
-  const lastInitial = parts[parts.length - 1]?.[0]?.toUpperCase();
-  return lastInitial ? `${parts[0]} ${lastInitial}.` : parts[0];
-}
-
+export const compactReceiptCashierName = compactCashierDisplayName;
 
 function sanitizeReceiptBlock(value?: string | null): string {
-  return String(value ?? "")
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*(?:ref|reference|transaction\s*(?:ref|reference|id)|payment\s*(?:ref|reference|id))\s*:/i.test(line))
-    .join("\n")
-    .trim();
+  return stripReceiptReferences(value);
 }
 
 export type ReceiptData = {
@@ -85,7 +74,7 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
         {data.store.address && <div>{data.store.address}</div>}
         {data.store.phone && <div>{data.store.phone}</div>}
         {data.store.email && <div>{data.store.email}</div>}
-        {data.store.receipt_header && <div className="mt-1">{data.store.receipt_header}</div>}
+        {sanitizeReceiptBlock(data.store.receipt_header) && <div className="mt-1 whitespace-pre-line">{sanitizeReceiptBlock(data.store.receipt_header)}</div>}
       </div>
 
       <Divider />

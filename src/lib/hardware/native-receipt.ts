@@ -6,7 +6,8 @@
 
 import { isNativeMode } from "@/lib/native";
 import { getActivePrinter } from "@/lib/hardware";
-import type { ReceiptPayload } from "@/lib/hardware/escpos";
+import { escposBuilder, type ReceiptPayload } from "@/lib/hardware/escpos";
+import { stripReceiptReferences } from "@/lib/receipt-text";
 import { compactReceiptCashierName, type ReceiptData } from "@/components/pos/Receipt";
 import { logAudit } from "@/lib/audit-log";
 
@@ -93,12 +94,7 @@ export function receiptDataToPayload(
   // Never print processor/internal reference IDs on the customer receipt.
   // Also strip any legacy "Ref:" line that may still be saved in merchant
   // receipt text from an older SEZA build.
-  const withoutReferenceLines = (value: string) =>
-    value
-      .split(/\r?\n/)
-      .filter((line) => !/^\s*(?:ref|reference)\s*:/i.test(line))
-      .join("\n")
-      .trim();
+  const withoutReferenceLines = (value: string) => stripReceiptReferences(value);
 
   const footer: string[] = [];
   if (d.store.return_policy) {
@@ -231,6 +227,105 @@ export async function testPrint(): Promise<PrintResult> {
     footer: ["Test completed", "If you can read this, your printer is ready."],
   };
   return printOnceInternal(payload, 1);
+}
+
+
+export type ShiftClosePrintInput = {
+  shiftId: string;
+  storeName?: string | null;
+  cashierName?: string | null;
+  openedAt: string;
+  closedAt: string;
+  openingCash: number;
+  cashSales: number;
+  cardSales: number;
+  refunds: number;
+  expectedCash: number;
+  countedCash: number;
+  variance: number;
+  safeDrop: number;
+  cashRemaining: number;
+  notes?: string | null;
+};
+
+const printedShiftClose = new Set<string>();
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) { out.set(part, offset); offset += part.length; }
+  return out;
+}
+
+async function writeRawToActivePrinter(bytes: Uint8Array): Promise<void> {
+  const driver = getActivePrinter();
+  if (driver.id === "escpos-usb") {
+    const { writeUsb } = await import("@/lib/hardware/escpos-usb");
+    await writeUsb(bytes);
+    return;
+  }
+  if (driver.id === "escpos-ble") {
+    const { write } = await import("@/lib/hardware/escpos-ble");
+    await write(bytes);
+    return;
+  }
+  throw new Error("The selected printer does not support local shift-report printing.");
+}
+
+/** Print the register-close summary immediately from local data. No network. */
+export async function printShiftCloseSummary(input: ShiftClosePrintInput): Promise<PrintResult> {
+  if (!isNativeMode()) return { ok: false, reason: "not_native" };
+  if (printedShiftClose.has(input.shiftId)) return { ok: true, copies: 0 };
+  const driver = getActivePrinter();
+  if (driver.id === "none") return { ok: false, reason: "no_driver" };
+  try {
+    if (!(await driver.isReady())) return { ok: false, reason: "not_ready" };
+  } catch {
+    return { ok: false, reason: "not_ready" };
+  }
+
+  const enc = new TextEncoder();
+  const m = (n: number) => `$${Number(n || 0).toFixed(2)}`;
+  const line = (label: string, value: string, cols = getPaperColumns()) => {
+    const gap = Math.max(1, cols - label.length - value.length);
+    return enc.encode(`${label}${" ".repeat(gap)}${value}\n`);
+  };
+  const cols = getPaperColumns();
+  const parts: Uint8Array[] = [
+    escposBuilder.init(),
+    escposBuilder.align("center"),
+    escposBuilder.bold(true),
+    enc.encode(`${input.storeName || "SEZA POS"}\nSHIFT CLOSE\n`),
+    escposBuilder.bold(false),
+    enc.encode(`${new Date(input.closedAt).toLocaleString()}\n`),
+    enc.encode("-".repeat(cols) + "\n"),
+    escposBuilder.align("left"),
+    enc.encode(`Cashier: ${compactReceiptCashierName(input.cashierName) || "Employee"}\n`),
+    enc.encode(`Opened:  ${new Date(input.openedAt).toLocaleString()}\n`),
+    enc.encode(`Closed:  ${new Date(input.closedAt).toLocaleString()}\n`),
+    enc.encode("-".repeat(cols) + "\n"),
+    line("Opening cash", m(input.openingCash), cols),
+    line("Cash sales", m(input.cashSales), cols),
+    line("Card sales", m(input.cardSales), cols),
+    line("Refunds", m(input.refunds), cols),
+    line("Expected cash", m(input.expectedCash), cols),
+    line("Counted cash", m(input.countedCash), cols),
+    line("Variance", m(input.variance), cols),
+    line("Safe drop", m(input.safeDrop), cols),
+    line("Cash remaining", m(input.cashRemaining), cols),
+  ];
+  const notes = stripReceiptReferences(input.notes);
+  if (notes) parts.push(enc.encode("-".repeat(cols) + "\n"), enc.encode(`Notes: ${notes}\n`));
+  parts.push(escposBuilder.align("center"), enc.encode("\nShift closed\n\n"), escposBuilder.feed(1), escposBuilder.cut());
+
+  try {
+    await writeRawToActivePrinter(concatBytes(parts));
+    printedShiftClose.add(input.shiftId);
+    return { ok: true, copies: 1 };
+  } catch (e) {
+    return { ok: false, reason: "driver_error", error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 export type DrawerResult =

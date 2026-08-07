@@ -13,7 +13,7 @@ import { LogIn, LogOut, Coffee, PlayCircle, Loader2 } from "lucide-react";
 import { format, formatDistanceStrict } from "date-fns";
 import { useState } from "react";
 import { CloseShiftDialog } from "@/components/pos/CloseShiftDialog";
-import { cacheMeta, readMeta, saveOfflineAction } from "@/lib/offline/db";
+import { cacheMeta, readMeta, saveOfflineAction, employeeMetaKey } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import type { EmployeeTimeClockAction } from "@/lib/employees.functions";
 import { postTimeClockAction } from "@/lib/timeclock/client";
@@ -60,6 +60,9 @@ export function TimeclockPage() {
   const canManage = me.data?.roles.some((r) => r === "owner" || r === "manager");
   const storeId = me.data?.profile?.store_id ?? me.data?.store?.id ?? null;
   const userId = me.data?.user?.id ?? null;
+  const timeclockKey = employeeMetaKey("timeclock_open", userId);
+  const timeclockHistoryKey = employeeMetaKey("timeclock_history", userId);
+  const registerKey = employeeMetaKey("open_register_session", userId);
 
   // Resolve THIS employee's own open register shift. Scoping by store alone
   // could close a coworker's shift on a shared device  -  always narrow by
@@ -82,7 +85,7 @@ export function TimeclockPage() {
         terminal_id: string | null;
       };
       if (!isOnlineNow()) {
-        const cached = await readMeta<OpenShift | null>("open_register_session");
+        const cached = await readMeta<OpenShift | null>(registerKey);
         return {
           rows: cached && cached.opened_by === userId && cached.status === "open" ? [cached] : [],
         };
@@ -97,13 +100,13 @@ export function TimeclockPage() {
         .order("opened_at", { ascending: false })
         .limit(5);
       if (error) {
-        const cached = await readMeta<OpenShift | null>("open_register_session");
+        const cached = await readMeta<OpenShift | null>(registerKey);
         return {
           rows: cached && cached.opened_by === userId && cached.status === "open" ? [cached] : [],
         };
       }
       const rows = (data ?? []) as OpenShift[];
-      if (rows[0]) await cacheMeta("open_register_session", rows[0]).catch(() => {});
+      if (rows[0]) await cacheMeta(registerKey, rows[0]).catch(() => {});
       return { rows };
     },
   });
@@ -120,7 +123,7 @@ export function TimeclockPage() {
     queryKey: ["myOpenEntry", me.data?.user.id],
     enabled: !!me.data?.user.id,
     queryFn: async () => {
-      if (!isOnlineNow()) return (await readMeta<TimeEntry | null>("timeclock_open")) ?? null;
+      if (!isOnlineNow()) return (await readMeta<TimeEntry | null>(timeclockKey)) ?? null;
 
       const { data, error } = await (supabase as any)
         .from("time_entries")
@@ -131,11 +134,11 @@ export function TimeclockPage() {
         .limit(1)
         .maybeSingle();
       if (error) {
-        const cached = await readMeta<TimeEntry | null>("timeclock_open");
+        const cached = await readMeta<TimeEntry | null>(timeclockKey);
         if (cached !== undefined) return cached ?? null;
         throw error;
       }
-      await cacheMeta("timeclock_open", data ?? null);
+      await cacheMeta(timeclockKey, data ?? null);
       return (data as TimeEntry | null) ?? null;
     },
   });
@@ -144,7 +147,7 @@ export function TimeclockPage() {
     queryKey: ["myTimeHistory", me.data?.user.id],
     enabled: !!me.data?.user.id,
     queryFn: async () => {
-      if (!isOnlineNow()) return (await readMeta<TimeEntry[]>("timeclock_history")) ?? [];
+      if (!isOnlineNow()) return (await readMeta<TimeEntry[]>(timeclockHistoryKey)) ?? [];
 
       const { data, error } = await (supabase as any)
         .from("time_entries")
@@ -152,9 +155,9 @@ export function TimeclockPage() {
         .eq("user_id", me.data!.user.id)
         .order("clock_in", { ascending: false })
         .limit(20);
-      if (error) return (await readMeta<TimeEntry[]>("timeclock_history")) ?? [];
+      if (error) return (await readMeta<TimeEntry[]>(timeclockHistoryKey)) ?? [];
       const rows = (data as TimeEntry[]) ?? [];
-      await cacheMeta("timeclock_history", rows);
+      await cacheMeta(timeclockHistoryKey, rows);
       return rows;
     },
   });
@@ -183,15 +186,16 @@ export function TimeclockPage() {
   });
 
   const invalidate = (next?: TimeEntry | null) => {
+    // Clock state is local-authoritative immediately after a successful action.
+    // Do NOT instantly refetch these two keys: the API/read replica can lag a
+    // moment and used to overwrite the just-completed clock-in with "clocked out".
     if (next !== undefined) {
       qc.setQueryData(["myOpenEntry", userId], next);
       qc.setQueryData(["pos-clock-status", userId], next ? { id: next.id } : null);
     }
-    qc.invalidateQueries({ queryKey: ["myOpenEntry", userId] });
-    qc.invalidateQueries({ queryKey: ["pos-clock-status", userId] });
-    qc.invalidateQueries({ queryKey: ["myTimeHistory", userId] });
-    qc.invalidateQueries({ queryKey: ["whosIn", storeId] });
-    qc.invalidateQueries({ queryKey: ["pos-shell", "open-shift", storeId] });
+    void qc.invalidateQueries({ queryKey: ["myTimeHistory", userId] });
+    void qc.invalidateQueries({ queryKey: ["whosIn", storeId] });
+    void qc.invalidateQueries({ queryKey: ["pos-shell", "open-shift", storeId] });
   };
 
   const applyClockAction = async (action: EmployeeTimeClockAction) => {
@@ -200,7 +204,7 @@ export function TimeclockPage() {
     const occurredAt = new Date().toISOString();
 
     if (!isOnlineNow()) {
-      const current = (await readMeta<TimeEntry | null>("timeclock_open")) ?? open ?? null;
+      const current = (await readMeta<TimeEntry | null>(timeclockKey)) ?? open ?? null;
       if (action === "clock_in" && current) return current;
       if (action !== "clock_in" && !current) {
         if (action === "clock_out") return null;
@@ -229,9 +233,9 @@ export function TimeclockPage() {
           break_start: null,
           break_minutes: (current.break_minutes ?? 0) + extraBreak,
         };
-        const cachedHistory = (await readMeta<TimeEntry[]>("timeclock_history")) ?? [];
+        const cachedHistory = (await readMeta<TimeEntry[]>(timeclockHistoryKey)) ?? [];
         await cacheMeta(
-          "timeclock_history",
+          timeclockHistoryKey,
           [closed, ...cachedHistory.filter((entry) => entry.id !== closed.id)].slice(0, 20),
         );
         next = null;
@@ -263,19 +267,45 @@ export function TimeclockPage() {
         status: "pending",
         attempts: 0,
       });
-      await cacheMeta("timeclock_open", next);
+      await cacheMeta(timeclockKey, next);
       qc.setQueryData(["myOpenEntry", userId], next);
       return next;
     }
 
-    const result = await postTimeClockAction({
-      action,
-      occurredAt,
-      idempotencyKey: crypto.randomUUID(),
-    });
-    const next = (result.entry as TimeEntry | null) ?? null;
-    await cacheMeta("timeclock_open", action === "clock_out" ? null : next);
-    return next;
+    try {
+      const result = await postTimeClockAction({
+        action,
+        occurredAt,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      const next = (result.entry as TimeEntry | null) ?? null;
+      await cacheMeta(timeclockKey, action === "clock_out" ? null : next);
+      return next;
+    } catch (error) {
+      // Clock actions are idempotent from the register's point of view. If a
+      // prior tap reached the server but the response was lost, reconcile the
+      // actual server state instead of trapping the cashier on a stale screen.
+      const { data: current, error: stateError } = await (supabase as any)
+        .from("time_entries")
+        .select("*")
+        .eq("user_id", userId)
+        .is("clock_out", null)
+        .order("clock_in", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!stateError) {
+        if (action === "clock_out" && !current) {
+          await cacheMeta(timeclockKey, null);
+          return null;
+        }
+        if (action === "clock_in" && current) {
+          const reconciled = current as TimeEntry;
+          await cacheMeta(timeclockKey, reconciled);
+          return reconciled;
+        }
+      }
+      throw error;
+    }
   };
 
   const ensureRegisterOpen = async (requestedOpeningCash?: number) => {
@@ -298,7 +328,7 @@ export function TimeclockPage() {
         status: "open" as const,
         terminal_id: null,
       };
-      await cacheMeta("open_register_session", local);
+      await cacheMeta(registerKey, local);
       await saveOfflineAction({
         id: crypto.randomUUID(),
         idempotency_key: `register-open:${local.id}`,
@@ -325,7 +355,7 @@ export function TimeclockPage() {
       .select("id, store_id, opened_by, opened_at, opening_cash, status, terminal_id")
       .single();
     if (error) throw error;
-    await cacheMeta("open_register_session", data);
+    await cacheMeta(registerKey, data);
     qc.setQueryData(["timeclock", "open-shift", storeId, userId], { rows: [data] });
     qc.invalidateQueries({ queryKey: ["pos-shell", "open-shift", storeId] });
   };
@@ -353,7 +383,7 @@ export function TimeclockPage() {
           ? "Clocked in and register opened"
           : "Clocked in and register opened offline  -  will sync automatically",
       );
-      navigate({ to: "/pos" as any });
+      navigate({ to: "/pos" as any, replace: true });
     },
     onError: (e) => toast.error(userFacingError(e, "Could not clock in. Try again.")),
   });
@@ -708,10 +738,19 @@ export function TimeclockPage() {
               throw e;
             }
           }}
+          cashierName={me.data?.profile?.full_name ?? me.data?.profile?.first_name ?? undefined}
           onClosed={() => {
             setShiftReviewOpen(false);
-            qc.invalidateQueries({ queryKey: ["timeclock", "open-shift"] });
-            invalidate();
+            qc.setQueryData(["timeclock", "open-shift", storeId, userId], { rows: [] });
+            qc.setQueryData(["myOpenEntry", userId], null);
+            qc.setQueryData(["pos-clock-status", userId], null);
+            void cacheMeta(registerKey, null);
+            void cacheMeta(timeclockKey, null);
+            // Closing a shift on the APK always returns to employee selection.
+            // This local lock also works when the network is down and the old
+            // Supabase session must remain cached for pending financial sync.
+            try { localStorage.setItem("seza.employee_select_required", "1"); } catch { /* ignore */ }
+            void navigate({ to: "/auth" as any, replace: true });
           }}
         />
       )}

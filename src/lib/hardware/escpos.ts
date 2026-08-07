@@ -1,3 +1,4 @@
+import { compactCashierDisplayName, stripReceiptReferences } from "@/lib/receipt-text";
 // Minimal ESC/POS command builder for 58mm and 80mm thermal printers.
 // Emits raw bytes that any generic ESC/POS printer (Bluetooth or LAN)
 // understands. No vendor SDK required.
@@ -82,23 +83,11 @@ function pad(str: string, width: number, right = false): string {
 
 
 function sanitizeReceiptText(value: string): string[] {
-  return String(value ?? "")
-    .split(/\r?\n/)
-    .map((line) => line.trimEnd())
-    .filter((line) => {
-      const normalized = line.trim();
-      if (!normalized) return false;
-      return !/^(?:ref|reference|transaction\s*(?:ref|reference|id)|payment\s*(?:ref|reference|id))\s*:/i.test(normalized);
-    });
+  return stripReceiptReferences(value).split(/\r?\n/).filter(Boolean);
 }
 
 function compactCashierName(value?: string): string {
-  const cleaned = String(value ?? "").trim();
-  if (!cleaned) return "";
-  const parts = cleaned.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0];
-  const initial = parts[parts.length - 1]?.charAt(0).toUpperCase();
-  return initial ? `${parts[0]} ${initial}.` : parts[0];
+  return compactCashierDisplayName(value);
 }
 
 function money(n: number, currency = "USD"): string {

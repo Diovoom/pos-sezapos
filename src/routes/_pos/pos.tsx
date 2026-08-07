@@ -80,6 +80,7 @@ import {
   deleteMeta,
   OFFLINE_PAYLOAD_VERSION,
   createLocalReceiptNumber,
+  employeeMetaKey,
   type CachedProduct,
 } from "@/lib/offline/db";
 import { syncNow } from "@/lib/offline/sync";
@@ -264,7 +265,7 @@ export function PosPage() {
     queryKey: ["pos-clock-status", me.data?.user.id],
     enabled: !!me.data?.user.id,
     queryFn: async () => {
-      if (!isOnlineNow()) return (await readMeta<{ id: string } | null>("timeclock_open")) ?? null;
+      if (!isOnlineNow()) return (await readMeta<{ id: string } | null>(timeclockKey)) ?? null;
       const { data, error } = await (supabase as any)
         .from("time_entries")
         .select("id")
@@ -273,11 +274,11 @@ export function PosPage() {
         .order("clock_in", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (error) return (await readMeta<{ id: string } | null>("timeclock_open")) ?? null;
-      await cacheMeta("timeclock_open", data ?? null).catch(() => {});
+      if (error) return (await readMeta<{ id: string } | null>(timeclockKey)) ?? null;
+      await cacheMeta(timeclockKey, data ?? null).catch(() => {});
       return data ? { id: String(data.id) } : null;
     },
-    refetchInterval: 60_000,
+    staleTime: 5 * 60_000,
   });
 
   const [cartOpen, setCartOpen] = useState(false);
@@ -300,67 +301,39 @@ export function PosPage() {
   }, []);
   const showMobileCamera = isMobile && hasCameraCap;
 
-  const { data: store } = useQuery<any>({
-    queryKey: ["store"],
-    queryFn: async () => {
-      if (!isOnlineNow()) return (await readMeta("store")) ?? null;
-      try {
-        const { data, error } = await supabase.from("stores").select("*").limit(1).maybeSingle();
-        if (error) throw error;
-        if (data) await cacheMeta("store", data);
-        return data;
-      } catch {
-        return (await readMeta("store")) ?? null;
-      }
-    },
-  });
+  // Identity, profile, and store come from useMe's employee-scoped local cache.
+  // Never query "first store" on a multi-tenant shared register.
+  const store = me.data?.store ?? null;
+  const profile = me.data?.profile ?? null;
+  const activeUserId = me.data?.user?.id ?? null;
+  const cartDraftKey = store?.id && activeUserId ? `cart_draft:${store.id}:${activeUserId}` : null;
+  const timeclockKey = employeeMetaKey("timeclock_open", activeUserId);
+  const registerKey = employeeMetaKey("open_register_session", activeUserId);
 
   useEffect(() => {
     cartDraftReadyRef.current = false;
-    if (!store?.id) return;
+    setCart([]);
+    if (!cartDraftKey) return;
     let cancelled = false;
-    void readMeta<CartLine[]>(`cart_draft:${store.id}`)
+    void readMeta<CartLine[]>(cartDraftKey)
       .then((draft) => {
         if (cancelled) return;
-        if (Array.isArray(draft) && draft.length > 0) setCart(draft);
+        setCart(Array.isArray(draft) ? draft : []);
       })
       .finally(() => {
         if (!cancelled) cartDraftReadyRef.current = true;
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [store?.id]);
+    return () => { cancelled = true; };
+  }, [cartDraftKey]);
 
   useEffect(() => {
-    if (!store?.id || !cartDraftReadyRef.current) return;
+    if (!cartDraftKey || !cartDraftReadyRef.current) return;
     const timer = window.setTimeout(() => {
-      if (cart.length === 0) void deleteMeta(`cart_draft:${store.id}`);
-      else void cacheMeta(`cart_draft:${store.id}`, cart);
-    }, 150);
+      if (cart.length === 0) void deleteMeta(cartDraftKey);
+      else void cacheMeta(cartDraftKey, cart);
+    }, 100);
     return () => window.clearTimeout(timer);
-  }, [cart, store?.id]);
-
-  const { data: profile } = useQuery<any>({
-    queryKey: ["me-profile"],
-    queryFn: async () => {
-      if (!isOnlineNow()) return (await readMeta("profile")) ?? null;
-      try {
-        const { data: u } = await supabase.auth.getUser();
-        if (!u.user) return (await readMeta("profile")) ?? null;
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", u.user.id)
-          .maybeSingle();
-        if (error) throw error;
-        if (data) await cacheMeta("profile", data);
-        return data;
-      } catch {
-        return (await readMeta("profile")) ?? null;
-      }
-    },
-  });
+  }, [cart, cartDraftKey]);
 
   const taxRate = Number(store?.tax_rate ?? 0.0825);
   const currency = store?.currency ?? "USD";
@@ -381,50 +354,65 @@ export function PosPage() {
       .catch((error) => console.error("[offline] store cache isolation failed", error));
   }, [store?.id]);
 
+  const categoryCacheKey = store?.id ? `categories:${store.id}` : "categories:unassigned";
   const { data: categories = [] } = useQuery<Category[]>({
+    enabled: !!store?.id,
     queryKey: ["categories", store?.id ?? "unassigned"],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
-      if (!isOnlineNow()) return (await readMeta<Category[]>("categories")) ?? [];
-      try {
+      const cached = (await readMeta<Category[]>(categoryCacheKey)) ?? [];
+      const refresh = async () => {
+        if (!store?.id || !isOnlineNow()) return cached;
         const { data, error } = await supabase
           .from("categories")
           .select("id,name")
+          .eq("store_id", store.id)
           .order("sort_order");
         if (error) throw error;
         const rows = data ?? [];
-        await cacheMeta("categories", rows);
+        await cacheMeta(categoryCacheKey, rows);
+        qc.setQueryData(["categories", store.id], rows);
         return rows;
-      } catch {
-        return (await readMeta<Category[]>("categories")) ?? [];
+      };
+      if (cached.length > 0) {
+        void refresh().catch(() => {});
+        return cached;
       }
+      try { return await refresh(); } catch { return cached; }
     },
   });
 
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
+    enabled: !!store?.id,
     queryKey: ["products", store?.id ?? "unassigned"],
-    refetchInterval: online ? 20_000 : false,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
-      if (!isOnlineNow()) {
-        const cached = await loadCachedProducts();
-        return cached as unknown as Product[];
-      }
-      try {
+      const allCached = await loadCachedProducts();
+      const cached = store?.id
+        ? allCached.filter((product) => !product.store_id || product.store_id === store.id)
+        : [];
+      const refresh = async () => {
+        if (!store?.id || !isOnlineNow()) return cached as unknown as Product[];
         const { data, error } = await supabase
           .from("products")
           .select(
             "id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category",
           )
+          .eq("store_id", store.id)
           .eq("status", "active")
           .order("name");
         if (error) throw error;
         const rows = (data as Product[]) ?? [];
         await cacheProducts(rows as unknown as CachedProduct[]);
+        qc.setQueryData(["products", store.id], rows);
         return rows;
-      } catch {
-        const cached = await loadCachedProducts();
+      };
+      if (cached.length > 0) {
+        void refresh().catch(() => {});
         return cached as unknown as Product[];
       }
+      try { return await refresh(); } catch { return cached as unknown as Product[]; }
     },
   });
 
@@ -578,7 +566,7 @@ export function PosPage() {
   const removeLine = (id: string) => setCart((cur) => cur.filter((l) => l.product.id !== id));
   const clearCart = () => {
     setCart([]);
-    if (store?.id) void deleteMeta(`cart_draft:${store.id}`);
+    if (cartDraftKey) void deleteMeta(cartDraftKey);
     setAgeVerification(null);
     setDiscount(null);
     setLoyalty(null);
@@ -651,8 +639,7 @@ export function PosPage() {
 
   const queueOfflineCashSale = async (payment: CompletedPayment) => {
     const { data: sess } = await supabase.auth.getSession();
-    const cachedProfile = await readMeta<{ id?: string } | null>("profile");
-    const uid = sess.session?.user?.id ?? cachedProfile?.id ?? profile?.id ?? null;
+    const uid = sess.session?.user?.id ?? activeUserId ?? profile?.id ?? null;
     if (!uid) {
       throw new SaleError("auth", "You are signed out. Sign in while online, then try again.");
     }
@@ -671,7 +658,7 @@ export function PosPage() {
     const customerReceiptNumber = createLocalReceiptNumber(seq, deviceId, createdAt);
     let registerSessionId: string | null = null;
     try {
-      const rs = await readMeta<{ id: string } | null>("open_register_session");
+      const rs = await readMeta<{ id: string } | null>(registerKey);
       registerSessionId = rs?.id ?? null;
     } catch {
       // A cached register session is optional for offline cash checkout.

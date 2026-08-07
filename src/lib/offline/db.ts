@@ -228,6 +228,12 @@ export async function deleteMeta(key: string) {
   await db.delete("meta", key);
 }
 
+/** Employee-scoped local state prevents one cashier from inheriting another
+ * employee's cart, clock, or register state on a shared POS terminal. */
+export function employeeMetaKey(base: string, userId?: string | null): string {
+  return userId ? `${base}:${userId}` : base;
+}
+
 /* ---------- sales queue ---------- */
 export async function saveOfflineSale(sale: OfflineSale) {
   const db = await getDB();

@@ -47,6 +47,7 @@ import {
   saveOfflineCashMovement,
   getAllOfflineCashMovements,
   getAllOfflineSales,
+  employeeMetaKey,
 } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import { userFacingError } from "@/lib/user-error";
@@ -107,40 +108,45 @@ export function RegisterPage() {
   const { data: me } = useMe();
   const qc = useQueryClient();
   const storeId = me?.store?.id as string | undefined;
+  const userId = me?.user?.id as string | undefined;
+  const registerKey = employeeMetaKey("open_register_session", userId);
 
   const openSession = useQuery({
-    queryKey: ["register", "open", storeId],
-    enabled: !!storeId,
+    queryKey: ["register", "open", storeId, userId],
+    enabled: !!storeId && !!userId,
     queryFn: async (): Promise<Session | null> => {
-      if (!isOnlineNow()) return (await readMeta<Session | null>("open_register_session")) ?? null;
+      if (!isOnlineNow()) return (await readMeta<Session | null>(registerKey)) ?? null;
       const { data, error } = await sb
         .from("register_sessions")
         .select("*")
         .eq("store_id", storeId)
+        .eq("opened_by", userId)
         .eq("status", "open")
         .order("opened_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (error) return (await readMeta<Session | null>("open_register_session")) ?? null;
-      await cacheMeta("open_register_session", data ?? null).catch(() => {});
+      if (error) return (await readMeta<Session | null>(registerKey)) ?? null;
+      await cacheMeta(registerKey, data ?? null).catch(() => {});
       return data ?? null;
     },
   });
 
+  const historyKey = employeeMetaKey("register_history", userId);
   const history = useQuery({
-    queryKey: ["register", "history", storeId],
-    enabled: !!storeId,
+    queryKey: ["register", "history", storeId, userId],
+    enabled: !!storeId && !!userId,
     queryFn: async (): Promise<Session[]> => {
-      if (!isOnlineNow()) return (await readMeta<Session[]>("register_history")) ?? [];
+      if (!isOnlineNow()) return (await readMeta<Session[]>(historyKey)) ?? [];
       const { data, error } = await sb
         .from("register_sessions")
         .select("*")
         .eq("store_id", storeId)
+        .eq("opened_by", userId)
         .order("opened_at", { ascending: false })
         .limit(20);
-      if (error) return (await readMeta<Session[]>("register_history")) ?? [];
+      if (error) return (await readMeta<Session[]>(historyKey)) ?? [];
       const rows = (data ?? []) as Session[];
-      await cacheMeta("register_history", rows).catch(() => {});
+      await cacheMeta(historyKey, rows).catch(() => {});
       return rows;
     },
   });
@@ -175,6 +181,7 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
   const [opening, setOpening] = useState("100");
   const [notes, setNotes] = useState("");
   const { data: me } = useMe();
+  const registerKey = employeeMetaKey("open_register_session", me?.user?.id);
 
   const mut = useMutation({
     networkMode: "always",
@@ -200,7 +207,7 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
           status: "open",
           notes: notes || null,
         };
-        await cacheMeta("open_register_session", local);
+        await cacheMeta(registerKey, local);
         await saveOfflineAction({
           id: crypto.randomUUID(),
           idempotency_key: `register-open:${local.id}`,
@@ -226,7 +233,7 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
         .select()
         .single();
       if (error) throw error;
-      await cacheMeta("open_register_session", data).catch(() => {});
+      await cacheMeta(registerKey, data).catch(() => {});
       void logAudit({
         action: "register.open",
         entity: "register_session",

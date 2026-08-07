@@ -21,7 +21,10 @@ export function AuthRoute() {
       return;
     }
 
-    // If a session already exists (e.g. hot reload) bounce straight to POS.
+    // After shift close we intentionally return to employee selection. Do not
+    // bounce the previous employee back into POS just because their cached
+    // Supabase session still exists while offline.
+    if (localStorage.getItem("seza.employee_select_required") === "1") return;
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/pos", replace: true });
     });
