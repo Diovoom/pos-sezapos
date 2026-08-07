@@ -1,10 +1,15 @@
 package com.sezapos.device;
 
+import android.app.Activity;
 import android.app.Presentation;
 import android.content.Context;
 import android.hardware.display.DisplayManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Display;
+import android.view.MotionEvent;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.WebSettings;
@@ -30,11 +35,22 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
     private String lastPayload = "{}";
     private String storeName = "SEZA POS";
     private DisplayManager displayManager;
+    private static final String PREFS = "seza_customer_display";
+    private static final String PREF_ENABLED = "enabled";
+    private static final String PREF_DISPLAY_ID = "display_id";
+    private static final String PREF_STORE_NAME = "store_name";
 
     @Override
     public void load() {
         displayManager = (DisplayManager) getContext().getSystemService(Context.DISPLAY_SERVICE);
         displayManager.registerDisplayListener(this, null);
+
+        // A Presentation belongs to the Activity/process and disappears when Android
+        // recreates the WebView/Activity (for example after clearing cache from the
+        // launcher or after memory pressure). Persist the user's display choice in
+        // native SharedPreferences and restore it automatically whenever the plugin
+        // is recreated. This does not depend on WebView localStorage.
+        new Handler(Looper.getMainLooper()).postDelayed(this::restoreSavedPresentation, 350);
     }
 
     @PluginMethod
@@ -73,10 +89,11 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
                 // Always begin with a clean idle screen. The POS cart publisher will
                 // immediately replace this when a sale is already in progress.
                 lastPayload = idlePayload(storeName);
-                presentation = new CustomerPresentation(getContext(), display);
+                presentation = new CustomerPresentation(getContext(), display, getActivity());
                 presentation.show();
                 activeDisplayId = display.getDisplayId();
                 presentation.render(lastPayload);
+                savePresentationPreference(activeDisplayId, storeName);
 
                 // The customer Presentation is intentionally non-focusable. Request
                 // focus back on the cashier Activity as an extra safeguard for POS
@@ -111,6 +128,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
     public void stop(PluginCall call) {
         getActivity().runOnUiThread(() -> {
             stopPresentation();
+            clearPresentationPreference();
             call.resolve();
         });
     }
@@ -121,6 +139,55 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         result.put("running", presentation != null && presentation.isShowing());
         result.put("displayId", activeDisplayId);
         call.resolve(result);
+    }
+
+    private android.content.SharedPreferences displayPrefs() {
+        return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    private void savePresentationPreference(int displayId, String name) {
+        displayPrefs().edit()
+            .putBoolean(PREF_ENABLED, true)
+            .putInt(PREF_DISPLAY_ID, displayId)
+            .putString(PREF_STORE_NAME, name == null ? "SEZA POS" : name)
+            .apply();
+    }
+
+    private void clearPresentationPreference() {
+        displayPrefs().edit().putBoolean(PREF_ENABLED, false).apply();
+    }
+
+    private void restoreSavedPresentation() {
+        if (getActivity() == null || displayManager == null) return;
+        if (!displayPrefs().getBoolean(PREF_ENABLED, false)) return;
+        if (presentation != null && presentation.isShowing()) return;
+
+        int savedId = displayPrefs().getInt(PREF_DISPLAY_ID, -1);
+        storeName = displayPrefs().getString(PREF_STORE_NAME, "SEZA POS");
+        Display chosen = findSecondary(savedId);
+        // Display IDs can change after a cable reconnect or Android restart.
+        if (chosen == null) chosen = findSecondary(-1);
+        if (chosen == null) return;
+
+        final Display display = chosen;
+        getActivity().runOnUiThread(() -> {
+            try {
+                stopPresentation();
+                lastPayload = idlePayload(storeName);
+                presentation = new CustomerPresentation(getContext(), display, getActivity());
+                presentation.show();
+                activeDisplayId = display.getDisplayId();
+                presentation.render(lastPayload);
+                savePresentationPreference(activeDisplayId, storeName);
+                View decor = getActivity().getWindow() == null ? null : getActivity().getWindow().getDecorView();
+                if (decor != null) {
+                    decor.setFocusableInTouchMode(true);
+                    decor.requestFocus();
+                }
+            } catch (Exception ignored) {
+                stopPresentation();
+            }
+        });
     }
 
     private int primaryDisplayId() {
@@ -177,8 +244,25 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         super.handleOnDestroy();
     }
 
-    @Override public void onDisplayAdded(int id) {}
-    @Override public void onDisplayChanged(int id) {}
+    @Override
+    public void onDisplayAdded(int id) {
+        new Handler(Looper.getMainLooper()).postDelayed(this::restoreSavedPresentation, 250);
+    }
+
+    @Override
+    public void onDisplayChanged(int id) {
+        if (id != activeDisplayId || getActivity() == null) return;
+        getActivity().runOnUiThread(() -> {
+            if (presentation == null || !presentation.isShowing()) {
+                restoreSavedPresentation();
+            } else {
+                // Some dual-screen POS firmware briefly resets the presentation
+                // surface during display mode changes. Re-send the last frame so
+                // the customer screen does not appear frozen.
+                presentation.render(lastPayload);
+            }
+        });
+    }
 
     @Override
     public void onDisplayRemoved(int id) {
@@ -191,9 +275,11 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         private WebView webView;
         private boolean pageReady = false;
         private String pendingPayload = "{}";
+        private final Activity cashierActivity;
 
-        CustomerPresentation(Context context, Display display) {
+        CustomerPresentation(Context context, Display display, Activity cashierActivity) {
             super(context, display);
+            this.cashierActivity = cashierActivity;
         }
 
         @Override
@@ -209,9 +295,6 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
                 window.addFlags(
                     WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                         | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                        | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
                 );
                 window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
             }
@@ -223,8 +306,17 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             webView.setBackgroundColor(0xfff8fafc);
             webView.setFocusable(false);
             webView.setFocusableInTouchMode(false);
-            webView.setClickable(false);
+            webView.setClickable(true);
             webView.setLongClickable(false);
+
+            // A few dual-screen Android POS firmwares incorrectly attach the built-in
+            // touchscreen to the presentation display as soon as that display becomes
+            // active. The symptom is exactly: mouse still works on the cashier UI, a
+            // finger hides/moves the pointer, but taps do nothing. Keep the customer
+            // display visually non-interactive and proxy any touch events that Android
+            // routes here back into the cashier Activity. On devices with correct input
+            // routing this listener is never hit, so normal cashier touch is unchanged.
+            webView.setOnTouchListener((view, event) -> forwardTouchToCashier(view, event));
             webView.setWebViewClient(new WebViewClient() {
                 @Override
                 public void onPageFinished(WebView view, String url) {
@@ -234,6 +326,24 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             });
             setContentView(webView);
             webView.loadDataWithBaseURL(null, html(), "text/html", "UTF-8", null);
+        }
+
+        private boolean forwardTouchToCashier(View source, MotionEvent event) {
+            if (cashierActivity == null || cashierActivity.getWindow() == null) return true;
+            View target = cashierActivity.getWindow().getDecorView();
+            if (target == null || source.getWidth() <= 0 || source.getHeight() <= 0
+                || target.getWidth() <= 0 || target.getHeight() <= 0) return true;
+
+            MotionEvent forwarded = MotionEvent.obtain(event);
+            float mappedX = event.getX() * ((float) target.getWidth() / (float) source.getWidth());
+            float mappedY = event.getY() * ((float) target.getHeight() / (float) source.getHeight());
+            forwarded.setLocation(mappedX, mappedY);
+            try {
+                cashierActivity.dispatchTouchEvent(forwarded);
+            } finally {
+                forwarded.recycle();
+            }
+            return true;
         }
 
         void render(String payload) {
