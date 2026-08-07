@@ -122,7 +122,6 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
       {data.cardBrand && data.last4 && !data.paymentAllocations?.length && (
         <Row l="Card" r={`${data.cardBrand} ••${data.last4}`} />
       )}
-      {data.reference && <Row l="Ref" r={data.reference} />}
       {data.amountTendered != null && (
         <Row l="Tendered" r={fmtCurrency(data.amountTendered, cur)} />
       )}

@@ -35,15 +35,19 @@ export function NativeCustomerDisplayPanel({ storeId, storeName }: { storeId: st
   useEffect(() => {
     void (async () => {
       await refresh();
-      const saved = Number(localStorage.getItem("pos.hardware.customerDisplayId"));
+      const savedRaw = localStorage.getItem("pos.hardware.customerDisplayId");
+      const saved = savedRaw == null ? -1 : Number(savedRaw);
       if (Number.isInteger(saved) && saved >= 0) {
         try {
-          await startNativeCustomerDisplay(saved, storeId, storeName);
+          const current = await nativeCustomerDisplayStatus();
+          if (!current.running || current.displayId !== saved) {
+            await startNativeCustomerDisplay(saved, storeId, storeName);
+          }
           setRunning(true); setActiveId(saved);
         } catch { /* display may be unplugged; leave setup available */ }
       }
     })();
-  }, [storeId]);
+  }, [storeId, storeName]);
 
   const sendPreview = async () => {
     await publishCustomerDisplay({
@@ -100,7 +104,6 @@ export function NativeCustomerDisplayPanel({ storeId, storeName }: { storeId: st
                   localStorage.setItem("pos.hw.display.status", "connected");
                   localStorage.setItem("pos.hw.display.lastSeen", String(Date.now()));
                   setRunning(true); setActiveId(display.displayId);
-                  await sendPreview();
                   toast.success("Customer display started");
                 } catch (error) {
                   toast.error(userFacingError(error, "Could not start the customer display"));

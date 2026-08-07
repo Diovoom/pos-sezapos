@@ -7,7 +7,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fmtCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -108,10 +107,8 @@ export function PaymentDialog({
       >
         <DialogContent
           // Full-height flex column so children can carve out a scrollable
-          // body between a fixed header and a fixed action footer. Uses
-          // `dvh` (dynamic viewport) so the on-screen keyboard doesn't
-          // clip the action buttons on Android WebView, and adds
-          // safe-area bottom padding for Android nav gestures.
+          // body between a fixed header and action footer. Cash entry uses an
+          // in-app keypad, so Android's oversized system keyboard stays closed.
           className={cn(
             "p-0 gap-0 overflow-hidden",
             "flex flex-col",
@@ -161,7 +158,66 @@ export function PaymentDialog({
 
 /* -------- Cash -------- */
 
-const QUICK = [1, 5, 10, 20, 50, 100];
+const QUICK = [5, 10, 20, 50, 100];
+
+function appendMoneyKey(value: string, key: string) {
+  if (key === ".") {
+    if (value.includes(".")) return value;
+    return value ? `${value}.` : "0.";
+  }
+
+  const [whole, decimal = ""] = value.split(".");
+  if (value.includes(".") && decimal.length >= 2) return value;
+  if (!value.includes(".") && whole.length >= 7) return value;
+  if (!value || value === "0") return key;
+  return `${value}${key}`;
+}
+
+function MoneyKeypad({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+}) {
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"];
+  return (
+    <div className="space-y-2" aria-label={label}>
+      <div className="grid grid-cols-3 gap-2">
+        {keys.map((key) => (
+          <Button
+            key={key}
+            type="button"
+            variant="outline"
+            className="h-11 text-lg font-semibold"
+            onClick={() => onChange(appendMoneyKey(value, key))}
+          >
+            {key}
+          </Button>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 text-lg font-semibold"
+          aria-label="Delete last digit"
+          onClick={() => onChange(value.slice(0, -1))}
+        >
+          ⌫
+        </Button>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-9 w-full text-sm text-muted-foreground"
+        onClick={() => onChange("")}
+      >
+        Clear amount
+      </Button>
+    </div>
+  );
+}
 
 function CashPanel({
   total,
@@ -197,44 +253,33 @@ function CashPanel({
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-4">
         <div className="space-y-2">
           <Label>Amount received</Label>
-          <Input
-            autoFocus
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            value={tenderedStr}
-            onChange={(e) => setTenderedStr(e.target.value)}
-            placeholder="0.00"
-            className="h-14 text-2xl font-mono text-right"
-          />
+          <div
+            role="textbox"
+            aria-readonly="true"
+            aria-label="Amount received"
+            className="flex h-14 items-center justify-end rounded-md border bg-background px-3 text-2xl font-mono"
+          >
+            {tenderedStr || "0.00"}
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2">
+          <Button type="button" variant="outline" onClick={() => setTenderedStr(total.toFixed(2))}>
+            Exact
+          </Button>
           {QUICK.map((v) => (
             <Button
               key={v}
+              type="button"
               variant="outline"
               onClick={() => setTenderedStr(String(Math.max(v, Math.ceil(total / v) * v)))}
             >
-              {fmtCurrency(v, currency)}
+              {fmtCurrency(Math.max(v, Math.ceil(total / v) * v), currency)}
             </Button>
           ))}
-          <Button variant="outline" onClick={() => setTenderedStr(total.toFixed(2))}>
-            Exact
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setTenderedStr(String(Math.ceil(total / 5) * 5))}
-          >
-            Next $5
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setTenderedStr(String(Math.ceil(total / 10) * 10))}
-          >
-            Next $10
-          </Button>
         </div>
+
+        <MoneyKeypad value={tenderedStr} onChange={setTenderedStr} label="Cash amount keypad" />
 
         <div className="rounded-lg border bg-surface/40 p-4 flex items-center justify-between">
           <div>
@@ -388,36 +433,50 @@ function SplitPanel({
         </div>
         <div className="space-y-2">
           <Label>Cash amount</Label>
-          <Input
-            type="number"
-            inputMode="decimal"
-            min="0"
-            max={total}
-            step="0.01"
-            value={cashText}
-            onChange={(e) => {
-              setCashText(e.target.value);
-              setResult(null);
-              setEvent({ status: "idle", message: "Ready" });
-            }}
-            placeholder="0.00"
-            className="h-14 text-right text-2xl font-mono"
-          />
+          <div
+            role="textbox"
+            aria-readonly="true"
+            aria-label="Cash amount"
+            className="flex h-14 items-center justify-end rounded-md border bg-background px-3 text-2xl font-mono"
+          >
+            {cashText || "0.00"}
+          </div>
           <div className="grid grid-cols-4 gap-2">
             {[0.25, 0.5, 0.75].map((portion) => (
               <Button
                 key={portion}
                 type="button"
                 variant="outline"
-                onClick={() => setCashText((total * portion).toFixed(2))}
+                onClick={() => {
+                  setCashText((total * portion).toFixed(2));
+                  setResult(null);
+                  setEvent({ status: "idle", message: "Ready" });
+                }}
               >
                 {portion * 100}%
               </Button>
             ))}
-            <Button type="button" variant="outline" onClick={() => setCashText(total.toFixed(2))}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setCashText(total.toFixed(2));
+                setResult(null);
+                setEvent({ status: "idle", message: "Ready" });
+              }}
+            >
               All cash
             </Button>
           </div>
+          <MoneyKeypad
+            value={cashText}
+            label="Split payment cash keypad"
+            onChange={(value) => {
+              setCashText(value);
+              setResult(null);
+              setEvent({ status: "idle", message: "Ready" });
+            }}
+          />
         </div>
         {remaining > 0 && (
           <div className="rounded-2xl border p-4">

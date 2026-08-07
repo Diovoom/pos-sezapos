@@ -1,7 +1,7 @@
 import { isNativeMode } from "@/lib/native";
 
 export const SEZA_APP_VERSION = "1.3.3";
-export const SEZA_APP_BUILD = 8;
+export const SEZA_APP_BUILD = 9;
 export const SEZA_APP_UPDATE_EVENT = "seza-app-update-available";
 
 export type SezaVersionManifest = {

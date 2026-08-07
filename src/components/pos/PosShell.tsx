@@ -65,7 +65,10 @@ import { sendPosHeartbeat } from "@/lib/pos/heartbeat";
 import { pendingCounts } from "@/lib/offline/sync";
 import { PosManagerDashboardDialog } from "@/components/pos/PosManagerDashboardDialog";
 import { usbPrinterReady } from "@/lib/hardware/escpos-usb";
-import { nativeCustomerDisplayStatus } from "@/lib/hardware/customer-display-native";
+import {
+  nativeCustomerDisplayStatus,
+  startNativeCustomerDisplay,
+} from "@/lib/hardware/customer-display-native";
 
 const POS_NAV: ReadonlyArray<{ to: string; labelKey: string; icon: typeof ScanBarcode }> = [];
 
@@ -88,6 +91,7 @@ export function PosShell({ children }: { children: ReactNode }) {
   const permissions = usePermissions();
   useStoreLanguageSync();
   const storeId = me?.store?.id as string | undefined;
+  const storeName = (me?.store?.name as string | undefined) ?? "SEZA POS";
   // Every signed-in register employee needs the core cashier navigation.
   // Actual sensitive actions remain protected inside their workflows with a
   // manager approval PIN; hiding the route made cashiers unable to request a
@@ -213,6 +217,31 @@ export function PosShell({ children }: { children: ReactNode }) {
     const timer = window.setInterval(beat, 20_000);
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [isNativeShell, storeId, me?.user?.id, me?.profile?.full_name, openShift.data?.id]);
+
+  useEffect(() => {
+    if (!isNativeShell || !storeId) return;
+    const savedDisplayRaw = localStorage.getItem("pos.hardware.customerDisplayId");
+    if (savedDisplayRaw == null) return;
+    const savedDisplayId = Number(savedDisplayRaw);
+    if (!Number.isInteger(savedDisplayId) || savedDisplayId < 0) return;
+
+    let cancelled = false;
+    void startNativeCustomerDisplay(savedDisplayId, storeId, storeName)
+      .then(() => {
+        if (cancelled) return;
+        setDisplayRunning(true);
+        localStorage.setItem("pos.hw.display.status", "connected");
+        localStorage.setItem("pos.hw.display.lastSeen", String(Date.now()));
+        window.dispatchEvent(new Event("seza-hardware-status"));
+      })
+      .catch(() => {
+        if (!cancelled) setDisplayRunning(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isNativeShell, storeId, storeName]);
 
   useEffect(() => {
     if (!isNativeShell) return;

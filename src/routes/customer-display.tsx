@@ -239,8 +239,7 @@ export function CustomerDisplayPage() {
         ) : sale.lines.length === 0 ? (
           <div className="h-full min-h-[320px] grid place-items-center text-center">
             <div>
-              <p className="text-3xl font-semibold">Welcome</p>
-              <p className="mt-3 text-lg text-white/55">Your items will appear here.</p>
+              <p className="text-5xl md:text-7xl font-black tracking-tight">Welcome</p>
             </div>
           </div>
         ) : (
@@ -265,7 +264,7 @@ export function CustomerDisplayPage() {
         )}
       </section>
 
-      {!completed && (
+      {!completed && sale.lines.length > 0 && (
         <footer className="border-t border-white/15 pt-6">
           <div className="ml-auto max-w-xl space-y-2 text-lg">
             <MoneyRow label="Subtotal" value={fmtCurrency(sale.subtotal, sale.currency)} />

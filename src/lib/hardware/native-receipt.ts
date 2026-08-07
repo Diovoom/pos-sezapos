@@ -93,7 +93,6 @@ export function receiptDataToPayload(
   const footer: string[] = [];
   if (d.store.return_policy) footer.push(String(d.store.return_policy));
   if (d.store.receipt_footer) footer.push(String(d.store.receipt_footer));
-  footer.push(`Ref: ${d.transactionId.slice(0, 8).toUpperCase()}`);
 
   return {
     storeName: d.store.name ?? "Store",
