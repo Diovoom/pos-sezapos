@@ -5,6 +5,9 @@
   "mandatory": false,
   "updateUrl": "https://sezapos.com/support",
   "releaseNotes": [
+    "Reworked Android customer display into a dedicated secondary-display activity so the cashier touchscreen remains on the primary display",
+    "Hardened printed receipts to remove processor/reference lines and show cashier as first name plus last initial",
+    "Improved customer-display persistence and refresh behavior on display reconnects",
     "Added layered login, signup, API, admin, messaging, and database write rate limits",
     "Added optional Turnstile verification and server-side owner/admin role checks",
     "Reduced repeated dashboard polling and hardened request size, origin, and secret-key checks",

@@ -24,6 +24,15 @@ export function compactReceiptCashierName(value?: string | null): string {
   return lastInitial ? `${parts[0]} ${lastInitial}.` : parts[0];
 }
 
+
+function sanitizeReceiptBlock(value?: string | null): string {
+  return String(value ?? "")
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*(?:ref|reference|transaction\s*(?:ref|reference|id)|payment\s*(?:ref|reference|id))\s*:/i.test(line))
+    .join("\n")
+    .trim();
+}
+
 export type ReceiptData = {
   store: {
     name?: string | null;
@@ -88,7 +97,7 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
       {data.cashierName && (
         <Row
           l="Cashier"
-          r={`${compactReceiptCashierName(data.cashierName)}${data.employeeId ? ` (#${data.employeeId})` : ""}`}
+          r={compactReceiptCashierName(data.cashierName)}
         />
       )}
       {data.customerName && <Row l="Customer" r={data.customerName} />}
@@ -139,15 +148,15 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
 
       <Divider />
 
-      {data.store.return_policy && (
+      {sanitizeReceiptBlock(data.store.return_policy) && (
         <>
           <Divider />
-          <div className="text-center text-[10px]">{data.store.return_policy}</div>
+          <div className="text-center text-[10px] whitespace-pre-line">{sanitizeReceiptBlock(data.store.return_policy)}</div>
         </>
       )}
 
-      {data.store.receipt_footer && (
-        <div className="text-center mt-2 font-semibold">{data.store.receipt_footer}</div>
+      {sanitizeReceiptBlock(data.store.receipt_footer) && (
+        <div className="text-center mt-2 font-semibold whitespace-pre-line">{sanitizeReceiptBlock(data.store.receipt_footer)}</div>
       )}
 
       <div className="text-center text-[10px] mt-2 opacity-70">

@@ -80,6 +80,27 @@ function pad(str: string, width: number, right = false): string {
   return right ? gap + str : str + gap;
 }
 
+
+function sanitizeReceiptText(value: string): string[] {
+  return String(value ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => {
+      const normalized = line.trim();
+      if (!normalized) return false;
+      return !/^(?:ref|reference|transaction\s*(?:ref|reference|id)|payment\s*(?:ref|reference|id))\s*:/i.test(normalized);
+    });
+}
+
+function compactCashierName(value?: string): string {
+  const cleaned = String(value ?? "").trim();
+  if (!cleaned) return "";
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0];
+  const initial = parts[parts.length - 1]?.charAt(0).toUpperCase();
+  return initial ? `${parts[0]} ${initial}.` : parts[0];
+}
+
 function money(n: number, currency = "USD"): string {
   try {
     return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(n);
@@ -96,11 +117,12 @@ export function buildReceipt(p: ReceiptPayload): Uint8Array {
 
   parts.push(CMD.align("center"), CMD.bold(true), CMD.size(2), enc.encode(p.storeName + "\n"));
   parts.push(CMD.size(1), CMD.bold(false));
-  for (const line of p.header ?? []) parts.push(enc.encode(line + "\n"));
+  for (const raw of p.header ?? []) for (const line of sanitizeReceiptText(raw)) parts.push(enc.encode(line + "\n"));
 
   parts.push(CMD.align("left"), enc.encode("-".repeat(cols) + "\n"));
   parts.push(enc.encode(`Ticket:  ${p.ticketNumber}\n`));
-  if (p.cashierName) parts.push(enc.encode(`Cashier: ${p.cashierName}\n`));
+  const cashier = compactCashierName(p.cashierName);
+  if (cashier) parts.push(enc.encode(`Cashier: ${cashier}\n`));
   parts.push(enc.encode(`Date:    ${new Date(p.timestamp).toLocaleString()}\n`));
   parts.push(enc.encode("-".repeat(cols) + "\n"));
 
@@ -145,7 +167,7 @@ export function buildReceipt(p: ReceiptPayload): Uint8Array {
   if (typeof p.change === "number" && p.change > 0) row("Change", money(p.change, currency));
 
   parts.push(enc.encode("\n"), CMD.align("center"));
-  for (const line of p.footer ?? []) parts.push(enc.encode(line + "\n"));
+  for (const raw of p.footer ?? []) for (const line of sanitizeReceiptText(raw)) parts.push(enc.encode(line + "\n"));
   parts.push(enc.encode("\n\n"));
   parts.push(CMD.charSpacing(0), CMD.feed(1), CMD.cut());
 
