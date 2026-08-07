@@ -136,5 +136,8 @@
       "entities": "4.5.0"
     }
   },
-  "version": "1.3.3"
+  "version": "1.3.3",
+  "overrides": {
+    "fast-fifo": "1.3.2"
+  }
 }
