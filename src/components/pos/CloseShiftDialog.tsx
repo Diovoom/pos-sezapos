@@ -494,6 +494,7 @@ export function CloseShiftDialog({
       await Promise.all([
         deleteMeta("open_register_session").catch(() => {}),
         deleteMeta("timeclock_open").catch(() => {}),
+        deleteMeta("authenticated_me_current_user").catch(() => {}),
       ]);
       qc.clear();
 

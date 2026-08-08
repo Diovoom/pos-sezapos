@@ -21,6 +21,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.sezapos.app.MainActivity;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -189,17 +190,32 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             presentation = null;
         }
         activeDisplayId = -1;
+        refocusCashier();
     }
 
     private void refocusCashier() {
         if (getActivity() == null || getActivity().getWindow() == null) return;
+
+        // The secondary Presentation is output-only. Explicitly restore the
+        // built-in cashier Activity/WebView because some dual-screen POS
+        // firmware changes window focus/input routing when a Presentation is
+        // attached even when that Presentation itself is NOT_FOCUSABLE.
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).ensureCashierInteraction();
+            return;
+        }
+
         View decor = getActivity().getWindow().getDecorView();
+        getActivity().getWindow().clearFlags(
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        );
+        decor.setEnabled(true);
+        decor.setClickable(true);
+        decor.setFocusable(true);
         decor.setFocusableInTouchMode(true);
         decor.requestFocus();
-        decor.postDelayed(() -> {
-            decor.setFocusableInTouchMode(true);
-            decor.requestFocus();
-        }, 100);
+        decor.postDelayed(decor::requestFocus, 150);
     }
 
     private int primaryDisplayId() {
@@ -255,18 +271,27 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         super.handleOnDestroy();
     }
 
-    @Override public void onDisplayAdded(int id) { main.postDelayed(this::restoreSavedDisplay, 300); }
+    @Override public void onDisplayAdded(int id) {
+        main.postDelayed(this::restoreSavedDisplay, 300);
+        main.postDelayed(this::refocusCashier, 500);
+    }
 
     @Override
     public void onDisplayChanged(int id) {
         if (id == activeDisplayId && presentation != null) {
-            main.post(() -> presentation.render(lastPayload));
+            main.post(() -> {
+                presentation.render(lastPayload);
+                refocusCashier();
+            });
         }
     }
 
     @Override
     public void onDisplayRemoved(int id) {
-        if (id == activeDisplayId) main.post(this::dismissPresentation);
+        if (id == activeDisplayId) main.post(() -> {
+            dismissPresentation();
+            refocusCashier();
+        });
     }
 
     private class CustomerPresentation extends Presentation {
@@ -276,6 +301,21 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
 
         CustomerPresentation(Context context, Display display) {
             super(context, display);
+        }
+
+        @Override
+        protected void onStart() {
+            super.onStart();
+            Window window = getWindow();
+            if (window != null) {
+                window.addFlags(
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                        | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+                );
+            }
+            main.post(SezaCustomerDisplayPlugin.this::refocusCashier);
         }
 
         @Override

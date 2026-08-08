@@ -9,6 +9,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { SEZA_LOGO_URL } from "../logo";
 import { API_BASE_URL, supabase } from "../supabase";
 import { clearPairing, getPairing } from "../lib/pairing";
+import { cacheMeta, deleteMeta } from "@/lib/offline/db";
 
 type Stage = "pin" | "id_then_pin";
 
@@ -210,6 +211,10 @@ export function AuthScreen() {
         token_hash: data.token_hash, type: "magiclink",
       });
       if (otpErr) { setError(otpErr.message); setPin(""); return; }
+      if (verified.session?.user?.id) {
+        await cacheMeta("authenticated_me_current_user", verified.session.user.id).catch(() => {});
+        await deleteMeta("authenticated_me").catch(() => {});
+      }
       if (pairing && verified.session?.user?.id) {
         await rememberOfflinePin(pin, pairing.deviceSecret, pairing.storeId, verified.session.user.id).catch(() => {});
       }

@@ -56,6 +56,7 @@ export function useMe() {
         };
 
         await Promise.all([
+          cacheMeta("authenticated_me_current_user", sessionUser.id).catch(() => {}),
           cacheMeta(scopedKey, result).catch(() => {}),
           cacheMeta(profileKeyForUser(sessionUser.id), profile ?? null).catch(() => {}),
           profileStoreId

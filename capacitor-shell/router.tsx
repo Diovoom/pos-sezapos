@@ -82,11 +82,6 @@ const PaymentTerminalPage = lazyNamed<ComponentType>(
   () => import("@/components/pos/PaymentTerminalPage"),
   "PaymentTerminalPage",
 );
-const CustomerDisplayPage = lazyNamed<ComponentType>(
-  () => import("@/routes/customer-display"),
-  "CustomerDisplayPage",
-);
-
 
 function RouteSkeleton() {
   return (
@@ -187,21 +182,10 @@ const shellRoute = (
     ),
   });
 
-const customerDisplayRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/customer-display",
-  component: () => (
-    <LazyScreen>
-      <CustomerDisplayPage />
-    </LazyScreen>
-  ),
-});
-
 const routeTree = rootRoute.addChildren([
   indexRoute,
   authRoute,
   pairRoute,
-  customerDisplayRoute,
   shellRoute("/pos", PosPage),
   shellRoute("/register", RegisterPage),
   shellRoute("/refunds", RefundsPage),
@@ -221,10 +205,6 @@ function initialShellEntry(): string {
   if (typeof window === "undefined") return "/";
   try {
     const url = new URL(window.location.href);
-    if (url.searchParams.get("sezaCustomerDisplay") === "1") {
-      const store = url.searchParams.get("store") ?? "";
-      return `/customer-display?store=${encodeURIComponent(store)}`;
-    }
     return url.pathname && url.pathname !== "/" ? `${url.pathname}${url.search}` : "/";
   } catch {
     return "/";

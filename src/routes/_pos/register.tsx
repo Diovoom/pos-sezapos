@@ -288,6 +288,8 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
 
 function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: () => void }) {
   const { data: me } = useMe();
+  const userId = me?.user?.id as string | undefined;
+  const storeId = me?.store?.id as string | undefined;
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [payoutOpen, setPayoutOpen] = useState(false);
@@ -521,6 +523,30 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
         session={session}
         store={me?.store ?? null}
         cashierUserId={me?.user?.id}
+        beforeSignOut={async () => {
+          if (!userId) return;
+          const key = `timeclock_open:${userId}`;
+          const current = await readMeta<any>(key).catch(() => null);
+          if (!current) return; // idempotent: already clocked out is success
+          const occurredAt = new Date().toISOString();
+          const closed = { ...current, clock_out: occurredAt, break_start: null };
+          const historyKey = `timeclock_history:${userId}`;
+          const history = (await readMeta<any[]>(historyKey).catch(() => [])) ?? [];
+          await cacheMeta(historyKey, [closed, ...history.filter((row) => row.id !== closed.id)].slice(0, 20));
+          await cacheMeta(key, null);
+          await saveOfflineAction({
+            id: crypto.randomUUID(),
+            idempotency_key: `timeclock:${userId}:clock_out:${occurredAt}`,
+            kind: "timeclock",
+            store_id: storeId ?? session.store_id,
+            user_id: userId,
+            payload: { action: "clock_out", occurredAt },
+            local_created_at: occurredAt,
+            status: "pending",
+            attempts: 0,
+          });
+          if (isOnlineNow()) void import("@/lib/offline/sync").then(({ syncNow }) => syncNow().catch(() => {}));
+        }}
         onClosed={() => {
           setCloseOpen(false);
           onChanged();

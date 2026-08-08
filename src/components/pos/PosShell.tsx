@@ -186,6 +186,7 @@ export function PosShell({ children }: { children: ReactNode }) {
     // stay intact and are already keyed by employee/store.
     await Promise.all([
       deleteMeta("authenticated_me").catch(() => {}),
+      deleteMeta("authenticated_me_current_user").catch(() => {}),
       deleteMeta("profile").catch(() => {}),
       deleteMeta("timeclock_open").catch(() => {}),
       deleteMeta("open_register_session").catch(() => {}),

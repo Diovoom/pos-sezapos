@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabase";
 import { SEZA_LOGO_URL } from "../logo";
-import { readMeta } from "@/lib/offline/db";
+import { loadCachedProducts, readMeta } from "@/lib/offline/db";
 
 type Step = { id: string; label: string };
 const STEPS: Step[] = [
   { id: "session", label: "Loading employee…" },
   { id: "store", label: "Loading store…" },
-  { id: "register", label: "Loading register…" },
+  { id: "clock", label: "Loading clock & register…" },
+  { id: "catalog", label: "Loading products & categories…" },
   { id: "ready", label: "Ready" },
 ];
 
@@ -58,12 +59,28 @@ export function BrandedBootScreen({ onReady }: { onReady: () => void }) {
       }
       await pause(220);
 
+      // The first visible register frame must already know this employee's
+      // local clock/register state. Never let a late cloud response decide
+      // whether the cashier appears clocked in after the screen is shown.
       setStepIndex(2);
-      // The register itself is local-first; do not block startup on product,
-      // shift, or permission cloud calls. Those hydrate behind this screen.
-      await pause(520);
+      const storeId = cachedMe?.profile?.store_id ?? cachedMe?.store?.id ?? null;
+      await Promise.all([
+        readMeta(`timeclock_open:${user.id}`).catch(() => undefined),
+        readMeta(`open_register_session:${user.id}`).catch(() => undefined),
+        readMeta(`register_history:${user.id}`).catch(() => undefined),
+      ]);
+
+      // Products/categories are local-first too. Reading them here makes the
+      // branded loader a real readiness boundary rather than a timed splash.
       setStepIndex(3);
-      await pause(220);
+      await Promise.all([
+        loadCachedProducts().catch(() => []),
+        storeId ? readMeta(`categories:${storeId}`).catch(() => []) : Promise.resolve([]),
+        storeId ? readMeta(`cart_draft:${storeId}:${user.id}`).catch(() => []) : Promise.resolve([]),
+      ]);
+
+      setStepIndex(4);
+      await pause(120);
       if (!cancelled) onReady();
     })();
 
