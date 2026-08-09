@@ -331,6 +331,14 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                         | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
                 );
+
+                // Passive customer display must not own an Android input channel.
+                // This prevents dual-screen POS firmware from rerouting the
+                // physical touchscreen away from the built-in cashier display.
+                WindowManager.LayoutParams attrs = window.getAttributes();
+                attrs.inputFeatures |= WindowManager.LayoutParams.INPUT_FEATURE_NO_INPUT_CHANNEL;
+                window.setAttributes(attrs);
+
                 window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
             }
 
