@@ -327,27 +327,13 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
                 window.addFlags(
                     WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                         | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                         | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
                 );
 
-                // Passive customer display should not own an Android input channel.
-                // inputFeatures / INPUT_FEATURE_NO_INPUT_CHANNEL are hidden Android APIs,
-                // so access them reflectively to keep this app buildable with the public SDK.
-                try {
-                    WindowManager.LayoutParams attrs = window.getAttributes();
-                    java.lang.reflect.Field inputFeaturesField =
-                        WindowManager.LayoutParams.class.getField("inputFeatures");
-                    int currentInputFeatures = inputFeaturesField.getInt(attrs);
-                    // Android's INPUT_FEATURE_NO_INPUT_CHANNEL value is 0x00000002.
-                    inputFeaturesField.setInt(attrs, currentInputFeatures | 0x00000002);
-                    window.setAttributes(attrs);
-                } catch (Throwable ignored) {
-                    // Some Android builds block hidden-API reflection. The Presentation
-                    // remains NOT_TOUCHABLE / NOT_FOCUSABLE as the safe fallback.
-                }
-
+                // Keep the secondary customer Presentation non-focusable.
+                // Do not use hidden InputChannel APIs here; those can break the
+                // Presentation window on Android-x86/Bliss POS hardware.
                 window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
             }
 
@@ -362,7 +348,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             webView.setFocusableInTouchMode(false);
             webView.setClickable(false);
             webView.setLongClickable(false);
-            webView.setOnTouchListener((v, event) -> true);
+            webView.setOnTouchListener(null);
             webView.setWebViewClient(new WebViewClient() {
                 @Override public void onPageFinished(WebView view, String url) {
                     pageReady = true;
