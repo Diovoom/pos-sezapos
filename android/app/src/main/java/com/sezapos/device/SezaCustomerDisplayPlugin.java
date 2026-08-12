@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
 import android.view.Display;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -95,7 +96,6 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         main.post(() -> {
             try {
                 showPresentation(chosen);
-                refocusCashier();
                 JSObject result = new JSObject();
                 result.put("started", true);
                 result.put("displayId", chosen.getDisplayId());
@@ -163,7 +163,6 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         final Display target = chosen;
         main.post(() -> {
             showPresentation(target);
-            refocusCashier();
         });
     }
 
@@ -190,32 +189,11 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             presentation = null;
         }
         activeDisplayId = -1;
-        refocusCashier();
     }
 
     private void refocusCashier() {
-        if (getActivity() == null || getActivity().getWindow() == null) return;
-
-        // The secondary Presentation is output-only. Explicitly restore the
-        // built-in cashier Activity/WebView because some dual-screen POS
-        // firmware changes window focus/input routing when a Presentation is
-        // attached even when that Presentation itself is NOT_FOCUSABLE.
-        if (getActivity() instanceof MainActivity) {
-            ((MainActivity) getActivity()).ensureCashierInteraction();
-            return;
-        }
-
-        View decor = getActivity().getWindow().getDecorView();
-        getActivity().getWindow().clearFlags(
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        );
-        decor.setEnabled(true);
-        decor.setClickable(true);
-        decor.setFocusable(true);
-        decor.setFocusableInTouchMode(true);
-        decor.requestFocus();
-        decor.postDelayed(decor::requestFocus, 150);
+        // Intentionally empty. Never force Android window/WebView focus when
+        // the customer display is activated.
     }
 
     private int primaryDisplayId() {
@@ -260,7 +238,6 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         if (isEnabled() && (presentation == null || !presentation.isShowing())) {
             main.postDelayed(this::restoreSavedDisplay, 200);
         } else {
-            refocusCashier();
         }
     }
 
@@ -273,25 +250,18 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
 
     @Override public void onDisplayAdded(int id) {
         main.postDelayed(this::restoreSavedDisplay, 300);
-        main.postDelayed(this::refocusCashier, 500);
     }
 
     @Override
     public void onDisplayChanged(int id) {
         if (id == activeDisplayId && presentation != null) {
-            main.post(() -> {
-                presentation.render(lastPayload);
-                refocusCashier();
-            });
+            main.post(() -> presentation.render(lastPayload));
         }
     }
 
     @Override
     public void onDisplayRemoved(int id) {
-        if (id == activeDisplayId) main.post(() -> {
-            dismissPresentation();
-            refocusCashier();
-        });
+        if (id == activeDisplayId) main.post(this::dismissPresentation);
     }
 
     private class CustomerPresentation extends Presentation {
@@ -310,12 +280,9 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             if (window != null) {
                 window.addFlags(
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                        | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
                 );
             }
-            main.post(SezaCustomerDisplayPlugin.this::refocusCashier);
         }
 
         @Override
@@ -328,7 +295,6 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
                     WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                         | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                        | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
                 );
 
                 // Keep the secondary customer Presentation non-focusable.
@@ -346,9 +312,8 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             webView.setBackgroundColor(0xfff8fafc);
             webView.setFocusable(false);
             webView.setFocusableInTouchMode(false);
-            webView.setClickable(false);
+            webView.setClickable(true);
             webView.setLongClickable(false);
-            webView.setOnTouchListener(null);
             webView.setWebViewClient(new WebViewClient() {
                 @Override public void onPageFinished(WebView view, String url) {
                     pageReady = true;
@@ -357,6 +322,20 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             });
             setContentView(webView);
             webView.loadDataWithBaseURL(null, html(), "text/html", "UTF-8", null);
+        }
+
+        @Override
+        public boolean dispatchTouchEvent(MotionEvent event) {
+            if (event != null && getActivity() instanceof MainActivity) {
+                View content = getWindow() != null ? getWindow().getDecorView() : null;
+                int width = content != null ? Math.max(1, content.getWidth()) : 1;
+                int height = content != null ? Math.max(1, content.getHeight()) : 1;
+                ((MainActivity) getActivity()).forwardCustomerDisplayTouch(event, width, height);
+                // Customer display is output-only. Consume the event here so it
+                // never activates anything on the customer-facing WebView.
+                return true;
+            }
+            return super.dispatchTouchEvent(event);
         }
 
         void render(String payload) {

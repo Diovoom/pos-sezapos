@@ -21,7 +21,7 @@ import { isNativeMode } from "@/lib/native";
 const initialState: DeviceControlState = {
   launchOnBoot: false,
   keepAwake: true,
-  immersive: true,
+  immersive: false,
   inLockTask: false,
   deviceOwner: false,
 };

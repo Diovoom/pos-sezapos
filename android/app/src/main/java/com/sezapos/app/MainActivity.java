@@ -1,8 +1,8 @@
 package com.sezapos.app;
 
 import android.os.Bundle;
+import android.view.MotionEvent;
 import android.view.View;
-import android.view.WindowManager;
 import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
@@ -24,69 +24,37 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SezaCustomerDisplayPlugin.class);
         super.onCreate(savedInstanceState);
         SezaDeviceControlPlugin.applyWindowPreferences(this);
-        ensureCashierInteraction();
     }
 
     @Override
-public void onResume() {
+    public void onResume() {
         super.onResume();
         SezaDeviceControlPlugin.applyWindowPreferences(this);
-        ensureCashierInteraction();
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) {
-            SezaDeviceControlPlugin.applyWindowPreferences(this);
-            ensureCashierInteraction();
-        }
     }
 
     /**
-     * Keep the built-in cashier display as the only interactive window.
-     * Secondary customer displays are passive Presentations and must never
-     * leave the Capacitor Activity/WebView non-focusable or non-touchable.
+     * Bliss/Android-x86 can associate the physical front touch panel with the
+     * secondary display after a Presentation is shown. When that happens the
+     * Presentation forwards the local touch coordinates here and we dispatch
+     * them directly to the cashier Capacitor WebView.
      */
-    public void ensureCashierInteraction() {
+    public void forwardCustomerDisplayTouch(MotionEvent source, int sourceWidth, int sourceHeight) {
+        if (source == null || sourceWidth <= 0 || sourceHeight <= 0) return;
+
+        final MotionEvent copy = MotionEvent.obtain(source);
         runOnUiThread(() -> {
-            if (getWindow() == null) return;
+            try {
+                if (getWindow() == null) return;
+                WebView cashier = findCapacitorWebView(getWindow().getDecorView());
+                if (cashier == null || cashier.getWidth() <= 0 || cashier.getHeight() <= 0) return;
 
-            getWindow().clearFlags(
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                    | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            );
-
-            View decor = getWindow().getDecorView();
-            decor.setEnabled(true);
-            decor.setClickable(true);
-            decor.setFocusable(true);
-            decor.setFocusableInTouchMode(true);
-            decor.requestFocus();
-
-            View content = findViewById(android.R.id.content);
-            if (content != null) {
-                content.setEnabled(true);
-                content.setFocusable(true);
-                content.setFocusableInTouchMode(true);
+                float x = copy.getX() * ((float) cashier.getWidth() / (float) sourceWidth);
+                float y = copy.getY() * ((float) cashier.getHeight() / (float) sourceHeight);
+                copy.setLocation(x, y);
+                cashier.dispatchTouchEvent(copy);
+            } finally {
+                copy.recycle();
             }
-
-            WebView webView = findCapacitorWebView(decor);
-            if (webView != null) {
-                webView.setEnabled(true);
-                webView.setClickable(true);
-                webView.setFocusable(true);
-                webView.setFocusableInTouchMode(true);
-                webView.requestFocus(View.FOCUS_DOWN);
-            }
-
-            decor.postDelayed(() -> {
-                decor.requestFocus();
-                WebView delayedWebView = findCapacitorWebView(decor);
-                if (delayedWebView != null) {
-                    delayedWebView.requestFocus(View.FOCUS_DOWN);
-                }
-            }, 150);
         });
     }
 
@@ -101,4 +69,3 @@ public void onResume() {
         return null;
     }
 }
-
