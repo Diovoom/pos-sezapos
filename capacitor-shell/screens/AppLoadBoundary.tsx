@@ -49,12 +49,13 @@ export class AppLoadBoundary extends Component<Props, State> {
             style={{ objectFit: "contain" }}
           />
           <h1 style={{ margin: "14px 0 6px", fontSize: 22 }}>
-            SEZA POS could not start
+            SEZA POS needs to restart
           </h1>
           <p style={{ margin: 0, color: "#475569", lineHeight: 1.55 }}>
-            The app files loaded, but one part of the POS failed during startup.
-            Check the internet connection, then try again.
+            Something interrupted the register while it was opening. Your saved
+            POS data is not removed. Restart SEZA and try again.
           </p>
+
           <button
             type="button"
             onClick={() => window.location.reload()}
@@ -70,23 +71,25 @@ export class AppLoadBoundary extends Component<Props, State> {
               fontSize: 15,
             }}
           >
-            Reload POS
+            Restart SEZA POS
           </button>
-          <details style={{ marginTop: 16, textAlign: "left", color: "#64748b" }}>
-            <summary style={{ cursor: "pointer", fontSize: 12 }}>
-              Technical details
-            </summary>
-            <pre
-              style={{
-                whiteSpace: "pre-wrap",
-                overflowWrap: "anywhere",
-                fontSize: 11,
-                marginTop: 8,
-              }}
-            >
-              {this.state.error.message || "Unknown startup error"}
-            </pre>
-          </details>
+
+          <a
+            href="mailto:support@sezapos.com?subject=SEZA%20POS%20Register%20Issue"
+            style={{
+              display: "inline-block",
+              marginTop: 14,
+              color: "#1e40af",
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            Contact SEZA Support
+          </a>
+
+          <p style={{ margin: "10px 0 0", color: "#94a3b8", fontSize: 12 }}>
+            If this keeps happening, contact support@sezapos.com.
+          </p>
         </div>
       </div>
     );

@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { SplashScreen as SplashScreenUi } from "./screens/SplashScreen";
 import { BrandedBootScreen } from "./screens/BrandedBootScreen";
 import { BootFailureScreen } from "./screens/BootFailureScreen";
+import { AppLoadBoundary } from "./screens/AppLoadBoundary";
 import { createShellRouter } from "./router";
 import { assertNativeSupabaseConfiguration, supabase } from "./supabase";
 import { ExitConfirmToast, initAndroidLifecycle } from "./lifecycle";
@@ -169,7 +170,9 @@ async function bootstrap() {
     await withTimeout(initializePairing(), STARTUP_TIMEOUT_MS, "Device pairing initialization");
     createRoot(rootElement).render(
       <StrictMode>
-        <ShellApp />
+        <AppLoadBoundary>
+          <ShellApp />
+        </AppLoadBoundary>
       </StrictMode>,
     );
   } catch (error) {

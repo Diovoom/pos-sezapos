@@ -60,7 +60,9 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
     public void load() {
         displayManager = (DisplayManager) getContext().getSystemService(Context.DISPLAY_SERVICE);
         if (displayManager != null) displayManager.registerDisplayListener(this, null);
-        main.postDelayed(this::restoreSavedDisplay, 450);
+        // PrimeOS/Android-x86 safety: never restore a secondary display on app startup.
+        // Customer display starts only after the cashier explicitly presses "Use this display".
+        displayPrefs().edit().putBoolean(PREF_ENABLED, false).apply();
     }
 
     @PluginMethod
@@ -316,7 +318,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
     }
 
     @Override public void onDisplayAdded(int id) {
-        main.postDelayed(this::restoreSavedDisplay, 300);
+        // Detect only. Starting a customer display is always a manual action.
     }
 
     @Override
