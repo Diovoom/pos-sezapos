@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.View;
 import android.webkit.WebView;
+import android.webkit.WebSettings;
 
 import com.getcapacitor.BridgeActivity;
 import com.sezapos.security.SezaSecureStoragePlugin;
@@ -24,12 +25,30 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SezaCustomerDisplayPlugin.class);
         super.onCreate(savedInstanceState);
         SezaDeviceControlPlugin.applyWindowPreferences(this);
+        configureLegacyPosWebView();
     }
 
     @Override
     public void onResume() {
         super.onResume();
         SezaDeviceControlPlugin.applyWindowPreferences(this);
+    }
+
+    /** Keep SEZA usable on older Android POS WebViews. */
+    private void configureLegacyPosWebView() {
+        try {
+            if (getWindow() == null) return;
+            WebView webView = findCapacitorWebView(getWindow().getDecorView());
+            if (webView == null) return;
+            WebSettings settings = webView.getSettings();
+            settings.setJavaScriptEnabled(true);
+            settings.setDomStorageEnabled(true);
+            settings.setDatabaseEnabled(true);
+            settings.setAllowFileAccess(true);
+            settings.setAllowContentAccess(true);
+        } catch (Throwable ignored) {
+            // OEM/Android-x86 WebViews vary; never block startup here.
+        }
     }
 
     /**

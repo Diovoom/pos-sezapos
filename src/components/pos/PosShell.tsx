@@ -247,30 +247,11 @@ export function PosShell({ children }: { children: ReactNode }) {
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [isNativeShell, storeId, me?.user?.id, me?.profile?.full_name, openShift.data?.id]);
 
-  useEffect(() => {
-    if (!isNativeShell || !storeId) return;
-    const savedDisplayRaw = localStorage.getItem("pos.hardware.customerDisplayId");
-    if (savedDisplayRaw == null) return;
-    const savedDisplayId = Number(savedDisplayRaw);
-    if (!Number.isInteger(savedDisplayId) || savedDisplayId < 0) return;
-
-    let cancelled = false;
-    void startNativeCustomerDisplay(savedDisplayId, storeId, storeName)
-      .then(() => {
-        if (cancelled) return;
-        setDisplayRunning(true);
-        localStorage.setItem("pos.hw.display.status", "connected");
-        localStorage.setItem("pos.hw.display.lastSeen", String(Date.now()));
-        window.dispatchEvent(new Event("seza-hardware-status"));
-      })
-      .catch(() => {
-        if (!cancelled) setDisplayRunning(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isNativeShell, storeId, storeName]);
+  // Do not auto-start a previously selected customer display during employee
+  // sign-in. Some Android-x86/PrimeOS builds re-route or replace the primary
+  // surface as soon as a secondary Presentation is created, which can leave
+  // the cashier screen solid blue immediately after PIN login. The display is
+  // now started only from the manager hardware screen after explicit testing.
 
   useEffect(() => {
     if (!isNativeShell) return;

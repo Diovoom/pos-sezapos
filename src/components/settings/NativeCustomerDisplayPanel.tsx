@@ -33,20 +33,11 @@ export function NativeCustomerDisplayPanel({ storeId, storeName }: { storeId: st
   };
 
   useEffect(() => {
-    void (async () => {
-      await refresh();
-      const savedRaw = localStorage.getItem("pos.hardware.customerDisplayId");
-      const saved = savedRaw == null ? -1 : Number(savedRaw);
-      if (Number.isInteger(saved) && saved >= 0) {
-        try {
-          const current = await nativeCustomerDisplayStatus();
-          if (!current.running || current.displayId !== saved) {
-            await startNativeCustomerDisplay(saved, storeId, storeName);
-          }
-          setRunning(true); setActiveId(saved);
-        } catch { /* display may be unplugged; leave setup available */ }
-      }
-    })();
+    // Detect and report the current state only. Never auto-start a saved
+    // secondary display on mount; the cashier must explicitly choose
+    // "Use this display" so an incompatible Android display route cannot
+    // blank the primary POS immediately after login.
+    void refresh();
   }, [storeId, storeName]);
 
   const sendPreview = async () => {

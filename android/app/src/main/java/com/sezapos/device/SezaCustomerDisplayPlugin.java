@@ -1,9 +1,12 @@
 package com.sezapos.device;
 
 import android.app.Presentation;
+import android.app.ActivityOptions;
 import android.content.Context;
+import android.content.Intent;
 import android.hardware.display.DisplayManager;
 import android.os.Bundle;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
@@ -47,6 +50,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
 
     private DisplayManager displayManager;
     private CustomerPresentation presentation;
+    private boolean activityFallbackRunning = false;
     private int activeDisplayId = -1;
     private String storeName = "SEZA POS";
     private String lastPayload = "{}";
@@ -64,14 +68,14 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         JSArray rows = new JSArray();
         int primary = primaryDisplayId();
         if (displayManager != null) {
-            for (Display display : displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)) {
+            for (Display display : candidateDisplays()) {
                 if (display.getDisplayId() == primary) continue;
                 JSObject row = new JSObject();
                 row.put("displayId", display.getDisplayId());
                 row.put("name", display.getName());
                 row.put("state", display.getState());
                 row.put("valid", display.isValid());
-                row.put("active", presentation != null && presentation.isShowing() && activeDisplayId == display.getDisplayId());
+                row.put("active", activeDisplayId == display.getDisplayId() && ((presentation != null && presentation.isShowing()) || activityFallbackRunning));
                 rows.put(row);
             }
         }
@@ -114,6 +118,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         displayPrefs().edit().putString(PREF_PAYLOAD, lastPayload).apply();
         main.post(() -> {
             if (presentation != null && presentation.isShowing()) presentation.render(lastPayload);
+            if (activityFallbackRunning) sendFallbackUpdate();
         });
         call.resolve();
     }
@@ -127,7 +132,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
 
     @PluginMethod
     public void status(PluginCall call) {
-        boolean running = presentation != null && presentation.isShowing();
+        boolean running = (presentation != null && presentation.isShowing()) || activityFallbackRunning;
         JSObject result = new JSObject();
         result.put("running", running);
         result.put("displayId", running ? activeDisplayId : -1);
@@ -174,13 +179,57 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         }
         dismissPresentation();
         activeDisplayId = display.getDisplayId();
-        presentation = new CustomerPresentation(getActivity(), display);
-        presentation.setOnDismissListener(dialog -> {
-            if (presentation == dialog) presentation = null;
-        });
-        presentation.show();
-        presentation.render(lastPayload);
-        saveState(true, activeDisplayId, storeName, lastPayload);
+        try {
+            presentation = new CustomerPresentation(getActivity(), display);
+            presentation.setOnDismissListener(dialog -> {
+                if (presentation == dialog) presentation = null;
+            });
+            presentation.show();
+            presentation.render(lastPayload);
+            saveState(true, activeDisplayId, storeName, lastPayload);
+
+            // Some POS Android builds expose the second panel but fail to render
+            // a Presentation WebView. If it never becomes ready, switch to the
+            // secondary-Activity fallback automatically.
+            final int displayId = activeDisplayId;
+            main.postDelayed(() -> {
+                if (presentation != null && presentation.isShowing() && !presentation.isPageReady() && activeDisplayId == displayId) {
+                    try { presentation.dismiss(); } catch (Exception ignored) {}
+                    presentation = null;
+                    launchActivityFallback(display);
+                }
+            }, 1800);
+        } catch (Throwable error) {
+            presentation = null;
+            launchActivityFallback(display);
+        }
+    }
+
+    private void launchActivityFallback(Display display) {
+        if (getActivity() == null || display == null || !display.isValid()) return;
+        try {
+            Intent intent = new Intent(getActivity(), SezaCustomerDisplayActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+            ActivityOptions options = ActivityOptions.makeBasic();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                options.setLaunchDisplayId(display.getDisplayId());
+            }
+            getActivity().startActivity(intent, options.toBundle());
+            activityFallbackRunning = true;
+            activeDisplayId = display.getDisplayId();
+            saveState(true, activeDisplayId, storeName, lastPayload);
+            main.postDelayed(this::sendFallbackUpdate, 300);
+        } catch (Throwable ignored) {
+            activityFallbackRunning = false;
+        }
+    }
+
+    private void sendFallbackUpdate() {
+        try {
+            Intent update = new Intent(SezaCustomerDisplayActivity.ACTION_UPDATE);
+            update.setPackage(getContext().getPackageName());
+            getContext().sendBroadcast(update);
+        } catch (Exception ignored) {}
     }
 
     private void dismissPresentation() {
@@ -188,6 +237,14 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             try { presentation.dismiss(); } catch (Exception ignored) {}
             presentation = null;
         }
+        if (activityFallbackRunning || SezaCustomerDisplayActivity.isRunning()) {
+            try {
+                Intent stop = new Intent(SezaCustomerDisplayActivity.ACTION_STOP);
+                stop.setPackage(getContext().getPackageName());
+                getContext().sendBroadcast(stop);
+            } catch (Exception ignored) {}
+        }
+        activityFallbackRunning = false;
         activeDisplayId = -1;
     }
 
@@ -202,9 +259,19 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             : Display.DEFAULT_DISPLAY;
     }
 
+    private Display[] candidateDisplays() {
+        if (displayManager == null) return new Display[0];
+        Display[] presentationDisplays = displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION);
+        if (presentationDisplays != null && presentationDisplays.length > 0) return presentationDisplays;
+        // Fallback for PrimeOS / vendor Android builds that expose the second
+        // physical panel but do not tag it with DISPLAY_CATEGORY_PRESENTATION.
+        Display[] all = displayManager.getDisplays();
+        return all == null ? new Display[0] : all;
+    }
+
     private Display findSecondary(int requestedId) {
         if (displayManager == null) return null;
-        for (Display display : displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)) {
+        for (Display display : candidateDisplays()) {
             if (display.getDisplayId() == primaryDisplayId()) continue;
             if (!display.isValid()) continue;
             if (requestedId >= 0 && display.getDisplayId() != requestedId) continue;
@@ -268,6 +335,8 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         private WebView webView;
         private boolean pageReady = false;
         private String pending = "{}";
+
+        boolean isPageReady() { return pageReady; }
 
         CustomerPresentation(Context context, Display display) {
             super(context, display);
