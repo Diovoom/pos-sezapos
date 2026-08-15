@@ -1,54 +1,6 @@
 // Standalone Supabase client for the bundled Capacitor Android app.
 import { createClient } from "@supabase/supabase-js";
 
-
-// Android-x86 / PrimeOS WebView compatibility.
-// Some builds incorrectly hand libraries a ws:// URL even though the bundled
-// Capacitor page is treated as a secure HTTPS origin. Chromium then throws
-// synchronously before Supabase Realtime can recover. Upgrade only insecure
-// WebSocket URLs when the page is secure; Supabase supports WSS.
-function installSecureWebSocketCompatibility(): void {
-  if (typeof window === "undefined" || typeof window.WebSocket === "undefined") return;
-
-  const pageIsSecure =
-    window.location.protocol === "https:" ||
-    window.location.protocol === "capacitor:";
-
-  if (!pageIsSecure) return;
-
-  const OriginalWebSocket = window.WebSocket;
-  const marker = "__sezaSecureWebSocketProxy";
-
-  if ((OriginalWebSocket as unknown as Record<string, unknown>)[marker]) return;
-
-  const SecureWebSocket = new Proxy(OriginalWebSocket, {
-    construct(Target, args: ConstructorParameters<typeof WebSocket>) {
-      const [rawUrl, protocols] = args;
-      let url = String(rawUrl);
-
-      if (/^ws:\/\//i.test(url)) {
-        url = url.replace(/^ws:\/\//i, "wss://");
-        console.warn("[SEZA Android] upgraded insecure WebSocket URL to WSS", url);
-      }
-
-      return protocols === undefined
-        ? new Target(url)
-        : new Target(url, protocols);
-    },
-  });
-
-  Object.defineProperty(SecureWebSocket, marker, {
-    value: true,
-    configurable: false,
-    enumerable: false,
-    writable: false,
-  });
-
-  window.WebSocket = SecureWebSocket as typeof WebSocket;
-}
-
-installSecureWebSocketCompatibility();
-
 const FALLBACK_SUPABASE_URL = "https://xbirnlsbckbcjbxqkmjn.supabase.co";
 const FALLBACK_SUPABASE_PUBLISHABLE_KEY =
   "sb_publishable_D06VufRmNrbKI6Fe0OF70Q_Wzr5pkBn";

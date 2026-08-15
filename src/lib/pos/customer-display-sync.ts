@@ -136,35 +136,43 @@ export function subscribeCustomerDisplay(
     return () => undefined;
   }
 
-  const channel = supabase
-    .channel(realtimeTopic(storeId), {
-      config: { private: true, broadcast: { self: false, ack: false } },
-    })
-    .on("broadcast", { event: EVENT }, ({ payload }) => {
-      const received = payload as CustomerDisplayPayload & { signature?: string };
-      if (received?.type !== "seza-pos-display" || received.storeId !== storeId) return;
-      const { signature, ...next } = received;
-      if (!signature) return; // Unsigned payloads are spoof attempts.
-      void (async () => {
-        try {
-          const { verifyCustomerDisplayUpdate } = await import("./customer-display.functions");
-          const { valid } = await verifyCustomerDisplayUpdate({
-            data: { payload: next, signature },
-          });
-          if (valid) onPayload(next as CustomerDisplayPayload);
-        } catch {
-          // Reject anything we cannot verify.
-        }
-      })();
-    })
-    .subscribe((status) => {
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+  try {
+    channel = supabase
+      .channel(realtimeTopic(storeId), {
+        config: { private: true, broadcast: { self: false, ack: false } },
+      })
+      .on("broadcast", { event: EVENT }, ({ payload }) => {
+        const received = payload as CustomerDisplayPayload & { signature?: string };
+        if (received?.type !== "seza-pos-display" || received.storeId !== storeId) return;
+        const { signature, ...next } = received;
+        if (!signature) return;
+        void (async () => {
+          try {
+            const { verifyCustomerDisplayUpdate } = await import("./customer-display.functions");
+            const { valid } = await verifyCustomerDisplayUpdate({
+              data: { payload: next, signature },
+            });
+            if (valid) onPayload(next as CustomerDisplayPayload);
+          } catch {
+            // Reject anything we cannot verify.
+          }
+        })();
+      });
+    channel.subscribe((status) => {
       onConnectionChange?.(status === "SUBSCRIBED");
     });
+  } catch (error) {
+    console.warn("[SEZA POS] remote customer-display realtime unavailable", error);
+    onConnectionChange?.(false);
+    if (channel) void supabase.removeChannel(channel).catch(() => undefined);
+    channel = null;
+  }
 
 
   return () => {
     onConnectionChange?.(false);
-    void supabase.removeChannel(channel);
+    if (channel) void supabase.removeChannel(channel);
   };
 }
 

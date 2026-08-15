@@ -22,12 +22,6 @@ const config: CapacitorConfig = {
     backgroundColor: "#1e40af",
   },
   plugins: {
-    // Route fetch/XMLHttpRequest through Android native networking. This avoids
-    // old WebView CORS/TLS quirks on Android 9 POS builds while preserving the
-    // same HTTPS API URLs used on newer Android versions.
-    CapacitorHttp: {
-      enabled: true,
-    },
     SplashScreen: {
       launchShowDuration: 6000,
       launchAutoHide: false,

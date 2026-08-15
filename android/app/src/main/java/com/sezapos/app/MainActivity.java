@@ -1,10 +1,9 @@
 package com.sezapos.app;
 
 import android.os.Bundle;
-import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowManager;
 import android.webkit.WebView;
-import android.webkit.WebSettings;
 
 import com.getcapacitor.BridgeActivity;
 import com.sezapos.security.SezaSecureStoragePlugin;
@@ -25,55 +24,69 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SezaCustomerDisplayPlugin.class);
         super.onCreate(savedInstanceState);
         SezaDeviceControlPlugin.applyWindowPreferences(this);
-        configureLegacyPosWebView();
+        ensureCashierInteraction();
     }
 
     @Override
-    public void onResume() {
+public void onResume() {
         super.onResume();
         SezaDeviceControlPlugin.applyWindowPreferences(this);
+        ensureCashierInteraction();
     }
 
-    /** Keep SEZA usable on older Android POS WebViews. */
-    private void configureLegacyPosWebView() {
-        try {
-            if (getWindow() == null) return;
-            WebView webView = findCapacitorWebView(getWindow().getDecorView());
-            if (webView == null) return;
-            WebSettings settings = webView.getSettings();
-            settings.setJavaScriptEnabled(true);
-            settings.setDomStorageEnabled(true);
-            settings.setDatabaseEnabled(true);
-            settings.setAllowFileAccess(true);
-            settings.setAllowContentAccess(true);
-        } catch (Throwable ignored) {
-            // OEM/Android-x86 WebViews vary; never block startup here.
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            SezaDeviceControlPlugin.applyWindowPreferences(this);
+            ensureCashierInteraction();
         }
     }
 
     /**
-     * Bliss/Android-x86 can associate the physical front touch panel with the
-     * secondary display after a Presentation is shown. When that happens the
-     * Presentation forwards the local touch coordinates here and we dispatch
-     * them directly to the cashier Capacitor WebView.
+     * Keep the built-in cashier display as the only interactive window.
+     * Secondary customer displays are passive Presentations and must never
+     * leave the Capacitor Activity/WebView non-focusable or non-touchable.
      */
-    public void forwardCustomerDisplayTouch(MotionEvent source, int sourceWidth, int sourceHeight) {
-        if (source == null || sourceWidth <= 0 || sourceHeight <= 0) return;
-
-        final MotionEvent copy = MotionEvent.obtain(source);
+    public void ensureCashierInteraction() {
         runOnUiThread(() -> {
-            try {
-                if (getWindow() == null) return;
-                WebView cashier = findCapacitorWebView(getWindow().getDecorView());
-                if (cashier == null || cashier.getWidth() <= 0 || cashier.getHeight() <= 0) return;
+            if (getWindow() == null) return;
 
-                float x = copy.getX() * ((float) cashier.getWidth() / (float) sourceWidth);
-                float y = copy.getY() * ((float) cashier.getHeight() / (float) sourceHeight);
-                copy.setLocation(x, y);
-                cashier.dispatchTouchEvent(copy);
-            } finally {
-                copy.recycle();
+            getWindow().clearFlags(
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            );
+
+            View decor = getWindow().getDecorView();
+            decor.setEnabled(true);
+            decor.setClickable(true);
+            decor.setFocusable(true);
+            decor.setFocusableInTouchMode(true);
+            decor.requestFocus();
+
+            View content = findViewById(android.R.id.content);
+            if (content != null) {
+                content.setEnabled(true);
+                content.setFocusable(true);
+                content.setFocusableInTouchMode(true);
             }
+
+            WebView webView = findCapacitorWebView(decor);
+            if (webView != null) {
+                webView.setEnabled(true);
+                webView.setClickable(true);
+                webView.setFocusable(true);
+                webView.setFocusableInTouchMode(true);
+                webView.requestFocus(View.FOCUS_DOWN);
+            }
+
+            decor.postDelayed(() -> {
+                decor.requestFocus();
+                WebView delayedWebView = findCapacitorWebView(decor);
+                if (delayedWebView != null) {
+                    delayedWebView.requestFocus(View.FOCUS_DOWN);
+                }
+            }, 150);
         });
     }
 
@@ -88,3 +101,4 @@ public class MainActivity extends BridgeActivity {
         return null;
     }
 }
+

@@ -37,16 +37,23 @@ export function useStoreLanguageSync() {
 
   useEffect(() => {
     if (!storeId) return;
-    const channel = supabase
-      .channel(`store-language:${storeId}:${Math.random().toString(36).slice(2)}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "stores", filter: `id=eq.${storeId}` },
-        () => void qc.invalidateQueries({ queryKey: ["store-language", storeId] }),
-      )
-      .subscribe();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(`store-language:${storeId}:${Math.random().toString(36).slice(2)}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "stores", filter: `id=eq.${storeId}` },
+          () => void qc.invalidateQueries({ queryKey: ["store-language", storeId] }),
+        );
+      channel.subscribe();
+    } catch (error) {
+      console.warn("[SEZA POS] realtime language sync unavailable; HTTPS sync remains active", error);
+      if (channel) void supabase.removeChannel(channel).catch(() => undefined);
+      channel = null;
+    }
     return () => {
-      void supabase.removeChannel(channel);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [qc, storeId]);
 

@@ -57,24 +57,31 @@ export function useRolePermissions() {
 
   useEffect(() => {
     if (!storeId) return;
-    const channel = supabase
-      .channel(`role-permissions:${storeId}:${Math.random().toString(36).slice(2)}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "role_permissions",
-          filter: `store_id=eq.${storeId}`,
-        },
-        () => {
-          void qc.invalidateQueries({ queryKey: ["role_permissions", storeId] });
-        },
-      )
-      .subscribe();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(`role-permissions:${storeId}:${Math.random().toString(36).slice(2)}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "role_permissions",
+            filter: `store_id=eq.${storeId}`,
+          },
+          () => {
+            void qc.invalidateQueries({ queryKey: ["role_permissions", storeId] });
+          },
+        );
+      channel.subscribe();
+    } catch (error) {
+      console.warn("[SEZA POS] realtime permissions unavailable; using polling", error);
+      if (channel) void supabase.removeChannel(channel).catch(() => undefined);
+      channel = null;
+    }
 
     return () => {
-      void supabase.removeChannel(channel);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [qc, storeId]);
 

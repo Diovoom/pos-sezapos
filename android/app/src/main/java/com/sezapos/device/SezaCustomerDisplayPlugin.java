@@ -1,17 +1,13 @@
 package com.sezapos.device;
 
 import android.app.Presentation;
-import android.app.ActivityOptions;
 import android.content.Context;
-import android.content.Intent;
 import android.hardware.display.DisplayManager;
 import android.os.Bundle;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
 import android.view.Display;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -50,7 +46,6 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
 
     private DisplayManager displayManager;
     private CustomerPresentation presentation;
-    private boolean activityFallbackRunning = false;
     private int activeDisplayId = -1;
     private String storeName = "SEZA POS";
     private String lastPayload = "{}";
@@ -60,9 +55,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
     public void load() {
         displayManager = (DisplayManager) getContext().getSystemService(Context.DISPLAY_SERVICE);
         if (displayManager != null) displayManager.registerDisplayListener(this, null);
-        // PrimeOS/Android-x86 safety: never restore a secondary display on app startup.
-        // Customer display starts only after the cashier explicitly presses "Use this display".
-        displayPrefs().edit().putBoolean(PREF_ENABLED, false).apply();
+        main.postDelayed(this::restoreSavedDisplay, 450);
     }
 
     @PluginMethod
@@ -70,14 +63,14 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         JSArray rows = new JSArray();
         int primary = primaryDisplayId();
         if (displayManager != null) {
-            for (Display display : candidateDisplays()) {
+            for (Display display : displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)) {
                 if (display.getDisplayId() == primary) continue;
                 JSObject row = new JSObject();
                 row.put("displayId", display.getDisplayId());
                 row.put("name", display.getName());
                 row.put("state", display.getState());
                 row.put("valid", display.isValid());
-                row.put("active", activeDisplayId == display.getDisplayId() && ((presentation != null && presentation.isShowing()) || activityFallbackRunning));
+                row.put("active", presentation != null && presentation.isShowing() && activeDisplayId == display.getDisplayId());
                 rows.put(row);
             }
         }
@@ -102,6 +95,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         main.post(() -> {
             try {
                 showPresentation(chosen);
+                refocusCashier();
                 JSObject result = new JSObject();
                 result.put("started", true);
                 result.put("displayId", chosen.getDisplayId());
@@ -120,7 +114,6 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         displayPrefs().edit().putString(PREF_PAYLOAD, lastPayload).apply();
         main.post(() -> {
             if (presentation != null && presentation.isShowing()) presentation.render(lastPayload);
-            if (activityFallbackRunning) sendFallbackUpdate();
         });
         call.resolve();
     }
@@ -134,7 +127,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
 
     @PluginMethod
     public void status(PluginCall call) {
-        boolean running = (presentation != null && presentation.isShowing()) || activityFallbackRunning;
+        boolean running = presentation != null && presentation.isShowing();
         JSObject result = new JSObject();
         result.put("running", running);
         result.put("displayId", running ? activeDisplayId : -1);
@@ -170,6 +163,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         final Display target = chosen;
         main.post(() -> {
             showPresentation(target);
+            refocusCashier();
         });
     }
 
@@ -181,57 +175,13 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         }
         dismissPresentation();
         activeDisplayId = display.getDisplayId();
-        try {
-            presentation = new CustomerPresentation(getActivity(), display);
-            presentation.setOnDismissListener(dialog -> {
-                if (presentation == dialog) presentation = null;
-            });
-            presentation.show();
-            presentation.render(lastPayload);
-            saveState(true, activeDisplayId, storeName, lastPayload);
-
-            // Some POS Android builds expose the second panel but fail to render
-            // a Presentation WebView. If it never becomes ready, switch to the
-            // secondary-Activity fallback automatically.
-            final int displayId = activeDisplayId;
-            main.postDelayed(() -> {
-                if (presentation != null && presentation.isShowing() && !presentation.isPageReady() && activeDisplayId == displayId) {
-                    try { presentation.dismiss(); } catch (Exception ignored) {}
-                    presentation = null;
-                    launchActivityFallback(display);
-                }
-            }, 1800);
-        } catch (Throwable error) {
-            presentation = null;
-            launchActivityFallback(display);
-        }
-    }
-
-    private void launchActivityFallback(Display display) {
-        if (getActivity() == null || display == null || !display.isValid()) return;
-        try {
-            Intent intent = new Intent(getActivity(), SezaCustomerDisplayActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
-            ActivityOptions options = ActivityOptions.makeBasic();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                options.setLaunchDisplayId(display.getDisplayId());
-            }
-            getActivity().startActivity(intent, options.toBundle());
-            activityFallbackRunning = true;
-            activeDisplayId = display.getDisplayId();
-            saveState(true, activeDisplayId, storeName, lastPayload);
-            main.postDelayed(this::sendFallbackUpdate, 300);
-        } catch (Throwable ignored) {
-            activityFallbackRunning = false;
-        }
-    }
-
-    private void sendFallbackUpdate() {
-        try {
-            Intent update = new Intent(SezaCustomerDisplayActivity.ACTION_UPDATE);
-            update.setPackage(getContext().getPackageName());
-            getContext().sendBroadcast(update);
-        } catch (Exception ignored) {}
+        presentation = new CustomerPresentation(getActivity(), display);
+        presentation.setOnDismissListener(dialog -> {
+            if (presentation == dialog) presentation = null;
+        });
+        presentation.show();
+        presentation.render(lastPayload);
+        saveState(true, activeDisplayId, storeName, lastPayload);
     }
 
     private void dismissPresentation() {
@@ -239,20 +189,33 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             try { presentation.dismiss(); } catch (Exception ignored) {}
             presentation = null;
         }
-        if (activityFallbackRunning || SezaCustomerDisplayActivity.isRunning()) {
-            try {
-                Intent stop = new Intent(SezaCustomerDisplayActivity.ACTION_STOP);
-                stop.setPackage(getContext().getPackageName());
-                getContext().sendBroadcast(stop);
-            } catch (Exception ignored) {}
-        }
-        activityFallbackRunning = false;
         activeDisplayId = -1;
+        refocusCashier();
     }
 
     private void refocusCashier() {
-        // Intentionally empty. Never force Android window/WebView focus when
-        // the customer display is activated.
+        if (getActivity() == null || getActivity().getWindow() == null) return;
+
+        // The secondary Presentation is output-only. Explicitly restore the
+        // built-in cashier Activity/WebView because some dual-screen POS
+        // firmware changes window focus/input routing when a Presentation is
+        // attached even when that Presentation itself is NOT_FOCUSABLE.
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).ensureCashierInteraction();
+            return;
+        }
+
+        View decor = getActivity().getWindow().getDecorView();
+        getActivity().getWindow().clearFlags(
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        );
+        decor.setEnabled(true);
+        decor.setClickable(true);
+        decor.setFocusable(true);
+        decor.setFocusableInTouchMode(true);
+        decor.requestFocus();
+        decor.postDelayed(decor::requestFocus, 150);
     }
 
     private int primaryDisplayId() {
@@ -261,19 +224,9 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             : Display.DEFAULT_DISPLAY;
     }
 
-    private Display[] candidateDisplays() {
-        if (displayManager == null) return new Display[0];
-        Display[] presentationDisplays = displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION);
-        if (presentationDisplays != null && presentationDisplays.length > 0) return presentationDisplays;
-        // Fallback for PrimeOS / vendor Android builds that expose the second
-        // physical panel but do not tag it with DISPLAY_CATEGORY_PRESENTATION.
-        Display[] all = displayManager.getDisplays();
-        return all == null ? new Display[0] : all;
-    }
-
     private Display findSecondary(int requestedId) {
         if (displayManager == null) return null;
-        for (Display display : candidateDisplays()) {
+        for (Display display : displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)) {
             if (display.getDisplayId() == primaryDisplayId()) continue;
             if (!display.isValid()) continue;
             if (requestedId >= 0 && display.getDisplayId() != requestedId) continue;
@@ -307,6 +260,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
         if (isEnabled() && (presentation == null || !presentation.isShowing())) {
             main.postDelayed(this::restoreSavedDisplay, 200);
         } else {
+            refocusCashier();
         }
     }
 
@@ -318,27 +272,32 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
     }
 
     @Override public void onDisplayAdded(int id) {
-        // Detect only. Starting a customer display is always a manual action.
+        main.postDelayed(this::restoreSavedDisplay, 300);
+        main.postDelayed(this::refocusCashier, 500);
     }
 
     @Override
     public void onDisplayChanged(int id) {
         if (id == activeDisplayId && presentation != null) {
-            main.post(() -> presentation.render(lastPayload));
+            main.post(() -> {
+                presentation.render(lastPayload);
+                refocusCashier();
+            });
         }
     }
 
     @Override
     public void onDisplayRemoved(int id) {
-        if (id == activeDisplayId) main.post(this::dismissPresentation);
+        if (id == activeDisplayId) main.post(() -> {
+            dismissPresentation();
+            refocusCashier();
+        });
     }
 
     private class CustomerPresentation extends Presentation {
         private WebView webView;
         private boolean pageReady = false;
         private String pending = "{}";
-
-        boolean isPageReady() { return pageReady; }
 
         CustomerPresentation(Context context, Display display) {
             super(context, display);
@@ -351,9 +310,12 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             if (window != null) {
                 window.addFlags(
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                        | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
                 );
             }
+            main.post(SezaCustomerDisplayPlugin.this::refocusCashier);
         }
 
         @Override
@@ -366,6 +328,7 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
                     WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                         | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                        | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
                 );
 
                 // Keep the secondary customer Presentation non-focusable.
@@ -383,8 +346,9 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             webView.setBackgroundColor(0xfff8fafc);
             webView.setFocusable(false);
             webView.setFocusableInTouchMode(false);
-            webView.setClickable(true);
+            webView.setClickable(false);
             webView.setLongClickable(false);
+            webView.setOnTouchListener(null);
             webView.setWebViewClient(new WebViewClient() {
                 @Override public void onPageFinished(WebView view, String url) {
                     pageReady = true;
@@ -393,20 +357,6 @@ public class SezaCustomerDisplayPlugin extends Plugin implements DisplayManager.
             });
             setContentView(webView);
             webView.loadDataWithBaseURL(null, html(), "text/html", "UTF-8", null);
-        }
-
-        @Override
-        public boolean dispatchTouchEvent(MotionEvent event) {
-            if (event != null && getActivity() instanceof MainActivity) {
-                View content = getWindow() != null ? getWindow().getDecorView() : null;
-                int width = content != null ? Math.max(1, content.getWidth()) : 1;
-                int height = content != null ? Math.max(1, content.getHeight()) : 1;
-                ((MainActivity) getActivity()).forwardCustomerDisplayTouch(event, width, height);
-                // Customer display is output-only. Consume the event here so it
-                // never activates anything on the customer-facing WebView.
-                return true;
-            }
-            return super.dispatchTouchEvent(event);
         }
 
         void render(String payload) {

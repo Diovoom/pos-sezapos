@@ -16,7 +16,6 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
-            android:resizeableActivity="false"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,14 +23,7 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name="com.sezapos.device.SezaCustomerDisplayActivity"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:launchMode="singleTask"
-            android:resizeableActivity="false"
-            android:taskAffinity="com.sezapos.app.customerdisplay"
-            android:theme="@style/AppTheme.NoActionBar" />
+
 
         <provider
             android:name="androidx.core.content.FileProvider"

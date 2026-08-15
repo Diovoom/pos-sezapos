@@ -32,11 +32,7 @@ public class SezaDeviceControlPlugin extends Plugin {
         } else {
             activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
-        if (prefs.getBoolean(IMMERSIVE, false)) {
-            applyImmersive(activity);
-        } else {
-            activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
-        }
+        if (prefs.getBoolean(IMMERSIVE, true)) applyImmersive(activity);
     }
 
     @SuppressWarnings("deprecation")
@@ -56,7 +52,7 @@ public class SezaDeviceControlPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("launchOnBoot", prefs().getBoolean(BOOT, false));
         result.put("keepAwake", prefs().getBoolean(AWAKE, true));
-        result.put("immersive", prefs().getBoolean(IMMERSIVE, false));
+        result.put("immersive", prefs().getBoolean(IMMERSIVE, true));
         result.put("inLockTask", getActivity() != null && getActivity().isInMultiWindowMode() == false && isLockTaskActive());
         result.put("deviceOwner", isDeviceOwner());
         call.resolve(result);

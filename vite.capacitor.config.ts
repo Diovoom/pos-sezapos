@@ -64,7 +64,7 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: path.resolve(__dirname, "android-webdir"),
       emptyOutDir: true,
-      target: "es2017",
+      target: "es2020",
       sourcemap: false,
       chunkSizeWarningLimit: 900,
     },
