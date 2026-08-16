@@ -358,7 +358,12 @@ function LandingPage() {
               <img
                 src={homeSell.url}
                 alt="SEZA POS register showing the checkout workspace"
-                className="block w-full rounded-b-[22px] bg-white"
+                width={1600}
+                height={900}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                className="block aspect-video w-full rounded-b-[22px] bg-white object-cover"
               />
             </div>
           </Reveal>
@@ -828,8 +833,11 @@ function ProductImage({ src, alt, label }: { src: string; alt: string; label: st
         <img
           src={src}
           alt={alt}
+          width={1600}
+          height={900}
           loading="lazy"
-          className="block w-full rounded-[20px] bg-white transition-transform duration-700 group-hover:scale-[1.015]"
+          decoding="async"
+          className="block aspect-video w-full rounded-[20px] bg-white object-cover transition-transform duration-700 group-hover:scale-[1.015]"
         />
       </div>
     </div>

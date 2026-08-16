@@ -1,4 +1,4 @@
-import { loadStripe, type Stripe } from "@stripe/stripe-js";
+import { loadStripe, type Stripe } from "@stripe/stripe-js/pure";
 
 type StripeEnv = "sandbox" | "live";
 
