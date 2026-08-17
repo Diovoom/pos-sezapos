@@ -121,7 +121,7 @@ function MorphingBrand({ progress }: { progress: number }) {
         className="absolute top-0 grid size-12 place-items-center rounded-2xl border border-blue-200 bg-blue-50 shadow-[0_10px_28px_-14px_rgba(37,99,235,0.75)] transition-transform duration-150 group-hover:scale-[1.03] dark:border-blue-400/20 dark:bg-blue-500/10"
         style={{ transform: `translateX(${54 * (1 - progress)}px)` }}
       >
-        <Logo className="size-9" alt="SEZA POS" />
+        <Logo className="size-9" alt="" />
       </span>
       <span
         className="absolute left-[58px] top-1/2 whitespace-nowrap text-[16px] font-black tracking-[-0.035em] text-slate-950 dark:text-white"
@@ -364,7 +364,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             <div>
               <div className="flex items-center gap-3">
                 <span className="grid size-11 place-items-center rounded-2xl bg-white shadow-lg">
-                  <Logo className="size-8 rounded-lg" alt="SEZA POS" />
+                  <Logo className="size-8 rounded-lg" alt="" />
                 </span>
                 <div>
                   <div className="font-bold tracking-tight">SEZA POS</div>
@@ -376,7 +376,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 inventory, accountable shifts and useful reports.
               </p>
               <div className="mt-5">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-300">
                   Follow SEZA POS
                 </div>
                 <SocialLinks tone="dark" />

@@ -17,6 +17,8 @@ export function Logo({ className, alt = "SEZA POS" }: { className?: string; alt?
     <img
       src={resolveLogoUrl()}
       alt={alt}
+      width={512}
+      height={512}
       className={cn("object-contain", className)}
       draggable={false}
     />

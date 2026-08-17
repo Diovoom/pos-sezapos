@@ -21,6 +21,8 @@ import { useMe } from "@/hooks/useMe";
 import { logAudit } from "@/lib/audit-log";
 import { setActiveTerminal, type TerminalDriverId } from "@/lib/hardware";
 import { connectReader as connectStripeReader } from "@/lib/hardware/terminal-stripe";
+import { setActivePaymentProvider } from "@/lib/pos/payment-terminal";
+import { checkFinixTerminal } from "@/lib/finix/terminal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -53,12 +55,20 @@ type Provider = {
   id: string;
   label: string;
   mode: "integrated" | "external";
-  connector: "stripe" | "not_installed" | "external";
+  connector: "stripe" | "finix_cloud" | "not_installed" | "external";
   models: string[];
   note: string;
 };
 
 const PROVIDERS: Provider[] = [
+  {
+    id: "finix",
+    label: "Finix",
+    mode: "integrated",
+    connector: "finix_cloud",
+    models: ["PAX A35", "PAX A800", "PAX A920 Pro", "Finix certified terminal"],
+    note: "SEZA sends card-present sales through the secure SEZA backend to Finix. Finix API credentials stay on the server and are never stored in the APK.",
+  },
   {
     id: "stripe",
     label: "Stripe Terminal",
@@ -190,6 +200,9 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     location: "Front counter",
     stripeLocationId: "",
     testMode: true,
+    finixMerchantId: "",
+    finixDeviceId: "",
+    finixEnvironment: "sandbox" as "sandbox" | "live",
   });
 
   const provider = PROVIDERS.find((item) => item.id === form.provider) ?? PROVIDERS[0];
@@ -235,6 +248,9 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
           "Enter the Stripe Terminal Location ID from the owner payment setup before pairing this reader.",
         );
       }
+      if (form.provider === "finix" && !form.finixDeviceId.trim()) {
+        throw new Error("Enter the Finix Device ID assigned to this payment terminal.");
+      }
       const { data, error } = await sb
         .from("payment_terminals")
         .insert({
@@ -251,6 +267,9 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
             location_id:
               form.provider === "stripe" ? form.stripeLocationId.trim() : undefined,
             test_mode: form.provider === "stripe" ? form.testMode : undefined,
+            finix_device_id: form.provider === "finix" ? form.finixDeviceId.trim() : undefined,
+            finix_merchant_id: form.provider === "finix" ? form.finixMerchantId.trim() || undefined : undefined,
+            finix_environment: form.provider === "finix" ? form.finixEnvironment : undefined,
             reader_type: driverForTerminal({
               id: "draft",
               store_id: storeId,
@@ -284,6 +303,9 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
         location: "Front counter",
         stripeLocationId: "",
         testMode: true,
+        finixMerchantId: "",
+        finixDeviceId: "",
+        finixEnvironment: "sandbox",
       });
       qc.invalidateQueries({ queryKey: ["payment_terminals"] });
     },
@@ -295,6 +317,40 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       if (!storeId) throw new Error("Your store is not ready yet.");
       const providerConfig = providerForTerminal(terminal);
       const driver = driverForTerminal(terminal);
+
+      if (providerConfig?.connector === "finix_cloud") {
+        const { error: clearError } = await sb
+          .from("payment_terminals")
+          .update({ status: "inactive" })
+          .eq("store_id", storeId);
+        if (clearError) throw clearError;
+        const { error: selectingError } = await sb
+          .from("payment_terminals")
+          .update({ status: "active" })
+          .eq("id", terminal.id)
+          .eq("store_id", storeId);
+        if (selectingError) throw selectingError;
+        setActiveTerminal("none");
+        setActivePaymentProvider("finix");
+        try {
+          const health = await checkFinixTerminal();
+          await sb.from("payment_terminals").update({
+            last_seen_at: new Date().toISOString(),
+            serial: health?.serial_number || terminal.serial,
+          }).eq("id", terminal.id).eq("store_id", storeId);
+          await logAudit({
+            action: "terminal.activate",
+            entity: "payment_terminal",
+            entity_id: terminal.id,
+            details: { provider: "finix", device_id: health?.device_id, connected: health?.connected },
+          });
+          return { kind: "finix" as const, reader: { label: "Finix terminal", serialNumber: health?.serial_number || terminal.serial || "" } };
+        } catch (error) {
+          setActivePaymentProvider(null);
+          await sb.from("payment_terminals").update({ status: "configured" }).eq("id", terminal.id).eq("store_id", storeId);
+          throw error;
+        }
+      }
 
       if (providerConfig?.connector === "not_installed") {
         throw new Error(
@@ -315,6 +371,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
           .eq("store_id", storeId);
         if (error) throw error;
         setActiveTerminal("none");
+        setActivePaymentProvider(null);
         return { kind: "external" as const, reader: null };
       }
 
@@ -333,6 +390,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       if (selectingError) throw selectingError;
 
       setActiveTerminal(driver);
+      setActivePaymentProvider("stripe-terminal");
       try {
         const reader = await connectStripeReader(driver, (message) => toast.loading(message, { id: "terminal-pairing" }));
         const { error: connectedError } = await sb
@@ -354,6 +412,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
         return { kind: "integrated" as const, reader };
       } catch (error) {
         setActiveTerminal("none");
+        setActivePaymentProvider(null);
         await sb
           .from("payment_terminals")
           .update({ status: "configured" })
@@ -483,7 +542,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
           ) : (
             (terminals.data ?? []).map((terminal) => {
               const definition = providerForTerminal(terminal);
-              const canPair = definition?.connector === "stripe" || definition?.connector === "external";
+              const canPair = definition?.connector === "stripe" || definition?.connector === "finix_cloud" || definition?.connector === "external";
               return (
                 <div
                   key={terminal.id}
@@ -511,7 +570,11 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                             : `${definition?.label ?? terminal.provider} connector is not installed in this APK yet.`
                         }
                       >
-                        {definition?.connector === "external" ? "Use as external" : "Pair reader"}
+                        {definition?.connector === "external"
+                          ? "Use as external"
+                          : definition?.connector === "finix_cloud"
+                            ? "Connect Finix"
+                            : "Pair reader"}
                       </Button>
                     )}
                     {canEdit && (
@@ -557,6 +620,8 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                       provider: value,
                       model: "",
                       stripeLocationId: value === "stripe" ? form.stripeLocationId : "",
+                      finixDeviceId: value === "finix" ? form.finixDeviceId : "",
+                      finixMerchantId: value === "finix" ? form.finixMerchantId : "",
                     })
                   }
                 >
@@ -610,6 +675,46 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                   onChange={(event) => setForm({ ...form, serial: event.target.value })}
                 />
               </div>
+              {form.provider === "finix" && (
+                <>
+                  <div className="space-y-1">
+                    <Label>Finix Device ID</Label>
+                    <Input
+                      value={form.finixDeviceId}
+                      onChange={(event) => setForm({ ...form, finixDeviceId: event.target.value })}
+                      placeholder="DV..."
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                    />
+                    <p className="text-xs text-muted-foreground">The Device resource assigned to the physical terminal in Finix.</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Finix Merchant ID (optional)</Label>
+                    <Input
+                      value={form.finixMerchantId}
+                      onChange={(event) => setForm({ ...form, finixMerchantId: event.target.value })}
+                      placeholder="MU..."
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                    />
+                    <p className="text-xs text-muted-foreground">Keep this for reconciliation and merchant mapping. Card-present sales use the Device ID.</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Finix environment</Label>
+                    <Select
+                      value={form.finixEnvironment}
+                      onValueChange={(value) => setForm({ ...form, finixEnvironment: value as "sandbox" | "live" })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sandbox">Sandbox</SelectItem>
+                        <SelectItem value="live">Live</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Use Sandbox until Finix approves SEZA for live processing.</p>
+                  </div>
+                </>
+              )}
               {form.provider === "stripe" && (
                 <>
                   <div className="space-y-1">
@@ -642,6 +747,8 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
               <div className="font-medium">
                 {provider.connector === "stripe"
                   ? "Native connector installed"
+                  : provider.connector === "finix_cloud"
+                    ? "Finix cloud connector installed"
                   : provider.connector === "external"
                     ? "External confirmation mode"
                     : "Connector not installed in this APK"}

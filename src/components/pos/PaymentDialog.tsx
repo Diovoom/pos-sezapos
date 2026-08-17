@@ -546,6 +546,7 @@ function TerminalPanel({
   const [event, setEvent] = useState<PaymentEvent>({ status: "idle", message: "Ready" });
   const [result, setResult] = useState<PaymentResult | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const attemptIdRef = useRef<string>(crypto.randomUUID());
 
   const start = () => {
     if (!provider) return;
@@ -568,6 +569,7 @@ function TerminalPanel({
           amount: total,
           currency,
           method: method as Exclude<PaymentMethod, "cash" | "split">,
+          idempotencyId: attemptIdRef.current,
         },
         (e) => {
           setEvent(e);
@@ -697,7 +699,13 @@ function TerminalPanel({
             <Button variant="outline" className="flex-1" onClick={onCancel}>
               Back to cart
             </Button>
-            <Button className="flex-1" onClick={start}>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                if (status !== "network_error") attemptIdRef.current = crypto.randomUUID();
+                start();
+              }}
+            >
               Retry
             </Button>
           </>

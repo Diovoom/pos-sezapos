@@ -1,4 +1,4 @@
-import { loadStripe, type Stripe } from "@stripe/stripe-js/pure";
+import type { Stripe } from "@stripe/stripe-js";
 
 type StripeEnv = "sandbox" | "live";
 
@@ -17,7 +17,9 @@ let stripePromise: Promise<Stripe | null> | null = null;
 export function getStripe(): Promise<Stripe | null> {
   if (!stripePromise) {
     paymentsEnvironment();
-    stripePromise = loadStripe(clientToken as string);
+    stripePromise = import("@stripe/stripe-js/pure").then(({ loadStripe }) =>
+      loadStripe(clientToken as string),
+    );
   }
   return stripePromise;
 }

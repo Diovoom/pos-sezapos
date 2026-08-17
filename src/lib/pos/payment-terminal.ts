@@ -16,6 +16,7 @@ import {
   charge as chargeStripeTerminal,
   disconnect as disconnectStripeTerminal,
 } from "@/lib/hardware/terminal-stripe";
+import { finixTerminalProvider } from "@/lib/finix/terminal";
 
 export type PaymentStatus =
   | "idle"
@@ -45,6 +46,8 @@ export type PaymentRequest = {
   amount: number;
   currency: string;
   method: PaymentMethodKind;
+  /** Stable per-attempt key used by processors such as Finix to prevent duplicate charges. */
+  idempotencyId?: string;
 };
 
 export type PaymentResult = {
@@ -130,6 +133,7 @@ export function registerProvider(p: PaymentProvider) {
 }
 
 registerProvider(stripeTerminalProvider);
+registerProvider(finixTerminalProvider);
 
 export function listProviders(): PaymentProvider[] {
   return Array.from(providers.values());
@@ -139,9 +143,22 @@ export function listProviders(): PaymentProvider[] {
  * Returns the active provider, or `null` if none is connected. The UI
  * must handle the null case by refusing to accept card payments.
  */
+const ACTIVE_PROVIDER_KEY = "seza.active-payment-provider.v1";
+
+export function setActivePaymentProvider(providerId: string | null) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(ACTIVE_PROVIDER_KEY, providerId || "none");
+  window.dispatchEvent(new Event("seza:payment-provider-changed"));
+}
+
 export function getActiveProvider(): PaymentProvider | null {
-  const first = providers.values().next();
-  return first.done ? null : first.value;
+  if (typeof window !== "undefined") {
+    const selected = window.localStorage.getItem(ACTIVE_PROVIDER_KEY);
+    if (selected === "none") return null;
+    if (selected && providers.has(selected)) return providers.get(selected) ?? null;
+  }
+  // Never guess a processor. A merchant must explicitly activate a terminal in Settings.
+  return null;
 }
 
 /**

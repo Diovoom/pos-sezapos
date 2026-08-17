@@ -42,6 +42,15 @@ import {
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { Reveal } from "@/components/marketing/Reveal";
 import { dashboardUrl } from "@/lib/host";
+const HOME_SELL_SRC = "/images/home-sell-960.webp";
+const HOME_SELL_SRCSET =
+  "/images/home-sell-640.webp 640w, /images/home-sell-960.webp 960w, /images/home-sell-1280.webp 1280w, /images/home-sell-1536.webp 1536w";
+const HOME_INVENTORY_SRC = "/images/home-inventory-960.webp";
+const HOME_INVENTORY_SRCSET =
+  "/images/home-inventory-640.webp 640w, /images/home-inventory-960.webp 960w, /images/home-inventory-1280.webp 1280w, /images/home-inventory-1536.webp 1536w";
+const HOME_REPORTS_SRC = "/images/home-reports-960.webp";
+const HOME_REPORTS_SRCSET =
+  "/images/home-reports-640.webp 640w, /images/home-reports-960.webp 960w, /images/home-reports-1280.webp 1280w, /images/home-reports-1536.webp 1536w";
 
 const HOME_TITLE = "SEZA POS  -  Smart POS. Better business.";
 const HOME_DESCRIPTION =
@@ -64,7 +73,19 @@ export const Route = createFileRoute("/")({
       { name: "twitter:description", content: HOME_DESCRIPTION },
       { name: "twitter:image", content: "https://sezapos.com/seza-og.jpg" },
     ],
-    links: [{ rel: "canonical", href: "https://sezapos.com/" }],
+    links: [
+      { rel: "canonical", href: "https://sezapos.com/" },
+      {
+        rel: "preload",
+        as: "image",
+        href: HOME_SELL_SRC,
+        type: "image/webp",
+        imageSrcSet: HOME_SELL_SRCSET,
+        imageSizes:
+          "(max-width: 768px) calc(100vw - 48px), (max-width: 1280px) calc(100vw - 64px), 1152px",
+        fetchPriority: "high",
+      },
+    ],
   }),
   component: LandingPage,
 });
@@ -353,16 +374,16 @@ function LandingPage() {
                 <div className="w-14" />
               </div>
               <img
-                src="/images/home-sell-1280.webp"
-                srcSet="/images/home-sell-768.webp 768w, /images/home-sell-1280.webp 1280w"
-                sizes="(max-width: 768px) 100vw, 1152px"
+                src={HOME_SELL_SRC}
+                srcSet={HOME_SELL_SRCSET}
+                sizes="(max-width: 768px) calc(100vw - 48px), (max-width: 1280px) calc(100vw - 64px), 1152px"
                 alt="SEZA POS register showing the checkout workspace"
-                width={1600}
-                height={900}
+                width={1536}
+                height={1024}
                 loading="eager"
                 fetchPriority="high"
                 decoding="async"
-                className="block aspect-video w-full rounded-b-[22px] bg-white object-cover"
+                className="block aspect-[3/2] w-full rounded-b-[22px] bg-white object-cover"
               />
             </div>
           </Reveal>
@@ -482,9 +503,8 @@ function LandingPage() {
           <div className="mt-14 grid gap-8 lg:grid-cols-2 lg:items-center">
             <Reveal>
               <ProductImage
-                src="/images/home-inventory-1280.webp"
-                srcSet="/images/home-inventory-768.webp 768w, /images/home-inventory-1280.webp 1280w"
-                sizes="(max-width: 768px) 100vw, 640px"
+                src={HOME_INVENTORY_SRC}
+                srcSet={HOME_INVENTORY_SRCSET}
                 alt="SEZA inventory management screen"
                 label="Inventory"
               />
@@ -556,9 +576,8 @@ function LandingPage() {
             </Reveal>
             <Reveal delay={100} className="order-1 lg:order-2">
               <ProductImage
-                src="/images/home-reports-1280.webp"
-                srcSet="/images/home-reports-768.webp 768w, /images/home-reports-1280.webp 1280w"
-                sizes="(max-width: 768px) 100vw, 640px"
+                src={HOME_REPORTS_SRC}
+                srcSet={HOME_REPORTS_SRCSET}
                 alt="SEZA reports dashboard"
                 label="Reports"
               />
@@ -826,13 +845,11 @@ function LandingPage() {
 function ProductImage({
   src,
   srcSet,
-  sizes,
   alt,
   label,
 }: {
   src: string;
-  srcSet?: string;
-  sizes?: string;
+  srcSet: string;
   alt: string;
   label: string;
 }) {
@@ -852,13 +869,13 @@ function ProductImage({
         <img
           src={src}
           srcSet={srcSet}
-          sizes={sizes}
+          sizes="(max-width: 1024px) calc(100vw - 48px), 50vw"
           alt={alt}
-          width={1600}
-          height={900}
+          width={1536}
+          height={1024}
           loading="lazy"
           decoding="async"
-          className="block aspect-video w-full rounded-[20px] bg-white object-cover transition-transform duration-700 group-hover:scale-[1.015]"
+          className="block aspect-[3/2] w-full rounded-[20px] bg-white object-cover transition-transform duration-700 group-hover:scale-[1.015]"
         />
       </div>
     </div>
