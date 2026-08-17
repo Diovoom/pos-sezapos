@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import {
   ArrowUpRight,
+  ArrowLeft,
   ChevronDown,
   Cookie,
   Phone,
@@ -216,15 +217,29 @@ export function MarketingShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-[70] border-b border-slate-200/80 bg-white/88 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/88">
         <div className="mx-auto grid h-[76px] max-w-7xl grid-cols-[76px_minmax(0,1fr)_76px] items-center px-2 sm:px-6 lg:grid-cols-[1fr_auto_1fr] lg:gap-3 lg:px-8">
           <div className="flex min-w-0 items-center justify-start">
-            <button
-              type="button"
-              className="group grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white lg:hidden"
-              aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-              aria-expanded={mobileOpen}
-              onClick={() => setMobileOpen((value) => !value)}
-            >
-              <MenuGlyph open={mobileOpen} />
-            </button>
+            {pathname === "/" ? (
+              <button
+                type="button"
+                className="group grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white lg:hidden"
+                aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+                aria-expanded={mobileOpen}
+                onClick={() => setMobileOpen((value) => !value)}
+              >
+                <MenuGlyph open={mobileOpen} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="group grid size-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-slate-900 dark:text-white lg:hidden"
+                aria-label="Go back"
+                onClick={() => {
+                  if (window.history.length > 1) window.history.back();
+                  else window.location.href = marketingUrl("/");
+                }}
+              >
+                <ArrowLeft className="size-5" />
+              </button>
+            )}
             <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary navigation">
               <Link
                 resetScroll
@@ -414,17 +429,17 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               ]}
             />
 
-            <FooterColumn
-              title="Legal"
-              links={[
-                { to: "/legal", label: "Legal center" },
-                { to: "/legal/terms", label: "Terms of Service" },
-                { to: "/legal/privacy", label: "Privacy Policy" },
-                { to: "/legal/cookies", label: "Cookie Policy" },
-                { to: "/legal/refund", label: "Refund Policy" },
-                { to: "/legal/accessibility", label: "Accessibility" },
-              ]}
-            />
+            <div>
+              <h3 className="text-sm font-bold text-white">Legal</h3>
+              <p className="mt-4 text-sm leading-7 text-slate-400">
+                <Link to="/legal" className="hover:text-white">Legal center</Link>,{" "}
+                <Link to="/legal/terms" className="hover:text-white">Terms</Link>,{" "}
+                <Link to="/legal/privacy" className="hover:text-white">Privacy</Link>,{" "}
+                <Link to="/legal/cookies" className="hover:text-white">Cookies</Link>,{" "}
+                <Link to="/legal/refund" className="hover:text-white">Refunds</Link>,{" "}
+                <Link to="/legal/accessibility" className="hover:text-white">Accessibility</Link>
+              </p>
+            </div>
           </div>
 
           <div className="mt-12 grid gap-4 border-t border-white/10 pt-6 text-xs text-slate-400 md:grid-cols-[1fr_auto] md:items-center">

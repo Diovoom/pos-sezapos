@@ -1,6 +1,5 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import LanguageDetector from "i18next-browser-languagedetector";
 
 import enUS from "./locales/en-US/common.json";
 import es from "./locales/es/common.json";
@@ -23,7 +22,6 @@ export const SUPPORTED_LANGUAGES = [
 ];
 
 void i18n
-  .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: {
@@ -36,10 +34,10 @@ void i18n
       ar: { common: ar },
       he: { common: he },
     },
+    lng: "en-US",
     fallbackLng: "en-US",
     defaultNS: "common",
     interpolation: { escapeValue: false },
-    detection: { order: ["localStorage", "navigator"], caches: ["localStorage"] },
   });
 
 export async function applyLanguage(lang: string) {
