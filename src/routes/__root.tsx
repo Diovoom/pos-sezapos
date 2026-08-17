@@ -1,36 +1,27 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
-  Link,
   createRootRouteWithContext,
   useRouter,
   useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { supabase } from "@/integrations/supabase/client";
-import { Toaster } from "@/components/ui/sonner";
-import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
-import { AppUpdateNotice } from "@/components/AppUpdateNotice";
 import { Logo } from "@/components/brand/Logo";
-import { initializeAppUpdateWorkflow } from "@/lib/app-update";
-import { clearOwnerQueryCache, persistOwnerQueryCache, restoreOwnerQueryCache } from "@/lib/owner-query-cache";
 
-import "@/i18n";
-import { applyLanguage } from "@/i18n";
-import { GlobalLanguageRuntime } from "@/components/i18n/GlobalLanguageRuntime";
-import { installSessionBridge } from "@/integrations/supabase/session-bridge";
-import { detectAndPersistNative, isPathAllowedInNative } from "@/lib/native";
-import { NativeLoadingOverlay } from "@/components/NativeLoadingOverlay";
-import { NativeRuntime } from "@/components/NativeRuntime";
-import { NativeConnectionBanner } from "@/components/NativeConnectionBanner";
-import { currentApp, dashboardUrl, marketingUrl } from "@/lib/host";
+import { currentApp, dashboardUrl } from "@/lib/host";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { SOCIAL_LINKS } from "@/lib/social";
+
+const OperationalRuntime = lazy(() =>
+  import("@/components/runtime/OperationalRuntime").then((module) => ({
+    default: module.OperationalRuntime,
+  })),
+);
 
 function FriendlyState({
   eyebrow,
@@ -270,176 +261,60 @@ function RouteScrollManager() {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+  const [loadOperationalRuntime, setLoadOperationalRuntime] = useState(false);
 
+  // The marketing hostname is intentionally lightweight. Do not initialize
+  // Supabase auth, native Android bridges, app-update checks, payment preview
+  // banners, i18n, or owner cache code on public marketing pages. Those modules
+  // are dynamically imported only for dashboard/admin/POS/native surfaces.
   useEffect(() => {
-    const saved = typeof window !== "undefined" ? window.localStorage.getItem("i18nextLng") : null;
-    if (saved) applyLanguage(saved);
-    installSessionBridge();
-    void initializeAppUpdateWorkflow();
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
     const app = currentApp();
-    const ownerPath = ["/dashboard", "/sales", "/products", "/inventory", "/customers", "/employees", "/reports", "/shifts", "/settings", "/help", "/profile"].some(
-      (prefix) => window.location.pathname === prefix || window.location.pathname.startsWith(`${prefix}/`),
-    );
-    if (app !== "dashboard" && !(app === "unknown" && ownerPath)) return;
-
-    let stopPersistence: (() => void) | undefined;
-    void supabase.auth.getSession().then(({ data }) => {
-      const userId = data.session?.user.id;
-      if (!userId) return;
-      restoreOwnerQueryCache(queryClient, userId);
-      stopPersistence = persistOwnerQueryCache(queryClient, userId);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      router.invalidate();
-      if (event === "SIGNED_OUT") {
-        stopPersistence?.();
-        clearOwnerQueryCache();
-        return;
-      }
-      const userId = session?.user.id;
-      if (userId) {
-        stopPersistence?.();
-        restoreOwnerQueryCache(queryClient, userId);
-        stopPersistence = persistOwnerQueryCache(queryClient, userId);
-      }
-      queryClient.invalidateQueries();
-    });
-    return () => {
-      stopPersistence?.();
-      sub.subscription.unsubscribe();
-    };
-  }, [router, queryClient]);
-
-  // Keep each public hostname on one clear product surface. This is host-aware
-  // routing inside one deployed SEZA project: marketing on sezapos.com, merchant
-  // owner access on dashboard.sezapos.com, and platform staff on admin.sezapos.com.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const app = currentApp();
-    if (app === "unknown") return; // localhost / hosted preview
-
-    const path = window.location.pathname;
-    const suffix = `${path}${window.location.search}${window.location.hash}`;
-
-    const dashboardPrefixes = [
-      "/auth",
-      "/signup",
-      "/select-plan",
-      "/reset-password",
-      "/dashboard",
-      "/sales",
-      "/products",
-      "/inventory",
-      "/customers",
-      "/employees",
-      "/payroll",
-      "/shifts",
-      "/reports",
-      "/devices",
-      "/settings",
-      "/help",
-      "/setup",
-      "/onboarding",
-      "/customer-display",
-    ];
-
-    const isDashboardPath = dashboardPrefixes.some(
-      (prefix) => path === prefix || path.startsWith(`${prefix}/`),
-    );
-
-    if (app === "admin") {
-      if (path === "/" || (!path.startsWith("/admin") && !path.startsWith("/reset-password"))) {
-        window.location.replace("/admin");
-      }
-      return;
-    }
-
-    // Temporary browser POS remains enabled for hardware/customer-display
-    // testing. Keep this isolated to the POS hostname and remove this branch
-    // when the Android rollout is accepted.
-    if (app === "pos") {
-      const posPrefixes = [
+    if (app === "marketing") {
+      const path = window.location.pathname;
+      const dashboardPrefixes = [
         "/auth",
-        "/pos",
-        "/register",
-        "/refunds",
-        "/timeclock",
+        "/signup",
+        "/select-plan",
+        "/reset-password",
+        "/dashboard",
+        "/sales",
+        "/products",
         "/inventory",
         "/customers",
-        "/products",
+        "/employees",
+        "/payroll",
         "/shifts",
+        "/reports",
+        "/devices",
         "/settings",
-        "/support",
-        "/pending-sync",
+        "/help",
+        "/setup",
+        "/onboarding",
         "/customer-display",
       ];
-      if (path === "/") {
-        window.location.replace("/auth");
-        return;
-      }
-      const allowed = posPrefixes.some(
+      const isDashboardPath = dashboardPrefixes.some(
         (prefix) => path === prefix || path.startsWith(`${prefix}/`),
       );
-      if (!allowed) window.location.replace("/auth");
-      return;
-    }
-
-    if (app === "marketing") {
-      if (isDashboardPath) window.location.replace(dashboardUrl(suffix));
-      return;
-    }
-
-    if (app === "dashboard") {
-      if (path === "/") {
-        void supabase.auth.getSession().then(({ data }) => {
-          window.location.replace(data.session ? "/dashboard" : "/auth");
-        });
-        return;
+      if (isDashboardPath) {
+        const suffix = `${path}${window.location.search}${window.location.hash}`;
+        window.location.replace(dashboardUrl(suffix));
       }
-
-      // Marketing, public support, legal, and SEO pages remain on sezapos.com.
-      if (!isDashboardPath) window.location.replace(marketingUrl(suffix));
+      return;
     }
+
+    // localhost/preview and operational subdomains retain the complete runtime.
+    setLoadOperationalRuntime(true);
   }, []);
-
-  // Native Android shell: keep employees inside the POS surface. Marketing
-  // pages, owner dashboards, and the platform admin are all off-limits from
-  // the mobile app.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const native = detectAndPersistNative();
-    if (!native) return;
-    document.documentElement.classList.add("native-app");
-    const enforce = () => {
-      const path = window.location.pathname;
-      if (!isPathAllowedInNative(path)) {
-        router.navigate({ to: "/auth", replace: true });
-      }
-    };
-    enforce();
-    const unsub = router.subscribe("onResolved", enforce);
-    return () => {
-      unsub();
-    };
-  }, [router]);
 
   return (
     <QueryClientProvider client={queryClient}>
       <RouteScrollManager />
-      <GlobalLanguageRuntime />
-      <NativeRuntime queryClient={queryClient} />
-      <NativeConnectionBanner />
-      <PaymentTestModeBanner />
-      <AppUpdateNotice />
       <Outlet />
-      <Toaster richColors position="top-right" />
-      <NativeLoadingOverlay />
+      {loadOperationalRuntime && (
+        <Suspense fallback={null}>
+          <OperationalRuntime queryClient={queryClient} router={router} />
+        </Suspense>
+      )}
     </QueryClientProvider>
   );
 }
