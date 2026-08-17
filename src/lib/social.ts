@@ -10,12 +10,12 @@ export const SOCIAL_LINKS: SocialLink[] = [
   {
     platform: "facebook",
     label: "Facebook",
-    href: "https://www.facebook.com/share/1DEKcFFify/?mibextid=wwXIfr",
+    href: "https://www.facebook.com/sezapos",
   },
   {
     platform: "instagram",
     label: "Instagram",
-    href: "https://www.instagram.com/sezaposofficial",
+    href: "https://www.instagram.com/sezaposofficial/",
   },
   {
     platform: "x",

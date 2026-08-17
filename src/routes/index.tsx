@@ -42,9 +42,6 @@ import {
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { Reveal } from "@/components/marketing/Reveal";
 import { dashboardUrl } from "@/lib/host";
-import homeSell from "@/assets/home-sell.png.asset.json";
-import homeInventory from "@/assets/home-inventory.png.asset.json";
-import homeReports from "@/assets/home-reports.png.asset.json";
 
 const HOME_TITLE = "SEZA POS  -  Smart POS. Better business.";
 const HOME_DESCRIPTION =
@@ -356,7 +353,9 @@ function LandingPage() {
                 <div className="w-14" />
               </div>
               <img
-                src={homeSell.url}
+                src="/images/home-sell-1280.webp"
+                srcSet="/images/home-sell-768.webp 768w, /images/home-sell-1280.webp 1280w"
+                sizes="(max-width: 768px) 100vw, 1152px"
                 alt="SEZA POS register showing the checkout workspace"
                 width={1600}
                 height={900}
@@ -483,7 +482,9 @@ function LandingPage() {
           <div className="mt-14 grid gap-8 lg:grid-cols-2 lg:items-center">
             <Reveal>
               <ProductImage
-                src={homeInventory.url}
+                src="/images/home-inventory-1280.webp"
+                srcSet="/images/home-inventory-768.webp 768w, /images/home-inventory-1280.webp 1280w"
+                sizes="(max-width: 768px) 100vw, 640px"
                 alt="SEZA inventory management screen"
                 label="Inventory"
               />
@@ -554,7 +555,13 @@ function LandingPage() {
               </ul>
             </Reveal>
             <Reveal delay={100} className="order-1 lg:order-2">
-              <ProductImage src={homeReports.url} alt="SEZA reports dashboard" label="Reports" />
+              <ProductImage
+                src="/images/home-reports-1280.webp"
+                srcSet="/images/home-reports-768.webp 768w, /images/home-reports-1280.webp 1280w"
+                sizes="(max-width: 768px) 100vw, 640px"
+                alt="SEZA reports dashboard"
+                label="Reports"
+              />
             </Reveal>
           </div>
         </div>
@@ -816,7 +823,19 @@ function LandingPage() {
   );
 }
 
-function ProductImage({ src, alt, label }: { src: string; alt: string; label: string }) {
+function ProductImage({
+  src,
+  srcSet,
+  sizes,
+  alt,
+  label,
+}: {
+  src: string;
+  srcSet?: string;
+  sizes?: string;
+  alt: string;
+  label: string;
+}) {
   return (
     <div className="group relative">
       <div className="absolute -inset-5 -z-10 rounded-[38px] bg-blue-500/12 blur-2xl transition-opacity group-hover:opacity-90" />
@@ -832,6 +851,8 @@ function ProductImage({ src, alt, label }: { src: string; alt: string; label: st
         </div>
         <img
           src={src}
+          srcSet={srcSet}
+          sizes={sizes}
           alt={alt}
           width={1600}
           height={900}
