@@ -52,7 +52,7 @@ const HOME_REPORTS_SRC = "/images/home-reports-960.webp";
 const HOME_REPORTS_SRCSET =
   "/images/home-reports-640.webp 640w, /images/home-reports-960.webp 960w, /images/home-reports-1280.webp 1280w, /images/home-reports-1536.webp 1536w";
 
-const HOME_TITLE = "SEZA POS  -  Smart POS. Better business.";
+const HOME_TITLE = "SEZA POS | Everything your store needs. Working as one.";
 const HOME_DESCRIPTION =
   "SEZA POS helps independent retailers sell faster, manage inventory, control cash, run employee shifts, work through internet outages and understand the business from one modern platform.";
 
@@ -292,7 +292,7 @@ function LandingPage() {
           {[0, 1].map((copy) => (
             <div className="flex shrink-0 items-center" key={copy} aria-hidden={copy === 1}>
               {[
-                "Smart POS. Better business.",
+                "Everything your store needs. Working as one.",
                 "Sell faster.",
                 "Know your inventory.",
                 "Control every shift.",
@@ -320,7 +320,7 @@ function LandingPage() {
                 Complete store operations platform
               </div>
               <h1 className="mt-7 text-balance text-5xl font-black tracking-[-0.045em] text-slate-950 sm:text-6xl lg:text-[5.25rem] lg:leading-[0.98] dark:text-white">
-                Run the whole store from one simple POS.
+                Everything your store needs. Working as one.
               </h1>
               <p className="mx-auto mt-7 max-w-3xl text-pretty text-lg leading-8 text-slate-600 sm:text-xl dark:text-slate-300">
                 Ring up sales, manage inventory, control cash, run employee shifts, send receipts

@@ -120,7 +120,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-const SITE_TITLE = "SEZA POS | Smart Point of Sale System for Retail Businesses";
+const SITE_TITLE = "SEZA POS | Connected Point of Sale for Independent Retail";
 const SITE_DESCRIPTION =
   "SEZA POS is a modern point-of-sale system for retail stores, convenience stores, liquor stores, grocery stores, and small businesses. Manage sales, inventory, employees, receipts, reports, and payments in one platform.";
 const OG_IMAGE = "https://sezapos.com/seza-og.jpg";
@@ -191,6 +191,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           description:
             "Modern cloud point-of-sale platform for convenience stores, mini marts, liquor, and retail.",
           sameAs: SOCIAL_LINKS.map((link) => link.href),
+          founder: {
+            "@type": "Person",
+            name: "Dave Arthur Marcelin",
+            jobTitle: "Founder",
+            image: "https://sezapos.com/dave-arthur-marcelin-founder.jpg",
+            url: "https://sezapos.com/about",
+            sameAs: [
+              "https://www.linkedin.com/in/dave-marcelin-3365b7269",
+            ],
+          },
         }),
       },
       {
