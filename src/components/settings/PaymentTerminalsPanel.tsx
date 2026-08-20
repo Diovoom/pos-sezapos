@@ -169,9 +169,10 @@ const PROVIDERS: Provider[] = [
 function driverForTerminal(terminal: Terminal): TerminalDriverId {
   if (terminal.provider !== "stripe") return "none";
   const model = String(terminal.config?.model ?? "").toLowerCase();
-  if (model.includes("simulated")) return "stripe-tap-to-pay";
+  if (model.includes("simulated")) return "stripe-simulated";
+  if (model.includes("reader m2")) return "stripe-m2";
   if (model.includes("tap to pay")) return "stripe-tap-to-pay";
-  if (model.includes("wisepad") || model.includes("reader m2")) return "stripe-wisepad3";
+  if (model.includes("wisepad")) return "stripe-wisepad3";
   if (model.includes("wisepos") || model.includes("s700")) return "stripe-wisepos";
   return "none";
 }
@@ -199,6 +200,8 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     serial: "",
     location: "Front counter",
     stripeLocationId: "",
+    stripeAccountId: "",
+    stripeConnectionMethod: "usb" as "usb" | "bluetooth",
     testMode: true,
     finixMerchantId: "",
     finixDeviceId: "",
@@ -243,6 +246,11 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       if (!storeId) throw new Error("Your store is not ready yet.");
       if (!form.label.trim()) throw new Error("Enter a terminal name.");
       if (!form.model.trim()) throw new Error("Choose the terminal model.");
+      if (form.provider === "stripe" && !form.stripeAccountId.trim()) {
+        throw new Error(
+          "Enter this merchant’s Stripe connected account ID (acct_...) before pairing a reader.",
+        );
+      }
       if (form.provider === "stripe" && !form.stripeLocationId.trim()) {
         throw new Error(
           "Enter the Stripe Terminal Location ID from the owner payment setup before pairing this reader.",
@@ -266,6 +274,12 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
             setup_source: native ? "android_pos" : "owner_dashboard",
             location_id:
               form.provider === "stripe" ? form.stripeLocationId.trim() : undefined,
+            stripe_account_id:
+              form.provider === "stripe" ? form.stripeAccountId.trim() : undefined,
+            connection_method:
+              form.provider === "stripe" && form.model.toLowerCase().includes("reader m2")
+                ? form.stripeConnectionMethod
+                : undefined,
             test_mode: form.provider === "stripe" ? form.testMode : undefined,
             finix_device_id: form.provider === "finix" ? form.finixDeviceId.trim() : undefined,
             finix_merchant_id: form.provider === "finix" ? form.finixMerchantId.trim() || undefined : undefined,
@@ -302,6 +316,8 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
         serial: "",
         location: "Front counter",
         stripeLocationId: "",
+        stripeAccountId: "",
+        stripeConnectionMethod: "usb",
         testMode: true,
         finixMerchantId: "",
         finixDeviceId: "",
@@ -620,6 +636,8 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                       provider: value,
                       model: "",
                       stripeLocationId: value === "stripe" ? form.stripeLocationId : "",
+                      stripeAccountId: value === "stripe" ? form.stripeAccountId : "",
+                      stripeConnectionMethod: value === "stripe" ? form.stripeConnectionMethod : "usb",
                       finixDeviceId: value === "finix" ? form.finixDeviceId : "",
                       finixMerchantId: value === "finix" ? form.finixMerchantId : "",
                     })
@@ -717,6 +735,20 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
               )}
               {form.provider === "stripe" && (
                 <>
+                  <div className="space-y-1 md:col-span-2">
+                    <Label>Stripe connected account ID</Label>
+                    <Input
+                      value={form.stripeAccountId}
+                      onChange={(event) => setForm({ ...form, stripeAccountId: event.target.value })}
+                      placeholder="acct_..."
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      autoComplete="off"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      The merchant connected account that owns these direct charges. This is an account ID, not a secret API key.
+                    </p>
+                  </div>
                   <div className="space-y-1">
                     <Label>Stripe Terminal Location ID</Label>
                     <Input
@@ -730,6 +762,29 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                       Get this after completing Stripe setup in the Owner Dashboard.
                     </p>
                   </div>
+                  {form.model.toLowerCase().includes("reader m2") && (
+                    <div className="space-y-1">
+                      <Label>Reader M2 connection</Label>
+                      <Select
+                        value={form.stripeConnectionMethod}
+                        onValueChange={(value) =>
+                          setForm({
+                            ...form,
+                            stripeConnectionMethod: value as "usb" | "bluetooth",
+                          })
+                        }
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="usb">USB — recommended for countertop POS</SelectItem>
+                          <SelectItem value="bluetooth">Bluetooth — wireless fallback</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        USB uses the M2 data cable and Android USB permission. Bluetooth remains available if the POS USB port cannot operate in host/data mode.
+                      </p>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between rounded-lg border p-3">
                     <div>
                       <Label>Stripe test mode</Label>

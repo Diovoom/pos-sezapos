@@ -14,7 +14,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
   charge as chargeStripeTerminal,
-  disconnect as disconnectStripeTerminal,
+  cancelActivePayment as cancelStripeTerminalPayment,
 } from "@/lib/hardware/terminal-stripe";
 import { finixTerminalProvider } from "@/lib/finix/terminal";
 
@@ -88,6 +88,7 @@ const stripeTerminalProvider: PaymentProvider = {
         amountCents: Math.round(req.amount * 100),
         currency: req.currency.toLowerCase(),
         description: `SEZA POS ${req.method.replaceAll("_", " ")} sale`,
+        idempotencyId: req.idempotencyId,
       },
       (message) => {
         const lower = message.toLowerCase();
@@ -120,7 +121,7 @@ const stripeTerminalProvider: PaymentProvider = {
     };
   },
   cancel() {
-    void disconnectStripeTerminal();
+    void cancelStripeTerminalPayment();
   },
 };
 

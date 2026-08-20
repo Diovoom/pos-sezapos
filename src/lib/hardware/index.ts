@@ -8,7 +8,7 @@
 //   printer:  "none" | "escpos-ble" (generic BT, fully functional)
 //             | "star"  (StarPRNT  -  stub; needs Star SDK .aar)
 //             | "epson" (ePOS  -  stub; needs Epson SDK .aar)
-//   terminal: "none" | "stripe-tap-to-pay" | "stripe-wisepos" | "stripe-wisepad3"
+//   terminal: "none" | "stripe-simulated" | "stripe-m2" | "stripe-tap-to-pay" | "stripe-wisepos" | "stripe-wisepad3"
 //             (Stripe drivers wrap @capacitor-community/stripe-terminal
 //              via dynamic import  -  see terminal-stripe.ts.)
 //
@@ -24,7 +24,13 @@ import { buildReceipt, escposBuilder, type ReceiptPayload } from "./escpos";
 import * as stripeTerminal from "./terminal-stripe";
 
 export type PrinterDriverId = "none" | "escpos-usb" | "escpos-ble" | "star" | "epson";
-export type TerminalDriverId = "none" | "stripe-tap-to-pay" | "stripe-wisepos" | "stripe-wisepad3";
+export type TerminalDriverId =
+  | "none"
+  | "stripe-simulated"
+  | "stripe-m2"
+  | "stripe-tap-to-pay"
+  | "stripe-wisepos"
+  | "stripe-wisepad3";
 
 export interface PrinterDriver {
   id: PrinterDriverId;
@@ -191,6 +197,8 @@ function makeStripeDriver(id: Exclude<TerminalDriverId, "none">, label: string):
 
 export const terminalDrivers: Record<TerminalDriverId, TerminalDriver> = {
   none: nullTerminal,
+  "stripe-simulated": makeStripeDriver("stripe-simulated", "Stripe simulated reader"),
+  "stripe-m2": makeStripeDriver("stripe-m2", "Stripe Reader M2"),
   "stripe-tap-to-pay": makeStripeDriver("stripe-tap-to-pay", "Stripe Tap to Pay on Android"),
   "stripe-wisepos": makeStripeDriver("stripe-wisepos", "BBPOS WisePOS E"),
   "stripe-wisepad3": makeStripeDriver("stripe-wisepad3", "BBPOS WisePad 3"),
@@ -227,7 +235,7 @@ export function setActiveTerminal(id: TerminalDriverId) {
  */
 export async function suggestPreferredTerminal(): Promise<TerminalDriverId> {
   if (!isNativeMode()) return "none";
-  const candidates: TerminalDriverId[] = ["stripe-tap-to-pay", "stripe-wisepos", "stripe-wisepad3"];
+  const candidates: TerminalDriverId[] = ["stripe-m2", "stripe-tap-to-pay", "stripe-wisepos", "stripe-wisepad3"];
   for (const id of candidates) {
     const d = terminalDrivers[id];
     if (await d.capable()) return id;

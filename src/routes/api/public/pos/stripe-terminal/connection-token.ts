@@ -37,16 +37,16 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/connection
         const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
         if (!token) return json({ error: "Missing bearer token" }, 401);
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: userRes, error } = await supabaseAdmin.auth.getUser(token);
-        if (error || !userRes.user) return json({ error: "Unauthorized" }, 401);
-
         try {
-          const { createStripeClient, getStripeErrorMessage } = await import("@/lib/stripe.server");
-          // Sandbox until merchant claims live; both use the same Terminal API.
-          const env = (process.env.STRIPE_LIVE_API_KEY ? "live" : "sandbox") as "live" | "sandbox";
-          const stripe = createStripeClient(env);
-          const ct = await stripe.terminal.connectionTokens.create();
+          const { resolveStripeTerminalMerchant } = await import("@/lib/stripe-terminal.server");
+          const merchant = await resolveStripeTerminalMerchant(token);
+          const { createTerminalStripeClient } = await import("@/lib/stripe-terminal.server");
+          const stripe = createTerminalStripeClient(merchant.testMode);
+          // Direct-charge architecture: Terminal resources are scoped to the connected merchant.
+          const ct = await stripe.terminal.connectionTokens.create(
+            {},
+            { stripeAccount: merchant.stripeAccountId },
+          );
           return json({ secret: ct.secret });
         } catch (e) {
           const { getStripeErrorMessage } = await import("@/lib/stripe.server").catch(() => ({

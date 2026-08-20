@@ -9,6 +9,7 @@ type TerminalConfiguration = {
   driver: TerminalDriverId;
   locationId: string;
   testMode: boolean;
+  connectionMethod: "usb" | "bluetooth";
   serial?: string | null;
 };
 
@@ -49,13 +50,19 @@ async function fetchConnectionToken() {
   return result.secret;
 }
 
-async function createPaymentIntent(amountCents: number, currency: string, description?: string) {
+async function createPaymentIntent(
+  amountCents: number,
+  currency: string,
+  description?: string,
+  idempotencyId?: string,
+) {
   const result = await callApi<{ id: string; client_secret: string }>(
     "/api/public/pos/stripe-terminal/payment-intent",
     {
       amount: amountCents,
       currency,
       description,
+      idempotencyId,
     },
   );
   if (!result.client_secret) throw new Error("Stripe Terminal PaymentIntent was not created");
@@ -91,16 +98,33 @@ async function activeConfiguration(preferred?: TerminalDriverId): Promise<Termin
     throw new Error(
       "This terminal still needs provider setup. Open Payments and terminals as the owner to finish connecting it.",
     );
+  const connectionMethod = String(config.connection_method || "usb").toLowerCase() === "bluetooth"
+    ? "bluetooth"
+    : "usb";
   return {
-    driver: (driver as string) === "stripe" ? "stripe-tap-to-pay" : driver,
+    driver: (driver as string) === "stripe" ? "stripe-m2" : driver,
     locationId,
     testMode: config.test_mode !== false,
+    connectionMethod,
     serial: data.serial,
   };
 }
 
-function connectionType(mod: StripeModule, driver: TerminalDriverId) {
+function connectionType(
+  mod: StripeModule,
+  driver: TerminalDriverId,
+  connectionMethod: "usb" | "bluetooth",
+) {
+  if (driver === "stripe-simulated") return mod.TerminalConnectTypes.Simulated;
   if (driver === "stripe-wisepos") return mod.TerminalConnectTypes.Internet;
+  if (driver === "stripe-m2") {
+    // Stripe Reader M2 supports USB on Android and Bluetooth on Android/iOS.
+    // SEZA defaults countertop M2 installations to USB for a fixed, reliable
+    // connection while keeping Bluetooth available as a fallback.
+    return connectionMethod === "usb"
+      ? mod.TerminalConnectTypes.Usb
+      : mod.TerminalConnectTypes.Bluetooth;
+  }
   if (driver === "stripe-wisepad3") return mod.TerminalConnectTypes.Bluetooth;
   return mod.TerminalConnectTypes.TapToPay;
 }
@@ -146,7 +170,7 @@ async function ensureReader(
 
   onStatus?.("Discovering Stripe reader…");
   const result = await mod.StripeTerminal.discoverReaders({
-    type: connectionType(mod, configuration.driver),
+    type: connectionType(mod, configuration.driver, configuration.connectionMethod),
     locationId: configuration.locationId,
   });
   const reader = configuration.serial
@@ -155,7 +179,9 @@ async function ensureReader(
     : result.readers[0];
   if (!reader)
     throw new Error(
-      "No Stripe reader was found. Confirm Bluetooth, NFC, location permission, and the Stripe Location ID.",
+      configuration.driver === "stripe-m2" && configuration.connectionMethod === "usb"
+        ? "No Stripe Reader M2 was found over USB. Confirm the reader is powered on, use a USB 2.0 data+charging cable, allow the Android USB permission prompt, and verify the Stripe Location ID."
+        : "No Stripe reader was found. Confirm Bluetooth, NFC, location permission, and the Stripe Location ID.",
     );
 
   onStatus?.(`Connecting ${reader.label || reader.serialNumber}…`);
@@ -177,7 +203,7 @@ export async function discoverReaders(driver: TerminalDriverId) {
   const configuration = await activeConfiguration(driver);
   const mod = await initialize(configuration.testMode);
   const result = await mod.StripeTerminal.discoverReaders({
-    type: connectionType(mod, configuration.driver),
+    type: connectionType(mod, configuration.driver, configuration.connectionMethod),
     locationId: configuration.locationId,
   });
   return result.readers.map((reader) => ({
@@ -220,14 +246,19 @@ export async function isReady(driver: TerminalDriverId) {
 
 export async function charge(
   driver: TerminalDriverId,
-  input: { amountCents: number; currency: string; description?: string },
+  input: { amountCents: number; currency: string; description?: string; idempotencyId?: string },
   onStatus?: (message: string) => void,
 ): Promise<{ ok: true; ref: string } | { ok: false; error: string }> {
   try {
     const configuration = await activeConfiguration(driver);
     const { mod } = await ensureReader(configuration, onStatus);
     onStatus?.("Creating secure card-present payment…");
-    const intent = await createPaymentIntent(input.amountCents, input.currency, input.description);
+    const intent = await createPaymentIntent(
+      input.amountCents,
+      input.currency,
+      input.description,
+      input.idempotencyId,
+    );
     onStatus?.("Ask the customer to tap, insert, or swipe…");
     await mod.StripeTerminal.collectPaymentMethod({ paymentIntent: intent.client_secret });
     onStatus?.("Processing payment…");
@@ -239,6 +270,15 @@ export async function charge(
       ok: false,
       error: error instanceof Error ? error.message : "Stripe Terminal payment failed",
     };
+  }
+}
+
+export async function cancelActivePayment() {
+  try {
+    const mod = await loadModule();
+    await mod.StripeTerminal.cancelCollectPaymentMethod();
+  } catch {
+    // Safe no-op when the SDK is not currently collecting a payment method.
   }
 }
 

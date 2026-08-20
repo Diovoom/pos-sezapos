@@ -15,7 +15,12 @@ function json(data: unknown, status = 200) {
   });
 }
 
-type Body = { amount?: unknown; currency?: unknown; description?: unknown };
+type Body = {
+  amount?: unknown;
+  currency?: unknown;
+  description?: unknown;
+  idempotencyId?: unknown;
+};
 
 export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-intent")({
   server: {
@@ -48,40 +53,44 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
           typeof body.currency === "string" && body.currency ? body.currency.toLowerCase() : "usd";
         const description =
           typeof body.description === "string" ? body.description.slice(0, 200) : undefined;
+        const idempotencyId =
+          typeof body.idempotencyId === "string" && body.idempotencyId.trim()
+            ? body.idempotencyId.trim().slice(0, 200)
+            : undefined;
         if (!Number.isInteger(amount) || amount < 50)
           return json({ error: "amount must be an integer ≥ 50 (in cents)" }, 400);
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: userRes, error: uerr } = await supabaseAdmin.auth.getUser(token);
-        if (uerr || !userRes.user) return json({ error: "Unauthorized" }, 401);
-        const userId = userRes.user.id;
-
-        // Resolve store for audit.
-
-        const admin: any = supabaseAdmin;
-        const { data: profile } = await admin
-          .from("profiles")
-          .select("store_id")
-          .eq("id", userId)
-          .maybeSingle();
-        const storeId = profile?.store_id ?? null;
-
         try {
-          const { createStripeClient, getStripeErrorMessage } = await import("@/lib/stripe.server");
-          const env = (process.env.STRIPE_LIVE_API_KEY ? "live" : "sandbox") as "live" | "sandbox";
-          const stripe = createStripeClient(env);
-          const pi = await stripe.paymentIntents.create({
-            amount,
-            currency,
-            payment_method_types: ["card_present"],
-            capture_method: "automatic",
-            description,
-            metadata: { store_id: storeId ?? "", cashier_id: userId, channel: "pos_terminal" },
-          });
+          const { resolveStripeTerminalMerchant } = await import("@/lib/stripe-terminal.server");
+          const merchant = await resolveStripeTerminalMerchant(token);
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const admin: any = supabaseAdmin;
+          const { createTerminalStripeClient } = await import("@/lib/stripe-terminal.server");
+          const stripe = createTerminalStripeClient(merchant.testMode);
+          // Direct charge: the PaymentIntent is created on the merchant's connected account.
+          // Stripe therefore settles the payment to that merchant instead of SEZA.
+          const pi = await stripe.paymentIntents.create(
+            {
+              amount,
+              currency,
+              payment_method_types: ["card_present"],
+              capture_method: "automatic",
+              description,
+              metadata: {
+                store_id: merchant.storeId,
+                cashier_id: merchant.userId,
+                channel: "pos_terminal",
+              },
+            },
+            {
+              stripeAccount: merchant.stripeAccountId,
+              ...(idempotencyId ? { idempotencyKey: `seza-pos-${idempotencyId}` } : {}),
+            },
+          );
           try {
             await admin.from("payment_attempts").insert({
-              store_id: storeId,
-              cashier_id: userId,
+              store_id: merchant.storeId,
+              cashier_id: merchant.userId,
               amount_cents: amount,
               currency,
               provider: "stripe_terminal",
