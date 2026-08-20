@@ -116,6 +116,9 @@ import { Route as AdminAppAdminSupportTicketIdRouteImport } from './routes/_admi
 import { Route as AdminAppAdminBusinessesStoreIdRouteImport } from './routes/_adminApp/admin.businesses.$storeId'
 import { Route as ApiPublicPosStripeTerminalPaymentIntentRouteImport } from './routes/api/public/pos/stripe-terminal/payment-intent'
 import { Route as ApiPublicPosStripeTerminalConnectionTokenRouteImport } from './routes/api/public/pos/stripe-terminal/connection-token'
+import { Route as ApiPublicPosFinixStatusRouteImport } from './routes/api/public/pos/finix/status'
+import { Route as ApiPublicPosFinixSaleRouteImport } from './routes/api/public/pos/finix/sale'
+import { Route as ApiPublicPosFinixCancelRouteImport } from './routes/api/public/pos/finix/cancel'
 
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
   id: '/unsubscribe',
@@ -670,6 +673,21 @@ const ApiPublicPosStripeTerminalConnectionTokenRoute =
     path: '/api/public/pos/stripe-terminal/connection-token',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicPosFinixStatusRoute = ApiPublicPosFinixStatusRouteImport.update({
+  id: '/api/public/pos/finix/status',
+  path: '/api/public/pos/finix/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPosFinixSaleRoute = ApiPublicPosFinixSaleRouteImport.update({
+  id: '/api/public/pos/finix/sale',
+  path: '/api/public/pos/finix/sale',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPosFinixCancelRoute = ApiPublicPosFinixCancelRouteImport.update({
+  id: '/api/public/pos/finix/cancel',
+  path: '/api/public/pos/finix/cancel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -774,6 +792,9 @@ export interface FileRoutesByFullPath {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/admin/businesses/': typeof AdminAppAdminBusinessesIndexRoute
+  '/api/public/pos/finix/cancel': typeof ApiPublicPosFinixCancelRoute
+  '/api/public/pos/finix/sale': typeof ApiPublicPosFinixSaleRoute
+  '/api/public/pos/finix/status': typeof ApiPublicPosFinixStatusRoute
   '/api/public/pos/stripe-terminal/connection-token': typeof ApiPublicPosStripeTerminalConnectionTokenRoute
   '/api/public/pos/stripe-terminal/payment-intent': typeof ApiPublicPosStripeTerminalPaymentIntentRoute
 }
@@ -880,6 +901,9 @@ export interface FileRoutesByTo {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/admin/businesses': typeof AdminAppAdminBusinessesIndexRoute
+  '/api/public/pos/finix/cancel': typeof ApiPublicPosFinixCancelRoute
+  '/api/public/pos/finix/sale': typeof ApiPublicPosFinixSaleRoute
+  '/api/public/pos/finix/status': typeof ApiPublicPosFinixStatusRoute
   '/api/public/pos/stripe-terminal/connection-token': typeof ApiPublicPosStripeTerminalConnectionTokenRoute
   '/api/public/pos/stripe-terminal/payment-intent': typeof ApiPublicPosStripeTerminalPaymentIntentRoute
 }
@@ -990,6 +1014,9 @@ export interface FileRoutesById {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/_adminApp/admin/businesses/': typeof AdminAppAdminBusinessesIndexRoute
+  '/api/public/pos/finix/cancel': typeof ApiPublicPosFinixCancelRoute
+  '/api/public/pos/finix/sale': typeof ApiPublicPosFinixSaleRoute
+  '/api/public/pos/finix/status': typeof ApiPublicPosFinixStatusRoute
   '/api/public/pos/stripe-terminal/connection-token': typeof ApiPublicPosStripeTerminalConnectionTokenRoute
   '/api/public/pos/stripe-terminal/payment-intent': typeof ApiPublicPosStripeTerminalPaymentIntentRoute
 }
@@ -1098,6 +1125,9 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/admin/businesses/'
+    | '/api/public/pos/finix/cancel'
+    | '/api/public/pos/finix/sale'
+    | '/api/public/pos/finix/status'
     | '/api/public/pos/stripe-terminal/connection-token'
     | '/api/public/pos/stripe-terminal/payment-intent'
   fileRoutesByTo: FileRoutesByTo
@@ -1204,6 +1234,9 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/admin/businesses'
+    | '/api/public/pos/finix/cancel'
+    | '/api/public/pos/finix/sale'
+    | '/api/public/pos/finix/status'
     | '/api/public/pos/stripe-terminal/connection-token'
     | '/api/public/pos/stripe-terminal/payment-intent'
   id:
@@ -1313,6 +1346,9 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/_adminApp/admin/businesses/'
+    | '/api/public/pos/finix/cancel'
+    | '/api/public/pos/finix/sale'
+    | '/api/public/pos/finix/status'
     | '/api/public/pos/stripe-terminal/connection-token'
     | '/api/public/pos/stripe-terminal/payment-intent'
   fileRoutesById: FileRoutesById
@@ -1381,6 +1417,9 @@ export interface RootRouteChildren {
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
   LovableEmailTransactionalSendRoute: typeof LovableEmailTransactionalSendRoute
+  ApiPublicPosFinixCancelRoute: typeof ApiPublicPosFinixCancelRoute
+  ApiPublicPosFinixSaleRoute: typeof ApiPublicPosFinixSaleRoute
+  ApiPublicPosFinixStatusRoute: typeof ApiPublicPosFinixStatusRoute
   ApiPublicPosStripeTerminalConnectionTokenRoute: typeof ApiPublicPosStripeTerminalConnectionTokenRoute
   ApiPublicPosStripeTerminalPaymentIntentRoute: typeof ApiPublicPosStripeTerminalPaymentIntentRoute
 }
@@ -2136,6 +2175,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPosStripeTerminalConnectionTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/pos/finix/status': {
+      id: '/api/public/pos/finix/status'
+      path: '/api/public/pos/finix/status'
+      fullPath: '/api/public/pos/finix/status'
+      preLoaderRoute: typeof ApiPublicPosFinixStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pos/finix/sale': {
+      id: '/api/public/pos/finix/sale'
+      path: '/api/public/pos/finix/sale'
+      fullPath: '/api/public/pos/finix/sale'
+      preLoaderRoute: typeof ApiPublicPosFinixSaleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pos/finix/cancel': {
+      id: '/api/public/pos/finix/cancel'
+      path: '/api/public/pos/finix/cancel'
+      fullPath: '/api/public/pos/finix/cancel'
+      preLoaderRoute: typeof ApiPublicPosFinixCancelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -2346,6 +2406,9 @@ const rootRouteChildren: RootRouteChildren = {
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
   LovableEmailTransactionalSendRoute: LovableEmailTransactionalSendRoute,
+  ApiPublicPosFinixCancelRoute: ApiPublicPosFinixCancelRoute,
+  ApiPublicPosFinixSaleRoute: ApiPublicPosFinixSaleRoute,
+  ApiPublicPosFinixStatusRoute: ApiPublicPosFinixStatusRoute,
   ApiPublicPosStripeTerminalConnectionTokenRoute:
     ApiPublicPosStripeTerminalConnectionTokenRoute,
   ApiPublicPosStripeTerminalPaymentIntentRoute:
