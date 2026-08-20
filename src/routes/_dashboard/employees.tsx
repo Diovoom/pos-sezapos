@@ -40,7 +40,15 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
-import { Loader2, Plus, KeyRound, Ban, Check, Copy } from "lucide-react";
+import { Loader2, Plus, KeyRound, Ban, Check, Copy, WifiOff } from "lucide-react";
+import {
+  cacheEmployees,
+  loadCachedEmployees,
+  saveOfflineAction,
+  upsertCachedEmployee,
+  type CachedEmployee,
+} from "@/lib/offline/db";
+import { isOnlineNow } from "@/lib/offline/useOnline";
 
 export const Route = createFileRoute("/_dashboard/employees")({
   head: () => ({
@@ -79,12 +87,21 @@ function EmployeesPage() {
 
   const { data: employees = [], isLoading } = useQuery<EmployeeRow[]>({
     queryKey: ["employees"],
+    retry: (count) => isOnlineNow() && count < 1,
     queryFn: async () => {
-      const { data } = await supabase
+      if (!isOnlineNow()) return (await loadCachedEmployees()) as EmployeeRow[];
+      const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .order("created_at", { ascending: false });
-      return (data as unknown as EmployeeRow[]) ?? [];
+      if (error) {
+        const cached = await loadCachedEmployees();
+        if (cached.length) return cached as EmployeeRow[];
+        throw error;
+      }
+      const rows = ((data as unknown as EmployeeRow[]) ?? []);
+      await cacheEmployees(rows as CachedEmployee[]).catch(() => {});
+      return rows;
     },
   });
 
@@ -184,6 +201,9 @@ function EmployeesPage() {
                             >
                               {row.status}
                             </Badge>
+                            {row.status === "pending_sync" && (
+                              <Badge variant="outline" className="text-[10px]"><WifiOff className="mr-1 size-3" />Pending sync</Badge>
+                            )}
                             {row.must_change_password && (
                               <Badge
                                 variant="outline"
@@ -365,9 +385,60 @@ function CreateEmployeeDialog({
     e.preventDefault();
     setBusy(true);
     try {
-      const r = await create({ data: form });
-      setResult({ employee_id: r.employee_id, email: r.email, temp: r.temp_password });
-      qc.invalidateQueries({ queryKey: ["employees"] });
+      if (!isOnlineNow()) {
+        const localId = `local-employee-${crypto.randomUUID()}`;
+        const queuedAt = new Date().toISOString();
+        const localEmployee: CachedEmployee = {
+          id: localId,
+          first_name: form.first_name.trim(),
+          last_name: form.last_name.trim(),
+          full_name: `${form.first_name} ${form.last_name}`.trim(),
+          email: form.email.trim().toLowerCase(),
+          phone: form.phone.trim() || null,
+          employee_id: "Pending sync",
+          status: "pending_sync",
+          hire_date: form.hire_date || null,
+          must_change_password: true,
+          photo_url: null,
+          pending_sync: true,
+        };
+        await upsertCachedEmployee(localEmployee);
+        await saveOfflineAction({
+          id: `employee-create:${localId}`,
+          idempotency_key: `employee-create:${localId}`,
+          kind: "employee_create",
+          store_id: null,
+          user_id: "local-first",
+          payload: { local_id: localId, ...form },
+          local_created_at: queuedAt,
+          status: "pending",
+          attempts: 0,
+        });
+        toast.success("Employee saved offline · account will be provisioned automatically when connected");
+        qc.setQueryData<EmployeeRow[]>(["employees"], (current = []) => [
+          localEmployee as EmployeeRow,
+          ...current.filter((row) => row.id !== localId),
+        ]);
+        onOpenChange(false);
+      } else {
+        const r = await create({ data: form });
+        setResult({ employee_id: r.employee_id, email: r.email, temp: r.temp_password });
+        await upsertCachedEmployee({
+          id: r.user_id,
+          first_name: form.first_name.trim(),
+          last_name: form.last_name.trim(),
+          full_name: `${form.first_name} ${form.last_name}`.trim(),
+          email: r.email,
+          phone: form.phone.trim() || null,
+          employee_id: r.employee_id,
+          status: "active",
+          hire_date: form.hire_date || null,
+          must_change_password: true,
+          photo_url: null,
+          pending_sync: false,
+        }).catch(() => {});
+        qc.invalidateQueries({ queryKey: ["employees"] });
+      }
       setForm({
         first_name: "",
         last_name: "",

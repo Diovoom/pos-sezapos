@@ -431,7 +431,7 @@ export function PosPage() {
     queryFn: async () => {
       if (!isOnlineNow()) {
         const cached = await loadCachedProducts();
-        return cached as unknown as Product[];
+        return cached.filter((product) => product.status !== "inactive") as unknown as Product[];
       }
       try {
         const { data, error } = await supabase
@@ -447,7 +447,7 @@ export function PosPage() {
         return rows;
       } catch {
         const cached = await loadCachedProducts();
-        return cached as unknown as Product[];
+        return cached.filter((product) => product.status !== "inactive") as unknown as Product[];
       }
     },
   });

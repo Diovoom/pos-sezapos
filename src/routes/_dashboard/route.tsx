@@ -17,6 +17,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { hasAnyPlatformRole } from "@/lib/platform-roles";
 import { getMerchantPlatformNotice } from "@/lib/platform-settings.functions";
 import { AlertTriangle, Info } from "lucide-react";
+import { installAutoSync } from "@/lib/offline/sync";
 
 // Browser management surface for store owners only.
 // Employees use the paired Android POS app instead of the website.
@@ -76,6 +77,12 @@ const READ_ONLY_ALLOWED = new Set([
 
 function DashboardLayout() {
   const me = useMe();
+  useEffect(() => {
+    // If the owner keeps the dashboard open through a network outage, queued
+    // local-first catalog/employee mutations are pushed automatically as soon
+    // as connectivity returns. No manual Publish/Sync button is required.
+    installAutoSync();
+  }, []);
   const { data: plan } = useSubscription();
   const location = useLocation();
   const navigate = useNavigate();

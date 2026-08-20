@@ -1,3 +1,10 @@
+import {
+  deleteCachedProduct,
+  saveOfflineAction,
+  upsertCachedProduct,
+  type CachedProduct,
+} from "@/lib/offline/db";
+
 export type InventoryDraftOperation = "create" | "update" | "delete";
 
 export type InventoryDraft = {
@@ -30,10 +37,18 @@ export function loadInventoryDrafts(storeId: string): InventoryDraft[] {
 export function saveInventoryDraft(storeId: string, draft: InventoryDraft) {
   const existing = loadInventoryDrafts(storeId);
   const previous = existing.find((item) => item.productId === draft.productId);
+  const mergedOperation: InventoryDraftOperation = previous
+    ? previous.operation === "create" && draft.operation !== "delete"
+      ? "create"
+      : previous.operation === "create" && draft.operation === "delete"
+        ? "delete"
+        : draft.operation
+    : draft.operation;
   const merged: InventoryDraft = previous
     ? {
         ...previous,
         ...draft,
+        operation: mergedOperation,
         original: previous.original ?? draft.original,
         createdAt: previous.createdAt,
         changes: { ...(previous.changes ?? {}), ...(draft.changes ?? {}) },
@@ -42,6 +57,55 @@ export function saveInventoryDraft(storeId: string, draft: InventoryDraft) {
   const next = existing.filter((item) => item.productId !== draft.productId);
   localStorage.setItem(draftKey(storeId), JSON.stringify([...next, merged]));
   window.dispatchEvent(new CustomEvent("inventory-drafts-change"));
+
+  // Local-first catalog: the register sees this mutation immediately and the
+  // durable action queue pushes it to the cloud automatically when a valid
+  // connection + authenticated session are available. One deterministic queue
+  // row per product means repeated edits collapse into the newest state rather
+  // than replaying stale intermediate versions.
+  const base = { ...(merged.original ?? {}), ...(merged.changes ?? {}) } as Record<string, unknown>;
+  if (merged.operation === "delete") {
+    void deleteCachedProduct(merged.productId).catch(() => {});
+  } else {
+    const cached: CachedProduct = {
+      id: merged.productId,
+      name: String(base.name ?? "Unnamed product"),
+      price: Number(base.price ?? 0),
+      cost: Number(base.cost ?? 0),
+      sku: base.sku == null ? null : String(base.sku),
+      barcode: base.barcode == null ? null : String(base.barcode),
+      stock: Number(base.stock ?? 0),
+      taxable: base.taxable !== false,
+      category_id: base.category_id == null ? null : String(base.category_id),
+      is_favorite: Boolean(base.is_favorite),
+      store_id: storeId,
+      image_url: base.image_url == null ? null : String(base.image_url),
+      age_restricted: Boolean(base.age_restricted),
+      min_age: base.min_age == null ? null : Number(base.min_age),
+      age_category: base.age_category == null ? null : String(base.age_category),
+      status: base.status == null ? "active" : String(base.status),
+    };
+    void upsertCachedProduct(cached).catch(() => {});
+  }
+
+  void saveOfflineAction({
+    id: `catalog:${storeId}:${merged.id}`,
+    idempotency_key: `catalog:${storeId}:${merged.id}`,
+    kind: "catalog_mutation",
+    store_id: storeId,
+    user_id: "local-first",
+    payload: {
+      operation: merged.operation,
+      productId: merged.productId,
+      draftId: merged.id,
+      changes: merged.changes ?? {},
+    },
+    local_created_at: merged.createdAt,
+    status: "pending",
+    attempts: 0,
+  }).then(() => {
+    void import("@/lib/offline/sync").then(({ syncNow }) => syncNow().catch(() => {}));
+  }).catch(() => {});
 }
 
 export function removeInventoryDraft(storeId: string, productId: string) {

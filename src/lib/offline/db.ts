@@ -99,7 +99,9 @@ export type OfflineActionKind =
   | "register_close"
   | "audit_event"
   | "receipt_email"
-  | "receipt_sms";
+  | "receipt_sms"
+  | "catalog_mutation"
+  | "employee_create";
 
 export type OfflineAction = {
   id: string;
@@ -113,6 +115,21 @@ export type OfflineAction = {
   attempts: number;
   last_error?: string | null;
   next_retry_at?: string | null;
+};
+
+export type CachedEmployee = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  employee_id: string | null;
+  status: string;
+  hire_date: string | null;
+  must_change_password: boolean;
+  photo_url: string | null;
+  pending_sync?: boolean;
 };
 
 export type CachedProduct = {
@@ -131,12 +148,14 @@ export type CachedProduct = {
   age_restricted?: boolean | null;
   min_age?: number | null;
   age_category?: string | null;
+  status?: string | null;
 };
 
 interface SezaOfflineDB extends DBSchema {
   sales: { key: string; value: OfflineSale; indexes: { by_status: string; by_seq: number } };
   cash_movements: { key: string; value: OfflineCashMovement; indexes: { by_status: string } };
   products: { key: string; value: CachedProduct };
+  employees: { key: string; value: CachedEmployee };
   actions: { key: string; value: OfflineAction; indexes: { by_status: string; by_kind: string } };
   meta: { key: string; value: unknown };
 }
@@ -148,7 +167,7 @@ export function getDB() {
     return Promise.reject(new Error("IndexedDB unavailable"));
   }
   if (!dbPromise) {
-    dbPromise = openDB<SezaOfflineDB>("seza-pos-offline", 2, {
+    dbPromise = openDB<SezaOfflineDB>("seza-pos-offline", 3, {
       upgrade(db) {
         if (!db.objectStoreNames.contains("sales")) {
           const sales = db.createObjectStore("sales", { keyPath: "id" });
@@ -161,6 +180,8 @@ export function getDB() {
         }
         if (!db.objectStoreNames.contains("products"))
           db.createObjectStore("products", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("employees"))
+          db.createObjectStore("employees", { keyPath: "id" });
         if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
         if (!db.objectStoreNames.contains("actions")) {
           const actions = db.createObjectStore("actions", { keyPath: "id" });
@@ -211,6 +232,44 @@ export async function cacheProducts(products: CachedProduct[]) {
 export async function loadCachedProducts(): Promise<CachedProduct[]> {
   const db = await getDB();
   return (await db.getAll("products")) as CachedProduct[];
+}
+
+export async function upsertCachedProduct(product: CachedProduct) {
+  const db = await getDB();
+  await db.put("products", product);
+  await db.put("meta", new Date().toISOString(), "products_cached_at");
+}
+
+export async function deleteCachedProduct(productId: string) {
+  const db = await getDB();
+  await db.delete("products", productId);
+  await db.put("meta", new Date().toISOString(), "products_cached_at");
+}
+
+/* ---------- employee cache ---------- */
+export async function cacheEmployees(employees: CachedEmployee[]) {
+  const db = await getDB();
+  const tx = db.transaction("employees", "readwrite");
+  await tx.store.clear();
+  for (const employee of employees) await tx.store.put(employee);
+  await tx.done;
+  await db.put("meta", new Date().toISOString(), "employees_cached_at");
+}
+
+export async function loadCachedEmployees(): Promise<CachedEmployee[]> {
+  const db = await getDB();
+  return (await db.getAll("employees")) as CachedEmployee[];
+}
+
+export async function upsertCachedEmployee(employee: CachedEmployee) {
+  const db = await getDB();
+  await db.put("employees", employee);
+  await db.put("meta", new Date().toISOString(), "employees_cached_at");
+}
+
+export async function deleteCachedEmployee(employeeId: string) {
+  const db = await getDB();
+  await db.delete("employees", employeeId);
 }
 
 export async function cacheMeta(key: string, value: unknown) {

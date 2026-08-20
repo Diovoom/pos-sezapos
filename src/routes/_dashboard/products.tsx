@@ -30,6 +30,8 @@ import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { fmtCurrency } from "@/lib/format";
 import { loadInventoryDrafts, saveInventoryDraft, applyInventoryDrafts } from "@/lib/inventory-drafts";
+import { cacheMeta, cacheProducts, loadCachedProducts, readMeta } from "@/lib/offline/db";
+import { isOnlineNow } from "@/lib/offline/useOnline";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import { lookupBarcode } from "@/lib/barcode-lookup.functions";
 import {
@@ -91,20 +93,66 @@ function ProductsPage() {
 
   const { data: store } = useQuery({
     queryKey: ["store"],
-    queryFn: async () => (await supabase.from("stores").select("*").limit(1).maybeSingle()).data,
+    retry: (count) => isOnlineNow() && count < 1,
+    queryFn: async () => {
+      if (!isOnlineNow()) {
+        const storeId = await readMeta<string>("store_id").catch(() => undefined);
+        return storeId ? (await readMeta<any>(`store:${storeId}`).catch(() => null)) : null;
+      }
+      const { data, error } = await supabase.from("stores").select("*").limit(1).maybeSingle();
+      if (error) {
+        const storeId = await readMeta<string>("store_id").catch(() => undefined);
+        const cached = storeId ? await readMeta<any>(`store:${storeId}`).catch(() => null) : null;
+        if (cached) return cached;
+        throw error;
+      }
+      if (data?.id) {
+        await Promise.all([
+          cacheMeta("store_id", data.id).catch(() => {}),
+          cacheMeta(`store:${data.id}`, data).catch(() => {}),
+        ]);
+      }
+      return data;
+    },
   });
   const cur = store?.currency ?? "USD";
 
   const { data: products = [], isLoading } = useQuery<ProductRow[]>({
     queryKey: ["products"],
+    retry: (count) => isOnlineNow() && count < 1,
     queryFn: async () => {
-      const { data } = await supabase
+      if (!isOnlineNow()) return (await loadCachedProducts()) as ProductRow[];
+      const { data, error } = await supabase
         .from("products")
         .select(
-          "id,name,sku,barcode,price,cost,stock,taxable,is_favorite,image_url,age_restricted,min_age,age_category,status",
+          "id,name,sku,barcode,price,cost,stock,taxable,is_favorite,image_url,age_restricted,min_age,age_category,status,category_id,store_id",
         )
         .order("created_at", { ascending: false });
-      return (data as ProductRow[]) ?? [];
+      if (error) {
+        const cached = await loadCachedProducts();
+        if (cached.length) return cached as ProductRow[];
+        throw error;
+      }
+      const rows = (data as any[]) ?? [];
+      await cacheProducts(rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        price: Number(row.price ?? 0),
+        cost: Number(row.cost ?? 0),
+        sku: row.sku ?? null,
+        barcode: row.barcode ?? null,
+        stock: Number(row.stock ?? 0),
+        taxable: row.taxable !== false,
+        category_id: row.category_id ?? null,
+        is_favorite: Boolean(row.is_favorite),
+        store_id: row.store_id ?? store?.id ?? null,
+        image_url: row.image_url ?? null,
+        age_restricted: row.age_restricted ?? false,
+        min_age: row.min_age ?? null,
+        age_category: row.age_category ?? null,
+        status: row.status ?? "active",
+      }))).catch(() => {});
+      return rows as ProductRow[];
     },
   });
 
@@ -123,13 +171,20 @@ function ProductsPage() {
 
   const toggleFav = useMutation({
     mutationFn: async (p: ProductRow) => {
-      const { error } = await supabase
-        .from("products")
-        .update({ is_favorite: !p.is_favorite })
-        .eq("id", p.id);
-      if (error) throw error;
+      if (!store?.id) throw new Error("Store not loaded");
+      saveInventoryDraft(store.id, {
+        id: crypto.randomUUID(),
+        operation: "update",
+        productId: p.id,
+        original: p as any,
+        changes: { is_favorite: !p.is_favorite },
+        createdAt: new Date().toISOString(),
+      });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
+    onSuccess: () => {
+      setDraftTick((v) => v + 1);
+      toast.success(isOnlineNow() ? "Saved · syncing automatically" : "Saved offline · will sync automatically");
+    },
   });
 
   const startEdit = (product: ProductRow) => {
@@ -156,14 +211,14 @@ function ProductsPage() {
       if (duplicate) throw new Error(sku && duplicate.sku?.toLowerCase() === sku.toLowerCase() ? `SKU already belongs to ${duplicate.name}` : `Barcode already belongs to ${duplicate.name}`);
       saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "update", productId: editingProduct.id, original: editingProduct as any, changes: { name: editForm.name.trim(), sku, barcode, cost, price, stock }, createdAt: new Date().toISOString() });
     },
-    onSuccess: () => { toast.success("Saved as unpublished change"); setEditingProduct(null); setDraftTick((v) => v + 1); },
+    onSuccess: () => { toast.success(isOnlineNow() ? "Saved · syncing automatically" : "Saved offline · will sync automatically"); setEditingProduct(null); setDraftTick((v) => v + 1); },
     onError: (error: Error) => toast.error(userFacingError(error, "Could not save product")),
   });
 
   const stageDelete = (product: ProductRow) => {
     if (!store?.id) return;
     saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "delete", productId: product.id, original: product as any, createdAt: new Date().toISOString() });
-    toast.success("Delete staged. Publish to remove it from POS.");
+    toast.success(isOnlineNow() ? "Deleted locally · syncing automatically" : "Deleted offline · will sync automatically");
     setDraftTick((v) => v + 1);
   };
 
@@ -171,7 +226,7 @@ function ProductsPage() {
     if (!store?.id) return;
     const status = product.status === "inactive" ? "active" : "inactive";
     saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "update", productId: product.id, original: product as any, changes: { status }, createdAt: new Date().toISOString() });
-    toast.success(`${product.name} will be ${status} after publishing`);
+    toast.success(isOnlineNow() ? `${product.name} updated · syncing automatically` : `${product.name} updated offline · will sync automatically`);
     setDraftTick((v) => v + 1);
   };
 
@@ -439,7 +494,7 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
     const id = crypto.randomUUID();
     saveInventoryDraft(storeId, { id: crypto.randomUUID(), operation: "create", productId: id, changes: { name: form.name.trim(), sku, barcode, price: Number(form.price) || 0, cost: Number(form.cost) || 0, stock: Number(form.stock) || 0, taxable: form.taxable, is_favorite: form.is_favorite, image_url: imagePath, age_restricted: form.age_restricted, min_age: form.age_restricted ? Number(form.min_age) || 21 : null, age_category: form.age_restricted ? form.age_category : null, status: "active" }, createdAt: new Date().toISOString() });
     setBusy(false);
-    toast.success("Product saved as draft. Press Publish when ready.");
+    toast.success(isOnlineNow() ? "Product saved · syncing automatically" : "Product saved offline · will sync automatically");
     setForm({
       name: "",
       sku: "",

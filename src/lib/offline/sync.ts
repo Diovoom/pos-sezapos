@@ -25,6 +25,8 @@ import {
   type OfflineSale,
   type OfflineCashMovement,
   type OfflineAction,
+  upsertCachedEmployee,
+  deleteCachedEmployee,
 } from "./db";
 import { postTimeClockAction } from "@/lib/timeclock/client";
 import { sendTransactionalEmail } from "@/lib/email/send";
@@ -253,6 +255,86 @@ async function syncAction(action: OfflineAction): Promise<void> {
     } else if (action.kind === "receipt_sms") {
       const result = await sendSms(action.payload as any, { queueOnNetworkFailure: false });
       if (!result.ok) throw new Error(result.error);
+    } else if (action.kind === "catalog_mutation") {
+      const operation = String(action.payload.operation ?? "");
+      const productId = String(action.payload.productId ?? "");
+      const changes = (action.payload.changes ?? {}) as Record<string, unknown>;
+      if (!action.store_id || !productId) throw new Error("Invalid queued catalog mutation");
+
+      if (operation === "create") {
+        const { error } = await (supabase.from as any)("products").upsert(
+          { id: productId, store_id: action.store_id, ...changes },
+          { onConflict: "id" },
+        );
+        if (error) throw error;
+      } else if (operation === "update") {
+        const { error } = await (supabase.from as any)("products")
+          .update({ ...changes, updated_at: new Date().toISOString() })
+          .eq("id", productId)
+          .eq("store_id", action.store_id);
+        if (error) throw error;
+      } else if (operation === "delete") {
+        const { error } = await (supabase.from as any)("products")
+          .delete()
+          .eq("id", productId)
+          .eq("store_id", action.store_id);
+        if (error && error.code !== "23503") throw error;
+      } else {
+        throw new Error("Unknown catalog mutation operation");
+      }
+
+      // Drafts double as durable local-first catalog mutations. Once the
+      // cloud confirms this exact product mutation, remove only that draft.
+      const { loadInventoryDrafts, removeInventoryDraft } = await import("@/lib/inventory-drafts");
+      const currentDraft = loadInventoryDrafts(action.store_id).find((draft) => draft.productId === productId);
+      if (currentDraft && currentDraft.id === String(action.payload.draftId ?? "")) {
+        removeInventoryDraft(action.store_id, productId);
+      }
+    } else if (action.kind === "employee_create") {
+      // Creating a Supabase Auth identity is inherently a cloud operation.
+      // The employee row is staged locally while offline, then provisioned
+      // automatically the first time connectivity + the owner's auth session
+      // are both available. Existing cached employees remain fully usable offline.
+      const { createEmployee } = await import("@/lib/employees.functions");
+      const payload = action.payload as {
+        local_id?: string; first_name: string; last_name: string; email: string;
+        phone?: string; role: "manager" | "cashier"; hire_date?: string;
+      };
+      const result = await createEmployee({
+        data: {
+          first_name: payload.first_name,
+          last_name: payload.last_name,
+          email: payload.email,
+          phone: payload.phone,
+          role: payload.role,
+          hire_date: payload.hire_date,
+        },
+      } as any);
+      if (payload.local_id) await deleteCachedEmployee(payload.local_id);
+      await upsertCachedEmployee({
+        id: result.user_id,
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        full_name: `${payload.first_name} ${payload.last_name}`.trim(),
+        email: result.email,
+        phone: payload.phone ?? null,
+        employee_id: result.employee_id,
+        status: "active",
+        hire_date: payload.hire_date ?? null,
+        must_change_password: true,
+        photo_url: null,
+        pending_sync: false,
+      });
+      // Preserve the one-time credential locally until the owner opens the
+      // Employees page. It is never sent to analytics/logs or stored in source.
+      const { cacheMeta } = await import("./db");
+      await cacheMeta(`employee_provisioned:${action.id}`, {
+        user_id: result.user_id,
+        employee_id: result.employee_id,
+        email: result.email,
+        temp_password: result.temp_password,
+        created_at: new Date().toISOString(),
+      });
     }
     await updateOfflineAction(action.id, {
       status: "synced",
@@ -319,6 +401,13 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
     // 5) close the register last.
     const registerOpenActions = pendingActions.filter((action) => action.kind === "register_open");
     const timeClockActions = pendingActions.filter((action) => action.kind === "timeclock");
+    const catalogUpserts = pendingActions.filter(
+      (action) => action.kind === "catalog_mutation" && action.payload.operation !== "delete",
+    );
+    const catalogDeletes = pendingActions.filter(
+      (action) => action.kind === "catalog_mutation" && action.payload.operation === "delete",
+    );
+    const employeeCreates = pendingActions.filter((action) => action.kind === "employee_create");
     const auditActions = pendingActions.filter((action) => action.kind === "audit_event");
     const receiptActions = pendingActions.filter(
       (action) => action.kind === "receipt_email" || action.kind === "receipt_sms",
@@ -347,6 +436,19 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
       } catch (e) {
         failed++;
         console.warn("[sync] time-clock action failed", e);
+      }
+      emitSync({ type: "progress" });
+    }
+    // Product creates/updates must reach the cloud before any queued sale can
+    // reference a newly-created local product. Employee provisioning is also
+    // safe to perform before financial records.
+    for (const action of [...catalogUpserts, ...employeeCreates]) {
+      try {
+        await syncAction(action);
+        synced++;
+      } catch (e) {
+        failed++;
+        console.warn(`[sync] ${action.kind} failed`, e);
       }
       emitSync({ type: "progress" });
     }
@@ -382,6 +484,16 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
       } catch (e) {
         failed++;
         console.warn("[sync] cash movement failed", e);
+      }
+      emitSync({ type: "progress" });
+    }
+    for (const action of catalogDeletes) {
+      try {
+        await syncAction(action);
+        synced++;
+      } catch (e) {
+        failed++;
+        console.warn("[sync] catalog delete failed", e);
       }
       emitSync({ type: "progress" });
     }

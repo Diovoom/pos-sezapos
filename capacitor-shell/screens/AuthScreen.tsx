@@ -159,6 +159,22 @@ export function AuthScreen() {
     setBusy(true);
     setError(null);
     try {
+      // Offline-first sign-in: once this employee has been successfully
+      // verified on this paired register, authenticate against the local
+      // device-bound PIN verifier FIRST. Do not wait for sezapos.com just to
+      // open the register. Cloud validation/sync happens separately.
+      if (pairing) {
+        const offlineEmployee = await findOfflineEmployee(pin, pairing.deviceSecret, pairing.storeId);
+        if (offlineEmployee) {
+          await cacheMeta("authenticated_me_current_user", offlineEmployee.userId).catch(() => {});
+          navigate({ to: "/pos", replace: true });
+          return;
+        }
+      }
+
+      // First-time PIN use on this register still needs one online verification
+      // so we can securely seed the device-bound local verifier. After that,
+      // normal PIN entry is local-first and does not depend on the website.
       const endpoint = pairing
         ? "/api/public/pos/verify-pin"
         : "/api/public/pos/verify-employee-pin";
@@ -218,11 +234,23 @@ export function AuthScreen() {
       if (pairing && verified.session?.user?.id) {
         await rememberOfflinePin(pin, pairing.deviceSecret, pairing.storeId, verified.session.user.id).catch(() => {});
       }
+
+      // Never leave the shell waiting on auth/query side effects. A successful
+      // PIN verification always transitions directly into the POS. This fixes
+      // the old blue-page state where authentication succeeded but the route
+      // never advanced.
+      navigate({ to: "/pos", replace: true });
     } catch (err) {
       if (pairing) {
         const offlineEmployee = await findOfflineEmployee(pin, pairing.deviceSecret, pairing.storeId);
-        const { data: current } = await supabase.auth.getSession();
-        if (offlineEmployee && current.session?.user.id === offlineEmployee.userId) {
+        if (offlineEmployee) {
+          // The PIN verifier is device-secret + store scoped and was created
+          // only after a successful online Stripe/Supabase-backed sign-in.
+          // Restore that exact cached identity even if the cloud auth session
+          // can't refresh. This is a real local register session, not a fake
+          // bypass; cloud sync remains paused until authenticated connectivity
+          // is available again.
+          await cacheMeta("authenticated_me_current_user", offlineEmployee.userId).catch(() => {});
           setError(null);
           navigate({ to: "/pos", replace: true });
           return;
@@ -310,7 +338,7 @@ export function AuthScreen() {
       )}
 
       <div style={styles.footer}>
-        Connected securely to sezapos.com · v1.3.3
+        Offline-first register · automatic cloud sync · v1.3.4
       </div>
     </div>
   );

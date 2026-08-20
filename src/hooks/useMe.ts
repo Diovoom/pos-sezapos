@@ -26,7 +26,18 @@ export function useMe() {
       // another employee's profile/roles after Switch user.
       const { data: sessionData } = await supabase.auth.getSession();
       const sessionUser = sessionData.session?.user;
-      if (!sessionUser) return null;
+
+      // A native register can have a valid device-bound offline PIN session
+      // even when Supabase can't refresh its network session. In that case,
+      // use only the explicitly selected cached employee identity. Never fall
+      // back to a generic/previous user cache.
+      if (!sessionUser) {
+        const cachedUserId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+        if (!isOnlineNow() && cachedUserId) {
+          return (await readMeta<MeData>(cacheKeyForUser(cachedUserId)).catch(() => undefined)) ?? null;
+        }
+        return null;
+      }
 
       const scopedKey = cacheKeyForUser(sessionUser.id);
       const cached = await readMeta<MeData>(scopedKey).catch(() => undefined);

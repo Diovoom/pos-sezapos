@@ -21,6 +21,8 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/audit-log";
+import { saveInventoryDraft } from "@/lib/inventory-drafts";
+import { isOnlineNow } from "@/lib/offline/useOnline";
 
 export type QuickAddedProduct = {
   id: string;
@@ -79,46 +81,76 @@ export function QuickAddProductDialog({
     if (!storeId) return toast.error("Store isn't loaded yet  -  try again in a moment.");
     setBusy(true);
     try {
-      const { data, error } = await (supabase.from as any)("products")
-        .insert({
-          store_id: storeId,
+      const id = crypto.randomUUID();
+      const localProduct: QuickAddedProduct = {
+        id,
+        name: trimmed,
+        price: p,
+        cost: 0,
+        sku: null,
+        barcode: barcode.trim() || null,
+        stock: 0,
+        taxable,
+        category_id: null,
+        is_favorite: false,
+        store_id: storeId,
+        image_url: null,
+        age_restricted: false,
+        min_age: null,
+        age_category: null,
+      };
+
+      // Always commit to the local catalog first. saveInventoryDraft also
+      // writes the IndexedDB product cache and durable cloud-sync queue, so a
+      // Wi-Fi drop between tapping Add and the server response cannot lose the
+      // product. When online, the sync worker starts immediately.
+      saveInventoryDraft(storeId, {
+        id: crypto.randomUUID(),
+        operation: "create",
+        productId: id,
+        changes: {
           name: trimmed,
           price: p,
           cost: 0,
+          sku: null,
           barcode: barcode.trim() || null,
           stock: 0,
           taxable,
-          status: "active",
+          category_id: null,
           is_favorite: false,
-        })
-        .select(
-          "id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category",
-        )
-        .single();
-      if (error || !data) {
-        const msg =
-          error?.code === "42501"
-            ? "You don't have permission to add products. Ask a manager to enable Quick Add for cashiers."
-            : error?.message || "Could not create product";
-        toast.error(msg);
-        return;
-      }
+          store_id: storeId,
+          image_url: null,
+          age_restricted: false,
+          min_age: null,
+          age_category: null,
+          status: "active",
+        },
+        createdAt: new Date().toISOString(),
+      });
+
       void logAudit({
         action: "products.quick_add",
         entity: "product",
-        entity_id: data.id,
+        entity_id: id,
         details: {
           name: trimmed,
           price: p,
           barcode: barcode.trim() || null,
           source: "pos_quick_add",
+          local_first: true,
         },
       }).catch(() => {
         /* audit failure never blocks */
       });
-      toast.success(`Added ${trimmed}`);
-      onCreated(data as QuickAddedProduct);
+      toast.success(
+        isOnlineNow()
+          ? `Added ${trimmed} · syncing automatically`
+          : `Added ${trimmed} offline · will sync automatically`,
+      );
+      onCreated(localProduct);
       onOpenChange(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save product locally");
     } finally {
       setBusy(false);
     }
