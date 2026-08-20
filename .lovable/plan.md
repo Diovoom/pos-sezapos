@@ -1,74 +1,96 @@
+# SEZA POS — Migration Audit: Lovable Cloud → Own Supabase + Cloudflare
 
-# SEZA Platform Admin Operations — Implementation Plan
+Audit only. No files were changed. Everything below was verified by reading the code/config and querying the live database this turn.
 
-This spec is very large (17 admin surfaces, new case lifecycle, live chat, incidents, device source-of-truth fix, permissions overhaul, platform health, etc.). Landing it in a single turn would produce an unreviewable diff and a high risk of regressing the marketing site, owner dashboard, and Android APK — all of which the spec explicitly says must be preserved.
+## 1. Lovable Cloud / platform dependencies currently relied on
 
-I want to ship it as **five sequenced phases**, each ending with a green `bun run build` and a clear report before moving on. Every phase reuses existing tables and server functions; migrations are additive only.
+| Dependency | Where | Migration action |
+| --- | --- | --- |
+| Managed Supabase project (`xbirnlsbckbcjbxqkmjn`) — DB, Auth, Storage, Realtime | `.env`, `supabase/config.toml`, `vite.config.ts` (hardcoded URL + publishable key fallbacks) | Recreate on your own Supabase org; replace URL/keys, remove hardcoded fallbacks |
+| Lovable email delivery (`@lovable.dev/email-js`, `LOVABLE_API_KEY`, `LOVABLE_SEND_URL`) | `src/routes/lovable/email/**`, `src/lib/email/*`, `src/lib/email-templates/*` | Replace with own ESP (Resend/SES/Postmark); keep queue + templates, swap the send call |
+| Lovable webhook verification (`@lovable.dev/webhooks-js`) | `src/routes/lovable/email/auth/webhook.ts`, `suppression.ts` | Replace with own HMAC verification |
+| Lovable Stripe connector gateway (`connector-gateway.lovable.dev/stripe` + `LOVABLE_API_KEY`, `STRIPE_SANDBOX_API_KEY` / `STRIPE_LIVE_API_KEY` connection keys) | `src/lib/stripe.server.ts` | Switch to direct `api.stripe.com` with real Stripe secret keys |
+| Lovable auth broker (`@lovable.dev/cloud-auth-js`) | `src/integrations/lovable/index.ts` — present but **not** used by the sign-in UI | Delete; `src/routes/auth.tsx` already calls `supabase.auth.signInWithOAuth` directly for Google/Apple |
+| Lovable MCP runtime (`@lovable.dev/mcp-js` + Vite plugin) | `src/routes/mcp.ts`, `src/routes/[.mcp]/**`, `src/routes/[.well-known]/oauth-protected-resource.ts`, `src/lib/mcp/**`, `vite.config.ts` | Keep only if agent integrations are wanted off-platform; otherwise remove the routes, deps, and plugin |
+| Lovable hosted Vite preset (`@lovable.dev/vite-tanstack-config`, incl. Nitro/Cloudflare target, env injection, `@` alias, dedupe, componentTagger) | `vite.config.ts` | Replace with an explicit `vite.config.ts` (tanstackStart + react + tailwind + tsconfigPaths + nitro cloudflare preset) |
+| Lovable error reporting | `src/lib/lovable-error-reporting.ts`, `src/routes/__root.tsx` | Replace with Sentry/no-op |
+| `*.lovable.app` host allow-lists / noindex rules | `src/server.ts`, `src/lib/security/api-security.server.ts`, `src/lib/auth/auth.server.ts` | Replace with your own hosts |
+| DB cron calling `project--<id>.lovable.app/lovable/email/queue/process` + vault secret `email_queue_service_role_key` | `email_queue_dispatch()`, `email_queue_wake()` | Rewrite URL to the new Cloudflare domain; recreate vault secret |
+| `LOVABLE_BUILD_ID` in platform-health output | `src/lib/admin/admin.functions.ts` | Swap for `CF_VERSION_METADATA` / commit SHA |
 
-## Phase 1 — Foundations (fixes the "known problems" first)
+## 2. Backend inventory to migrate
 
-Goal: unblock the three current bugs and set up shared infra everything else depends on.
+**Schema (public):** 41 tables, 0 views/matviews, 84 functions (46 SECURITY DEFINER), 35 triggers, 98 RLS policies.
+Tables: admin_login_attempts, admin_permissions, admin_support_sessions, age_verifications, api_rate_limit_buckets, audit_log, business_trial_registry, cash_movements, categories, country_profiles, customers, device_pairing_codes, device_registrations, email_send_log, email_send_state, email_unsubscribe_tokens, legal_acceptances, passkey_challenges, passkey_credentials, payment_attempts, payment_terminals, platform_settings, products, profiles, refund_items, refunds, register_sessions, role_permissions, sale_items, sale_payments, sales, signup_risk_events, sms_send_log, sms_settings, stores, subscriptions, support_ticket_notes, support_tickets, suppressed_emails, time_entries, user_roles.
+Sequences to preserve current values: `receipt_number_seq`, `support_ticket_number_seq`, pgmq msg-id sequences.
 
-- **Devices source-of-truth fix (G)**: rewrite `admin.devices.tsx` to query `device_registrations` for Android registers, with a separate Payment Terminals tab reading `payment_terminals`. Fix Ops Center device counts to match. Online = ≤5m, Stale 5–30m, Offline >30m. Never expose `device_secret`/`secret_hash`.
-- **Support "disappearing ticket" fix (C, partial)**:
-  - Migration: extend `support_tickets` status check to include `new`, `claimed`, `investigating`, `waiting_for_merchant`, `resolved`, `closed`, `reopened`; keep legacy `open` accepted and treated as active.
-  - Add `claimed_at`, `claimed_by`, `resolved_at`, `resolved_by`, `closed_at`, `closed_by`, `resolution_summary`, `root_cause`, `reopen_reason` columns (nullable, additive).
-  - Add `support_ticket_activity` table (append-only case timeline) with RLS + GRANTs per project rules.
-  - Support list default view = "Active Problems" (new/claimed/investigating/waiting_for_merchant/reopened/legacy-open). Claim keeps the row visible and routes to case workspace.
-- **Permissions catalog audit (M, partial)**: seed `admin_permissions` rows for operations_admin/support_admin/billing_admin/analyst against the existing catalog in `src/lib/admin/permissions.ts`. Sidebar hides unauthorized pages via `useAdminPermissions`. No changes to `super_admin`.
-- **Realtime safety helper**: small util that enforces "register callbacks before subscribe, cleanup on unmount, polling fallback". Used by every realtime surface in later phases.
+**Key RPC/business logic that must exist before the app can run:** `finalize_pos_sale`, `handle_new_user`, `current_store_id`, `has_role` / `has_any_role` / `has_permission` / `has_admin_permission` / `is_super_admin` / `is_platform_staff` / `can_manage_employee` / `is_last_owner`, `recompute_store_plan` / `has_active_plan` / `is_read_only` / `plan_tier_for_price` / `simulate_trial_expiry`, `activate_verified_business_trial` / `seza_attach_signup_identity` / `seza_prepare_new_store_trial`, `consume_api_rate_limit` / `enforce_authenticated_write_rate_limit` / `cleanup_api_rate_limit_buckets`, `pos_find_pin_candidates` / `pos_pin_conflict_check` / `pos_list_unfingerprinted` / `email_for_employee_id`, `record_legal_acceptance`, `merchant_update_support_ticket`, `admin_global_search`, `generate_store_code` / `generate_employee_id`, email queue helpers (`enqueue_email`, `read_email_batch`, `delete_email`, `move_to_dlq`, `email_queue_wake`, `email_queue_dispatch`), and all `tg_*` protection triggers (stores platform fields, profiles/time_entries privileged self-update, device secret_hash, super_admin role, role exclusivity, stock decrement/restock, refund totals, receipt/ticket numbering).
+Also migrate the explicit GRANTs — several tables rely on **column-level** grants (profiles, stores, device_registrations) and revoked EXECUTE on internal functions. A plain `pg_dump` of data alone will not carry the security posture; the 96 files in `supabase/migrations/` are the source of truth.
 
-Exit criteria: paired Android device shows in Admin Devices; claim no longer hides tickets; sidebar reflects role; build green.
+**Extensions:** plpgsql, pgcrypto, uuid-ossp, pg_trgm, pg_net, pg_cron, pgmq, supabase_vault, pg_stat_statements. `pg_cron`/`pg_net`/`pgmq` must be enabled on the new project before the email-queue migrations apply.
 
-## Phase 2 — Case management + Communications (C, D)
+**Storage:** buckets `product-images` (private), `avatars` (private) + 9 `storage.objects` policies. Objects must be copied, and paths are store-id prefixed — so store IDs must be preserved.
 
-- Full case workspace (`admin.support.$ticketId.tsx`): reported-problem header, status/priority/category/assignee, requester, business/store, linked device, app version/heartbeat/sync, sanitized diagnostics, related sales/refunds/payments/sync failures near report time, merchant messages vs internal notes (separate), activity timeline. Actions: claim, assign/transfer (reason), start investigation, request info, reply, internal note, change category/priority (reason for escalation), link device/sale/refund/payment/sync, start Support View, resolve (summary required), close (confirmation), reopen (reason). All audited via `runSafeAction`.
-- Support list rework: queue cards (New, Unassigned, Mine, Urgent, Waiting, Resolved Today, All); filters; URL-persisted; SLA/age badges.
-- Communications system:
-  - New tables `support_conversations` and `support_conversation_messages` (+ RLS + GRANTs). Lifecycle: waiting/active/waiting_for_merchant/ended. Merchant-visible vs internal messages. Optional link to `support_tickets` and `device_registrations`.
-  - Merchant entry points: owner dashboard support page + Android support screen (reuses existing entry points; no redesign).
-  - Admin Communications page: Waiting / My active / Team active / Ended. Realtime via the safety helper with polling fallback. Claim keeps convo visible; only explicit End removes it from active. Transfer + create/link ticket, both audited.
+**Realtime:** publication `supabase_realtime` on stores, time_entries, role_permissions, payment_terminals, support_tickets, support_ticket_notes, admin_support_sessions; plus 2 RLS policies on `realtime.messages` for the HMAC-signed customer-display topics. `device_registrations` is intentionally excluded (secret_hash leak fix) — keep it excluded.
 
-Exit criteria: acceptance tests 7–15 pass; build green.
+**Auth:** providers in use today are `email`, `google`, `apple` (9 users / 10 identities). Email/password + magic-link (`verifyOtp` for passkey sessions), passkeys via `passkey_credentials`/`passkey_challenges`, and cashier PIN via HMAC fingerprints. Auth hook (send-email) currently points at `/lovable/email/auth/webhook`. JWT secret is used server-side (`SUPABASE_JWT_SECRET`).
 
-## Phase 3 — Businesses, Stores, Employees, Sales, Offline Sync (E, F, H, I)
+**Scheduled/queued:** pgmq queues `auth_emails`, `transactional_emails` + both DLQs; `pg_cron` job `process-email-queue` is created on demand by `email_queue_wake` (currently none scheduled) and unscheduled when queues drain.
 
-- Businesses page: real directory with owner/plan/trial/devices/employees/open cases/active chats/offline count; safe CSV export; opens Business Support Workspace (already exists — extend tabs Overview/Health/Activity/Employees/Devices/Sales/Payments/Offline Sync/Support/Subscription/Audit).
-- Stores page (replaces placeholder): production `stores` data with location, code, plan, employees, devices, open shifts, last sale, last heartbeat, open cases, health.
-- Employees page: real `profiles` + `user_roles`; safe platform actions only (view, password reset, resend verification, revoke sessions, suspend/reactivate where policy allows); never expose PIN hashes; wages/schedules/roles stay in owner dashboard.
-- Sales page: cross-store investigation over `sales`/`sale_items`/`refunds`; filters, detail drawer, read-only.
-- Offline Sync page: pending/retrying/failed/completed over existing offline structures; safe retry/dismiss (reason); no PII/tokens.
+**Server functions (17 `createServerFn` modules):** admin, company-admin, login-attempts, auth, passkeys, verification-status, barcode-lookup, billing/checkout, employees, overrides, platform-settings, pos/customer-display, pos/device-pairing, pos/stripe-terminal, receipts/public, rate-limit. All run on the Cloudflare worker — no Supabase Edge Functions exist, so nothing to port there.
 
-Exit criteria: no placeholders in these five pages; build green.
+**Public API routes (must keep identical paths — the Android APK hardcodes `https://sezapos.com` + these paths):** `api/public/health`, `api/public/live-chat`, `api/public/payments/webhook`, and `api/public/pos/{verify-pin, verify-employee-pin, verify-manager-pin, set-my-pin, pair-device, device-heartbeat, complete-first-login, timeclock, support-respond, support-end, stripe-terminal/connection-token, stripe-terminal/payment-intent, finix/sale, finix/status, finix/cancel}`.
 
-## Phase 4 — Subscriptions, Payments, Incidents, Audit, Admin Team, Platform Health, Settings (J–O)
+**Secrets/env to recreate on Cloudflare:** SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_PROJECT_ID, SUPABASE_JWT_SECRET, VITE_SUPABASE_{URL,PUBLISHABLE_KEY,PROJECT_ID}, STRIPE_{SANDBOX,LIVE}_API_KEY, PAYMENTS_{SANDBOX,LIVE}_WEBHOOK_SECRET, STRIPE_{SANDBOX,LIVE}_WEBHOOK_SECRET, FINIX_{SANDBOX,LIVE}_{USERNAME,PASSWORD}, PIN_FINGERPRINT_HMAC_SECRET, TRIAL_FINGERPRINT_SECRET, PASSKEY_RP_ID, PASSKEY_ORIGINS, ALLOWED_ORIGINS, SEZA_ALLOWED_ORIGINS, APP_URL, APP_VERSION, PUBLIC_DASHBOARD_URL / VITE_DASHBOARD_URL, VITE_TURNSTILE_SITE_KEY, VITE_PAYMENTS_CLIENT_TOKEN, VITE_SEZA_TURN_{URL,USERNAME,CREDENTIAL}, plus replacements for LOVABLE_API_KEY / LOVABLE_SEND_URL / LOVABLE_BUILD_ID. SMS (Twilio/Vonage) credentials live per-store in the `sms_settings` table, not in env.
 
-- Subscriptions/Payments: keep existing Stripe-connected views; add past-due queue, safe refresh/cancel/restore with confirm+reason+audit; Payments cross-store filter/search/export from `payment_attempts` + related sale/refund.
-- Incidents: new `platform_incidents` + `platform_incident_updates` tables (RLS + GRANTs). Lifecycle investigating/identified/monitoring/resolved. Ops Center surfaces active incidents. Reopen with reason. Link support cases. No auto-publish to public status page.
-- Audit Logs: keep viewer immutable; add filters + safe CSV export; every new action writes meaningful rows.
-- Admin Team: list platform staff via `user_roles` + `is_platform_staff`; invite/add via existing auth flow; change role with confirmation + audit; prevent removing last active super_admin; enforce lower roles cannot modify higher.
-- Platform Health: honest signals (DB reachable, Stripe configured, email configured, background jobs, heartbeat rate, sync failures, incident count, build version). States: Healthy/Degraded/Down/Not configured/Unknown.
-- Settings: Admin Profile, Notifications, Platform, Security, Integrations/System Status. No secrets exposed.
+**Stripe:** merchant subscription billing (checkout + `subscriptions` table + `tg_subscription_recompute` + `recompute_store_plan`), webhook at `/api/public/payments/webhook` with HMAC verification in `src/lib/stripe.server.ts`, and Stripe Terminal for in-person payments. Webhook endpoints must be re-pointed to the new domain and new signing secrets stored.
 
-Exit criteria: acceptance test 18 passes for every listed page; build green.
+## 3. Lovable-only files that do NOT need migrating
 
-## Phase 5 — Operations Center + polish (B, P) and acceptance sweep
+`.lovable/**` (incl. `.lovable/mcp/generated`), `src/integrations/lovable/index.ts` (unused broker), `src/lib/lovable-error-reporting.ts`, `src/routes/[.mcp]/**` + `[.well-known]/oauth-protected-resource.ts` + `src/routes/mcp.ts` + `src/lib/mcp/**` (only if dropping agent integrations), `supabase/config.toml`, and the large set of one-off patch/report docs at repo root (`PATCH-*`, `SEZA-*.txt/md`, `APPLY-*`, `*-INSTRUCTIONS.md`, `lint-errors.txt`, `SHA256SUMS.txt`). Auto-generated files that get regenerated, not hand-migrated: `src/integrations/supabase/{client,client.server,types,auth-middleware,auth-attacher}.ts`, `src/routeTree.gen.ts`.
 
-- Rebuild `/admin` as the live Operations Center: real metrics + the five panels (New Problems, My Active Work, Active Communications, Device/Sync Attention, Platform Alerts). Uses realtime safety helper + polling fallback.
-- Global search: businesses, stores, owners, employees, devices, terminals, tickets, subscription refs.
-- UX pass: loading/empty/retry states, URL-persisted filters, pagination, CSV exports, double-submit guards, no dark flash, no duplicated sidebar names, noindex/nofollow on all admin routes.
-- Run the 20-point acceptance list; confirm marketing (`sezapos.com`), owner dashboard (`dashboard.sezapos.com`), and Android web assets still build clean.
+## 4. Migration order (no downtime, no data loss)
 
-## Ground rules applied to every phase
+1. **Freeze point prep** — new Supabase project created; enable pg_cron, pg_net, pgmq, pgcrypto, pg_trgm, uuid-ossp, vault.
+2. **Schema first, from `supabase/migrations/`** — apply all 96 migrations in order against the new project (not a `pg_dump --schema-only`), so grants, revokes, column-level privileges and policies match exactly. Verify counts: 41 tables, 84 functions, 35 triggers, 98 public policies, 9 storage policies, 2 realtime policies.
+3. **Configure auth on the new project** — email provider, Google, Apple (new client IDs or reuse existing OAuth apps), redirect URLs, JWT settings. Do **not** enable anonymous sign-ups or auto-confirm.
+4. **Code cut-over branch (no deploy yet)** — replace the Lovable Vite preset, email send layer, webhook verification, Stripe gateway base, host allow-lists, error reporting; remove the unused Lovable auth broker; decide MCP keep/drop.
+5. **Cloudflare staging deploy** on a temporary hostname pointing at the new Supabase; run the full validation checklist in §6 against seeded/test data.
+6. **Announce maintenance window; put POS registers into cash-only offline mode intentionally** (offline queue is designed for this) and stop writes to the old DB.
+7. **Data migration, `auth` schema first** — copy `auth.users`, `auth.identities`, `auth.sessions`(optional), `auth.mfa_*`, then `public` tables in FK order (stores → profiles → user_roles → everything else), preserving all UUID primary keys. Then restore sequence values.
+8. **Copy Storage objects** for `product-images` and `avatars` preserving object paths and owners.
+9. **Recreate vault secret** `email_queue_service_role_key` and update `email_queue_dispatch`/`email_queue_wake` URLs to the new domain; confirm the `process-email-queue` cron arms/disarms.
+10. **Re-point external services** — Stripe webhooks (live + sandbox) and Terminal, Supabase auth send-email hook, Finix, Turnstile domain, TURN server allow-list, Capgo OTA/`version.json` `updateUrl`.
+11. **DNS cut-over** for sezapos.com, dashboard/admin/pos subdomains to Cloudflare; keep the old deployment reachable but read-only for rollback.
+12. **Drain offline queues** — bring registers back online and confirm queued cash sales and receipt emails sync with idempotency keys intact.
+13. **Android APK** — only needs a rebuild if the API base host changes; verify pairing, PIN login, heartbeat, support view against the new backend before publishing.
+14. **Post-cutover** — re-run the security scan, then decommission the Lovable project after a verification window.
 
-- Reuse existing tables/functions; migrations are additive only, always with GRANTs then RLS then policies.
-- Every sensitive write wrapped in `runSafeAction` (permission + reason + audit + correlation id).
-- No secrets, PIN hashes, device secrets, card data, or private internal notes leak to merchant surfaces.
-- Realtime: callbacks before `.subscribe()`, cleanup on unmount, polling fallback.
-- Admin routes stay `noindex, nofollow`.
-- No fake data, no "Coming soon" left behind in listed sections.
-- End of each phase: `bun run build` must pass; I'll report files changed, migrations added, tables reused vs added, permissions wired, anything deferred, and test results.
+## 5. Risks that could break existing Google / Apple / email users or IDs
 
-## What I need from you
+- **`auth.users.id` must be preserved verbatim.** Every `public` table (profiles, user_roles, sales.cashier_id, audit_log, legal_acceptances, passkey_credentials, time_entries…) keys off it. Re-creating users via the Admin API without explicit ids silently orphans all history.
+- **`auth.identities` must be copied with the original `provider_id` / `sub`.** For Google/Apple the `sub` is what links the provider account to the user; a mismatch creates a *second* account on next sign-in.
+- **Apple is the highest-risk provider.** Apple's `sub` is scoped to the Apple *Service ID / Team*. If you register a new Apple Service ID instead of transferring the existing one, every Apple user gets a brand-new `sub` and cannot reach their store. Also note Apple only returns the email on first consent — a new Service ID may not re-supply it. Reuse the existing Apple app/Service ID and add the new redirect URL.
+- **Google is safer but still needs the same OAuth client** (or a client in the same project) so `sub` values stay stable; the new Supabase callback URL must be added to the authorized redirect URIs.
+- **Password hashes** must come over via the raw `auth.users.encrypted_password`; a logical export that skips it forces password resets for all email users.
+- **Email confirmation state**: `email_confirmed_at` drives `activate_verified_business_trial`. Losing it re-triggers trial logic or blocks verified stores.
+- **`handle_new_user` trigger on a fresh project**: if it is active while users are being imported, it will create duplicate stores/profiles/roles for every imported user. Import auth users with the trigger disabled, then re-enable.
+- **PIN + trial + display fingerprints** are HMACs of `PIN_FINGERPRINT_HMAC_SECRET` / `TRIAL_FINGERPRINT_SECRET`. New secrets invalidate every stored `pin_fingerprint` and `business_fingerprint` — cashiers cannot log in. Carry the existing secret values across.
+- **Passkeys break if `PASSKEY_RP_ID` changes.** Keep `sezapos.com` as the RP ID; any change requires all owners to re-register.
+- **Device pairing secrets** (`device_registrations.secret_hash`) are protected by a trigger and only writable by service_role — import them as service_role with the trigger accounted for, or every Android register must be re-paired.
+- **JWT signing key change invalidates live sessions**: expect all users to be signed out at cut-over. `SUPABASE_JWT_SECRET`-dependent server code must be updated in the same deploy, and the Android app must handle a forced re-login.
+- **Stripe**: reusing sandbox keys/webhook secrets against a live domain, or forgetting to re-point the webhook, silently stops subscription state updates while stores appear active. Stripe Terminal must stay marked unavailable until in-person payments are re-tested end to end on the new stack.
+- **Offline queue loss**: any register with unsynced IndexedDB actions during cut-over must sync *before* DNS moves, or those cash sales land in a decommissioned backend.
+- **Realtime dependency**: support tickets, screen-share signaling, role permissions and customer display all rely on the publication + `realtime.messages` policies. Missing them looks like "support view hangs" rather than an error.
 
-Confirm you want me to proceed **phase by phase in this order**, starting with Phase 1 now. If you'd rather reorder (e.g. Communications before Devices), tell me and I'll adjust before writing code. If you want it all in one shot anyway, say so explicitly — I'll do it, but the diff will be very large and higher risk.
+## 6. Validation checklist (run on staging, then again after cut-over)
+
+**Structure:** table/function/trigger/policy counts match §2; column-level grants on profiles/stores/device_registrations present; EXECUTE revoked from `anon`/`PUBLIC` on internal trigger functions; extensions all present; realtime publication table list matches and excludes `device_registrations`.
+**Auth:** existing email user signs in with old password; existing Google user lands on the same store/dashboard (no new user row); existing Apple user likewise; passkey sign-in works; password reset email delivers; new merchant signup creates exactly one store + owner role and a 14-day trial.
+**Data integrity:** row counts per table match source; a known sale's receipt_number, cashier, items and payments render identically; `receipt_number_seq` next value is above the max existing receipt; store IDs unchanged so storage paths resolve; avatars and product images load.
+**POS:** cashier PIN login, clock in/out, cash sale, card sale, refund, drawer open with reason log, offline cash sale then sync (no duplicates thanks to `idempotency_key`), customer display shows signed updates, barcode scan.
+**Android APK:** paired device does not re-ask for employee ID, heartbeat appears in fleet view, support view request → merchant accept → screen share, OTA update check hits the new `version.json`.
+**Admin/dashboard:** admin auth isolated from merchant session, global search returns stores/owners/terminals/subscriptions, business workspace loads, audit log writes, platform health reports the new build id.
+**Billing:** Stripe checkout in test mode creates a subscription and `recompute_store_plan` flips plan_status; webhook signature verification passes on the new secret; trial expiry simulation downgrades correctly.
+**Email/SMS:** auth email via the new provider, transactional receipt email (server-derived data only), suppression/unsubscribe route, queue drains and the cron unschedules itself, per-store Twilio/Vonage SMS receipt sends.
+**Security/ops:** rate limiting triggers on repeated logins and DB writes, cross-store access attempts denied for each role, `noindex` headers on dashboard/admin/pos hosts, no secrets in the client bundle, and a full security scan with no new findings.
