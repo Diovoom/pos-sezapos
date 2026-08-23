@@ -1762,6 +1762,24 @@ END $function$
 ;
 
 -- SECTION: FUNCTIONS PART 2
+-- tier_rank is defined first: has_active_plan() is a SQL function and its body is
+-- validated at creation time.
+CREATE OR REPLACE FUNCTION public.tier_rank(_tier text)
+ RETURNS integer
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'public'
+AS $function$
+  SELECT CASE _tier
+    WHEN 'business' THEN 3
+    WHEN 'pro' THEN 2
+    WHEN 'trial_pro' THEN 2
+    WHEN 'starter' THEN 1
+    ELSE 0
+  END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.has_active_plan(_store_id uuid, _min_tier text DEFAULT 'starter'::text)
  RETURNS boolean
  LANGUAGE sql
@@ -2651,21 +2669,6 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.tier_rank(_tier text)
- RETURNS integer
- LANGUAGE sql
- IMMUTABLE
- SET search_path TO 'public'
-AS $function$
-  SELECT CASE _tier
-    WHEN 'business' THEN 3
-    WHEN 'pro' THEN 2
-    WHEN 'trial_pro' THEN 2
-    WHEN 'starter' THEN 1
-    ELSE 0
-  END;
-$function$
-;
 
 -- SECTION: TRIGGERS
 CREATE TRIGGER seza_write_limit_cash_movements BEFORE INSERT OR DELETE OR UPDATE ON public.cash_movements FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('120', '3600', '600');
