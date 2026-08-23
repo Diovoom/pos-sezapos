@@ -1289,7 +1289,7 @@ BEGIN
   END IF;
 
   PERFORM net.http_post(
-    url := 'https://project--4374087d-5dc0-48d9-acd8-edf012865fdf.lovable.app/lovable/email/queue/process',
+    url := 'TODO_APP_ORIGIN/lovable/email/queue/process' -- TODO: replace TODO_APP_ORIGIN with your deployment origin (e.g. https://app.sezapos.com),
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Lovable-Context', 'cron',
@@ -1324,7 +1324,7 @@ BEGIN
 
   BEGIN
     PERFORM net.http_post(
-      url := 'https://project--4374087d-5dc0-48d9-acd8-edf012865fdf.lovable.app/lovable/email/queue/process',
+      url := 'TODO_APP_ORIGIN/lovable/email/queue/process' -- TODO: replace TODO_APP_ORIGIN with your deployment origin (e.g. https://app.sezapos.com),
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Lovable-Context', 'cron',
