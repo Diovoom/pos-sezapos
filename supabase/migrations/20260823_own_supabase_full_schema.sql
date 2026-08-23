@@ -895,42 +895,20 @@ CREATE UNIQUE INDEX time_entries_one_open_per_user ON public.time_entries USING 
 CREATE INDEX IF NOT EXISTS time_entries_user_idx ON public.time_entries USING btree (user_id, clock_in DESC);
 CREATE UNIQUE INDEX uq_profiles_store_pin_fingerprint ON public.profiles USING btree (store_id, pin_fingerprint) WHERE ((status = 'active'::text) AND (pin_fingerprint IS NOT NULL));
 
--- SECTION: TRIGGERS
-CREATE TRIGGER seza_write_limit_cash_movements BEFORE INSERT OR DELETE OR UPDATE ON public.cash_movements FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('120', '3600', '600');
-CREATE TRIGGER seza_write_limit_categories BEFORE INSERT OR DELETE OR UPDATE ON public.categories FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('300', '3600', '300');
-CREATE TRIGGER customers_set_updated_at BEFORE UPDATE ON public.customers FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
-CREATE TRIGGER seza_write_limit_customers BEFORE INSERT OR DELETE OR UPDATE ON public.customers FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('600', '3600', '300');
-CREATE TRIGGER device_registrations_protect_secret BEFORE INSERT OR UPDATE ON public.device_registrations FOR EACH ROW EXECUTE FUNCTION tg_device_registrations_protect_secret();
-CREATE TRIGGER device_registrations_updated_at BEFORE UPDATE ON public.device_registrations FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
-CREATE TRIGGER seza_write_limit_legal_acceptances BEFORE INSERT OR DELETE OR UPDATE ON public.legal_acceptances FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('20', '3600', '3600');
-CREATE TRIGGER payment_terminals_updated_at BEFORE UPDATE ON public.payment_terminals FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
-CREATE TRIGGER products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
-CREATE TRIGGER seza_write_limit_products BEFORE INSERT OR DELETE OR UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('2000', '3600', '300');
-CREATE TRIGGER profiles_prevent_privileged_self_update BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION tg_profiles_prevent_privileged_self_update();
-CREATE TRIGGER profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
-CREATE TRIGGER refund_items_restock AFTER INSERT ON public.refund_items FOR EACH ROW EXECUTE FUNCTION tg_restock_on_refund();
-CREATE TRIGGER refunds_update_sale AFTER INSERT ON public.refunds FOR EACH ROW EXECUTE FUNCTION tg_update_sale_refund_totals();
-CREATE TRIGGER seza_write_limit_refunds BEFORE INSERT OR DELETE OR UPDATE ON public.refunds FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('60', '3600', '1800');
-CREATE TRIGGER register_sessions_updated_at BEFORE UPDATE ON public.register_sessions FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
-CREATE TRIGGER sale_items_decrement_stock AFTER INSERT ON public.sale_items FOR EACH ROW EXECUTE FUNCTION tg_decrement_stock_on_sale();
-CREATE TRIGGER sale_payments_set_updated_at BEFORE UPDATE ON public.sale_payments FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
-CREATE TRIGGER sales_assign_receipt BEFORE INSERT ON public.sales FOR EACH ROW EXECUTE FUNCTION tg_assign_receipt_number();
-CREATE TRIGGER sms_settings_set_updated_at BEFORE UPDATE ON public.sms_settings FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
-CREATE TRIGGER seza_prepare_new_store_trial_trigger BEFORE INSERT ON public.stores FOR EACH ROW EXECUTE FUNCTION seza_prepare_new_store_trial();
-CREATE TRIGGER stores_prevent_platform_field_writes BEFORE UPDATE ON public.stores FOR EACH ROW EXECUTE FUNCTION tg_stores_prevent_platform_field_writes();
-CREATE TRIGGER stores_updated_at BEFORE UPDATE ON public.stores FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
-CREATE TRIGGER trg_subscription_recompute AFTER INSERT OR UPDATE ON public.subscriptions FOR EACH ROW EXECUTE FUNCTION tg_subscription_recompute();
-CREATE TRIGGER trg_subscriptions_updated_at BEFORE UPDATE ON public.subscriptions FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
-CREATE TRIGGER seza_write_limit_support_ticket_notes BEFORE INSERT OR DELETE OR UPDATE ON public.support_ticket_notes FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('120', '3600', '600');
-CREATE TRIGGER seza_write_limit_support_tickets BEFORE INSERT OR DELETE OR UPDATE ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('5', '3600', '3600');
-CREATE TRIGGER support_tickets_updated_at BEFORE UPDATE ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
-CREATE TRIGGER tg_support_tickets_assign_number BEFORE INSERT ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION tg_assign_ticket_number();
-CREATE TRIGGER seza_write_limit_time_entries BEFORE INSERT OR DELETE OR UPDATE ON public.time_entries FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('240', '3600', '600');
-CREATE TRIGGER time_entries_prevent_privileged_self_update BEFORE UPDATE ON public.time_entries FOR EACH ROW EXECUTE FUNCTION tg_time_entries_prevent_privileged_self_update();
-CREATE TRIGGER trg_time_entries_compute_late BEFORE INSERT ON public.time_entries FOR EACH ROW EXECUTE FUNCTION tg_time_entries_compute_late();
-CREATE TRIGGER trg_enforce_role_exclusivity BEFORE INSERT OR UPDATE ON public.user_roles FOR EACH ROW EXECUTE FUNCTION tg_enforce_role_exclusivity();
-CREATE TRIGGER trg_protect_super_admin BEFORE INSERT OR DELETE OR UPDATE ON public.user_roles FOR EACH ROW EXECUTE FUNCTION tg_protect_super_admin_role();
-CREATE TRIGGER user_roles_protect_last_owner BEFORE DELETE OR UPDATE ON public.user_roles FOR EACH ROW EXECUTE FUNCTION tg_user_roles_protect_last_owner();
+-- SECTION: PGMQ QUEUES (must exist before the email queue functions are created,
+-- because those functions reference pgmq.q_* relations directly)
+-- pgmq queue: auth_emails (is_partitioned=false, is_unlogged=false)
+-- pgmq queue: auth_emails_dlq (is_partitioned=false, is_unlogged=false)
+-- pgmq queue: transactional_emails (is_partitioned=false, is_unlogged=false)
+-- pgmq queue: transactional_emails_dlq (is_partitioned=false, is_unlogged=false)
+-- cron jobs currently scheduled:
+--   (none)
+
+-- pgmq queues used by the email pipeline.
+SELECT pgmq.create('auth_emails');
+SELECT pgmq.create('auth_emails_dlq');
+SELECT pgmq.create('transactional_emails');
+SELECT pgmq.create('transactional_emails_dlq');
 
 -- SECTION: FUNCTIONS PART 1
 CREATE OR REPLACE FUNCTION public.activate_verified_business_trial()
@@ -2592,7 +2570,7 @@ BEGIN
   self_allowed :=
     (NEW.clock_out IS NOT DISTINCT FROM OLD.clock_out OR OLD.clock_out IS NULL)
     AND (NEW.break_start IS NOT DISTINCT FROM OLD.break_start OR OLD.break_start IS NULL)
-    AND (NEW.break_end IS NOT DISTINCT FROM OLD.break_end OR OLD.break_end IS NULL)
+    AND (NEW.break_minutes IS NOT DISTINCT FROM OLD.break_minutes OR OLD.break_minutes IS NULL)
     AND (NEW.notes IS NOT DISTINCT FROM OLD.notes OR OLD.notes IS NULL OR NEW.notes IS NOT NULL)
     AND (NEW.user_id IS NOT DISTINCT FROM OLD.user_id)
     AND (NEW.store_id IS NOT DISTINCT FROM OLD.store_id)
@@ -2688,6 +2666,43 @@ AS $function$
   END;
 $function$
 ;
+
+-- SECTION: TRIGGERS
+CREATE TRIGGER seza_write_limit_cash_movements BEFORE INSERT OR DELETE OR UPDATE ON public.cash_movements FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('120', '3600', '600');
+CREATE TRIGGER seza_write_limit_categories BEFORE INSERT OR DELETE OR UPDATE ON public.categories FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('300', '3600', '300');
+CREATE TRIGGER customers_set_updated_at BEFORE UPDATE ON public.customers FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
+CREATE TRIGGER seza_write_limit_customers BEFORE INSERT OR DELETE OR UPDATE ON public.customers FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('600', '3600', '300');
+CREATE TRIGGER device_registrations_protect_secret BEFORE INSERT OR UPDATE ON public.device_registrations FOR EACH ROW EXECUTE FUNCTION tg_device_registrations_protect_secret();
+CREATE TRIGGER device_registrations_updated_at BEFORE UPDATE ON public.device_registrations FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
+CREATE TRIGGER seza_write_limit_legal_acceptances BEFORE INSERT OR DELETE OR UPDATE ON public.legal_acceptances FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('20', '3600', '3600');
+CREATE TRIGGER payment_terminals_updated_at BEFORE UPDATE ON public.payment_terminals FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
+CREATE TRIGGER products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
+CREATE TRIGGER seza_write_limit_products BEFORE INSERT OR DELETE OR UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('2000', '3600', '300');
+CREATE TRIGGER profiles_prevent_privileged_self_update BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION tg_profiles_prevent_privileged_self_update();
+CREATE TRIGGER profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
+CREATE TRIGGER refund_items_restock AFTER INSERT ON public.refund_items FOR EACH ROW EXECUTE FUNCTION tg_restock_on_refund();
+CREATE TRIGGER refunds_update_sale AFTER INSERT ON public.refunds FOR EACH ROW EXECUTE FUNCTION tg_update_sale_refund_totals();
+CREATE TRIGGER seza_write_limit_refunds BEFORE INSERT OR DELETE OR UPDATE ON public.refunds FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('60', '3600', '1800');
+CREATE TRIGGER register_sessions_updated_at BEFORE UPDATE ON public.register_sessions FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
+CREATE TRIGGER sale_items_decrement_stock AFTER INSERT ON public.sale_items FOR EACH ROW EXECUTE FUNCTION tg_decrement_stock_on_sale();
+CREATE TRIGGER sale_payments_set_updated_at BEFORE UPDATE ON public.sale_payments FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
+CREATE TRIGGER sales_assign_receipt BEFORE INSERT ON public.sales FOR EACH ROW EXECUTE FUNCTION tg_assign_receipt_number();
+CREATE TRIGGER sms_settings_set_updated_at BEFORE UPDATE ON public.sms_settings FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
+CREATE TRIGGER seza_prepare_new_store_trial_trigger BEFORE INSERT ON public.stores FOR EACH ROW EXECUTE FUNCTION seza_prepare_new_store_trial();
+CREATE TRIGGER stores_prevent_platform_field_writes BEFORE UPDATE ON public.stores FOR EACH ROW EXECUTE FUNCTION tg_stores_prevent_platform_field_writes();
+CREATE TRIGGER stores_updated_at BEFORE UPDATE ON public.stores FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
+CREATE TRIGGER trg_subscription_recompute AFTER INSERT OR UPDATE ON public.subscriptions FOR EACH ROW EXECUTE FUNCTION tg_subscription_recompute();
+CREATE TRIGGER trg_subscriptions_updated_at BEFORE UPDATE ON public.subscriptions FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
+CREATE TRIGGER seza_write_limit_support_ticket_notes BEFORE INSERT OR DELETE OR UPDATE ON public.support_ticket_notes FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('120', '3600', '600');
+CREATE TRIGGER seza_write_limit_support_tickets BEFORE INSERT OR DELETE OR UPDATE ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('5', '3600', '3600');
+CREATE TRIGGER support_tickets_updated_at BEFORE UPDATE ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION tg_set_updated_at();
+CREATE TRIGGER tg_support_tickets_assign_number BEFORE INSERT ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION tg_assign_ticket_number();
+CREATE TRIGGER seza_write_limit_time_entries BEFORE INSERT OR DELETE OR UPDATE ON public.time_entries FOR EACH ROW EXECUTE FUNCTION enforce_authenticated_write_rate_limit('240', '3600', '600');
+CREATE TRIGGER time_entries_prevent_privileged_self_update BEFORE UPDATE ON public.time_entries FOR EACH ROW EXECUTE FUNCTION tg_time_entries_prevent_privileged_self_update();
+CREATE TRIGGER trg_time_entries_compute_late BEFORE INSERT ON public.time_entries FOR EACH ROW EXECUTE FUNCTION tg_time_entries_compute_late();
+CREATE TRIGGER trg_enforce_role_exclusivity BEFORE INSERT OR UPDATE ON public.user_roles FOR EACH ROW EXECUTE FUNCTION tg_enforce_role_exclusivity();
+CREATE TRIGGER trg_protect_super_admin BEFORE INSERT OR DELETE OR UPDATE ON public.user_roles FOR EACH ROW EXECUTE FUNCTION tg_protect_super_admin_role();
+CREATE TRIGGER user_roles_protect_last_owner BEFORE DELETE OR UPDATE ON public.user_roles FOR EACH ROW EXECUTE FUNCTION tg_user_roles_protect_last_owner();
 
 -- SECTION: ENABLE RLS
 ALTER TABLE public.admin_login_attempts ENABLE ROW LEVEL SECURITY;
@@ -3534,25 +3549,9 @@ CREATE POLICY "product-images update same store" ON storage.objects AS PERMISSIV
 -- other storage policies
 --   (none)
 
--- SECTION: REALTIME
+-- SECTION: REALTIME (publication membership + realtime.messages RLS)
 -- publication supabase_realtime: public.admin_support_sessions, public.payment_terminals, public.role_permissions, public.stores, public.support_ticket_notes, public.support_tickets, public.time_entries
 -- publication supabase_realtime_messages_publication: realtime.messages_2026_08_17, realtime.messages_2026_08_18, realtime.messages_2026_08_19, realtime.messages_2026_08_20, realtime.messages_2026_08_21, realtime.messages_2026_08_22, realtime.messages_2026_08_23, realtime.messages_2026_08_24, realtime.messages_2026_08_25, realtime.messages_2026_08_26
-
--- realtime.messages policies
-CREATE POLICY customer_display_read_own_store ON realtime.messages AS PERMISSIVE FOR SELECT TO authenticated
-  USING ((realtime.topic() = ('customer-display:'::text || (current_store_id())::text)));
-
-CREATE POLICY customer_display_write_own_store ON realtime.messages AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((realtime.topic() = ('customer-display:'::text || (current_store_id())::text)));
-
--- SECTION: QUEUES AND CRON
--- pgmq queue: auth_emails (is_partitioned=false, is_unlogged=false)
--- pgmq queue: auth_emails_dlq (is_partitioned=false, is_unlogged=false)
--- pgmq queue: transactional_emails (is_partitioned=false, is_unlogged=false)
--- pgmq queue: transactional_emails_dlq (is_partitioned=false, is_unlogged=false)
--- cron jobs currently scheduled:
---   (none)
-
 
 -- Realtime publication membership (recreate on the new project).
 -- NOTE: device_registrations is intentionally NOT published (it holds device secret hashes).
@@ -3563,13 +3562,15 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.stores;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.support_ticket_notes;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.support_tickets;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.time_entries;
+
 ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
 
--- pgmq queues used by the email pipeline.
-SELECT pgmq.create('auth_emails');
-SELECT pgmq.create('auth_emails_dlq');
-SELECT pgmq.create('transactional_emails');
-SELECT pgmq.create('transactional_emails_dlq');
+-- realtime.messages policies
+CREATE POLICY customer_display_read_own_store ON realtime.messages AS PERMISSIVE FOR SELECT TO authenticated
+  USING ((realtime.topic() = ('customer-display:'::text || (current_store_id())::text)));
+
+CREATE POLICY customer_display_write_own_store ON realtime.messages AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((realtime.topic() = ('customer-display:'::text || (current_store_id())::text)));
 
 -- TODO (manual, cannot be represented safely in SQL):
 --   * public.email_queue_dispatch() and public.email_queue_wake() POST to a
@@ -3589,7 +3590,6 @@ SELECT pgmq.create('transactional_emails_dlq');
 --   * Triggers on auth.users (handle_new_user, seza_attach_signup_identity,
 --     activate_verified_business_trial) live in the auth schema and must be
 --     recreated with elevated privileges on the new project; see the block below.
-
 
 -- SECTION: AUTH-SCHEMA TRIGGERS (run as a superuser / via the SQL editor)
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
