@@ -185,9 +185,14 @@ export const secureMerchantSignUp = createServerFn({ method: "POST" })
     try {
       const request = getRequest();
       if (!request) throw new Error("Request unavailable");
-      const fingerprintSecret = process.env.TRIAL_FINGERPRINT_SECRET;
+      // Prefer a dedicated anti-abuse secret, but do not make merchant signup
+      // depend on one extra Cloudflare variable. The server-only Supabase
+      // service key is already required in production and is a safe fallback
+      // HMAC source. Nothing derived from it is ever returned to the browser.
+      const fingerprintSecret =
+        process.env.TRIAL_FINGERPRINT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
       if (!fingerprintSecret || fingerprintSecret.length < 32) {
-        throw new Error("Trial security is not configured");
+        throw new Error("Signup security is not configured");
       }
       const normalize = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
       const identity = [normalize(data.businessName), normalize(data.address), normalize(data.zip), normalize(data.phone)].join("|");
@@ -255,7 +260,11 @@ export const secureMerchantSignUp = createServerFn({ method: "POST" })
         session: sessionShape(signedUp.session),
         verification_required: !signedUp.session,
       };
-    } catch {
+    } catch (error) {
+      console.error("[merchant-signup] failed", {
+        name: error instanceof Error ? error.name : "UnknownError",
+        message: error instanceof Error ? error.message : "Unknown signup error",
+      });
       return { ok: false, error: "Signup is temporarily unavailable. Please try again." };
     }
   });

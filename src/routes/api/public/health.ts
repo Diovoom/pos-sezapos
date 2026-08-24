@@ -29,6 +29,7 @@ export const Route = createFileRoute("/api/public/health")({
         }
         const started = Date.now();
         let database = "operational";
+        let authentication = "operational";
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { error } = await supabaseAdmin
@@ -39,18 +40,33 @@ export const Route = createFileRoute("/api/public/health")({
         } catch {
           database = "degraded";
         }
-        const overall = database === "operational" ? "operational" : "degraded";
+        try {
+          const url = process.env.SUPABASE_URL;
+          const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+          if (!url || !key) authentication = "degraded";
+        } catch {
+          authentication = "degraded";
+        }
+        const email = process.env.RESEND_API_KEY ? "configured" : "not_configured";
+        const sms = process.env.TWILIO_ACCOUNT_SID || process.env.TWILIO_AUTH_TOKEN ? "configured" : "not_configured";
+        const payments =
+          process.env.STRIPE_SANDBOX_SECRET_KEY || process.env.STRIPE_LIVE_SECRET_KEY
+            ? "configured"
+            : "not_configured";
+        const overall = database === "operational" && authentication === "operational" ? "operational" : "degraded";
         return Response.json(
           {
             product: "SEZA POS",
             status: overall,
             services: {
               website: "operational",
-              authentication: "not_checked",
+              authentication,
               database,
-              owner_dashboard: database,
-              android_sync: "not_checked",
-              stripe_billing: "not_checked",
+              owner_dashboard: database === "operational" && authentication === "operational" ? "operational" : "degraded",
+              android_sync: database,
+              email,
+              sms,
+              stripe_billing: payments,
             },
             responseTimeMs: Date.now() - started,
             checkedAt: new Date().toISOString(),
