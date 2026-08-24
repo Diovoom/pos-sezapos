@@ -79,8 +79,12 @@ export const Route = createFileRoute("/auth")({
 
 function OwnerAuthPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isOAuthCallback = location.pathname === "/auth/callback";
 
   useEffect(() => {
+    if (isOAuthCallback) return;
+
     let cancelled = false;
     let navigating = false;
 
@@ -117,7 +121,9 @@ function OwnerAuthPage() {
       cancelled = true;
       authListener.subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, isOAuthCallback]);
+
+  if (isOAuthCallback) return <Outlet />;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface p-4">
@@ -241,13 +247,8 @@ function OwnerEmailLogin() {
       return;
     }
 
-    // Explicitly navigate to the provider URL. This is more reliable on the
-    // Cloudflare-hosted dashboard than relying on implicit SDK navigation.
-    if (data.url) {
-      window.location.assign(data.url);
-      return;
-    }
-
+    // In the browser, Supabase redirects to the OAuth provider automatically.
+    // Do not navigate to data.url again or the authorization code can be consumed twice.
     const { data: userData } = await supabase.auth.getUser();
     if (userData.user) await finishSignIn(userData.user.id);
     setBusy(false);

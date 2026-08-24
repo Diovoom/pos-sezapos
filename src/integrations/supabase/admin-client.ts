@@ -56,6 +56,8 @@ function createAdminClient() {
       storage: typeof window !== "undefined" ? window.localStorage : undefined,
       persistSession: true,
       autoRefreshToken: true,
+      flowType: "pkce",
+      detectSessionInUrl: false,
       storageKey: ADMIN_STORAGE_KEY,
     },
   });

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabaseAdminAuth as supabase } from "@/integrations/supabase/admin-client";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,8 @@ async function isPlatformStaff(userId: string): Promise<boolean> {
 
 function AdminAuthPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isOAuthCallback = location.pathname === "/admin/auth/callback";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -43,6 +45,7 @@ function AdminAuthPage() {
   const [captchaReset, setCaptchaReset] = useState(0);
 
   useEffect(() => {
+    if (isOAuthCallback) return;
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;
@@ -50,7 +53,7 @@ function AdminAuthPage() {
         navigate({ to: "/admin", replace: true });
       }
     })();
-  }, [navigate]);
+  }, [navigate, isOAuthCallback]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -77,6 +80,25 @@ function AdminAuthPage() {
     }
   }
 
+  async function handleGoogleSignIn() {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/admin/auth/callback`,
+          queryParams: { prompt: "select_account" },
+        },
+      });
+      if (error) throw error;
+      // Browser Supabase client performs the redirect automatically.
+    } catch {
+      toast.error(GENERIC_ERROR);
+      setLoading(false);
+    }
+  }
+
   async function handleForgot(e: React.FormEvent) {
     e.preventDefault();
     if (loading || cooldown.active) return;
@@ -93,6 +115,8 @@ function AdminAuthPage() {
       setCaptchaReset((value) => value + 1);
     }
   }
+
+  if (isOAuthCallback) return <Outlet />;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface p-4">
@@ -112,6 +136,27 @@ function AdminAuthPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {!forgotMode && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="mb-4 h-11 w-full"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+              >
+                Continue with Google
+              </Button>
+              <div className="relative mb-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
+            </>
+          )}
           <form onSubmit={forgotMode ? handleForgot : handleSignIn} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="admin-email">Email</Label>

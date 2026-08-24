@@ -1267,10 +1267,10 @@ BEGIN
   END IF;
 
   PERFORM net.http_post(
-    url := 'TODO_APP_ORIGIN/lovable/email/queue/process', -- TODO: set to your own deployment origin
+    url := 'TODO_APP_ORIGIN/api/email/queue/process', -- TODO: set to your own deployment origin
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Lovable-Context', 'cron',
+      'SEZA-Context', 'cron',
       'Authorization', 'Bearer ' || (
         SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'email_queue_service_role_key'
       )
@@ -1302,10 +1302,10 @@ BEGIN
 
   BEGIN
     PERFORM net.http_post(
-      url := 'TODO_APP_ORIGIN/lovable/email/queue/process', -- TODO: set to your own deployment origin
+      url := 'TODO_APP_ORIGIN/api/email/queue/process', -- TODO: set to your own deployment origin
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'Lovable-Context', 'cron',
+        'SEZA-Context', 'cron',
         'Authorization', 'Bearer ' || (
           SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'email_queue_service_role_key'
         )
@@ -3577,8 +3577,8 @@ CREATE POLICY customer_display_write_own_store ON realtime.messages AS PERMISSIV
 
 -- TODO (manual, cannot be represented safely in SQL):
 --   * public.email_queue_dispatch() and public.email_queue_wake() POST to a
---     hardcoded Lovable app URL. After migrating, replace that URL with your own
---     deployment origin (e.g. https://app.sezapos.com/lovable/email/queue/process).
+--     hardcoded legacy app URL. Replace that URL with the current SEZA endpoint
+--     deployment origin (e.g. https://app.sezapos.com/api/email/queue/process).
 --   * Those functions read a Vault secret named 'email_queue_service_role_key'.
 --     Create it manually: select vault.create_secret('<service role key>', 'email_queue_service_role_key');
 --     Never commit the key.
