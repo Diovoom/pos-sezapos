@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,12 +79,8 @@ export const Route = createFileRoute("/auth")({
 
 function OwnerAuthPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const isOAuthCallback = location.pathname === "/auth/callback";
 
   useEffect(() => {
-    if (isOAuthCallback) return;
-
     let cancelled = false;
     let navigating = false;
 
@@ -121,9 +117,7 @@ function OwnerAuthPage() {
       cancelled = true;
       authListener.subscription.unsubscribe();
     };
-  }, [navigate, isOAuthCallback]);
-
-  if (isOAuthCallback) return <Outlet />;
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface p-4">
@@ -228,7 +222,7 @@ function OwnerEmailLogin() {
     }
   };
 
-  const oauthRedirect = () => `${window.location.origin}/auth/callback`;
+  const oauthRedirect = () => `${window.location.origin}/auth`;
 
   const handleOAuth = async (provider: "google" | "apple") => {
     setBusy(true);
@@ -247,11 +241,10 @@ function OwnerEmailLogin() {
       return;
     }
 
-    // In the browser, Supabase redirects to the OAuth provider automatically.
-    // Do not navigate to data.url again or the authorization code can be consumed twice.
-    const { data: userData } = await supabase.auth.getUser();
-    if (userData.user) await finishSignIn(userData.user.id);
-    setBusy(false);
+    // Supabase performs the browser redirect. When Google returns to /auth,
+    // detectSessionInUrl restores the implicit session and the auth listener above
+    // verifies owner access before navigating to /dashboard.
+    if (!data.url) setBusy(false);
   };
 
   return (

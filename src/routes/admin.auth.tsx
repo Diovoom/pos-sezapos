@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link, Outlet, useLocation } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabaseAdminAuth as supabase } from "@/integrations/supabase/admin-client";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,6 @@ async function isPlatformStaff(userId: string): Promise<boolean> {
 
 function AdminAuthPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const isOAuthCallback = location.pathname === "/admin/auth/callback";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -45,15 +43,36 @@ function AdminAuthPage() {
   const [captchaReset, setCaptchaReset] = useState(0);
 
   useEffect(() => {
-    if (isOAuthCallback) return;
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) return;
-      if (await isPlatformStaff(data.session.user.id)) {
+    let cancelled = false;
+    let navigating = false;
+
+    const finishAdminSession = async (userId?: string) => {
+      if (!userId || cancelled || navigating) return;
+      navigating = true;
+      if (await isPlatformStaff(userId)) {
         navigate({ to: "/admin", replace: true });
+        return;
       }
-    })();
-  }, [navigate, isOAuthCallback]);
+      await supabase.auth.signOut();
+      toast.error(GENERIC_ERROR);
+      navigating = false;
+    };
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+        void finishAdminSession(session?.user?.id);
+      }
+    });
+
+    void supabase.auth.getSession().then(({ data }) => {
+      void finishAdminSession(data.session?.user?.id);
+    });
+
+    return () => {
+      cancelled = true;
+      authListener.subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -87,7 +106,7 @@ function AdminAuthPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/admin/auth/callback`,
+          redirectTo: `${window.location.origin}/admin/auth`,
           queryParams: { prompt: "select_account" },
         },
       });
@@ -115,8 +134,6 @@ function AdminAuthPage() {
       setCaptchaReset((value) => value + 1);
     }
   }
-
-  if (isOAuthCallback) return <Outlet />;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface p-4">
