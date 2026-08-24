@@ -36,8 +36,8 @@ for (const file of sourceFiles) {
 
 const publicRouteRoots = [
   join(root, "src/routes/api/public"),
-  join(root, "src/routes/lovable/email"),
-  join(root, "src/routes/lovable/sms"),
+  join(root, "src/routes/api/email"),
+  join(root, "src/routes/api/sms"),
   join(root, "src/routes/email"),
 ];
 for (const routeRoot of publicRouteRoots) {

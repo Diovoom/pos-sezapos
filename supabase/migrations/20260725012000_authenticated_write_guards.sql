@@ -1,4 +1,4 @@
--- Backstop limits for browser/APK writes that use the Lovable Cloud data API
+-- Backstop limits for browser/APK writes that use the Supabase data API
 -- directly. HTTP/server-function limits remain the first layer. These triggers
 -- protect key tables even if a caller bypasses the normal SEZA UI.
 

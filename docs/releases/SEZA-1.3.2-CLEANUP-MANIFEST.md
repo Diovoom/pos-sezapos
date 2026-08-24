@@ -68,7 +68,7 @@ Raw IP addresses, PINs, device secrets, manager tokens, pairing codes, and chat 
 |---|---|
 | `package.json` | Renamed package to `seza-pos`, aligned version 1.3.2, removed unused ML Kit dependency, added maintained Android sync, type-check, and test commands. |
 | `package-lock.json` | Aligned package/version and removed the unused ML Kit lock entry. |
-| `bun.lock` | Aligned package name and removed the same ML Kit dependency so Lovable/Bun cannot restore it. |
+| `bun.lock` | Aligned package name and removed the same ML Kit dependency so the package manager cannot restore it. |
 | `public/version.json` | Aligned version 1.3.2/build 8 and release notes. |
 | `android/app/build.gradle` | Already contained version 1.3.2/build 8 and is now verified against public/package metadata. |
 | `.github/workflows/quality.yml` | Added type-check and unit-test jobs to the existing verify/lint/web/Android pipeline. |

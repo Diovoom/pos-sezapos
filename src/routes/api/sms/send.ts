@@ -25,7 +25,7 @@ function redactPhone(p: string): string {
   return p.length <= 4 ? "***" : `***${p.slice(-4)}`;
 }
 
-export const Route = createFileRoute("/lovable/sms/send")({
+export const Route = createFileRoute("/api/sms/send")({
   server: {
     handlers: {
       OPTIONS: async () => optionsResponse(),

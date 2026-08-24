@@ -47,10 +47,7 @@ export function safeDashboardOrigin(request: Request): string {
       if (
         url.protocol === "https:" &&
         (host === "sezapos.com" ||
-          host.endsWith(".sezapos.com") ||
-          host === "lovable.app" ||
-          host.endsWith(".lovable.app") ||
-          host.endsWith(".lovableproject.com"))
+          host.endsWith(".sezapos.com"))
       ) {
         return url.origin;
       }

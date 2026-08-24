@@ -28,7 +28,7 @@ Then build the Android debug APK and complete the release checklist. Do not publ
 
 ## Requires production credentials or physical hardware
 
-- Database migrations and RLS behavior in the live Lovable Cloud project
+- Database migrations and RLS behavior in the live Supabase project
 - Receipt printer and cash-drawer pulse
 - USB/Bluetooth HID barcode scanner on the exact NRS terminal
 - Stripe Terminal/Tap to Pay certification and merchant approval

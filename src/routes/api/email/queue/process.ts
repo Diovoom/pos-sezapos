@@ -1,4 +1,4 @@
-import { sendLovableEmail } from "@lovable.dev/email-js";
+import { sendSezaEmail } from "@/lib/email/provider.server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -60,7 +60,7 @@ async function moveToDlq(
   }
 }
 
-export const Route = createFileRoute("/lovable/email/queue/process")({
+export const Route = createFileRoute("/api/email/queue/process")({
   server: {
     handlers: {
       POST: async ({ request }) => {
@@ -75,11 +75,10 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
           skipOriginCheck: true,
         });
         if (blocked) return blocked;
-        const apiKey = process.env.LOVABLE_API_KEY;
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-        if (!apiKey || !supabaseUrl || !supabaseServiceKey) {
+        if (!process.env.RESEND_API_KEY || !supabaseUrl || !supabaseServiceKey) {
           console.error("Missing required environment variables");
           return Response.json({ error: "Server configuration error" }, { status: 500 });
         }
@@ -246,23 +245,15 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
             }
 
             try {
-              await sendLovableEmail(
-                {
-                  run_id: payload.run_id,
-                  to: payload.to,
-                  from: payload.from,
-                  sender_domain: payload.sender_domain,
-                  subject: payload.subject,
-                  html: payload.html,
-                  text: payload.text,
-                  purpose: payload.purpose,
-                  label: payload.label,
-                  idempotency_key: payload.idempotency_key,
-                  unsubscribe_token: payload.unsubscribe_token,
-                  message_id: payload.message_id,
-                },
-                { apiKey, sendUrl: process.env.LOVABLE_SEND_URL },
-              );
+              await sendSezaEmail({
+                to: payload.to,
+                from: payload.from,
+                subject: payload.subject,
+                html: payload.html,
+                text: payload.text,
+                replyTo: payload.reply_to,
+                idempotencyKey: payload.idempotency_key || payload.message_id,
+              });
 
               // Log success
               await supabase.from("email_send_log").insert({

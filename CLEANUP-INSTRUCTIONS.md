@@ -29,7 +29,7 @@ npm run build
 npm run android:sync
 ```
 
-The new public API rate-limit migration must be applied to Lovable Cloud before relying on cross-instance protection:
+The new public API rate-limit migration must be applied to the production Supabase project before relying on cross-instance protection:
 
 ```text
 supabase/migrations/20260725043000_public_api_rate_limits.sql

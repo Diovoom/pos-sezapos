@@ -40,6 +40,6 @@ src/routes/_pos/register.tsx
 src/routes/_pos/timeclock.tsx
 src/routes/api/public/health.ts
 src/routes/api/public/pos/timeclock.ts
-src/routes/lovable/email/transactional/send.ts
-src/routes/lovable/sms/send.ts
+src/routes/api/email/transactional/send.ts
+src/routes/api/sms/send.ts
 src/routes/status.tsx

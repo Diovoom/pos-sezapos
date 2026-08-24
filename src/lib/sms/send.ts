@@ -20,7 +20,7 @@ export type SendSmsResult =
   | { ok: false; error: string };
 
 function sendUrl(): string {
-  const path = "/lovable/sms/send";
+  const path = "/api/sms/send";
   return isNativeMode() ? `https://sezapos.com${path}` : path;
 }
 

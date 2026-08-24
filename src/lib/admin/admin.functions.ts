@@ -2129,11 +2129,11 @@ export const adminPlatformHealth = createServerFn({ method: "GET" })
       .limit(1);
     const databaseLatencyMs = Date.now() - startedAt;
 
-    const stripeSandboxConfigured = Boolean(process.env.STRIPE_SANDBOX_API_KEY);
-    const stripeLiveConfigured = Boolean(process.env.STRIPE_LIVE_API_KEY);
-    const stripeSandboxWebhookConfigured = Boolean(process.env.STRIPE_SANDBOX_WEBHOOK_SECRET);
-    const stripeLiveWebhookConfigured = Boolean(process.env.STRIPE_LIVE_WEBHOOK_SECRET);
-    const emailConfigured = Boolean(process.env.LOVABLE_API_KEY && process.env.LOVABLE_SEND_URL);
+    const stripeSandboxConfigured = Boolean(process.env.STRIPE_SANDBOX_SECRET_KEY);
+    const stripeLiveConfigured = Boolean(process.env.STRIPE_LIVE_SECRET_KEY);
+    const stripeSandboxWebhookConfigured = Boolean(process.env.PAYMENTS_SANDBOX_WEBHOOK_SECRET);
+    const stripeLiveWebhookConfigured = Boolean(process.env.PAYMENTS_LIVE_WEBHOOK_SECRET);
+    const emailConfigured = Boolean(process.env.RESEND_API_KEY);
     const supabaseConfigured = Boolean(
       process.env.SUPABASE_URL &&
       process.env.SUPABASE_PUBLISHABLE_KEY &&
@@ -2158,7 +2158,6 @@ export const adminPlatformHealth = createServerFn({ method: "GET" })
       app_version:
         process.env.APP_VERSION ??
         process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ??
-        process.env.LOVABLE_BUILD_ID ??
         process.env.npm_package_version ??
         "development",
     };

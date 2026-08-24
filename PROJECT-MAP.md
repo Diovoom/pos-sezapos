@@ -13,7 +13,7 @@ SEZA stays split by responsibility. Do not combine the whole frontend or backend
 | Login and signup security | `src/lib/auth/`, `src/features/auth/` |
 | API rate limits | `src/lib/security/` |
 | Public HTTP endpoints | `src/routes/api/public/` |
-| Lovable email/SMS handlers | `src/routes/lovable/`, `src/routes/email/` |
+| SEZA email/SMS handlers | `src/routes/api/email/`, `src/routes/api/sms/` |
 | Database schema and policies | `supabase/migrations/` |
 | Android application shell | `capacitor-shell/` |
 | Native Android project | `android/` |

@@ -10,9 +10,9 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 
-const FALLBACK_SUPABASE_URL = "https://xbirnlsbckbcjbxqkmjn.supabase.co";
-const FALLBACK_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_D06VufRmNrbKI6Fe0OF70Q_Wzr5pkBn";
-const FALLBACK_SUPABASE_PROJECT_ID = "xbirnlsbckbcjbxqkmjn";
+const FALLBACK_SUPABASE_URL = "https://takuzwjuhrhppvgksyjp.supabase.co";
+const FALLBACK_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_d5DytMMOa6qKUxbJXqhi8g_7YYU7xAk";
+const FALLBACK_SUPABASE_PROJECT_ID = "takuzwjuhrhppvgksyjp";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");

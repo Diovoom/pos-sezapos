@@ -34,11 +34,11 @@ git commit -m "SEZA POS major update 1.2.0"
 git push
 ```
 
-5. Let Lovable synchronize the GitHub commit and apply the included database migration.
+5. Push the GitHub commit and apply the included database migration to Supabase.
 6. Preview before publishing.
 
 ## External setup required
 
 Source code cannot create third-party merchant accounts or approve physical payment hardware. Before taking live card payments, enter a real Stripe Terminal Location ID, activate a supported terminal, turn off Stripe test mode, and complete a real-device test. SMS providers require your provider credentials. Android hardware features require `npx cap sync android` after npm installation.
 
-Do not rename the remaining internal Lovable Cloud package names or hosted email/authentication route paths. They are technical dependencies, not customer-facing branding, and changing them can break the current backend.
+SEZA now uses direct Supabase, email, SMS, and Stripe integrations; no hosted builder-specific runtime dependency is required.

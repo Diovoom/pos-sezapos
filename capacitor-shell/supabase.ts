@@ -1,9 +1,9 @@
 // Standalone Supabase client for the bundled Capacitor Android app.
 import { createClient } from "@supabase/supabase-js";
 
-const FALLBACK_SUPABASE_URL = "https://xbirnlsbckbcjbxqkmjn.supabase.co";
+const FALLBACK_SUPABASE_URL = "https://takuzwjuhrhppvgksyjp.supabase.co";
 const FALLBACK_SUPABASE_PUBLISHABLE_KEY =
-  "sb_publishable_D06VufRmNrbKI6Fe0OF70Q_Wzr5pkBn";
+  "sb_publishable_d5DytMMOa6qKUxbJXqhi8g_7YYU7xAk";
 
 const SUPABASE_URL =
   (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ||

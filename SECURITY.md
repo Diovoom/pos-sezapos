@@ -3,7 +3,7 @@
 ## Included in code
 
 - Server-side rate limits for login, signup, password reset, verification resend, PIN checks, public APIs, authenticated writes, admin operations, Stripe/checkout work, email, SMS and other expensive actions.
-- Atomic Lovable Cloud database counters using hashed identifiers. Raw IP addresses and emails are not stored in the rate-limit table.
+- Atomic Supabase database counters using hashed identifiers. Raw IP addresses and emails are not stored in the rate-limit table.
 - Process-local fallback limits if the database migration is not available.
 - Owner and platform-admin role verification on the server before a session is accepted by each portal.
 - Generic authentication errors to reduce account enumeration.
@@ -27,9 +27,7 @@
 
 Route-specific limits are defined beside each endpoint and may be lower.
 
-## Lovable Cloud settings to verify manually
-
-These settings do not require asking the Lovable AI agent to rewrite code:
+## Supabase settings to verify manually
 
 1. Require email verification for merchant signup.
 2. Configure CAPTCHA/Turnstile for production auth and set `VITE_TURNSTILE_SITE_KEY` for the website widget.

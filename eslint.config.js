@@ -6,7 +6,6 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     ignores: [
-      ".lovable/**",
       "android/**",
       "capacitor-shell/**",
       "dist/**",

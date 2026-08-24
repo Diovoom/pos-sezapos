@@ -42,8 +42,7 @@ function applySearchIndexPolicy(request: Request, response: Response): Response 
   const noindexHost =
     hostname === "dashboard.sezapos.com" ||
     hostname === "admin.sezapos.com" ||
-    hostname === "pos.sezapos.com" ||
-    hostname.endsWith(".lovable.app");
+    hostname === "pos.sezapos.com";
 
   if (!noindexHost) return response;
 

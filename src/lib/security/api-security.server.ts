@@ -72,18 +72,6 @@ async function requestBodyTooLarge(request: Request, maximum: number): Promise<b
   }
 }
 
-function isLovablePreviewOrigin(origin: string): boolean {
-  try {
-    const host = new URL(origin).hostname;
-    return (
-      host === "lovable.app" ||
-      host.endsWith(".lovable.app") ||
-      host.endsWith(".lovableproject.com")
-    );
-  } catch {
-    return false;
-  }
-}
 
 export async function guardApiRequest(
   request: Request,
@@ -99,8 +87,7 @@ export async function guardApiRequest(
         );
       }
     } else if (
-      !allowedOrigins(request).has(origin.replace(/\/$/, "")) &&
-      !isLovablePreviewOrigin(origin)
+      !allowedOrigins(request).has(origin.replace(/\/$/, ""))
     ) {
       return Response.json(
         { error: "Origin not allowed" },

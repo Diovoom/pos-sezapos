@@ -1,6 +1,6 @@
 # Database Instructions
 
-Source files alone do not activate database functions, policies, or shared rate limits. Apply every pending migration to the same Supabase/Lovable Cloud project used by the website and Android APK before releasing version 1.3.2 / Android build 8.
+Source files alone do not activate database functions, policies, or shared rate limits. Apply every pending migration to the same Supabase project used by the website and Android APK before releasing version 1.3.2 / Android build 8.
 
 ## Before applying
 
@@ -18,7 +18,7 @@ npx supabase migration list
 npx supabase db push
 ```
 
-## Lovable Cloud / SQL Editor method
+## Supabase SQL Editor method
 
 When CLI linking is unavailable, execute every unapplied file in timestamp order. The release chain from the production hardening work through this cleanup is:
 
@@ -36,7 +36,7 @@ When CLI linking is unavailable, execute every unapplied file in timestamp order
 12. `20260724123000_public_website_live_chat.sql`
 13. `20260725043000_public_api_rate_limits.sql`
 
-Use `supabase migration list` or the Lovable migration history to skip files already applied. Do not re-run an unknown migration blindly.
+Use `supabase migration list` to skip files already applied. Do not re-run an unknown migration blindly.
 
 ## Release verification queries
 

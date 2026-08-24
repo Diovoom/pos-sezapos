@@ -1,62 +1,36 @@
-// The hosted web Vite configuration already includes the following — do NOT add them manually
-// or the app will break with duplicate plugins:
-//   - tanstackStart, viteReact, tailwindcss, tsConfigPaths, nitro (build-only using cloudflare as a default target),
-//     componentTagger (dev-only), VITE_* env injection, @ path alias, React/TanStack dedupe,
-//     error logger plugins, and sandbox detection (port/host/strictPort).
-// You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
+import { defineConfig, loadEnv } from "vite";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import viteReact from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import tsConfigPaths from "vite-tsconfig-paths";
 
-// Supabase's URL and publishable key are public browser configuration. Prefer
-// variables supplied by the build host, but keep a project-specific public
-// fallback so Lovable Preview/Publish cannot produce a client bundle with
-// missing Supabase configuration after .env files are removed from Git.
-const publicSupabaseUrl =
-  process.env.VITE_SUPABASE_URL ??
-  process.env.SUPABASE_URL ??
-  "https://xbirnlsbckbcjbxqkmjn.supabase.co";
+const FALLBACK_SUPABASE_URL = "https://takuzwjuhrhppvgksyjp.supabase.co";
+const FALLBACK_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_d5DytMMOa6qKUxbJXqhi8g_7YYU7xAk";
+const FALLBACK_SUPABASE_PROJECT_ID = "takuzwjuhrhppvgksyjp";
 
-const publicSupabasePublishableKey =
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
-  process.env.SUPABASE_PUBLISHABLE_KEY ??
-  "sb_publishable_D06VufRmNrbKI6Fe0OF70Q_Wzr5pkBn";
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL || FALLBACK_SUPABASE_URL;
+  const supabasePublishableKey =
+    env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    env.SUPABASE_PUBLISHABLE_KEY ||
+    FALLBACK_SUPABASE_PUBLISHABLE_KEY;
+  const supabaseProjectId =
+    env.VITE_SUPABASE_PROJECT_ID || env.SUPABASE_PROJECT_ID || FALLBACK_SUPABASE_PROJECT_ID;
 
-if (publicSupabasePublishableKey.startsWith("sb_secret_")) {
-  throw new Error("Refusing to build: VITE_SUPABASE_PUBLISHABLE_KEY contains a secret key.");
-}
+  if (supabasePublishableKey.startsWith("sb_secret_")) {
+    throw new Error("Refusing to build: a secret Supabase key was supplied as a public key.");
+  }
 
-const publicSupabaseProjectId =
-  process.env.VITE_SUPABASE_PROJECT_ID ?? process.env.SUPABASE_PROJECT_ID ?? "xbirnlsbckbcjbxqkmjn";
-
-const publicEnv = {
-  "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(publicSupabaseUrl),
-  "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(publicSupabasePublishableKey),
-  "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(publicSupabaseProjectId),
-  // Some generated/shared modules still include process.env fallbacks in code
-  // that reaches the browser bundle. Replace those public values as well.
-  "process.env.SUPABASE_URL": JSON.stringify(publicSupabaseUrl),
-  "process.env.SUPABASE_PUBLISHABLE_KEY": JSON.stringify(publicSupabasePublishableKey),
-  "process.env.SUPABASE_PROJECT_ID": JSON.stringify(publicSupabaseProjectId),
-};
-
-// The hosted MCP plugin currently fails to normalize TanStack route paths on
-// native Windows builds (for example F:\\pos-sezapos versus F:/pos-sezapos).
-// It is build tooling only, so keep it enabled on Lovable's Linux builder and
-// skip it for local Windows/Android builds.
-const enableMcpPlugin = process.platform !== "win32";
-
-export default defineConfig({
-  tanstackStart: {
-    server: { entry: "server" },
-    router: { autoCodeSplitting: true },
-  },
-  vite: {
-    plugins: enableMcpPlugin
-      ? // The three MCP routes in src/routes are SEZA-owned (they add
-        // guardApiRequest), so point the plugin at a scratch dir instead of
-        // letting it regenerate and strip the guards.
-        [mcpPlugin({ routesDir: ".lovable/mcp/generated" })]
-      : [],
-    define: publicEnv,
-  },
+  return {
+    plugins: [tanstackStart(), tailwindcss(), tsConfigPaths(), viteReact()],
+    define: {
+      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(supabaseUrl),
+      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(supabasePublishableKey),
+      "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(supabaseProjectId),
+      "process.env.SUPABASE_URL": JSON.stringify(supabaseUrl),
+      "process.env.SUPABASE_PUBLISHABLE_KEY": JSON.stringify(supabasePublishableKey),
+      "process.env.SUPABASE_PROJECT_ID": JSON.stringify(supabaseProjectId),
+    },
+  };
 });

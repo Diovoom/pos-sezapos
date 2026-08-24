@@ -9,7 +9,7 @@ async function getAdmin() {
 
 function resolvePriceLookupKey(item: any): string | null {
   return (
-    item?.price?.lookup_key ?? item?.price?.metadata?.lovable_external_id ?? item?.price?.id ?? null
+    item?.price?.lookup_key ?? item?.price?.id ?? null
   );
 }
 

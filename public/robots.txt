@@ -19,7 +19,6 @@ Disallow: /setup
 Disallow: /onboarding
 Disallow: /admin
 Disallow: /api/
-Disallow: /lovable/
 Disallow: /unsubscribe
 Disallow: /r/
 

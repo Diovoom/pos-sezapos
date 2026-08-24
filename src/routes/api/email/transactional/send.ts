@@ -46,7 +46,7 @@ function generateToken(): string {
     .join("");
 }
 
-export const Route = createFileRoute("/lovable/email/transactional/send")({
+export const Route = createFileRoute("/api/email/transactional/send")({
   server: {
     handlers: {
       OPTIONS: async () => optionsResponse(),
@@ -110,12 +110,14 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
         let idempotencyKey: string;
         let messageId: string;
         let templateData: Record<string, any> = {};
+        let replyTo: string | undefined;
         try {
           const body = await request.json();
           templateName = body.templateName || body.template_name;
           recipientEmail = body.recipientEmail || body.recipient_email;
           messageId = crypto.randomUUID();
           idempotencyKey = body.idempotencyKey || body.idempotency_key || messageId;
+          replyTo = typeof body.replyTo === "string" ? body.replyTo : undefined;
           if (body.templateData && typeof body.templateData === "object") {
             templateData = body.templateData;
           }
@@ -393,6 +395,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
             label: templateName,
             idempotency_key: idempotencyKey,
             unsubscribe_token: unsubscribeToken,
+            reply_to: replyTo,
             queued_at: new Date().toISOString(),
           },
         });

@@ -22,7 +22,7 @@ export type SendTransactionalResult =
 // In the bundled Android APK the WebView origin is not sezapos.com, so a
 // relative fetch resolves to the local WebView instead of the live server.
 function sendUrl(): string {
-  const path = "/lovable/email/transactional/send";
+  const path = "/api/email/transactional/send";
   if (isNativeMode()) return `https://sezapos.com${path}`;
   return path;
 }
