@@ -82,19 +82,40 @@ function OwnerAuthPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let navigating = false;
 
-    void (async () => {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user;
-      if (!user || cancelled) return;
+    const finishOAuthSession = async (userId?: string) => {
+      if (!userId || cancelled || navigating) return;
+      navigating = true;
 
-      if (await ensureOwnerWebsiteAccess(user.id)) {
+      if (await ensureOwnerWebsiteAccess(userId)) {
         navigate({ to: "/dashboard", replace: true });
+        return;
       }
-    })();
+
+      navigating = false;
+    };
+
+    const oauthError = new URLSearchParams(window.location.search).get("error_description");
+    if (oauthError) {
+      toast.error(oauthError);
+    }
+
+    // OAuth session restoration can complete after the route mounts.
+    // Listen for the real auth event instead of relying on one early getSession() call.
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+        void finishOAuthSession(session?.user?.id);
+      }
+    });
+
+    void supabase.auth.getSession().then(({ data }) => {
+      void finishOAuthSession(data.session?.user?.id);
+    });
 
     return () => {
       cancelled = true;
+      authListener.subscription.unsubscribe();
     };
   }, [navigate]);
 
@@ -220,8 +241,12 @@ function OwnerEmailLogin() {
       return;
     }
 
-    // Supabase redirects the browser to the provider when a URL is returned.
-    if (data.url) return;
+    // Explicitly navigate to the provider URL. This is more reliable on the
+    // Cloudflare-hosted dashboard than relying on implicit SDK navigation.
+    if (data.url) {
+      window.location.assign(data.url);
+      return;
+    }
 
     const { data: userData } = await supabase.auth.getUser();
     if (userData.user) await finishSignIn(userData.user.id);
