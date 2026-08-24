@@ -222,7 +222,7 @@ function OwnerEmailLogin() {
     }
   };
 
-  const oauthRedirect = () => `${window.location.origin}/auth`;
+  const oauthRedirect = () => `${window.location.origin}/auth/callback`;
 
   const handleOAuth = async (provider: "google" | "apple") => {
     setBusy(true);
