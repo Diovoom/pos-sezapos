@@ -7,6 +7,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "../supabase";
 import { getPairing } from "../lib/pairing";
 import { AuthScreen } from "./AuthScreen";
+import { readMeta } from "@/lib/offline/db";
 
 export function AuthRoute() {
   const navigate = useNavigate();
@@ -29,10 +30,18 @@ export function AuthRoute() {
       return;
     }
 
-    // If a session already exists (e.g. hot reload) bounce straight to POS.
-    supabase.auth.getSession().then(({ data }) => {
+    // Local register identity wins. A cashier who already verified on this
+    // paired device must not be sent through cloud auth again just because a
+    // Supabase session is missing/refreshing.
+    void (async () => {
+      const cachedUser = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+      if (cachedUser) {
+        navigate({ to: "/pos", replace: true });
+        return;
+      }
+      const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
       if (data.session) navigate({ to: "/pos", replace: true });
-    });
+    })();
   }, [navigate, pairing]);
 
   if (!pairing) return null;

@@ -20,6 +20,7 @@
 //     interrupt a tender.
 //   - Call the public HTTPS endpoints /api/public/pos/support-{respond,end}
 //     which re-verify the caller server-side and write audit rows.
+import { nativeFetch, userSafeNetworkMessage } from "../lib/nativeHttp";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, API_BASE_URL, getBearer } from "../supabase";
 import { useMe } from "@/hooks/useMe";
@@ -66,7 +67,7 @@ async function postSupport(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
   try {
-    const res = await fetch(`${API_BASE_URL}/api/public/pos/${path}`, {
+    const res = await nativeFetch(`${API_BASE_URL}/api/public/pos/${path}`, {
       method: "POST",
       headers: {
         "content-type": "application/json",

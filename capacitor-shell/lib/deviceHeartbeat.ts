@@ -1,3 +1,4 @@
+import { nativeFetch, userSafeNetworkMessage } from "./nativeHttp";
 import { API_BASE_URL } from "../supabase";
 import { getPairing } from "./pairing";
 import { hardwareSnapshot } from "@/lib/hardware/native-receipt";
@@ -5,6 +6,8 @@ import { getActiveTerminal } from "@/lib/hardware";
 import { loadScannerConfig } from "./scannerConfig";
 import * as escposBle from "@/lib/hardware/escpos-ble";
 import * as stripeTerminal from "@/lib/hardware/terminal-stripe";
+import { refreshDeviceBootstrap } from "./deviceBootstrap";
+import { isNetworkConnectedNow } from "@/lib/offline/useOnline";
 
 const FOREGROUND_INTERVAL_MS = 5 * 60_000;
 const MAX_SILENCE_MS = 15 * 60_000;
@@ -44,7 +47,7 @@ async function buildSnapshot() {
 
   return {
     captured_at: new Date().toISOString(),
-    online: typeof navigator === "undefined" ? true : navigator.onLine,
+    online: isNetworkConnectedNow(),
     route: typeof window === "undefined" ? null : window.location.pathname,
     printer: {
       driver: hardware.driver,
@@ -89,7 +92,7 @@ function stableSnapshotKey(snapshot: Awaited<ReturnType<typeof buildSnapshot>>):
 export async function sendDeviceHeartbeat(force = false) {
   if (sending || stopped) return;
   if (typeof document !== "undefined" && document.visibilityState === "hidden" && !force) return;
-  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+  if (!isNetworkConnectedNow()) return;
 
   const pairing = getPairing();
   if (!pairing) return;
@@ -101,7 +104,7 @@ export async function sendDeviceHeartbeat(force = false) {
 
   sending = true;
   try {
-    const response = await fetch(`${API_BASE_URL}/api/public/pos/device-heartbeat`, {
+    const response = await nativeFetch(`${API_BASE_URL}/api/public/pos/device-heartbeat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -115,6 +118,12 @@ export async function sendDeviceHeartbeat(force = false) {
     if (response.ok) {
       lastSnapshotKey = key;
       lastSentAt = now;
+      // Successful heartbeat proves the backend path is healthy. Drain queued
+      // register work now instead of waiting for another cashier action.
+      void refreshDeviceBootstrap().catch(() => undefined);
+      void import("@/lib/offline/sync").then(({ syncNow }) =>
+        syncNow().catch(() => undefined),
+      );
     }
   } catch {
     // Diagnostic only. Never block checkout.

@@ -246,6 +246,17 @@ export async function deleteCachedProduct(productId: string) {
   await db.put("meta", new Date().toISOString(), "products_cached_at");
 }
 
+export async function adjustCachedProductStock(productId: string, delta: number) {
+  const db = await getDB();
+  const existing = await db.get("products", productId);
+  if (!existing) return;
+  await db.put("products", {
+    ...existing,
+    stock: Math.max(0, Number(existing.stock ?? 0) + Number(delta || 0)),
+  });
+  await db.put("meta", new Date().toISOString(), "products_cached_at");
+}
+
 /* ---------- employee cache ---------- */
 export async function cacheEmployees(employees: CachedEmployee[]) {
   const db = await getDB();

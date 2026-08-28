@@ -145,21 +145,11 @@ export function OpenDrawerDialog({
           status: "pending" as const,
           attempts: 0,
         };
-        if (!isOnlineNow()) {
-          await saveOfflineCashMovement(movement);
-        } else {
-          const { error: cmErr } = await sb.from("cash_movements").insert({
-            id: movement.id,
-            idempotency_key: movement.idempotency_key,
-            register_session_id: movement.register_session_id,
-            store_id: movement.store_id,
-            user_id: movement.user_id,
-            type: movement.type,
-            amount: movement.amount,
-            reason: movement.reason,
-            notes: movement.notes,
-          });
-          if (cmErr && cmErr.code !== "23505") throw cmErr;
+        await saveOfflineCashMovement(movement);
+        if (isOnlineNow()) {
+          void import("@/lib/offline/sync").then(({ syncNow }) =>
+            syncNow().catch((error) => console.warn("[SEZA POS] safe-drop sync deferred", error)),
+          );
         }
       }
 

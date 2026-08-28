@@ -190,57 +190,43 @@ function OpenRegisterCard({ storeId, onOpened }: { storeId?: string; onOpened: (
       const amt = Number(opening);
       if (!Number.isFinite(amt) || amt < 0) throw new Error("Invalid opening amount");
       const openedAt = new Date().toISOString();
-      if (!isOnlineNow()) {
-        const local: Session = {
-          id: crypto.randomUUID(),
-          store_id: storeId,
-          opened_by: me.user.id,
-          closed_by: null,
-          opened_at: openedAt,
-          closed_at: null,
-          opening_cash: amt,
-          closing_cash: null,
-          expected_cash: null,
-          cash_sales: 0,
-          cash_refunds: 0,
-          variance: null,
-          status: "open",
-          notes: notes || null,
-        };
-        await cacheMeta(registerKey, local);
-        await saveOfflineAction({
-          id: crypto.randomUUID(),
-          idempotency_key: `register-open:${local.id}`,
-          kind: "register_open",
-          store_id: storeId,
-          user_id: me.user.id,
-          payload: { id: local.id, opened_at: openedAt, opening_cash: amt, notes: notes || null },
-          local_created_at: openedAt,
-          status: "pending",
-          attempts: 0,
-        });
-        return local;
-      }
-      const { data, error } = await sb
-        .from("register_sessions")
-        .insert({
-          store_id: storeId,
-          opened_by: me.user.id,
-          opening_cash: amt,
-          notes: notes || null,
-          status: "open",
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      await cacheMeta(registerKey, data).catch(() => {});
-      void logAudit({
-        action: "register.open",
-        entity: "register_session",
-        entity_id: data.id,
-        details: { opening_cash: amt },
+      // Opening a register is a local operation first. The cashier should
+      // never wait on Supabase/RLS just to start a shift. Queue the exact
+      // operation and sync it immediately when cloud connectivity is healthy.
+      const local: Session = {
+        id: crypto.randomUUID(),
+        store_id: storeId,
+        opened_by: me.user.id,
+        closed_by: null,
+        opened_at: openedAt,
+        closed_at: null,
+        opening_cash: amt,
+        closing_cash: null,
+        expected_cash: null,
+        cash_sales: 0,
+        cash_refunds: 0,
+        variance: null,
+        status: "open",
+        notes: notes || null,
+      };
+      await cacheMeta(registerKey, local);
+      await saveOfflineAction({
+        id: crypto.randomUUID(),
+        idempotency_key: `register-open:${local.id}`,
+        kind: "register_open",
+        store_id: storeId,
+        user_id: me.user.id,
+        payload: { id: local.id, opened_at: openedAt, opening_cash: amt, notes: notes || null },
+        local_created_at: openedAt,
+        status: "pending",
+        attempts: 0,
       });
-      return data;
+      if (isOnlineNow()) {
+        void import("@/lib/offline/sync").then(({ syncNow }) =>
+          syncNow().catch((error) => console.warn("[SEZA POS] register open sync deferred", error)),
+        );
+      }
+      return local;
     },
     onSuccess: () => {
       try { localStorage.setItem("pos.register.lastOpeningCash", String(Number(opening) || 0)); } catch { /* ignore */ }
@@ -644,54 +630,27 @@ function CashMovementDialog({
       if (!me?.user?.id) throw new Error("Not signed in");
       const rounded = Math.round(amt * 100) / 100;
       const localId = crypto.randomUUID();
-      if (!isOnlineNow()) {
-        await saveOfflineCashMovement({
-          id: localId,
-          idempotency_key: `cash:${type}:${localId}`,
-          register_session_id: session.id,
-          store_id: session.store_id,
-          user_id: me.user.id,
-          type,
-          amount: rounded,
-          reason: effectiveReason,
-          notes: notes || null,
-          local_created_at: new Date().toISOString(),
-          status: "pending",
-          attempts: 0,
-        });
-        openCashDrawer(`cash.${type}`);
-        return { id: localId };
-      }
-      const { data, error } = await sb
-        .from("cash_movements")
-        .insert({
-          register_session_id: session.id,
-          store_id: session.store_id,
-          user_id: me.user.id,
-          type,
-          amount: rounded,
-          reason: effectiveReason,
-          notes: notes || null,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-
-      const drawer = openCashDrawer(`cash.${type}`);
-      void logAudit({
-        action: isPayout ? "cash.payout" : "cash.deposit",
-        entity: "cash_movement",
-        entity_id: data.id,
-        details: {
-          amount: amt,
-          reason: effectiveReason,
-          notes: notes || null,
-          balance_before: currentBalance,
-          balance_after: projected,
-          drawer_simulated: drawer.simulated,
-        },
+      await saveOfflineCashMovement({
+        id: localId,
+        idempotency_key: `cash:${type}:${localId}`,
+        register_session_id: session.id,
+        store_id: session.store_id,
+        user_id: me.user.id,
+        type,
+        amount: rounded,
+        reason: effectiveReason,
+        notes: notes || null,
+        local_created_at: new Date().toISOString(),
+        status: "pending",
+        attempts: 0,
       });
-      return data;
+      openCashDrawer(`cash.${type}`);
+      if (isOnlineNow()) {
+        void import("@/lib/offline/sync").then(({ syncNow }) =>
+          syncNow().catch((error) => console.warn("[SEZA POS] cash movement sync deferred", error)),
+        );
+      }
+      return { id: localId };
     },
     onSuccess: () => {
       toast.success(

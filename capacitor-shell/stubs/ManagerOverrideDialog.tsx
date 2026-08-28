@@ -22,6 +22,7 @@
 //     that includes a manager_id.
 //   - Result is single-use per action: the caller decides what to do with
 //     it; we do not cache or persist it.
+import { nativeFetch, userSafeNetworkMessage } from "../lib/nativeHttp";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
@@ -34,6 +35,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { ShieldAlert, Loader2, Delete, WifiOff } from "lucide-react";
 import { supabase, API_BASE_URL } from "../supabase";
+import { getPairing } from "../lib/pairing";
+import { readMeta } from "@/lib/offline/db";
+import { isOnlineNow } from "@/lib/offline/useOnline";
 
 export type ManagerOverrideResult = { manager_id: string; manager_name: string };
 
@@ -47,7 +51,7 @@ const LOCKOUT_MS = 15_000;
 
 type UiError =
   | { kind: "invalid" }        // wrong / unauthorized PIN
-  | { kind: "offline" }        // navigator.onLine === false
+  | { kind: "offline" }        // native/cloud connectivity unavailable
   | { kind: "network" }        // fetch threw
   | { kind: "rate" }           // 429 / client cap
   | { kind: "session" }        // 401 caller unauthorized
@@ -125,7 +129,7 @@ export function ManagerOverrideDialog({
     if (locked) { setError({ kind: "rate" }); return; }
     if (!/^\d{4,8}$/.test(pinValue)) return;
 
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    if (!isOnlineNow()) {
       setError({ kind: "offline" });
       setPin("");
       return;
@@ -137,9 +141,11 @@ export function ManagerOverrideDialog({
     setError(null);
 
     try {
-      const { data: sess } = await supabase.auth.getSession();
+      const { data: sess } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
       const token = sess.session?.access_token;
-      if (!token) {
+      const pairing = getPairing();
+      const cachedCallerId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+      if (!token && (!pairing || !cachedCallerId)) {
         setError({ kind: "session" });
         setPin("");
         return;
@@ -149,17 +155,25 @@ export function ManagerOverrideDialog({
       const timeout = setTimeout(() => controller.abort(), 12_000);
       let res: Response;
       try {
-        res = await fetch(`${API_BASE_URL}/api/public/pos/verify-manager-pin`, {
+        res = await nativeFetch(`${API_BASE_URL}/api/public/pos/verify-manager-pin`, {
           method: "POST",
           headers: {
             "content-type": "application/json",
-            authorization: `Bearer ${token}`,
+            ...(token ? { authorization: `Bearer ${token}` } : {}),
           },
-          // Only send what the server route accepts. Never include the
-          // cashier's own PIN, tokens, or unrelated cart data. `details`
-          // is opaque context (sale_id, register_id, reason, etc.) that
-          // the endpoint copies into audit_log.details.
-          body: JSON.stringify({ pin: pinValue, action, details: details ?? {} }),
+          body: JSON.stringify({
+            pin: pinValue,
+            action,
+            details: details ?? {},
+            ...(pairing
+              ? {
+                  store_id: pairing.storeId,
+                  device_id: pairing.deviceId,
+                  device_secret: pairing.deviceSecret,
+                  caller_id: cachedCallerId,
+                }
+              : {}),
+          }),
           signal: controller.signal,
         });
       } finally {

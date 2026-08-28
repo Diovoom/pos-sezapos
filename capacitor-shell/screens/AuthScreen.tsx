@@ -4,12 +4,18 @@
 // use the store-scoped, PIN-only endpoint /api/public/pos/verify-pin and
 // send our device_secret as proof. Otherwise we fall back to the
 // employee-id + PIN endpoint used by unpaired installs.
+import { nativeFetch, userSafeNetworkMessage } from "../lib/nativeHttp";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { SEZA_LOGO_URL } from "../logo";
 import { API_BASE_URL, supabase } from "../supabase";
 import { clearPairing, getPairing } from "../lib/pairing";
-import { cacheMeta, deleteMeta } from "@/lib/offline/db";
+import {
+  cacheEmployees,
+  cacheMeta,
+  cacheProducts,
+  deleteMeta,
+} from "@/lib/offline/db";
 
 type Stage = "pin" | "id_then_pin";
 
@@ -192,13 +198,27 @@ export function AuthScreen() {
             ...(stage === "id_then_pin" ? { employee_id: empId } : {}),
           };
 
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const res = await nativeFetch(`${API_BASE_URL}${endpoint}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = (await res.json().catch(() => ({}))) as {
-        token_hash?: string; error?: string; message?: string;
+        user_id?: string;
+        email?: string | null;
+        token_hash?: string | null;
+        error?: string;
+        message?: string;
+        bootstrap?: {
+          profile?: any;
+          roles?: string[];
+          store?: any;
+          products?: any[];
+          categories?: any[];
+          employees?: any[];
+          role_permissions?: Array<{ role: string; permission: string }>;
+          prepared_at?: string;
+        };
       };
       if (!res.ok) {
         // A paired device that the merchant just revoked → force re-pair.
@@ -218,27 +238,65 @@ export function AuthScreen() {
         setError(data.error ?? "Sign-in failed. Please try again.");
         return;
       }
-      if (!data.token_hash) { setError("Sign-in failed. Please try again."); setPin(""); return; }
-      // Always end the previous employee session locally before accepting the
-      // new PIN identity. This prevents a fast Switch user from reusing the
-      // previous owner's auth/query state.
-      await supabase.auth.signOut({ scope: "local" } as any).catch(() => {});
-      const { data: verified, error: otpErr } = await supabase.auth.verifyOtp({
-        token_hash: data.token_hash, type: "magiclink",
-      });
-      if (otpErr) { setError(otpErr.message); setPin(""); return; }
-      if (verified.session?.user?.id) {
-        await cacheMeta("authenticated_me_current_user", verified.session.user.id).catch(() => {});
-        await deleteMeta("authenticated_me").catch(() => {});
-      }
-      if (pairing && verified.session?.user?.id) {
-        await rememberOfflinePin(pin, pairing.deviceSecret, pairing.storeId, verified.session.user.id).catch(() => {});
+      if (!data.user_id) {
+        setError("Sign-in failed. Please try again.");
+        setPin("");
+        return;
       }
 
-      // Never leave the shell waiting on auth/query side effects. A successful
-      // PIN verification always transitions directly into the POS. This fixes
-      // the old blue-page state where authentication succeeded but the route
-      // never advanced.
+      // The paired-device PIN response is authoritative for LOCAL register
+      // entry. Persist the complete operating snapshot first; cloud auth is
+      // best-effort and must never block a cashier from opening the POS.
+      const bootstrap = data.bootstrap ?? {};
+      const userId = data.user_id;
+      const profile = bootstrap.profile ?? { id: userId, email: data.email ?? null, store_id: pairing?.storeId ?? null };
+      const store = bootstrap.store ?? (pairing ? { id: pairing.storeId } : null);
+      const roles = Array.isArray(bootstrap.roles) ? bootstrap.roles : [];
+      const meSnapshot = {
+        user: { id: userId, email: data.email ?? profile?.email ?? undefined },
+        profile,
+        roles,
+        store,
+      };
+
+      await Promise.all([
+        cacheMeta("authenticated_me_current_user", userId),
+        cacheMeta(`authenticated_me:${userId}`, meSnapshot),
+        cacheMeta(`profile:${userId}`, profile),
+        cacheMeta("profile", profile),
+        store?.id ? cacheMeta("store_id", store.id) : Promise.resolve(),
+        store?.id ? cacheMeta(`store:${store.id}`, store) : Promise.resolve(),
+        store ? cacheMeta("store", store) : Promise.resolve(),
+        store?.id ? cacheMeta(`categories:${store.id}`, bootstrap.categories ?? []) : Promise.resolve(),
+        store?.id
+          ? cacheMeta(`role_permissions:${store.id}`, bootstrap.role_permissions ?? [])
+          : Promise.resolve(),
+        cacheProducts((bootstrap.products ?? []) as any[]),
+        cacheEmployees((bootstrap.employees ?? []) as any[]),
+        deleteMeta("authenticated_me"),
+      ]).catch((cacheError) => console.error("[SEZA POS] bootstrap cache failed", cacheError));
+
+      if (pairing) {
+        await rememberOfflinePin(pin, pairing.deviceSecret, pairing.storeId, userId).catch(() => {});
+      }
+
+      // Try to establish a Supabase cloud session for RLS/background sync, but
+      // do not make register entry depend on it.
+      if (data.token_hash) {
+        void (async () => {
+          try {
+            await supabase.auth.signOut({ scope: "local" } as any).catch(() => {});
+            const { error: otpErr } = await supabase.auth.verifyOtp({
+              token_hash: data.token_hash!, type: "magiclink",
+            });
+            if (otpErr) console.warn("[SEZA POS] cloud session deferred:", otpErr.message);
+          } catch (cloudError) {
+            console.warn("[SEZA POS] cloud session deferred:", cloudError);
+          }
+        })();
+      }
+
+      setError(null);
       navigate({ to: "/pos", replace: true });
     } catch (err) {
       if (pairing) {
@@ -256,7 +314,7 @@ export function AuthScreen() {
           return;
         }
       }
-      setError(err instanceof Error ? err.message : "Network error. Check your connection.");
+      console.error("[SEZA POS] PIN transport error", err); setError(userSafeNetworkMessage());
       setPin("");
     } finally {
       setBusy(false);

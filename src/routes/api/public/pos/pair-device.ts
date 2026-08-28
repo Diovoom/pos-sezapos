@@ -28,9 +28,9 @@ export const Route = createFileRoute("/api/public/pos/pair-device")({
         const { guardApiRequest } = await import("@/lib/security/api-security.server");
         const blocked = await guardApiRequest(request, {
           scope: "api.pos.pair_device",
-          limit: 10,
+          limit: 20,
           windowSeconds: 600,
-          blockSeconds: 1800,
+          blockSeconds: 600,
           maxBodyBytes: 16384,
           allowMissingOrigin: true,
           skipOriginCheck: false,
@@ -100,11 +100,33 @@ export const Route = createFileRoute("/api/public/pos/pair-device")({
           /* ignore */
         }
 
+        // Provision the non-sensitive store snapshot immediately. This makes
+        // the terminal useful even before the first employee PIN creates a
+        // cloud session and removes one more round-trip from first boot.
+        const [storeResult, productsResult, categoriesResult, permissionsResult] = await Promise.all([
+          admin.from("stores").select("*").eq("id", dev.store_id).maybeSingle(),
+          admin
+            .from("products")
+            .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category,status")
+            .eq("store_id", dev.store_id)
+            .eq("status", "active")
+            .order("name"),
+          admin.from("categories").select("id,name,sort_order").eq("store_id", dev.store_id).order("sort_order"),
+          admin.from("role_permissions").select("role,permission").eq("store_id", dev.store_id),
+        ]);
+
         return json({
           device_id: dev.id,
           device_secret: secret,
           store_id: dev.store_id,
           label: dev.label,
+          bootstrap: {
+            store: storeResult.data ?? { id: dev.store_id },
+            products: productsResult.data ?? [],
+            categories: categoriesResult.data ?? [],
+            role_permissions: permissionsResult.data ?? [],
+            prepared_at: new Date().toISOString(),
+          },
         });
       },
     },

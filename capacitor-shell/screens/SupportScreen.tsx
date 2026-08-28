@@ -5,6 +5,7 @@
 // for writes; store-scoped SELECT for reads). Merchant-visible messages are
 // inserted with `internal = false`; internal admin notes (internal = true)
 // are filtered out on the client so they never surface in the APK.
+import { nativeFetch, userSafeNetworkMessage } from "../lib/nativeHttp";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";

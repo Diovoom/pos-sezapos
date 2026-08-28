@@ -22,6 +22,11 @@ const config: CapacitorConfig = {
     backgroundColor: "#1e40af",
   },
   plugins: {
+    // Force window.fetch + XMLHttpRequest through Android native networking.
+    // This protects every third-party/library request too, not only SEZA's own wrappers.
+    CapacitorHttp: {
+      enabled: true,
+    },
     SplashScreen: {
       launchShowDuration: 6000,
       launchAutoHide: false,

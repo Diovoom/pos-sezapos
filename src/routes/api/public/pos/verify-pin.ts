@@ -42,9 +42,9 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
         const { guardApiRequest } = await import("@/lib/security/api-security.server");
         const blocked = await guardApiRequest(request, {
           scope: "api.pos.verify_pin",
-          limit: 8,
-          windowSeconds: 900,
-          blockSeconds: 1800,
+          limit: 30,
+          windowSeconds: 300,
+          blockSeconds: 300,
           maxBodyBytes: 8192,
           allowMissingOrigin: true,
           skipOriginCheck: false,
@@ -103,19 +103,27 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
           }
           candidates = [p];
         } else {
-          const { data: fpMatches } = await admin.rpc("pos_find_pin_candidates", {
-            _store_id: storeId,
-            _fingerprint: fp,
-          });
-          candidates = (fpMatches ?? []) as typeof candidates;
-          if (candidates.length === 0) {
-            // Legacy fallback: some active cashiers may not have a
-            // fingerprint yet. Try their pin_hash directly, still scoped
-            // to this one store so cross-tenant matches are impossible.
-            const { data: legacy } = await admin.rpc("pos_list_unfingerprinted", {
+          // Fast path uses the fingerprint RPC when the migration is present.
+          // If an older/newly-migrated project is missing that RPC, fall back
+          // to a direct store-scoped profile scan instead of locking the POS.
+          try {
+            const { data: fpMatches, error: fpError } = await admin.rpc("pos_find_pin_candidates", {
               _store_id: storeId,
+              _fingerprint: fp,
             });
-            candidates = ((legacy ?? []) as typeof candidates).filter(
+            if (!fpError) candidates = (fpMatches ?? []) as typeof candidates;
+          } catch {
+            candidates = [];
+          }
+
+          if (candidates.length === 0) {
+            const { data: direct, error: directError } = await admin
+              .from("profiles")
+              .select("id,email,pin_hash,status,store_id")
+              .eq("store_id", storeId)
+              .eq("status", "active");
+            if (directError) return json({ error: "Employee directory is temporarily unavailable" }, 503);
+            candidates = ((direct ?? []) as typeof candidates).filter(
               (r) => r.pin_hash && verifyPin(pin, r.pin_hash),
             );
           }
@@ -141,13 +149,60 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
         }
 
         const chosen = matched[0];
-        if (!chosen.email) return json({ error: "Employee has no email on file" }, 400);
 
-        const { data: link, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
-          type: "magiclink",
-          email: chosen.email,
-        });
-        if (linkErr || !link.properties) return json({ error: "Could not create session" }, 500);
+        // Build the complete device-local bootstrap BEFORE attempting a cloud
+        // auth session. A paired register must be able to open after a valid
+        // store-scoped PIN even if Supabase Auth is temporarily unavailable.
+        const [
+          profileResult,
+          rolesResult,
+          storeResult,
+          productsResult,
+          categoriesResult,
+          employeesResult,
+          rolePermissionsResult,
+        ] = await Promise.all([
+            admin.from("profiles").select("*").eq("id", chosen.id).maybeSingle(),
+            admin.from("user_roles").select("role").eq("user_id", chosen.id),
+            admin.from("stores").select("*").eq("id", storeId).maybeSingle(),
+            admin
+              .from("products")
+              .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category,status")
+              .eq("store_id", storeId)
+              .eq("status", "active")
+              .order("name"),
+            admin.from("categories").select("id,name,sort_order").eq("store_id", storeId).order("sort_order"),
+            admin
+              .from("profiles")
+              .select("id,first_name,last_name,full_name,email,phone,employee_id,status,hire_date,must_change_password,photo_url,store_id")
+              .eq("store_id", storeId)
+              .eq("status", "active"),
+            admin
+              .from("role_permissions")
+              .select("role,permission")
+              .eq("store_id", storeId),
+          ]);
+
+        if (!profileResult.data) return json({ error: "Employee profile is unavailable" }, 500);
+        if (!storeResult.data) return json({ error: "Store configuration is unavailable" }, 500);
+
+        // Cloud Supabase session is optional for register entry. If GoTrue can
+        // issue one, return it so background cloud sync/RLS can use it. If it
+        // cannot, the local register session remains valid and sync can retry.
+        let tokenHash: string | null = null;
+        if (chosen.email) {
+          try {
+            const { data: link, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+              type: "magiclink",
+              email: chosen.email,
+            });
+            if (!linkErr && link?.properties) {
+              tokenHash = (link.properties as { hashed_token?: string }).hashed_token ?? null;
+            }
+          } catch {
+            tokenHash = null;
+          }
+        }
 
         // Best-effort audit + device heartbeat.
         try {
@@ -172,8 +227,19 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
         }
 
         return json({
+          user_id: chosen.id,
           email: chosen.email,
-          token_hash: (link.properties as { hashed_token: string }).hashed_token,
+          token_hash: tokenHash,
+          bootstrap: {
+            profile: profileResult.data,
+            roles: (rolesResult.data ?? []).map((row: { role: string }) => row.role),
+            store: storeResult.data,
+            products: productsResult.data ?? [],
+            categories: categoriesResult.data ?? [],
+            employees: employeesResult.data ?? [],
+            role_permissions: rolePermissionsResult.data ?? [],
+            prepared_at: new Date().toISOString(),
+          },
         });
       },
     },

@@ -311,87 +311,14 @@ export function CloseShiftDialog({
       if (needsApproval && !approver) throw new Error("Manager approval required");
       if (!cashierUserId) throw new Error("Not signed in");
       const closedAt = new Date().toISOString();
-      if (!isOnlineNow()) {
-        if (dropAmt > 0) {
-          const movementId = crypto.randomUUID();
-          await saveOfflineCashMovement({
-            id: movementId,
-            idempotency_key: `safe-drop:${movementId}`,
-            register_session_id: session.id,
-            store_id: session.store_id,
-            user_id: cashierUserId,
-            type: "safe_drop",
-            amount: Math.round(dropAmt * 100) / 100,
-            reason: "Shift close",
-            notes: safeDropNote.trim() || null,
-            local_created_at: closedAt,
-            status: "pending",
-            attempts: 0,
-          });
-        }
-        await saveOfflineAction({
-          id: crypto.randomUUID(),
-          idempotency_key: `register-close:${session.id}`,
-          kind: "register_close",
-          store_id: session.store_id,
-          user_id: cashierUserId,
-          payload: {
-            id: session.id,
-            closed_at: closedAt,
-            closing_cash: counted,
-            expected_cash: expected,
-            variance,
-            cash_sales: totals.data?.cashSales ?? 0,
-            cash_refunds: totals.data?.cashRefunds ?? 0,
-            safe_drop_amount: Math.round(dropAmt * 100) / 100,
-            close_notes: closeNotes.trim() || null,
-          },
-          local_created_at: closedAt,
-          status: "pending",
-          attempts: 0,
-        });
-        const closedLocal = {
-          ...session,
-          status: "closed",
-          closed_at: closedAt,
-          closed_by: cashierUserId,
-          closing_cash: counted,
-          expected_cash: expected,
-          variance,
-        };
-        const history = (await readMeta<any[]>("register_history")) ?? [];
-        await cacheMeta(
-          "register_history",
-          [closedLocal, ...history.filter((row) => row.id !== session.id)].slice(0, 20),
-        );
-        await cacheMeta(`open_register_session:${cashierUserId}`, null);
-        await cacheMeta("open_register_session", null).catch(() => {});
-        return { ...closedLocal, offline: true };
-      }
 
-      // When a connection is available, give queued sales one immediate sync
-      // attempt before closing. This preserves server-side register totals.
-      try {
-        if (await hasUnsyncedOfflineSales(session.id)) {
-          const { syncNow } = await import("@/lib/offline/sync");
-          await syncNow();
-        }
-        if (await hasUnsyncedOfflineSales(session.id)) {
-          throw new Error(
-            "Some offline sales still need attention. Open Pending Sync before closing this shift.",
-          );
-        }
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          (error.message.includes("offline sales") || error.message.includes("Pending Sync"))
-        )
-          throw error;
-      }
-
-      // 1. Record safe drop as a cash_movements row when > 0.
+      // Shift close is always committed locally first. A cloud/RLS outage must
+      // never trap a cashier at the end of the day after money was counted.
       if (dropAmt > 0) {
-        const { error: cmErr } = await sb.from("cash_movements").insert({
+        const movementId = crypto.randomUUID();
+        await saveOfflineCashMovement({
+          id: movementId,
+          idempotency_key: `safe-drop:${movementId}`,
           register_session_id: session.id,
           store_id: session.store_id,
           user_id: cashierUserId,
@@ -399,64 +326,58 @@ export function CloseShiftDialog({
           amount: Math.round(dropAmt * 100) / 100,
           reason: "Shift close",
           notes: safeDropNote.trim() || null,
+          local_created_at: closedAt,
+          status: "pending",
+          attempts: 0,
         });
-        if (cmErr) throw cmErr;
       }
-
-      // 2. Atomic close: WHERE status='open' → double-click cannot close twice.
-      const { data: closed, error } = await sb
-        .from("register_sessions")
-        .update({
-          status: "closed",
+      await saveOfflineAction({
+        id: crypto.randomUUID(),
+        idempotency_key: `register-close:${session.id}`,
+        kind: "register_close",
+        store_id: session.store_id,
+        user_id: cashierUserId,
+        payload: {
+          id: session.id,
           closed_at: closedAt,
-          closed_by: cashierUserId,
           closing_cash: counted,
           expected_cash: expected,
           variance,
           cash_sales: totals.data?.cashSales ?? 0,
           cash_refunds: totals.data?.cashRefunds ?? 0,
           safe_drop_amount: Math.round(dropAmt * 100) / 100,
-          approver_id: approver?.manager_id ?? null,
           close_notes: closeNotes.trim() || null,
-          denominations: mode === "denom" ? denomCounts : null,
-        })
-        .eq("id", session.id)
-        .eq("status", "open")
-        .select()
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!closed) {
-        // Idempotent close: if the first request committed but its response was
-        // lost (or the button was tapped twice), treat the already-closed row
-        // as success instead of trapping the cashier on Step 5.
-        const { data: existing, error: readError } = await sb
-          .from("register_sessions")
-          .select("*")
-          .eq("id", session.id)
-          .maybeSingle();
-        if (readError) throw readError;
-        if (existing?.status === "closed") return existing;
-        throw new Error("The shift could not be closed. Try again.");
-      }
-
-      void logAudit({
-        action: "register.close",
-        entity: "register_session",
-        entity_id: session.id,
-        details: {
-          expected,
-          counted,
-          variance,
-          safe_drop_amount: dropAmt,
-          cash_remaining: remaining,
           approver_id: approver?.manager_id ?? null,
-          approver_name: approver?.manager_name ?? null,
-          mode,
+          denominations: mode === "denom" ? denomCounts : null,
         },
+        local_created_at: closedAt,
+        status: "pending",
+        attempts: 0,
       });
+      const closedLocal = {
+        ...session,
+        status: "closed",
+        closed_at: closedAt,
+        closed_by: cashierUserId,
+        closing_cash: counted,
+        expected_cash: expected,
+        variance,
+        offline: true,
+      };
+      const history = (await readMeta<any[]>("register_history")) ?? [];
+      await cacheMeta(
+        "register_history",
+        [closedLocal, ...history.filter((row) => row.id !== session.id)].slice(0, 20),
+      );
+      await cacheMeta(`open_register_session:${cashierUserId}`, null);
+      await cacheMeta("open_register_session", null).catch(() => {});
 
-      return closed;
+      if (isOnlineNow()) {
+        void import("@/lib/offline/sync").then(({ syncNow }) =>
+          syncNow().catch((error) => console.warn("[SEZA POS] shift close sync deferred", error)),
+        );
+      }
+      return closedLocal;
     },
     onSuccess: async (closed) => {
       const offlineClosed = Boolean((closed as any)?.offline);

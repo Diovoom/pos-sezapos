@@ -70,6 +70,7 @@ import { logAudit } from "@/lib/audit-log";
 import { useOnline, isOnlineNow } from "@/lib/offline/useOnline";
 import {
   cacheProducts,
+  adjustCachedProductStock,
   loadCachedProducts,
   saveOfflineSale,
   nextSeq,
@@ -674,11 +675,15 @@ export function PosPage() {
   const loyaltyEarn = loyalty ? Math.floor(Math.max(0, subtotal - discountAmount)) : 0;
 
   const queueOfflineCashSale = async (payment: CompletedPayment) => {
-    const { data: sess } = await supabase.auth.getSession();
-    const cachedProfile = await readMeta<{ id?: string } | null>("profile");
-    const uid = sess.session?.user?.id ?? cachedProfile?.id ?? profile?.id ?? null;
+    // Cash checkout is local-first even while the network is available. The
+    // selected cashier identity from the paired-device PIN session is enough
+    // to complete a local sale; Supabase auth is only needed for background
+    // synchronization.
+    const cachedUserId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+    const cachedProfile = await readMeta<{ id?: string } | null>("profile").catch(() => null);
+    const uid = activeUserId ?? cachedUserId ?? cachedProfile?.id ?? profile?.id ?? null;
     if (!uid) {
-      throw new SaleError("auth", "You are signed out. Sign in while online, then try again.");
+      throw new SaleError("auth", "Cashier identity is unavailable. Return to the PIN screen and sign in again.");
     }
     const offlineStoreId =
       store?.id ?? (await readMeta<{ id?: string } | null>("store"))?.id ?? null;
@@ -730,6 +735,22 @@ export function PosPage() {
         line_total: Math.round(line.product.price * line.qty * 100) / 100,
       })),
     });
+
+    // Reflect the sale in the local catalog immediately. The next successful
+    // cloud catalog refresh replaces this snapshot with authoritative stock,
+    // so local checkout never waits on inventory network writes.
+    await Promise.all(
+      cart
+        .filter((line) => !line.product.id.startsWith("custom-"))
+        .map((line) => adjustCachedProductStock(line.product.id, -line.qty).catch(() => undefined)),
+    );
+    qc.setQueryData<Product[]>(["products", offlineStoreId], (current) =>
+      (current ?? []).map((product) => {
+        const line = cart.find((item) => item.product.id === product.id);
+        return line ? { ...product, stock: Math.max(0, Number(product.stock ?? 0) - line.qty) } : product;
+      }),
+    );
+
     return {
       sale: {
         id: localId,
@@ -755,19 +776,23 @@ export function PosPage() {
           "Checkout is locked because this terminal has unsynced records from another store. Open Pending Sync or contact support.",
         );
       }
-      // Online cash sales finalize through SEZA Cloud immediately so the
-      // customer receives a permanent receipt number. Only true offline
-      // checkout is written to the local queue.
-      if (payment.method === "cash" && !isOnlineNow()) {
-        return queueOfflineCashSale(payment);
+      // CASH IS ALWAYS LOCAL-FIRST. Commit the transaction to the durable
+      // device database before any cloud call, show the receipt immediately,
+      // and synchronize in the background. This is the core POS reliability
+      // guarantee: backend/auth outages never block a cash sale.
+      if (payment.method === "cash") {
+        const local = await queueOfflineCashSale(payment);
+        if (isOnlineNow()) {
+          void syncNow().catch((error) => console.warn("[SEZA POS] cash sale queued; sync deferred", error));
+        }
+        return local;
       }
-      // 1. Auth
+
+      // Card/processor-backed tenders still require an authenticated cloud
+      // session because the payment provider must authorize the transaction.
       const { data: u, error: authErr } = await supabase.auth.getUser();
       if (authErr || !u.user) {
-        if (payment.method === "cash" && isConnectivityFailure(authErr)) {
-          return queueOfflineCashSale(payment);
-        }
-        throw new SaleError("auth", "Your session has expired. Please sign in again.", authErr);
+        throw new SaleError("auth", "Card payments are temporarily unavailable. Use cash or reconnect.", authErr);
       }
 
       const terminalRef =

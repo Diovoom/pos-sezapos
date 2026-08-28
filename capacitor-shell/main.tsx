@@ -14,6 +14,7 @@ import "@/styles.css";
 import { startDeviceHeartbeat } from "./lib/deviceHeartbeat";
 import { SupportRequestListener } from "./support/SupportRequestListener";
 import { initializePairing } from "./lib/pairing";
+import { readMeta } from "@/lib/offline/db";
 
 const STARTUP_TIMEOUT_MS = 8_000;
 
@@ -96,7 +97,11 @@ function ShellApp() {
         setSessionReady(true);
       } catch (error) {
         if (!alive) return;
-        setRuntimeError(error);
+        // Cloud/session verification is never a boot-critical dependency for a
+        // provisioned register. Continue into the local router and let cached
+        // device/employee state decide whether /pos or /auth should open.
+        console.warn("[SEZA POS] cloud session unavailable during boot; continuing local-first", error);
+        setHasSession(false);
         setSessionReady(true);
       } finally {
         await hideNativeSplash();
@@ -116,16 +121,46 @@ function ShellApp() {
 
       if (event === "SIGNED_OUT") {
         setHasSession(false);
-        setBooted(false);
-        void router.navigate({ to: "/auth", replace: true });
+        // Cloud Auth is secondary on a paired register. If a device-local PIN
+        // identity still exists, a token refresh/sign-out event must not kick
+        // the cashier back to the PIN screen. Explicit Switch/Sign out clears
+        // this local identity BEFORE calling Supabase signOut.
+        void readMeta<string>("authenticated_me_current_user").then((cachedUser) => {
+          if (cachedUser) {
+            setBooted(true);
+            void router.invalidate();
+            return;
+          }
+          setBooted(false);
+          void router.navigate({ to: "/auth", replace: true });
+        });
       } else if (event === "SIGNED_IN") {
         setHasSession(true);
-        setBooted(false);
+        void readMeta<string>("authenticated_me_current_user").then((cachedUser) => {
+          // Background cloud-session establishment after a local PIN login
+          // should be invisible to the cashier, not replay the boot screen.
+          setBooted(Boolean(cachedUser));
+        });
+        void import("@/lib/offline/sync").then(({ syncNow }) =>
+          syncNow().catch((error) => console.warn("[SEZA POS] signed-in sync deferred", error)),
+        );
       } else {
         // Password/PIN/profile updates must also refresh the active identity.
         void router.invalidate();
       }
     });
+
+    const onBootstrapUpdated = () => {
+      void queryClient.invalidateQueries();
+      void router.invalidate();
+    };
+    const onDeviceRevoked = () => {
+      queryClient.clear();
+      void import("./lib/pairing").then(({ clearPairing }) => clearPairing());
+      void router.navigate({ to: "/pair", replace: true });
+    };
+    window.addEventListener("seza:bootstrap-updated", onBootstrapUpdated);
+    window.addEventListener("seza:device-revoked", onDeviceRevoked);
 
     void (async () => {
       try {
@@ -140,6 +175,8 @@ function ShellApp() {
       alive = false;
       subscription.subscription.unsubscribe();
       stopHeartbeat();
+      window.removeEventListener("seza:bootstrap-updated", onBootstrapUpdated);
+      window.removeEventListener("seza:device-revoked", onDeviceRevoked);
     };
   }, [router, queryClient]);
 
@@ -166,7 +203,14 @@ async function bootstrap() {
 
   try {
     assertNativeSupabaseConfiguration();
-    await withTimeout(initializePairing(), STARTUP_TIMEOUT_MS, "Device pairing initialization");
+    try {
+      await withTimeout(initializePairing(), STARTUP_TIMEOUT_MS, "Device pairing initialization");
+    } catch (error) {
+      // Secure-storage recovery should never turn the entire register into a
+      // fatal boot screen. Continue to the router; an uninitialized device can
+      // re-enter pairing while the local store recovers.
+      console.warn("[SEZA POS] pairing storage initialization deferred", error);
+    }
     createRoot(rootElement).render(
       <StrictMode>
         <ShellApp />

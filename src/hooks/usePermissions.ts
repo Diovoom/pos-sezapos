@@ -134,9 +134,16 @@ export function usePermissions() {
     "employees.view", "settings.view", "hardware.configure", "audit.view",
   ]);
   const isManager = myRoles.includes("manager");
-  // A missing/empty role_permissions table must never reduce a signed-in manager
-  // to cashier-only mode on a register. Explicit store rows can still add more.
+  const isCashier = myRoles.includes("cashier");
+  const cashierDefaults = new Set(["sales.create"]);
+  // A provisioned cashier must always be able to ring a basic sale even if
+  // the permission matrix has not refreshed yet. Sensitive actions remain
+  // denied unless explicitly granted or elevated.
   const has = (p: string) =>
-    isSuper || mine.has("*") || mine.has(p) || (isManager && managerDefaults.has(p));
+    isSuper ||
+    mine.has("*") ||
+    mine.has(p) ||
+    (isManager && managerDefaults.has(p)) ||
+    (isCashier && cashierDefaults.has(p));
   return { has, isSuper, isManager, myRoles, loading: me.isLoading || perms.isLoading };
 }

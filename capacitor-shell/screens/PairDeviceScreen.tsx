@@ -3,11 +3,13 @@
 // device_secret, and stashes {store_id, device_id, device_secret, label}
 // in localStorage. All subsequent PIN sign-ins on this install are
 // automatically scoped to the paired store.
+import { nativeFetch, userSafeNetworkMessage, SEZA_ANDROID_BUILD_ID } from "../lib/nativeHttp";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { SEZA_LOGO_URL } from "../logo";
 import { API_BASE_URL } from "../supabase";
 import { setPairing } from "../lib/pairing";
+import { cacheMeta, cacheProducts } from "@/lib/offline/db";
 
 export function PairDeviceScreen() {
   const navigate = useNavigate();
@@ -21,13 +23,20 @@ export function PairDeviceScreen() {
     if (!/^[A-Z2-9]{10}$/.test(c)) { setErr("Enter the full 10-character pairing code."); return; }
     setBusy(true); setErr(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/public/pos/pair-device`, {
+      const res = await nativeFetch(`${API_BASE_URL}/api/public/pos/pair-device`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ code: c, label: label.trim() || undefined, platform: "android" }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         device_id?: string; device_secret?: string; store_id?: string; label?: string; error?: string;
+        bootstrap?: {
+          store?: any;
+          products?: any[];
+          categories?: any[];
+          role_permissions?: Array<{ role: string; permission: string }>;
+          prepared_at?: string;
+        };
       };
       if (!res.ok || !data.device_id || !data.device_secret || !data.store_id) {
         setErr(data.error ?? "Could not pair this device"); return;
@@ -38,9 +47,24 @@ export function PairDeviceScreen() {
         storeId: data.store_id,
         label: data.label ?? label.trim() ?? "POS Register",
       });
+
+      // Seed the local operating snapshot as part of provisioning. A terminal
+      // should not need a second cloud request just to display its store and
+      // catalog after pairing.
+      const bootstrap = data.bootstrap ?? {};
+      await Promise.all([
+        cacheMeta("store_id", data.store_id),
+        cacheMeta(`store:${data.store_id}`, bootstrap.store ?? { id: data.store_id }),
+        cacheMeta("store", bootstrap.store ?? { id: data.store_id }),
+        cacheMeta(`categories:${data.store_id}`, bootstrap.categories ?? []),
+        cacheMeta(`role_permissions:${data.store_id}`, bootstrap.role_permissions ?? []),
+        cacheProducts((bootstrap.products ?? []) as any[]),
+        cacheMeta("provisioned_at", bootstrap.prepared_at ?? new Date().toISOString()),
+      ]).catch((cacheError) => console.warn("[SEZA POS] pairing bootstrap cache warning", cacheError));
+
       navigate({ to: "/auth", replace: true });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Network error");
+      console.error("[SEZA POS] pairing transport error", e); setErr(userSafeNetworkMessage());
     } finally {
       setBusy(false);
     }
@@ -118,6 +142,7 @@ export function PairDeviceScreen() {
       <div style={{ marginTop: "auto", paddingTop: 20, textAlign: "center", color: "#94a3b8", fontSize: 11 }}>
         Connected securely to sezapos.com
       </div>
-    </div>
+    <div style={{ fontSize: 9, color: "#94a3b8", textAlign: "center", marginTop: 8 }}>{SEZA_ANDROID_BUILD_ID}</div>
+      </div>
   );
 }

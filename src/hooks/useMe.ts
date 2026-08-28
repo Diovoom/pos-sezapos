@@ -21,23 +21,27 @@ export function useMe() {
     staleTime: 15_000,
     retry: (count) => isOnlineNow() && count < 1,
     queryFn: async () => {
-      // Supabase getSession is local-storage backed. Resolve the CURRENT user
-      // before touching any identity cache so one employee can never inherit
-      // another employee's profile/roles after Switch user.
-      const { data: sessionData } = await supabase.auth.getSession();
-      const sessionUser = sessionData.session?.user;
+      // Local register identity is the primary source of truth. Resolve it
+      // before touching Supabase so a paired terminal opens instantly even if
+      // the cloud session is missing, expired, or currently unreachable.
+      const cachedUserId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+      const selectedCached = cachedUserId
+        ? (await readMeta<MeData>(cacheKeyForUser(cachedUserId)).catch(() => undefined)) ?? null
+        : null;
 
-      // A native register can have a valid device-bound offline PIN session
-      // even when Supabase can't refresh its network session. In that case,
-      // use only the explicitly selected cached employee identity. Never fall
-      // back to a generic/previous user cache.
-      if (!sessionUser) {
-        const cachedUserId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
-        if (!isOnlineNow() && cachedUserId) {
-          return (await readMeta<MeData>(cacheKeyForUser(cachedUserId)).catch(() => undefined)) ?? null;
-        }
-        return null;
+      let sessionUser: { id: string; email?: string } | undefined;
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        sessionUser = sessionData.session?.user as typeof sessionUser;
+      } catch {
+        return selectedCached;
       }
+
+      if (!sessionUser) return selectedCached;
+
+      // Never let a stale cloud session from another employee override the
+      // cashier explicitly selected by PIN on this shared register.
+      if (cachedUserId && sessionUser.id !== cachedUserId) return selectedCached;
 
       const scopedKey = cacheKeyForUser(sessionUser.id);
       const cached = await readMeta<MeData>(scopedKey).catch(() => undefined);

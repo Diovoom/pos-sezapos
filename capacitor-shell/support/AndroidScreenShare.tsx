@@ -18,6 +18,7 @@
 // The component takes ownership of the session's lifetime after the merchant
 // accepts. It calls `/api/public/pos/support-end` on any terminal event so
 // the DB row is closed and audit rows are written.
+import { nativeFetch, userSafeNetworkMessage } from "../lib/nativeHttp";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, API_BASE_URL, getBearer } from "../supabase";
 import {
@@ -48,7 +49,7 @@ async function postEnd(sessionId: string): Promise<void> {
   try {
     const token = await getBearer();
     if (!token) return;
-    await fetch(`${API_BASE_URL}/api/public/pos/support-end`, {
+    await nativeFetch(`${API_BASE_URL}/api/public/pos/support-end`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
       body: JSON.stringify({ sessionId }),

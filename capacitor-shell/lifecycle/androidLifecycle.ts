@@ -8,6 +8,7 @@ import { getActivityState, markBackPress, setBackgroundedAt, wireNativeActivityL
 import { showExitToast } from "./ExitConfirmToast";
 import { supabase } from "../supabase";
 import type { createShellRouter } from "../router";
+import { readMeta } from "@/lib/offline/db";
 
 type ShellRouter = ReturnType<typeof createShellRouter>;
 
@@ -82,14 +83,20 @@ async function onResume(router: ShellRouter, queryClient: QueryClient) {
   if (!wasLong) return;
 
   try {
+    const cachedUser = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) {
+      // A long background/resume must not eject a cashier solely because the
+      // cloud auth refresh is unavailable. Keep a valid device-local PIN
+      // session and let the next sync/heartbeat retry the backend.
+      if (cachedUser) {
+        queryClient.invalidateQueries();
+        return;
+      }
       queryClient.clear();
       router.navigate({ to: PIN_ROUTE, replace: true });
       return;
     }
-    // Refresh authenticated queries so revoked device / disabled employee
-    // surfaces immediately on next render.
     queryClient.invalidateQueries();
     // Drain any offline queue that piled up while backgrounded.
     try {

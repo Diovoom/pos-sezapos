@@ -140,7 +140,11 @@ export function PosShell({ children }: { children: ReactNode }) {
   // Kick first-login employees through onboarding (shared with dashboard shell).
   useEffect(() => {
     if (!me?.profile) return;
-    if (me.profile.must_change_password && pathname !== "/onboarding") {
+    const native = typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.();
+    // The managed POS authenticates employees by store-scoped PIN. A web
+    // password-change requirement must never hijack a dedicated register and
+    // prevent the cashier from reaching checkout.
+    if (!native && me.profile.must_change_password && pathname !== "/onboarding") {
       navigate({ to: "/onboarding", replace: true });
     }
   }, [me, pathname, navigate]);
@@ -162,8 +166,13 @@ export function PosShell({ children }: { children: ReactNode }) {
   const doSignOut = async () => {
     await qc.cancelQueries();
     qc.clear();
-    await supabase.auth.signOut();
-    // Use replace so the protected route stays off history  -  no back-button leak.
+    await Promise.all([
+      deleteMeta("authenticated_me_current_user").catch(() => {}),
+      deleteMeta("authenticated_me").catch(() => {}),
+      deleteMeta("profile").catch(() => {}),
+    ]);
+    await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
+    try { localStorage.setItem("seza.forcePinLogin", "1"); } catch { /* ignore */ }
     navigate({ to: "/auth", replace: true });
   };
 

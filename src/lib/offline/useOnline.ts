@@ -8,12 +8,15 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 let overrideOnline: boolean | null = null;
+let backendReachable: boolean | null = null;
+let backendCheckedAt = 0;
 const overrideListeners = new Set<() => void>();
 
 /** Called by the native lifecycle bridge whenever the OS reports a change. */
 export function setNativeOnline(state: boolean) {
   if (overrideOnline === state) return;
   overrideOnline = state;
+  if (!state) backendReachable = false;
   // Fire standard window events so any consumer polling navigator.onLine
   // also gets a chance to re-render.
   try {
@@ -24,10 +27,32 @@ export function setNativeOnline(state: boolean) {
   overrideListeners.forEach((l) => l());
 }
 
-/** Imperative read used by non-React code paths (sync driver, finalize). */
-export function isOnlineNow(): boolean {
+
+/**
+ * Marks whether the SEZA cloud itself is reachable. A device may have Wi-Fi
+ * while DNS/TLS/Cloudflare is unavailable; treating that as fully online is
+ * what used to send cashiers down fragile cloud-only paths.
+ */
+export function setBackendReachable(state: boolean) {
+  backendReachable = state;
+  backendCheckedAt = Date.now();
+  overrideListeners.forEach((l) => l());
+}
+
+export function isNetworkConnectedNow(): boolean {
   if (overrideOnline !== null) return overrideOnline;
   return typeof navigator !== "undefined" ? navigator.onLine : true;
+}
+
+export function isBackendReachableNow(): boolean {
+  if (!isNetworkConnectedNow()) return false;
+  if (backendReachable === false && Date.now() - backendCheckedAt < 30_000) return false;
+  return true;
+}
+
+/** Imperative read used by non-React code paths (sync driver, finalize). */
+export function isOnlineNow(): boolean {
+  return isBackendReachableNow();
 }
 
 function subscribe(cb: () => void) {

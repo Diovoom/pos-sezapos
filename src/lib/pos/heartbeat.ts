@@ -3,6 +3,7 @@ import { getActivePrinter, getActiveTerminal } from "@/lib/hardware";
 import { getDeviceId } from "@/lib/offline/db";
 import { isNativeMode } from "@/lib/native";
 import { supabase } from "@/integrations/supabase/client";
+import { setBackendReachable } from "@/lib/offline/useOnline";
 
 export type PosConnectionState = {
   networkConnected: boolean;
@@ -113,6 +114,7 @@ export async function sendPosHeartbeat(input: {
     }
     finally { window.clearTimeout(timeout); }
   }
+  setBackendReachable(networkConnected && cloudReachable);
   const state: PosConnectionState = {
     networkConnected, connectionType, cloudReachable, heartbeatAcknowledged,
     lastCheckedAt: new Date().toISOString(), printerReady, terminalReady, pendingSync: input.pendingSync ?? 0,

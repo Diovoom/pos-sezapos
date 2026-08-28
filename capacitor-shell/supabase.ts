@@ -1,5 +1,6 @@
 // Standalone Supabase client for the bundled Capacitor Android app.
 import { createClient } from "@supabase/supabase-js";
+import { nativeFetch } from "./lib/nativeHttp";
 
 const FALLBACK_SUPABASE_URL = "https://takuzwjuhrhppvgksyjp.supabase.co";
 const FALLBACK_SUPABASE_PUBLISHABLE_KEY =
@@ -70,7 +71,7 @@ const patchedFetch: typeof fetch = (input, init) => {
     else init.signal.addEventListener("abort", () => controller.abort(init.signal?.reason), { once: true });
   }
 
-  return fetch(input, { ...init, headers, signal: controller.signal })
+  return nativeFetch(input, { ...init, headers, signal: controller.signal })
     .catch((error) => {
       console.error("[SEZA Android] Supabase request failed", {
         url: typeof input === "string" ? input : input instanceof URL ? input.href : input.url,

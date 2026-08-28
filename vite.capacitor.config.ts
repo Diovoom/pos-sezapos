@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => {
 
   const supabaseProjectId =
     env.VITE_SUPABASE_PROJECT_ID || env.SUPABASE_PROJECT_ID || FALLBACK_SUPABASE_PROJECT_ID;
+  const apiBaseUrl = (env.VITE_API_BASE_URL || "https://sezapos.com").replace(/\/$/, "");
 
   return {
     root: path.resolve(__dirname, "capacitor-shell"),
@@ -38,6 +39,7 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(supabaseUrl),
       "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(supabasePublishableKey),
       "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(supabaseProjectId),
+      "import.meta.env.VITE_API_BASE_URL": JSON.stringify(apiBaseUrl),
     },
     resolve: {
       alias: [
