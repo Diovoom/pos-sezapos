@@ -8,7 +8,7 @@ let bundle = "";
 for (const name of names) {
   if (name.endsWith(".js")) bundle += await readFile(path.join(dir, name), "utf8");
 }
-const marker = "SEZA-POS-HARDENED-LOCAL-FIRST-2026-08-28-2";
+const marker = "SEZA-POS-PIN-COMPAT-2026-08-29-3";
 if (!bundle.includes(marker)) {
   console.error(`[SEZA] STOP: compiled Android assets do not contain ${marker}.`);
   console.error("[SEZA] Do not install this APK. The build is using stale source files.");

@@ -1,46 +1,23 @@
-# SEZA POS Real Register Hardening
+# SEZA POS PIN Login Final V3
 
-Build marker: `SEZA-POS-HARDENED-LOCAL-FIRST-2026-08-28-2`
+Build marker: `SEZA-POS-PIN-COMPAT-2026-08-29-3`
 
-This cumulative patch replaces the earlier Android/network/PIN patches.
+This is cumulative over the Real Register Hardening patch.
 
-## Reliability contract
+The PIN client now accepts both:
+- newer verify-pin responses: user_id + bootstrap + optional token_hash
+- older deployed verify-pin responses: email + token_hash
 
-After a register is successfully paired, normal cash-register operation is local-first:
+For an older response the APK:
+1. verifies the returned token,
+2. recovers the employee user ID,
+3. tries the paired-device bootstrap route,
+4. falls back to authenticated Supabase reads if that route is not deployed,
+5. caches the cashier/store/catalog/permissions snapshot,
+6. stores the device-bound offline PIN verifier,
+7. enters /pos.
 
-- paired terminal identity is stored locally
-- Android backend traffic uses native Capacitor HTTP, not WebView fetch
-- store, products, categories, employees, roles, and permissions are cached
-- selected cashier identity is local-first
-- PIN login can open the register without waiting for a Supabase Auth session
-- register open/close and cash movements commit locally first
-- cash sales commit locally first
-- cached product stock updates immediately after a local cash sale
-- receipts are not blocked by cloud synchronization
-- pending records synchronize in the background when an authenticated cloud session is available
-- manager override can use paired-device credentials if the cashier cloud session is unavailable
-- device heartbeat refreshes the merchant snapshot using device credentials
-- cloud/session failures do not force a paired cashier out of the POS
-- raw `Failed to fetch` is not shown by the Android shell
+This removes the API-version mismatch that produced the generic
+"Sign-in failed. Please try again." immediately after entering a valid PIN.
 
-Card/processor-backed payments remain online/provider-authorized operations.
-
-## Server routes changed
-
-These require Git push + Cloudflare deployment before testing the new APK:
-
-- `src/routes/api/public/pos/pair-device.ts`
-- `src/routes/api/public/pos/verify-pin.ts`
-- `src/routes/api/public/pos/verify-manager-pin.ts`
-- `src/routes/api/public/pos/device-bootstrap.ts`
-
-## Validation performed
-
-- 29 changed TypeScript/TSX files parsed with TypeScript: 0 syntax errors
-- Android shell direct WebView `fetch()` calls: 0
-- Android shell raw `Failed to fetch` strings: 0
-- cash checkout path does not require `supabase.auth.getUser()`
-- remaining checkout Auth gate is for card/processor-backed tenders
-- build verifier requires this hardening marker in compiled Android assets
-
-A full Android/Gradle build must still be performed on the Windows development machine.
+The Android sync verification marker was bumped so stale APK builds are rejected.

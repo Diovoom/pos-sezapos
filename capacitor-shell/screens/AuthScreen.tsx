@@ -238,20 +238,117 @@ export function AuthScreen() {
         setError(data.error ?? "Sign-in failed. Please try again.");
         return;
       }
-      if (!data.user_id) {
-        setError("Sign-in failed. Please try again.");
+      // Backward-compatible PIN handoff.
+      // Older deployed SEZA verify-pin routes returned only {email, token_hash}.
+      // Newer routes return {user_id, bootstrap, token_hash}. Accept BOTH so a
+      // register cannot be locked out just because Cloudflare and the APK are
+      // one deployment apart.
+      let userId = data.user_id ?? null;
+      let bootstrap = data.bootstrap ?? {};
+      let cloudSessionReady = false;
+
+      if (!userId && data.token_hash) {
+        console.info("[SEZA POS] legacy PIN response detected; resolving employee from token");
+        await supabase.auth.signOut({ scope: "local" } as any).catch(() => {});
+        const { data: verified, error: otpErr } = await supabase.auth.verifyOtp({
+          token_hash: data.token_hash,
+          type: "magiclink",
+        });
+        if (otpErr || !verified.session?.user?.id) {
+          console.error("[SEZA POS] PIN accepted but cloud session could not be established", otpErr);
+          setError("Sign-in is temporarily unavailable. Please try again.");
+          setPin("");
+          return;
+        }
+        userId = verified.session.user.id;
+        cloudSessionReady = true;
+      }
+
+      if (!userId) {
+        console.error("[SEZA POS] incomplete PIN response", {
+          status: res.status,
+          hasToken: Boolean(data.token_hash),
+          hasBootstrap: Boolean(data.bootstrap),
+        });
+        setError("Sign-in is temporarily unavailable. Please try again.");
         setPin("");
         return;
       }
 
+      // If the backend is the older token-only version, try the paired-device
+      // bootstrap route first. If that route has not deployed yet either, use
+      // the authenticated Supabase session to reconstruct the operating
+      // snapshot. Neither compatibility path is allowed to block /pos entry.
+      if (pairing && (!bootstrap.profile || !bootstrap.store)) {
+        try {
+          const snapshotResponse = await nativeFetch(`${API_BASE_URL}/api/public/pos/device-bootstrap`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              store_id: pairing.storeId,
+              device_id: pairing.deviceId,
+              device_secret: pairing.deviceSecret,
+              user_id: userId,
+            }),
+          });
+          if (snapshotResponse.ok) {
+            const snapshot = (await snapshotResponse.json().catch(() => ({}))) as any;
+            bootstrap = {
+              profile: snapshot.profile ?? bootstrap.profile,
+              roles: snapshot.roles ?? bootstrap.roles,
+              store: snapshot.store ?? bootstrap.store,
+              products: snapshot.products ?? bootstrap.products,
+              categories: snapshot.categories ?? bootstrap.categories,
+              employees: snapshot.employees ?? bootstrap.employees,
+              role_permissions: snapshot.role_permissions ?? bootstrap.role_permissions,
+              prepared_at: snapshot.prepared_at ?? bootstrap.prepared_at,
+            };
+          }
+        } catch (snapshotError) {
+          console.warn("[SEZA POS] device bootstrap compatibility request deferred", snapshotError);
+        }
+      }
+
+      if ((!bootstrap.profile || !bootstrap.store) && cloudSessionReady && pairing) {
+        try {
+          const [profileResult, rolesResult, storeResult, productsResult, categoriesResult, employeesResult, permissionsResult] =
+            await Promise.all([
+              supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+              supabase.from("user_roles").select("role").eq("user_id", userId),
+              supabase.from("stores").select("*").eq("id", pairing.storeId).maybeSingle(),
+              supabase.from("products").select("*").eq("store_id", pairing.storeId).eq("status", "active"),
+              supabase.from("categories").select("*").eq("store_id", pairing.storeId),
+              supabase.from("profiles").select("*").eq("store_id", pairing.storeId).eq("status", "active"),
+              supabase.from("role_permissions").select("role,permission").eq("store_id", pairing.storeId),
+            ]);
+          bootstrap = {
+            profile: profileResult.data ?? bootstrap.profile,
+            roles: (rolesResult.data ?? []).map((row: any) => row.role),
+            store: storeResult.data ?? bootstrap.store,
+            products: productsResult.data ?? bootstrap.products,
+            categories: categoriesResult.data ?? bootstrap.categories,
+            employees: employeesResult.data ?? bootstrap.employees,
+            role_permissions: permissionsResult.data ?? bootstrap.role_permissions,
+            prepared_at: new Date().toISOString(),
+          };
+        } catch (compatError) {
+          console.warn("[SEZA POS] legacy bootstrap reconstruction deferred", compatError);
+        }
+      }
+
       // The paired-device PIN response is authoritative for LOCAL register
-      // entry. Persist the complete operating snapshot first; cloud auth is
-      // best-effort and must never block a cashier from opening the POS.
-      const bootstrap = data.bootstrap ?? {};
-      const userId = data.user_id;
-      const profile = bootstrap.profile ?? { id: userId, email: data.email ?? null, store_id: pairing?.storeId ?? null };
+      // entry. Even if the snapshot could not fully refresh, preserve enough
+      // local identity to open the register and let background refresh recover.
+      const profile = bootstrap.profile ?? {
+        id: userId,
+        email: data.email ?? null,
+        store_id: pairing?.storeId ?? null,
+        status: "active",
+      };
       const store = bootstrap.store ?? (pairing ? { id: pairing.storeId } : null);
-      const roles = Array.isArray(bootstrap.roles) ? bootstrap.roles : [];
+      const roles = Array.isArray(bootstrap.roles) && bootstrap.roles.length
+        ? bootstrap.roles
+        : ["cashier"];
       const meSnapshot = {
         user: { id: userId, email: data.email ?? profile?.email ?? undefined },
         profile,
@@ -280,9 +377,9 @@ export function AuthScreen() {
         await rememberOfflinePin(pin, pairing.deviceSecret, pairing.storeId, userId).catch(() => {});
       }
 
-      // Try to establish a Supabase cloud session for RLS/background sync, but
-      // do not make register entry depend on it.
-      if (data.token_hash) {
+      // New backend responses can still establish cloud auth in the
+      // background. Legacy responses already established it above.
+      if (data.token_hash && !cloudSessionReady) {
         void (async () => {
           try {
             await supabase.auth.signOut({ scope: "local" } as any).catch(() => {});
