@@ -234,6 +234,14 @@ export function AuthScreen() {
           setError(data.message ?? "Enter your Employee ID first, then your PIN.");
           return;
         }
+        if (!data.error) {
+          const raw = await res.clone().text().catch(() => "");
+          console.error("[SEZA POS] PIN endpoint returned a non-SEZA error", {
+            status: res.status,
+            endpoint,
+            body: raw.slice(0, 500),
+          });
+        }
         setPin("");
         setError(data.error ?? "Sign-in failed. Please try again.");
         return;

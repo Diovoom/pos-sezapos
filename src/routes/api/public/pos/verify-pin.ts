@@ -89,7 +89,19 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
         }
 
         // 2. Find candidate cashier(s) at this store.
-        const fp = pinFingerprint(storeId, pin);
+        // Fingerprints are only an optimization. A missing/rotated
+        // PIN_FINGERPRINT_HMAC_SECRET must NEVER lock a paired register out.
+        // When fingerprinting is unavailable, skip the RPC and use the
+        // store-scoped pin_hash verification path below.
+        let fp: string | null = null;
+        try {
+          fp = pinFingerprint(storeId, pin);
+        } catch (fingerprintError) {
+          console.warn("[pos.verify-pin] PIN fingerprint unavailable; using store-scoped hash verification", {
+            error: fingerprintError instanceof Error ? fingerprintError.name : "unknown",
+          });
+        }
+
         let candidates: Array<{ id: string; email: string | null; pin_hash: string | null }> = [];
 
         if (employeeId) {
@@ -106,14 +118,16 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
           // Fast path uses the fingerprint RPC when the migration is present.
           // If an older/newly-migrated project is missing that RPC, fall back
           // to a direct store-scoped profile scan instead of locking the POS.
-          try {
-            const { data: fpMatches, error: fpError } = await admin.rpc("pos_find_pin_candidates", {
-              _store_id: storeId,
-              _fingerprint: fp,
-            });
-            if (!fpError) candidates = (fpMatches ?? []) as typeof candidates;
-          } catch {
-            candidates = [];
+          if (fp) {
+            try {
+              const { data: fpMatches, error: fpError } = await admin.rpc("pos_find_pin_candidates", {
+                _store_id: storeId,
+                _fingerprint: fp,
+              });
+              if (!fpError) candidates = (fpMatches ?? []) as typeof candidates;
+            } catch {
+              candidates = [];
+            }
           }
 
           if (candidates.length === 0) {

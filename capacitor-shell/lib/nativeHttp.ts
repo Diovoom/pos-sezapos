@@ -1,7 +1,7 @@
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { setBackendReachable } from "@/lib/offline/useOnline";
 
-export const SEZA_ANDROID_BUILD_ID = "SEZA-POS-PIN-COMPAT-2026-08-29-3";
+export const SEZA_ANDROID_BUILD_ID = "SEZA-POS-PIN-FINGERPRINT-FALLBACK-2026-08-29-4";
 
 function normalizeUrl(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
