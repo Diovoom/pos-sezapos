@@ -73,7 +73,7 @@ export const Route = createFileRoute("/api/public/pos/timeclock")({
         if (profile.status === "disabled" || profile.status === "removed")
           return json({ error: "Account is disabled" }, 403);
 
-        const { data: existing, error: readError } = await admin
+        const { data: existingRow, error: readError } = await admin
           .from("time_entries")
           .select("*")
           .eq("user_id", auth.user.id)
@@ -81,6 +81,8 @@ export const Route = createFileRoute("/api/public/pos/timeclock")({
           .order("clock_in", { ascending: false })
           .limit(1)
           .maybeSingle();
+
+    let existing = existingRow;
         if (readError) return json({ error: readError.message }, 500);
 
         if (payload.action === "clock_in" && existing && profile.store_id) {
