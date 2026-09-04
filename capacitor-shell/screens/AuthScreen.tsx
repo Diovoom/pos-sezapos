@@ -376,7 +376,7 @@ export function AuthScreen() {
         store?.id
           ? cacheMeta(`role_permissions:${store.id}`, bootstrap.role_permissions ?? [])
           : Promise.resolve(),
-        cacheProducts((bootstrap.products ?? []) as any[]),
+        Array.isArray(bootstrap.products) ? cacheProducts(bootstrap.products as any[]) : Promise.resolve(),
         cacheEmployees((bootstrap.employees ?? []) as any[]),
         deleteMeta("authenticated_me"),
       ]).catch((cacheError) => console.error("[SEZA POS] bootstrap cache failed", cacheError));
