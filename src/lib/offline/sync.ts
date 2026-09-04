@@ -25,6 +25,7 @@ import {
   type OfflineSale,
   type OfflineCashMovement,
   type OfflineAction,
+  cacheMeta,
   upsertCachedEmployee,
   deleteCachedEmployee,
 } from "./db";
@@ -203,12 +204,23 @@ async function syncAction(action: OfflineAction): Promise<void> {
   await updateOfflineAction(action.id, { status: "syncing", attempts, last_error: null });
   try {
     if (action.kind === "timeclock") {
-      await postTimeClockAction({
-        action: String(action.payload.action) as
-          "clock_in" | "clock_out" | "start_break" | "end_break",
+      const clockAction = String(action.payload.action) as
+        "clock_in" | "clock_out" | "start_break" | "end_break";
+      const result = await postTimeClockAction({
+        action: clockAction,
         occurredAt: String(action.payload.occurredAt ?? action.local_created_at),
         idempotencyKey: action.idempotency_key,
       });
+
+      // Replace the temporary local-time-* entry with the canonical server
+      // row after sync. This prevents a later render from bouncing between
+      // local and cloud clock state.
+      if (action.user_id) {
+        await cacheMeta(
+          `timeclock_open:${action.user_id}`,
+          clockAction === "clock_out" ? null : (result.entry ?? null),
+        );
+      }
     } else if (action.kind === "register_open") {
       const row = action.payload;
 

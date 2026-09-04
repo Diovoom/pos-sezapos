@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseAdminAuth } from "@/integrations/supabase/admin-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,10 @@ export const Route = createFileRoute("/reset-password")({
 
 function ResetPasswordPage() {
   const navigate = useNavigate();
+  const adminRecovery =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("surface") === "admin";
+  const authClient = adminRecovery ? supabaseAdminAuth : supabase;
   const [ready, setReady] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -30,14 +35,14 @@ function ResetPasswordPage() {
   useEffect(() => {
     // Recovery link exchanges tokens in the URL hash. onAuthStateChange
     // fires with a session as soon as Supabase parses them.
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: sub } = authClient.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" || session) setReady(true);
     });
-    supabase.auth.getSession().then(({ data }) => {
+    authClient.auth.getSession().then(({ data }) => {
       if (data.session) setReady(true);
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [authClient]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,10 +50,10 @@ function ResetPasswordPage() {
     if (password !== confirm) return toast.error("Passwords do not match");
     setBusy(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      const { error } = await authClient.auth.updateUser({ password });
       if (error) throw error;
       toast.success("Password updated. You're signed in.");
-      navigate({ to: "/pos", replace: true });
+      navigate({ to: adminRecovery ? "/admin" : "/pos", replace: true } as any);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not update password");
     } finally {
@@ -106,7 +111,7 @@ function ResetPasswordPage() {
                 {busy ? <Loader2 className="size-4 animate-spin" /> : "Update password"}
               </Button>
               <div className="text-center text-xs text-muted-foreground pt-1">
-                <Link to="/auth" className="hover:underline">
+                <Link to={adminRecovery ? "/admin/auth" : "/auth"} className="hover:underline">
                   Back to sign in
                 </Link>
               </div>

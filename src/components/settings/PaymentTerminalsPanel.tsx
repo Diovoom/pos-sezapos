@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   CheckCircle2,
   Copy,
@@ -23,11 +24,11 @@ import { setActiveTerminal, type TerminalDriverId } from "@/lib/hardware";
 import { connectReader as connectStripeReader } from "@/lib/hardware/terminal-stripe";
 import { setActivePaymentProvider } from "@/lib/pos/payment-terminal";
 import { checkFinixTerminal } from "@/lib/finix/terminal";
+import { getStripeConnectStatus, startStripeConnectOnboarding } from "@/lib/stripe-connect.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -82,7 +83,7 @@ const PROVIDERS: Provider[] = [
       "S700",
       "WisePad 3",
     ],
-    note: "Native Stripe Terminal connector installed. A Stripe Location ID and completed owner account setup are required before pairing.",
+    note: "Native Stripe Terminal connector installed. SEZA creates the merchant and Terminal Location automatically after the owner completes Stripe verification.",
   },
   {
     id: "square",
@@ -192,6 +193,9 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
   const storeId = me?.store?.id as string | undefined;
   const qc = useQueryClient();
   const native = isNativeMode();
+  const isOwner = Boolean(me?.roles?.includes("owner"));
+  const getStripeStatus = useServerFn(getStripeConnectStatus);
+  const beginStripeOnboarding = useServerFn(startStripeConnectOnboarding);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({
     label: "",
@@ -199,10 +203,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     model: "",
     serial: "",
     location: "Front counter",
-    stripeLocationId: "",
-    stripeAccountId: "",
     stripeConnectionMethod: "usb" as "usb" | "bluetooth",
-    testMode: true,
     finixMerchantId: "",
     finixDeviceId: "",
     finixEnvironment: "sandbox" as "sandbox" | "live",
@@ -232,6 +233,46 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     },
   });
 
+  const stripeStore = useQuery({
+    queryKey: ["store", "stripe-connect", storeId],
+    enabled: !!storeId,
+    queryFn: async () => {
+      const { data, error } = await sb
+        .from("stores")
+        .select(
+          "id,stripe_connected_account_id,stripe_connect_status,stripe_card_payments_status,stripe_terminal_location_id,address,city,state,zip,country",
+        )
+        .eq("id", storeId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const stripeStatus = useQuery({
+    queryKey: ["stripe-connect-status", storeId],
+    enabled: Boolean(storeId && isOwner && !native),
+    queryFn: () => getStripeStatus({}),
+    retry: false,
+  });
+
+  const connectStripe = useMutation({
+    mutationFn: () => beginStripeOnboarding({}),
+    onSuccess: ({ url }) => {
+      if (!url) throw new Error("Stripe did not return an onboarding URL.");
+      window.location.assign(url);
+    },
+    onError: (error) => toast.error(userFacingError(error, "Could not start Stripe setup.")),
+  });
+
+  const stripeReady =
+    stripeStatus.data?.status === "ready" || stripeStore.data?.stripe_connect_status === "ready";
+  const stripeNeedsAddress = Boolean(
+    stripeStatus.data?.needsStoreAddress ||
+      (stripeStore.data?.stripe_connect_status === "payments_ready" &&
+        !stripeStore.data?.stripe_terminal_location_id),
+  );
+
   const copyOwnerSetupLink = async () => {
     try {
       await navigator.clipboard.writeText(OWNER_PAYMENT_SETUP_URL);
@@ -246,14 +287,11 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       if (!storeId) throw new Error("Your store is not ready yet.");
       if (!form.label.trim()) throw new Error("Enter a terminal name.");
       if (!form.model.trim()) throw new Error("Choose the terminal model.");
-      if (form.provider === "stripe" && !form.stripeAccountId.trim()) {
+      if (form.provider === "stripe" && !stripeReady) {
         throw new Error(
-          "Enter this merchant’s Stripe connected account ID (acct_...) before pairing a reader.",
-        );
-      }
-      if (form.provider === "stripe" && !form.stripeLocationId.trim()) {
-        throw new Error(
-          "Enter the Stripe Terminal Location ID from the owner payment setup before pairing this reader.",
+          stripeNeedsAddress
+            ? "Add the complete store address in General Settings so SEZA can create the Stripe Terminal Location."
+            : "Complete Stripe setup in the Owner Dashboard before preparing a Stripe reader.",
         );
       }
       if (form.provider === "finix" && !form.finixDeviceId.trim()) {
@@ -273,14 +311,11 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
             mode: provider.mode,
             setup_source: native ? "android_pos" : "owner_dashboard",
             location_id:
-              form.provider === "stripe" ? form.stripeLocationId.trim() : undefined,
-            stripe_account_id:
-              form.provider === "stripe" ? form.stripeAccountId.trim() : undefined,
+              form.provider === "stripe" ? stripeStore.data?.stripe_terminal_location_id : undefined,
             connection_method:
               form.provider === "stripe" && form.model.toLowerCase().includes("reader m2")
                 ? form.stripeConnectionMethod
                 : undefined,
-            test_mode: form.provider === "stripe" ? form.testMode : undefined,
             finix_device_id: form.provider === "finix" ? form.finixDeviceId.trim() : undefined,
             finix_merchant_id: form.provider === "finix" ? form.finixMerchantId.trim() || undefined : undefined,
             finix_environment: form.provider === "finix" ? form.finixEnvironment : undefined,
@@ -315,10 +350,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
         model: "",
         serial: "",
         location: "Front counter",
-        stripeLocationId: "",
-        stripeAccountId: "",
         stripeConnectionMethod: "usb",
-        testMode: true,
         finixMerchantId: "",
         finixDeviceId: "",
         finixEnvironment: "sandbox",
@@ -465,45 +497,100 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       <Card className="border-primary/30 bg-primary/[0.03]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Smartphone className="size-5 text-primary" /> Complete owner payment setup first
+            <Smartphone className="size-5 text-primary" /> Stripe payment setup
           </CardTitle>
           <CardDescription>
-            Business verification, processor authorization, and payout-bank setup belong in the
-            Owner Dashboard. This Android screen is for choosing and pairing the physical reader.
+            SEZA handles the Stripe account and Terminal Location IDs behind the scenes. Store staff
+            should never have to copy Stripe IDs or secret keys into the POS.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border bg-background p-4">
-              <div className="font-semibold">1. Owner Dashboard</div>
+              <div className="font-semibold">1. Connect and verify Stripe</div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Connect the processor, complete the provider-hosted verification, and choose the
-                payout account. SEZA does not store full routing or account numbers.
+                The owner completes Stripe business verification and payout setup. SEZA saves only
+                Stripe identifiers and readiness status, not bank credentials.
               </p>
             </div>
             <div className="rounded-lg border bg-background p-4">
-              <div className="font-semibold">2. This physical POS</div>
+              <div className="font-semibold">2. Pair the physical reader</div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Enter the provider location ID, discover the certified reader, pair it, and run the
-                provider test before accepting cards.
+                After Stripe is ready, choose Reader M2 or another supported model on this POS and
+                pair it. SEZA supplies the correct merchant and Terminal Location automatically.
               </p>
             </div>
           </div>
+
+          <div className="rounded-lg border bg-background p-4 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="font-semibold">
+                  {stripeReady
+                    ? "Stripe ready for card payments"
+                    : stripeNeedsAddress
+                      ? "Stripe verified — store address required"
+                      : stripeStore.data?.stripe_connected_account_id
+                        ? "Stripe verification in progress"
+                        : "Stripe is not connected yet"}
+                </div>
+                <p className="mt-1 text-muted-foreground">
+                  {stripeReady
+                    ? "SEZA has the connected merchant and Terminal Location. You can prepare and pair the reader."
+                    : stripeNeedsAddress
+                      ? "Complete Street address, City, State, ZIP and Country in General Settings. SEZA will then create the Terminal Location automatically."
+                      : "The store owner must finish Stripe onboarding before this register can accept card payments."}
+                </p>
+              </div>
+              {stripeReady && <CheckCircle2 className="size-6 text-emerald-600" />}
+            </div>
+          </div>
+
           {native ? (
             <div className="flex flex-wrap gap-2">
-              <Button asChild>
-                <a href={OWNER_PAYMENT_SETUP_URL} target="_blank" rel="noreferrer">
-                  <ExternalLink className="mr-2 size-4" /> Open Owner Dashboard payment setup
-                </a>
-              </Button>
+              {!stripeReady && (
+                <Button asChild>
+                  <a href={OWNER_PAYMENT_SETUP_URL} target="_blank" rel="noreferrer">
+                    <ExternalLink className="mr-2 size-4" /> Open Owner Dashboard
+                  </a>
+                </Button>
+              )}
               <Button variant="outline" onClick={copyOwnerSetupLink}>
-                <Copy className="mr-2 size-4" /> Copy setup link for your phone
+                <Copy className="mr-2 size-4" /> Copy Owner Dashboard link
+              </Button>
+            </div>
+          ) : isOwner ? (
+            <div className="flex flex-wrap gap-2">
+              {!stripeReady && !stripeNeedsAddress && (
+                <Button onClick={() => connectStripe.mutate()} disabled={connectStripe.isPending}>
+                  {connectStripe.isPending ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="mr-2 size-4" />
+                  )}
+                  {stripeStore.data?.stripe_connected_account_id ? "Continue Stripe setup" : "Connect Stripe"}
+                </Button>
+              )}
+              {stripeNeedsAddress && (
+                <Button asChild variant="outline">
+                  <a href="/settings?section=general">Complete store address</a>
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  void stripeStatus.refetch();
+                  void stripeStore.refetch();
+                }}
+                disabled={stripeStatus.isFetching}
+              >
+                {stripeStatus.isFetching && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Refresh Stripe status
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 rounded-lg border bg-background p-3 text-sm">
-              <CheckCircle2 className="size-4 text-primary" /> You are in the Owner Dashboard payment
-              setup area. Complete processor onboarding here, then pair the reader on the Android POS.
+            <div className="rounded-lg border bg-background p-3 text-sm text-muted-foreground">
+              Only the store owner can connect or change Stripe payment processing.
             </div>
           )}
         </CardContent>
@@ -558,7 +645,10 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
           ) : (
             (terminals.data ?? []).map((terminal) => {
               const definition = providerForTerminal(terminal);
-              const canPair = definition?.connector === "stripe" || definition?.connector === "finix_cloud" || definition?.connector === "external";
+              const canPair =
+                (definition?.connector === "stripe" && stripeReady) ||
+                definition?.connector === "finix_cloud" ||
+                definition?.connector === "external";
               return (
                 <div
                   key={terminal.id}
@@ -611,8 +701,8 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
           <CardHeader>
             <CardTitle>Add or prepare a terminal</CardTitle>
             <CardDescription>
-              Save the actual provider, model, register location, and provider location ID. This does
-              not claim the reader is connected until pairing succeeds.
+              Choose the provider, model, and register location. SEZA supplies protected processor
+              identifiers automatically after the owner finishes payment setup.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -635,8 +725,6 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                       ...form,
                       provider: value,
                       model: "",
-                      stripeLocationId: value === "stripe" ? form.stripeLocationId : "",
-                      stripeAccountId: value === "stripe" ? form.stripeAccountId : "",
                       stripeConnectionMethod: value === "stripe" ? form.stripeConnectionMethod : "usb",
                       finixDeviceId: value === "finix" ? form.finixDeviceId : "",
                       finixMerchantId: value === "finix" ? form.finixMerchantId : "",
@@ -735,32 +823,15 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
               )}
               {form.provider === "stripe" && (
                 <>
-                  <div className="space-y-1 md:col-span-2">
-                    <Label>Stripe connected account ID</Label>
-                    <Input
-                      value={form.stripeAccountId}
-                      onChange={(event) => setForm({ ...form, stripeAccountId: event.target.value })}
-                      placeholder="acct_..."
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      autoComplete="off"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      The merchant connected account that owns these direct charges. This is an account ID, not a secret API key.
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Stripe Terminal Location ID</Label>
-                    <Input
-                      value={form.stripeLocationId}
-                      onChange={(event) => setForm({ ...form, stripeLocationId: event.target.value })}
-                      placeholder="tml_..."
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Get this after completing Stripe setup in the Owner Dashboard.
-                    </p>
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label>Stripe connection</Label>
+                    <div className={`rounded-lg border p-3 text-sm ${stripeReady ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
+                      {stripeReady
+                        ? "Ready — SEZA will use this store’s connected Stripe merchant and Terminal Location automatically."
+                        : stripeNeedsAddress
+                          ? "Complete the store address in General Settings before preparing a Stripe reader."
+                          : "Complete Stripe owner onboarding before preparing a Stripe reader."}
+                    </div>
                   </div>
                   {form.model.toLowerCase().includes("reader m2") && (
                     <div className="space-y-1">
@@ -781,20 +852,10 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground">
-                        USB uses the M2 data cable and Android USB permission. Bluetooth remains available if the POS USB port cannot operate in host/data mode.
+                        USB uses the M2 data cable and Android USB permission. Bluetooth remains available as a fallback.
                       </p>
                     </div>
                   )}
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <Label>Stripe test mode</Label>
-                      <p className="text-xs text-muted-foreground">Use test credentials and simulated payments.</p>
-                    </div>
-                    <Switch
-                      checked={form.testMode}
-                      onCheckedChange={(checked) => setForm({ ...form, testMode: checked })}
-                    />
-                  </div>
                 </>
               )}
             </div>
@@ -810,7 +871,10 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
               </div>
               <div className="mt-1 text-muted-foreground">{provider.note}</div>
             </div>
-            <Button onClick={() => add.mutate()} disabled={add.isPending}>
+            <Button
+              onClick={() => add.mutate()}
+              disabled={add.isPending || (form.provider === "stripe" && !stripeReady)}
+            >
               <Plus className="mr-2 size-4" /> Prepare terminal
             </Button>
           </CardContent>

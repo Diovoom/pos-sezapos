@@ -103,8 +103,18 @@ export function TimeclockPage() {
         };
       }
       const rows = (data ?? []) as OpenShift[];
-      if (rows[0]) await cacheMeta(`open_register_session:${userId}`, rows[0]).catch(() => {});
-      return { rows };
+      if (rows[0]) {
+        await cacheMeta(`open_register_session:${userId}`, rows[0]).catch(() => {});
+        return { rows };
+      }
+
+      // Opening the local register and syncing it are intentionally separate.
+      // Until the queued register_open reaches Supabase, keep the employee's
+      // local session visible instead of flashing "no open shift".
+      const cached = await readMeta<OpenShift | null>(`open_register_session:${userId}`);
+      return {
+        rows: cached && cached.opened_by === userId && cached.status === "open" ? [cached] : [],
+      };
     },
   });
   const openShift = openShiftQ.data?.rows?.[0] ?? null;
@@ -120,7 +130,14 @@ export function TimeclockPage() {
     queryKey: ["myOpenEntry", me.data?.user.id],
     enabled: !!me.data?.user.id,
     queryFn: async () => {
-      if (!isOnlineNow()) return (await readMeta<TimeEntry | null>(`timeclock_open:${me.data!.user.id}`)) ?? null;
+      const cacheKey = `timeclock_open:${me.data!.user.id}`;
+      const cached = await readMeta<TimeEntry | null>(cacheKey).catch(() => undefined);
+
+      // Keep a newly-created local clock-in visible until background sync has
+      // converted it to the server row. This is what makes the button refresh
+      // instantly even on slow Ethernet/Wi-Fi.
+      if (cached?.id && String(cached.id).startsWith("local-time-")) return cached;
+      if (!isOnlineNow()) return cached ?? null;
 
       const { data, error } = await (supabase as any)
         .from("time_entries")
@@ -131,11 +148,10 @@ export function TimeclockPage() {
         .limit(1)
         .maybeSingle();
       if (error) {
-        const cached = await readMeta<TimeEntry | null>(`timeclock_open:${me.data!.user.id}`);
         if (cached !== undefined) return cached ?? null;
         throw error;
       }
-      await cacheMeta(`timeclock_open:${me.data!.user.id}`, data ?? null);
+      await cacheMeta(cacheKey, data ?? null);
       return (data as TimeEntry | null) ?? null;
     },
   });

@@ -73,7 +73,7 @@ export const Route = createFileRoute("/api/public/pos/timeclock")({
         if (profile.status === "disabled" || profile.status === "removed")
           return json({ error: "Account is disabled" }, 403);
 
-        const { data: existing, error: readError } = await admin
+        let { data: existing, error: readError } = await admin
           .from("time_entries")
           .select("*")
           .eq("user_id", auth.user.id)
@@ -82,6 +82,34 @@ export const Route = createFileRoute("/api/public/pos/timeclock")({
           .limit(1)
           .maybeSingle();
         if (readError) return json({ error: readError.message }, 500);
+
+        if (payload.action === "clock_in" && existing && profile.store_id) {
+          // Repair the exact stale state that used to trap a cashier forever:
+          // an old time entry remained open even though the register session
+          // opened for that shift was already closed. The register close time
+          // is authoritative and gives us a non-fabricated clock-out time.
+          const { data: closedRegister } = await admin
+            .from("register_sessions")
+            .select("id,status,opened_at,closed_at")
+            .eq("store_id", profile.store_id)
+            .eq("opened_by", auth.user.id)
+            .gte("opened_at", existing.clock_in)
+            .eq("status", "closed")
+            .not("closed_at", "is", null)
+            .order("opened_at", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          if (closedRegister?.closed_at) {
+            const { error: repairError } = await admin
+              .from("time_entries")
+              .update({ clock_out: closedRegister.closed_at, break_start: null })
+              .eq("id", existing.id)
+              .eq("user_id", auth.user.id);
+            if (repairError) return json({ error: repairError.message }, 500);
+            existing = null;
+          }
+        }
 
         if (payload.action === "clock_in") {
           if (existing) return json({ ok: true, entry: existing, alreadyApplied: true });

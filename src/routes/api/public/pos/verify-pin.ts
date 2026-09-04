@@ -164,6 +164,23 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
 
         const chosen = matched[0];
 
+        // The hash-verification fallback is intentionally sufficient for
+        // correctness, but once we know the raw PIN is valid we can safely
+        // backfill its store-scoped fingerprint. Future sign-ins then use the
+        // indexed candidate lookup instead of scanning every active employee.
+        if (fp) {
+          try {
+            await admin
+              .from("profiles")
+              .update({ pin_fingerprint: fp })
+              .eq("id", chosen.id)
+              .eq("store_id", storeId)
+              .is("pin_fingerprint", null);
+          } catch {
+            /* best effort only; hash verification remains the fallback */
+          }
+        }
+
         // Build the complete device-local bootstrap BEFORE attempting a cloud
         // auth session. A paired register must be able to open after a valid
         // store-scoped PIN even if Supabase Auth is temporarily unavailable.

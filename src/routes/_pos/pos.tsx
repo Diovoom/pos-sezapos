@@ -269,8 +269,17 @@ export function PosPage() {
       const userId = me.data!.user.id;
       const cacheKey = `timeclock_open:${userId}`;
       const cached = await readMeta<any>(cacheKey).catch(() => undefined);
-      if (cached) return { id: String(cached.id) };
-      if (!isOnlineNow()) return null;
+
+      // A freshly-created local clock entry is authoritative until the offline
+      // queue reconciles it with the server. Without this guard the register
+      // can navigate from Time Clock -> POS faster than the network sync and a
+      // cloud "no open entry" response immediately sends the cashier back to
+      // "Clock in to start selling".
+      if (cached?.id && String(cached.id).startsWith("local-time-")) {
+        return { id: String(cached.id) };
+      }
+      if (!isOnlineNow()) return cached?.id ? { id: String(cached.id) } : null;
+
       try {
         const { data, error } = await (supabase as any)
           .from("time_entries")
@@ -284,7 +293,8 @@ export function PosPage() {
         await cacheMeta(cacheKey, data ?? null).catch(() => {});
         return data ? { id: String(data.id) } : null;
       } catch {
-        return null;
+        // A temporary network failure must never erase a valid local shift.
+        return cached?.id ? { id: String(cached.id) } : null;
       }
     },
     refetchInterval: false,

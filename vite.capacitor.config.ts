@@ -48,6 +48,10 @@ export default defineConfig(({ mode }) => {
           replacement: path.resolve(__dirname, "capacitor-shell/supabase.ts"),
         },
         {
+          find: /^@\/components\/settings\/PaymentTerminalsPanel$/,
+          replacement: path.resolve(__dirname, "capacitor-shell/stubs/PaymentTerminalsPanel.tsx"),
+        },
+        {
           find: /^@\/components\/pos\/ManagerOverrideDialog$/,
           replacement: path.resolve(__dirname, "capacitor-shell/stubs/ManagerOverrideDialog.tsx"),
         },

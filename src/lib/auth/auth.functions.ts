@@ -287,8 +287,16 @@ export const securePasswordReset = createServerFn({ method: "POST" })
       if (!request) throw new Error("Request unavailable");
       const { createPublicAuthClient, safeDashboardOrigin } = await import("./auth.server");
       const auth = createPublicAuthClient();
+      const requestUrl = new URL(request.url);
+      const requestOrigin = requestUrl.origin;
+      const adminOrigin =
+        requestUrl.protocol === "https:" &&
+        (requestUrl.hostname === "admin.sezapos.com" || requestUrl.hostname.endsWith(".sezapos.com"))
+          ? requestOrigin
+          : safeDashboardOrigin(request);
+      const resetOrigin = data.surface === "admin" ? adminOrigin : safeDashboardOrigin(request);
       await auth.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${safeDashboardOrigin(request)}/reset-password`,
+        redirectTo: `${resetOrigin}/reset-password?surface=${data.surface}`,
         captchaToken: data.captchaToken,
       } as any);
     } catch {
