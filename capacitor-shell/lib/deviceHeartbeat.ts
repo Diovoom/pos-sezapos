@@ -147,12 +147,19 @@ export function startDeviceHeartbeat() {
   void sendDeviceHeartbeat(true);
   scheduleNext();
 
-  const onOnline = () => void sendDeviceHeartbeat(true);
-  const onFocus = () => void sendDeviceHeartbeat();
+  const refreshForegroundSnapshot = () => {
+    // Refresh store/products whenever cashier returns to SEZA.
+    void refreshDeviceBootstrap(true).catch(() => undefined);
+    void sendDeviceHeartbeat(true);
+  };
+
+  const onOnline = refreshForegroundSnapshot;
+  const onFocus = refreshForegroundSnapshot;
   const onConfigChanged = () => void sendDeviceHeartbeat(true);
+
   const onVisibility = () => {
     if (document.visibilityState === "visible") {
-      void sendDeviceHeartbeat();
+      refreshForegroundSnapshot();
       scheduleNext();
     } else if (timer) {
       clearTimeout(timer);

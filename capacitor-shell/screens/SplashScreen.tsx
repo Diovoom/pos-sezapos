@@ -6,7 +6,7 @@ export function SplashScreen() {
       style={{
         position: "fixed",
         inset: 0,
-        background: "#1e40af",
+        background: "#ffffff",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -31,7 +31,7 @@ export function SplashScreen() {
           style={{ width: 96, height: 96, objectFit: "contain" }}
         />
       </div>
-      <div style={{ color: "#fff", fontWeight: 700, fontSize: 22, letterSpacing: 0.5 }}>
+      <div style={{ color: "#0f172a", fontWeight: 700, fontSize: 22, letterSpacing: 0.5 }}>
         SEZA POS
       </div>
       <div

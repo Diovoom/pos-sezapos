@@ -15,6 +15,7 @@ import {
   cacheMeta,
   cacheProducts,
   deleteMeta,
+  readMeta,
 } from "@/lib/offline/db";
 
 type Stage = "pin" | "id_then_pin";
@@ -172,9 +173,19 @@ export function AuthScreen() {
       if (pairing) {
         const offlineEmployee = await findOfflineEmployee(pin, pairing.deviceSecret, pairing.storeId);
         if (offlineEmployee) {
-          await cacheMeta("authenticated_me_current_user", offlineEmployee.userId).catch(() => {});
-          navigate({ to: "/pos", replace: true });
-          return;
+          const cachedMe = await readMeta(
+            `authenticated_me:${offlineEmployee.userId}`
+          ).catch(() => undefined);
+
+          if (cachedMe?.profile && cachedMe?.store) {
+            await cacheMeta(
+              "authenticated_me_current_user",
+              offlineEmployee.userId
+            ).catch(() => {});
+
+            navigate({ to: "/pos", replace: true });
+            return;
+          }
         }
       }
 

@@ -93,7 +93,7 @@ export function BrandedBootScreen({ onReady }: { onReady: () => void }) {
   return (
     <div
       style={{
-        position: "fixed", inset: 0, zIndex: 2147483000, background: "#1e40af",
+        position: "fixed", inset: 0, zIndex: 2147483000, background: "#ffffff",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         gap: 20, padding: 24,
       }}
@@ -107,7 +107,7 @@ export function BrandedBootScreen({ onReady }: { onReady: () => void }) {
       >
         <img src={logo} alt="" style={{ width: 96, height: 96, objectFit: "contain" }} />
       </div>
-      <div style={{ color: "#fff", fontWeight: 700, fontSize: 22, letterSpacing: 0.5 }}>
+      <div style={{ color: "#0f172a", fontWeight: 700, fontSize: 22, letterSpacing: 0.5 }}>
         {storeName}
       </div>
       <div style={{ color: "rgba(255,255,255,.9)", fontSize: 13, minHeight: 18 }}>
@@ -115,7 +115,7 @@ export function BrandedBootScreen({ onReady }: { onReady: () => void }) {
       </div>
       <div
         style={{
-          width: "min(320px, 72%)", height: 7, background: "rgba(255,255,255,.2)",
+          width: "min(320px, 72%)", height: 7, background: "#e2e8f0",
           borderRadius: 999, overflow: "hidden",
         }}
       >

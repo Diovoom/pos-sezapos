@@ -58,7 +58,9 @@ export function PairDeviceScreen() {
         cacheMeta("store", bootstrap.store ?? { id: data.store_id }),
         cacheMeta(`categories:${data.store_id}`, bootstrap.categories ?? []),
         cacheMeta(`role_permissions:${data.store_id}`, bootstrap.role_permissions ?? []),
-        cacheProducts((bootstrap.products ?? []) as any[]),
+        Array.isArray(bootstrap.products)
+          ? cacheProducts(bootstrap.products as any[])
+          : Promise.resolve(),
         cacheMeta("provisioned_at", bootstrap.prepared_at ?? new Date().toISOString()),
       ]).catch((cacheError) => console.warn("[SEZA POS] pairing bootstrap cache warning", cacheError));
 

@@ -43,7 +43,9 @@ export async function refreshDeviceBootstrap(force = false): Promise<boolean> {
       cacheMeta("store", store),
       cacheMeta(`categories:${pairing.storeId}`, data.categories ?? []),
       cacheMeta(`role_permissions:${pairing.storeId}`, data.role_permissions ?? []),
-      cacheProducts(data.products ?? []),
+      Array.isArray(data.products)
+        ? cacheProducts(data.products)
+        : Promise.resolve(),
       cacheEmployees(data.employees ?? []),
       cacheMeta("device_bootstrap_at", data.prepared_at ?? new Date().toISOString()),
     ]);
