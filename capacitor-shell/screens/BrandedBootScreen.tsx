@@ -110,7 +110,7 @@ export function BrandedBootScreen({ onReady }: { onReady: () => void }) {
       <div style={{ color: "#0f172a", fontWeight: 700, fontSize: 22, letterSpacing: 0.5 }}>
         {storeName}
       </div>
-      <div style={{ color: "rgba(255,255,255,.9)", fontSize: 13, minHeight: 18 }}>
+      <div style={{ color: "#475569", fontSize: 13, minHeight: 18 }}>
         {step.label}
       </div>
       <div
@@ -121,12 +121,12 @@ export function BrandedBootScreen({ onReady }: { onReady: () => void }) {
       >
         <div
           style={{
-            width: `${progress}%`, height: "100%", background: "#fff",
+            width: `${progress}%`, height: "100%", background: "#2563eb",
             transition: "width 220ms ease",
           }}
         />
       </div>
-      <div style={{ color: "rgba(255,255,255,.7)", fontSize: 11 }}>Loading POS…</div>
+      <div style={{ color: "#64748b", fontSize: 11 }}>Loading POS…</div>
     </div>
   );
 }

@@ -721,7 +721,6 @@ function CashMovementDialog({
               type="number"
               step="0.01"
               min="0"
-              autoFocus
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"

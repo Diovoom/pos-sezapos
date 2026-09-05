@@ -118,7 +118,6 @@ export function LoyaltyDialog({
               onChange={(e) => setIdentifier(e.target.value)}
               placeholder="(555) 123-4567 or name@example.com"
               className="text-base h-11"
-              autoFocus
             />
             <Button variant="outline" onClick={lookup}>
               Look up

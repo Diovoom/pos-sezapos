@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cacheMeta, readMeta } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
+import { isNativeMode } from "@/lib/native";
 
 export type MeData = {
   user: { id: string; email?: string };
@@ -21,13 +22,14 @@ export function useMe() {
     staleTime: 15_000,
     retry: (count) => isOnlineNow() && count < 1,
     queryFn: async () => {
-      // Local register identity is the primary source of truth. Resolve it
-      // before touching Supabase so a paired terminal opens instantly even if
-      // the cloud session is missing, expired, or currently unreachable.
       const cachedUserId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
       const selectedCached = cachedUserId
         ? (await readMeta<MeData>(cacheKeyForUser(cachedUserId)).catch(() => undefined)) ?? null
         : null;
+
+      if (isNativeMode() && selectedCached?.profile && selectedCached?.store) {
+        return selectedCached;
+      }
 
       let sessionUser: { id: string; email?: string } | undefined;
       try {
@@ -39,8 +41,6 @@ export function useMe() {
 
       if (!sessionUser) return selectedCached;
 
-      // Never let a stale cloud session from another employee override the
-      // cashier explicitly selected by PIN on this shared register.
       if (cachedUserId && sessionUser.id !== cachedUserId) return selectedCached;
 
       const scopedKey = cacheKeyForUser(sessionUser.id);
@@ -79,12 +79,9 @@ export function useMe() {
             : Promise.resolve(),
         ]);
 
-        // Keep the old keys only as a migration aid for non-identity data.
-        // Never read legacy authenticated_me as an identity fallback.
         await cacheMeta(legacyCacheKey, null).catch(() => {});
         return result;
       } catch (error) {
-        // Only the cache for THIS authenticated user is allowed as fallback.
         if (cached) return cached;
         throw error;
       }

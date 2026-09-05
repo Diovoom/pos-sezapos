@@ -65,27 +65,83 @@ export const Route = createFileRoute("/api/email/transactional/send")({
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-        if (!supabaseUrl || !supabaseServiceKey) {
+        if (!supabaseUrl || !supabaseServiceKey || !process.env.RESEND_API_KEY) {
           console.error("Missing required environment variables");
           return jsonResponse({ error: "Server configuration error" }, { status: 500 });
         }
 
-        // Verify the caller has a valid Supabase auth token.
-        // In TanStack, there is no Supabase gateway  -  we validate the JWT ourselves.
-        const authHeader = request.headers.get("Authorization");
-        if (!authHeader?.startsWith("Bearer ")) {
-          return jsonResponse({ error: "Unauthorized" }, { status: 401 });
+        let body: any;
+        try {
+          body = await request.json();
+        } catch {
+          return jsonResponse({ error: "Invalid JSON in request body" }, { status: 400 });
         }
 
-        const token = authHeader.slice("Bearer ".length).trim();
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser(token);
+        const templateName = body.templateName || body.template_name;
+        const recipientEmail = body.recipientEmail || body.recipient_email;
+        const messageId = crypto.randomUUID();
+        const idempotencyKey = body.idempotencyKey || body.idempotency_key || messageId;
+        const replyTo = typeof body.replyTo === "string" ? body.replyTo : undefined;
+        let templateData =
+          body.templateData && typeof body.templateData === "object" ? body.templateData : {};
 
-        if (authError || !user) {
-          return jsonResponse({ error: "Unauthorized" }, { status: 401 });
+        if (!templateName) {
+          return jsonResponse({ error: "templateName is required" }, { status: 400 });
+        }
+
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        let callerUserId = "";
+
+        const authHeader = request.headers.get("Authorization");
+        if (authHeader?.startsWith("Bearer ")) {
+          const token = authHeader.slice("Bearer ".length).trim();
+          const {
+            data: { user },
+            error: authError,
+          } = await supabase.auth.getUser(token);
+          if (authError || !user) {
+            return jsonResponse({ error: "Unauthorized" }, { status: 401 });
+          }
+          callerUserId = user.id;
+        } else {
+          const nativeAuth = body.nativeAuth;
+          const storeId = typeof nativeAuth?.store_id === "string" ? nativeAuth.store_id : "";
+          const deviceId = typeof nativeAuth?.device_id === "string" ? nativeAuth.device_id : "";
+          const deviceSecret =
+            typeof nativeAuth?.device_secret === "string" ? nativeAuth.device_secret : "";
+          const callerId = typeof nativeAuth?.caller_id === "string" ? nativeAuth.caller_id : "";
+
+          if (!storeId || !deviceId || !deviceSecret || !callerId) {
+            return jsonResponse({ error: "Unauthorized" }, { status: 401 });
+          }
+
+          const [{ data: device }, { data: callerProfile }] = await Promise.all([
+            supabase
+              .from("device_registrations")
+              .select("id, store_id, status, secret_hash")
+              .eq("id", deviceId)
+              .maybeSingle(),
+            supabase
+              .from("profiles")
+              .select("id, store_id, status")
+              .eq("id", callerId)
+              .maybeSingle(),
+          ]);
+
+          const { verifyDeviceSecret } = await import("@/lib/pos/device.server");
+          if (
+            !device ||
+            device.status !== "active" ||
+            device.store_id !== storeId ||
+            !verifyDeviceSecret(deviceSecret, device.secret_hash) ||
+            !callerProfile ||
+            callerProfile.status !== "active" ||
+            callerProfile.store_id !== storeId
+          ) {
+            return jsonResponse({ error: "Unauthorized" }, { status: 401 });
+          }
+
+          callerUserId = callerId;
         }
 
         const { consumeRateLimit } = await import("@/lib/security/rate-limit.server");
@@ -94,7 +150,7 @@ export const Route = createFileRoute("/api/email/transactional/send")({
           limit: 20,
           windowSeconds: 60,
           blockSeconds: 300,
-          identifier: user.id,
+          identifier: callerUserId,
           request,
         });
         if (!userLimit.allowed) {
@@ -102,31 +158,6 @@ export const Route = createFileRoute("/api/email/transactional/send")({
             { error: "Too many email requests", retry_after_seconds: userLimit.retryAfterSeconds },
             { status: 429, headers: { "Retry-After": String(userLimit.retryAfterSeconds) } },
           );
-        }
-
-        // Parse request body
-        let templateName: string;
-        let recipientEmail: string;
-        let idempotencyKey: string;
-        let messageId: string;
-        let templateData: Record<string, any> = {};
-        let replyTo: string | undefined;
-        try {
-          const body = await request.json();
-          templateName = body.templateName || body.template_name;
-          recipientEmail = body.recipientEmail || body.recipient_email;
-          messageId = crypto.randomUUID();
-          idempotencyKey = body.idempotencyKey || body.idempotency_key || messageId;
-          replyTo = typeof body.replyTo === "string" ? body.replyTo : undefined;
-          if (body.templateData && typeof body.templateData === "object") {
-            templateData = body.templateData;
-          }
-        } catch {
-          return jsonResponse({ error: "Invalid JSON in request body" }, { status: 400 });
-        }
-
-        if (!templateName) {
-          return jsonResponse({ error: "templateName is required" }, { status: 400 });
         }
 
         // 1. Look up template from registry (early  -  needed to resolve recipient)
@@ -159,7 +190,7 @@ export const Route = createFileRoute("/api/email/transactional/send")({
           const { data: callerProfile } = await supabase
             .from("profiles")
             .select("store_id, status")
-            .eq("id", user.id)
+            .eq("id", callerUserId)
             .maybeSingle();
 
           if (!callerProfile?.store_id || callerProfile.status !== "active") {
@@ -370,60 +401,58 @@ export const Route = createFileRoute("/api/email/transactional/send")({
             ? template.subject(templateData)
             : template.subject;
 
-        // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
-        // The dispatcher (process-email-queue) handles sending, retries, and rate-limit backoff.
-
-        // Log pending BEFORE enqueue so we have a record even if enqueue crashes
         await supabase.from("email_send_log").insert({
           message_id: messageId,
           template_name: templateName,
           recipient_email: effectiveRecipient,
           status: "pending",
+          metadata: { idempotency_key: idempotencyKey },
         });
 
-        const { error: enqueueError } = await supabase.rpc("enqueue_email", {
-          queue_name: "transactional_emails",
-          payload: {
-            message_id: messageId,
+        try {
+          const { sendSezaEmail } = await import("@/lib/email/provider.server");
+          const providerResult = await sendSezaEmail({
             to: effectiveRecipient,
             from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-            sender_domain: SENDER_DOMAIN,
             subject: resolvedSubject,
             html,
             text: plainText,
-            purpose: "transactional",
-            label: templateName,
-            idempotency_key: idempotencyKey,
-            unsubscribe_token: unsubscribeToken,
-            reply_to: replyTo,
-            queued_at: new Date().toISOString(),
-          },
-        });
+            replyTo,
+            idempotencyKey,
+          });
 
-        if (enqueueError) {
-          console.error("Failed to enqueue email", {
-            error: enqueueError,
+          await supabase
+            .from("email_send_log")
+            .update({
+              status: "sent",
+              error_message: null,
+              metadata: {
+                idempotency_key: idempotencyKey,
+                provider_message_id: providerResult.id ?? null,
+              },
+            })
+            .eq("message_id", messageId)
+            .eq("status", "pending");
+
+          return jsonResponse({
+            success: true,
+            messageId,
+            providerMessageId: providerResult.id,
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Email provider error";
+          await supabase
+            .from("email_send_log")
+            .update({ status: "failed", error_message: message })
+            .eq("message_id", messageId)
+            .eq("status", "pending");
+          console.error("Transactional email failed", {
             templateName,
             recipient_redacted: redactEmail(effectiveRecipient),
+            error: message,
           });
-
-          await supabase.from("email_send_log").insert({
-            message_id: messageId,
-            template_name: templateName,
-            recipient_email: effectiveRecipient,
-            status: "failed",
-            error_message: "Failed to enqueue email",
-          });
-
-          return jsonResponse({ error: "Failed to enqueue email" }, { status: 500 });
+          return jsonResponse({ error: message }, { status: 502 });
         }
-
-        console.log("Transactional email enqueued", {
-          templateName,
-          recipient_redacted: redactEmail(effectiveRecipient),
-        });
-
-        return jsonResponse({ success: true, queued: true });
       },
     },
   },

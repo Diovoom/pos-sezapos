@@ -1,9 +1,4 @@
-// APK: one-time pairing screen. Prompts the cashier/owner for the 10-char
-// pairing code shown on the merchant dashboard, exchanges it for a
-// device_secret, and stashes {store_id, device_id, device_secret, label}
-// in localStorage. All subsequent PIN sign-ins on this install are
-// automatically scoped to the paired store.
-import { nativeFetch, userSafeNetworkMessage, SEZA_ANDROID_BUILD_ID } from "../lib/nativeHttp";
+import { nativeFetch, userSafeNetworkMessage } from "../lib/nativeHttp";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { SEZA_LOGO_URL } from "../logo";
@@ -48,16 +43,17 @@ export function PairDeviceScreen() {
         label: data.label ?? label.trim() ?? "POS Register",
       });
 
-      // Seed the local operating snapshot as part of provisioning. A terminal
-      // should not need a second cloud request just to display its store and
-      // catalog after pairing.
       const bootstrap = data.bootstrap ?? {};
       await Promise.all([
         cacheMeta("store_id", data.store_id),
         cacheMeta(`store:${data.store_id}`, bootstrap.store ?? { id: data.store_id }),
         cacheMeta("store", bootstrap.store ?? { id: data.store_id }),
-        cacheMeta(`categories:${data.store_id}`, bootstrap.categories ?? []),
-        cacheMeta(`role_permissions:${data.store_id}`, bootstrap.role_permissions ?? []),
+        Array.isArray(bootstrap.categories)
+          ? cacheMeta(`categories:${data.store_id}`, bootstrap.categories)
+          : Promise.resolve(),
+        Array.isArray(bootstrap.role_permissions)
+          ? cacheMeta(`role_permissions:${data.store_id}`, bootstrap.role_permissions)
+          : Promise.resolve(),
         Array.isArray(bootstrap.products)
           ? cacheProducts(bootstrap.products as any[])
           : Promise.resolve(),
@@ -144,7 +140,6 @@ export function PairDeviceScreen() {
       <div style={{ marginTop: "auto", paddingTop: 20, textAlign: "center", color: "#94a3b8", fontSize: 11 }}>
         Connected securely to sezapos.com
       </div>
-    <div style={{ fontSize: 9, color: "#94a3b8", textAlign: "center", marginTop: 8 }}>{SEZA_ANDROID_BUILD_ID}</div>
       </div>
   );
 }

@@ -119,8 +119,7 @@ export function DiscountDialog({
             onChange={(e) => setValue(e.target.value)}
             placeholder={mode === "percent" ? "10" : "5.00"}
             className="text-xl h-12"
-            autoFocus
-          />
+            />
         </div>
 
         <div className="grid grid-cols-4 gap-2">

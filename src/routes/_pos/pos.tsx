@@ -67,7 +67,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { logAudit } from "@/lib/audit-log";
-import { useOnline, isOnlineNow } from "@/lib/offline/useOnline";
+import { useOnline, isOnlineNow, isNetworkConnectedNow } from "@/lib/offline/useOnline";
 import {
   cacheProducts,
   adjustCachedProductStock,
@@ -331,7 +331,7 @@ export function PosPage() {
       if (!activeStoreId) return null;
       const key = `store:${activeStoreId}`;
       const cached = await readMeta<any>(key).catch(() => undefined);
-      if (!isOnlineNow()) return cached ?? me.data?.store ?? null;
+      if (isNativeMode() || !isOnlineNow()) return cached ?? me.data?.store ?? null;
       try {
         const { data, error } = await supabase
           .from("stores")
@@ -380,7 +380,7 @@ export function PosPage() {
       if (!activeUserId) return null;
       const key = `profile:${activeUserId}`;
       const cached = await readMeta<any>(key).catch(() => undefined);
-      if (!isOnlineNow()) return cached ?? me.data?.profile ?? null;
+      if (isNativeMode() || !isOnlineNow()) return cached ?? me.data?.profile ?? null;
       try {
         const { data, error } = await supabase
           .from("profiles")
@@ -418,7 +418,7 @@ export function PosPage() {
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["categories", store?.id ?? "unassigned"],
     queryFn: async () => {
-      if (!isOnlineNow()) return (await readMeta<Category[]>(`categories:${store?.id ?? "unassigned"}`)) ?? [];
+      if (isNativeMode() || !isOnlineNow()) return (await readMeta<Category[]>(`categories:${store?.id ?? "unassigned"}`)) ?? [];
       try {
         const { data, error } = await supabase
           .from("categories")
@@ -440,6 +440,17 @@ export function PosPage() {
     refetchInterval: false,
     refetchOnWindowFocus: false,
     queryFn: async () => {
+      if (isNativeMode()) {
+        let cached = await loadCachedProducts();
+        if (cached.length === 0 && isNetworkConnectedNow()) {
+          try {
+            const { refreshDeviceBootstrap } = await import("../../../capacitor-shell/lib/deviceBootstrap");
+            await refreshDeviceBootstrap(true);
+            cached = await loadCachedProducts();
+          } catch {}
+        }
+        return cached.filter((product) => product.status !== "inactive") as unknown as Product[];
+      }
       if (!isOnlineNow()) {
         const cached = await loadCachedProducts();
         return cached.filter((product) => product.status !== "inactive") as unknown as Product[];
@@ -505,7 +516,6 @@ export function PosPage() {
       if (hit.category_id) setActiveCategory(hit.category_id);
       addToCart(hit);
       setSearch("");
-      window.setTimeout(() => searchRef.current?.focus(), 0);
       return true;
     }
     if (quickAddAllowed) {
@@ -517,8 +527,6 @@ export function PosPage() {
   };
 
   useEffect(() => {
-    window.setTimeout(() => searchRef.current?.focus(), 50);
-
     const onKey = (e: KeyboardEvent) => {
       // Government-ID verification owns the scanner while its dialog is open.
       // Never route PDF417 ID data into product lookup.
@@ -1633,7 +1641,6 @@ export function PosPage() {
               value={voidReason}
               onChange={(e) => setVoidReason(e.target.value)}
               placeholder="e.g. customer changed mind, wrong scan"
-              autoFocus
             />
           </div>
           <DialogFooter>

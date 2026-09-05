@@ -12,28 +12,68 @@ export type SendTransactionalArgs = {
 };
 
 type SendOptions = {
-  /** Disable re-queueing while the sync worker is already draining this action. */
   queueOnNetworkFailure?: boolean;
 };
 
-export type SendTransactionalResult =
-  { ok: true; messageId?: string; queued?: boolean } | { ok: false; error: string };
+type NativeEmailAuth = {
+  store_id: string;
+  device_id: string;
+  device_secret: string;
+  caller_id: string;
+};
 
-// In the bundled Android APK the WebView origin is not sezapos.com, so a
-// relative fetch resolves to the local WebView instead of the live server.
+export type SendTransactionalResult =
+  | { ok: true; messageId?: string; queued?: boolean }
+  | { ok: false; error: string };
+
 function sendUrl(): string {
   const path = "/api/email/transactional/send";
   if (isNativeMode()) return `https://sezapos.com${path}`;
   return path;
 }
 
+async function nativeEmailAuth(): Promise<NativeEmailAuth | null> {
+  if (!isNativeMode()) return null;
+  const [{ getPairing }, callerId] = await Promise.all([
+    import("../../../capacitor-shell/lib/pairing"),
+    readMeta<string>("authenticated_me_current_user"),
+  ]);
+  const pairing = getPairing();
+  if (!pairing || !callerId) return null;
+  return {
+    store_id: pairing.storeId,
+    device_id: pairing.deviceId,
+    device_secret: pairing.deviceSecret,
+    caller_id: callerId,
+  };
+}
+
 async function queueEmail(args: SendTransactionalArgs): Promise<SendTransactionalResult> {
+  const idempotencyKey = args.idempotencyKey || `email-${crypto.randomUUID()}`;
+
+  if (isNativeMode()) {
+    const nativeAuth = await nativeEmailAuth();
+    if (!nativeAuth) {
+      return { ok: false, error: "The register session is unavailable. Enter the employee PIN again." };
+    }
+    await saveOfflineAction({
+      id: crypto.randomUUID(),
+      idempotency_key: idempotencyKey,
+      kind: "receipt_email",
+      store_id: nativeAuth.store_id,
+      user_id: nativeAuth.caller_id,
+      payload: { ...args, idempotencyKey },
+      local_created_at: new Date().toISOString(),
+      status: "pending",
+      attempts: 0,
+    });
+    return { ok: true, queued: true };
+  }
+
   const { data } = await supabase.auth.getSession();
   const user = data.session?.user;
-  if (!user) {
-    return { ok: false, error: "Sign in once online before using offline receipt delivery." };
-  }
-  const idempotencyKey = args.idempotencyKey || `email-${crypto.randomUUID()}`;
+  if (!user) return { ok: false, error: "You must be signed in to send email." };
+
   const storeId = await readMeta<string>("store_id");
   await saveOfflineAction({
     id: crypto.randomUUID(),
@@ -49,11 +89,6 @@ async function queueEmail(args: SendTransactionalArgs): Promise<SendTransactiona
   return { ok: true, queued: true };
 }
 
-/**
- * Sends a transactional email through the SEZA transactional email queue.
- * When the register is offline, the request is encrypted by the browser's
- * storage boundary and queued locally until authenticated connectivity returns.
- */
 export async function sendTransactionalEmail(
   args: SendTransactionalArgs,
   options: SendOptions = {},
@@ -64,33 +99,40 @@ export async function sendTransactionalEmail(
     return queueOnNetworkFailure ? queueEmail(args) : { ok: false, error: "Offline" };
   }
 
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) return { ok: false, error: "You must be signed in to send email." };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  let nativeAuth: NativeEmailAuth | null = null;
+
+  if (isNativeMode()) {
+    nativeAuth = await nativeEmailAuth();
+    if (!nativeAuth) {
+      return { ok: false, error: "The register session is unavailable. Enter the employee PIN again." };
+    }
+  } else {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return { ok: false, error: "You must be signed in to send email." };
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   try {
     const res = await fetch(sendUrl(), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
       body: JSON.stringify({
         templateName: args.templateName,
         recipientEmail: args.recipientEmail,
         templateData: args.templateData ?? {},
         idempotencyKey: args.idempotencyKey,
         replyTo: args.replyTo,
+        nativeAuth,
       }),
     });
 
     const body = await res.json().catch(() => ({}) as any);
     if (!res.ok) {
-      // Provider/configuration errors must be shown to the operator instead of
-      // silently queued forever. Only transport failures are queued below.
       return { ok: false, error: body?.error || `Send failed (${res.status})` };
     }
-    return { ok: true, messageId: body?.messageId };
+    return { ok: true, messageId: body?.messageId ?? body?.providerMessageId };
   } catch (err) {
     if (queueOnNetworkFailure) return queueEmail(args);
     return { ok: false, error: err instanceof Error ? err.message : "Network error" };

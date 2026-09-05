@@ -3,13 +3,6 @@ import logoAsset from "@/assets/seza-logo.png.asset.json";
 import { resolveLogoUrl } from "@/components/brand/Logo";
 import { isNativeMode } from "@/lib/native";
 
-/**
- * Full-screen branded loading overlay shown ONLY inside the Capacitor
- * Android shell. Covers the WebView through hydration and the first paint
- * of the destination route (auth or POS), then fades out. Also hides the
- * native Android splash screen once mounted so there's no white flash
- * between the two.
- */
 export function NativeLoadingOverlay() {
   const [native, setNative] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -25,8 +18,6 @@ export function NativeLoadingOverlay() {
     window.sessionStorage.setItem(sessionKey, "1");
     setNative(true);
 
-    // Hide the Android SplashScreen the instant the overlay is mounted so
-    // the transition is overlay -> overlay (no white gap).
     (async () => {
       try {
         const cap = (window as any).Capacitor;
@@ -38,8 +29,6 @@ export function NativeLoadingOverlay() {
       }
     })();
 
-    // Give the destination route two paint cycles + a short buffer to
-    // render its shell, then fade the overlay away.
     const t1 = window.setTimeout(() => setFading(true), 650);
     const t2 = window.setTimeout(() => setHidden(true), 1050);
     return () => {
@@ -57,7 +46,7 @@ export function NativeLoadingOverlay() {
         position: "fixed",
         inset: 0,
         zIndex: 2147483647,
-        background: "#1e40af",
+        background: "#ffffff",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -88,7 +77,7 @@ export function NativeLoadingOverlay() {
       </div>
       <div
         style={{
-          color: "#fff",
+          color: "#0f172a",
           fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           fontWeight: 700,
           fontSize: 22,
@@ -101,8 +90,8 @@ export function NativeLoadingOverlay() {
         style={{
           width: 28,
           height: 28,
-          border: "3px solid rgba(255,255,255,0.28)",
-          borderTopColor: "#fff",
+          border: "3px solid #cbd5e1",
+          borderTopColor: "#2563eb",
           borderRadius: "50%",
           animation: "seza-spin 0.9s linear infinite",
         }}

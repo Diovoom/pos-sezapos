@@ -1,15 +1,11 @@
-// Production PIN sign-in for the bundled Android shell.
-//
-// If this device has been paired with a store (via the /pair screen), we
-// use the store-scoped, PIN-only endpoint /api/public/pos/verify-pin and
-// send our device_secret as proof. Otherwise we fall back to the
-// employee-id + PIN endpoint used by unpaired installs.
 import { nativeFetch, userSafeNetworkMessage } from "../lib/nativeHttp";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { SEZA_LOGO_URL } from "../logo";
 import { API_BASE_URL, supabase } from "../supabase";
 import { clearPairing, getPairing } from "../lib/pairing";
+import { isNetworkConnectedNow } from "@/lib/offline/useOnline";
 import {
   cacheEmployees,
   cacheMeta,
@@ -96,12 +92,9 @@ async function findOfflineEmployee(pin: string, deviceSecret: string, storeId: s
 
 export function AuthScreen() {
   const navigate = useNavigate();
-  // Read pairing on every mount (not memoized at module load) so that a
-  // freshly paired device immediately renders the PIN-only flow when the
-  // /pair screen navigates back to /auth.
+  const queryClient = useQueryClient();
   const [pairing, setPairing] = useState(() => getPairing());
   useEffect(() => {
-    // Re-check when the tab regains focus (e.g. returning from OS prompts).
     const refresh = () => setPairing(getPairing());
     window.addEventListener("focus", refresh);
     window.addEventListener("storage", refresh);
@@ -140,8 +133,6 @@ export function AuthScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
 
-  // Physical keyboards and USB numeric keypads remain supported without a
-  // second visible PIN field. The six dots are the only PIN display.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (busy || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -166,32 +157,20 @@ export function AuthScreen() {
     setBusy(true);
     setError(null);
     try {
-      // Offline-first sign-in: once this employee has been successfully
-      // verified on this paired register, authenticate against the local
-      // device-bound PIN verifier FIRST. Do not wait for sezapos.com just to
-      // open the register. Cloud validation/sync happens separately.
-      if (pairing) {
+      if (pairing && !isNetworkConnectedNow()) {
         const offlineEmployee = await findOfflineEmployee(pin, pairing.deviceSecret, pairing.storeId);
         if (offlineEmployee) {
-          const cachedMe = await readMeta(
-            `authenticated_me:${offlineEmployee.userId}`
-          ).catch(() => undefined);
-
+          const cachedMe = await readMeta<any>(`authenticated_me:${offlineEmployee.userId}`).catch(() => undefined);
           if (cachedMe?.profile && cachedMe?.store) {
-            await cacheMeta(
-              "authenticated_me_current_user",
-              offlineEmployee.userId
-            ).catch(() => {});
-
+            await cacheMeta("authenticated_me_current_user", offlineEmployee.userId).catch(() => {});
+            queryClient.clear();
+            queryClient.setQueryData(["me"], cachedMe);
             navigate({ to: "/pos", replace: true });
             return;
           }
         }
       }
 
-      // First-time PIN use on this register still needs one online verification
-      // so we can securely seed the device-bound local verifier. After that,
-      // normal PIN entry is local-first and does not depend on the website.
       const endpoint = pairing
         ? "/api/public/pos/verify-pin"
         : "/api/public/pos/verify-employee-pin";
@@ -257,11 +236,6 @@ export function AuthScreen() {
         setError(data.error ?? "Sign-in failed. Please try again.");
         return;
       }
-      // Backward-compatible PIN handoff.
-      // Older deployed SEZA verify-pin routes returned only {email, token_hash}.
-      // Newer routes return {user_id, bootstrap, token_hash}. Accept BOTH so a
-      // register cannot be locked out just because Cloudflare and the APK are
-      // one deployment apart.
       let userId = data.user_id ?? null;
       let bootstrap = data.bootstrap ?? {};
       let cloudSessionReady = false;
@@ -294,11 +268,7 @@ export function AuthScreen() {
         return;
       }
 
-      // If the backend is the older token-only version, try the paired-device
-      // bootstrap route first. If that route has not deployed yet either, use
-      // the authenticated Supabase session to reconstruct the operating
-      // snapshot. Neither compatibility path is allowed to block /pos entry.
-      if (pairing && (!bootstrap.profile || !bootstrap.store)) {
+      if (pairing && (!bootstrap.profile || !bootstrap.store || !Array.isArray(bootstrap.products) || bootstrap.products.length === 0)) {
         try {
           const snapshotResponse = await nativeFetch(`${API_BASE_URL}/api/public/pos/device-bootstrap`, {
             method: "POST",
@@ -355,9 +325,6 @@ export function AuthScreen() {
         }
       }
 
-      // The paired-device PIN response is authoritative for LOCAL register
-      // entry. Even if the snapshot could not fully refresh, preserve enough
-      // local identity to open the register and let background refresh recover.
       const profile = bootstrap.profile ?? {
         id: userId,
         email: data.email ?? null,
@@ -383,21 +350,25 @@ export function AuthScreen() {
         store?.id ? cacheMeta("store_id", store.id) : Promise.resolve(),
         store?.id ? cacheMeta(`store:${store.id}`, store) : Promise.resolve(),
         store ? cacheMeta("store", store) : Promise.resolve(),
-        store?.id ? cacheMeta(`categories:${store.id}`, bootstrap.categories ?? []) : Promise.resolve(),
-        store?.id
-          ? cacheMeta(`role_permissions:${store.id}`, bootstrap.role_permissions ?? [])
+        store?.id && Array.isArray(bootstrap.categories)
+          ? cacheMeta(`categories:${store.id}`, bootstrap.categories)
+          : Promise.resolve(),
+        store?.id && Array.isArray(bootstrap.role_permissions)
+          ? cacheMeta(`role_permissions:${store.id}`, bootstrap.role_permissions)
           : Promise.resolve(),
         Array.isArray(bootstrap.products) ? cacheProducts(bootstrap.products as any[]) : Promise.resolve(),
-        cacheEmployees((bootstrap.employees ?? []) as any[]),
+        Array.isArray(bootstrap.employees) ? cacheEmployees(bootstrap.employees as any[]) : Promise.resolve(),
         deleteMeta("authenticated_me"),
       ]).catch((cacheError) => console.error("[SEZA POS] bootstrap cache failed", cacheError));
+
+      queryClient.clear();
+      queryClient.setQueryData(["me"], meSnapshot);
+      window.dispatchEvent(new Event("seza:bootstrap-updated"));
 
       if (pairing) {
         await rememberOfflinePin(pin, pairing.deviceSecret, pairing.storeId, userId).catch(() => {});
       }
 
-      // New backend responses can still establish cloud auth in the
-      // background. Legacy responses already established it above.
       if (data.token_hash && !cloudSessionReady) {
         void (async () => {
           try {
@@ -418,16 +389,15 @@ export function AuthScreen() {
       if (pairing) {
         const offlineEmployee = await findOfflineEmployee(pin, pairing.deviceSecret, pairing.storeId);
         if (offlineEmployee) {
-          // The PIN verifier is device-secret + store scoped and was created
-          // only after a successful online Stripe/Supabase-backed sign-in.
-          // Restore that exact cached identity even if the cloud auth session
-          // can't refresh. This is a real local register session, not a fake
-          // bypass; cloud sync remains paused until authenticated connectivity
-          // is available again.
-          await cacheMeta("authenticated_me_current_user", offlineEmployee.userId).catch(() => {});
-          setError(null);
-          navigate({ to: "/pos", replace: true });
-          return;
+          const cachedMe = await readMeta<any>(`authenticated_me:${offlineEmployee.userId}`).catch(() => undefined);
+          if (cachedMe?.profile && cachedMe?.store) {
+            await cacheMeta("authenticated_me_current_user", offlineEmployee.userId).catch(() => {});
+            queryClient.clear();
+            queryClient.setQueryData(["me"], cachedMe);
+            setError(null);
+            navigate({ to: "/pos", replace: true });
+            return;
+          }
         }
       }
       console.error("[SEZA POS] PIN transport error", err); setError(userSafeNetworkMessage());
@@ -512,7 +482,7 @@ export function AuthScreen() {
       )}
 
       <div style={styles.footer}>
-        Offline-first register · automatic cloud sync · v1.3.4
+        SEZA POS
       </div>
     </div>
   );

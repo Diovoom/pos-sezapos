@@ -146,7 +146,6 @@ export function SmsReceiptPanel({
         <Input
           type="tel"
           inputMode="tel"
-          autoFocus
           placeholder="(555) 123-4567"
           value={formatted}
           onChange={(e) => setRaw(e.target.value)}

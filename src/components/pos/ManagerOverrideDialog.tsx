@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { verifyManagerPin } from "@/lib/overrides.functions";
 import {
@@ -36,14 +36,12 @@ export function ManagerOverrideDialog({
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const verify = useServerFn(verifyManagerPin);
-  const pinRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setPin("");
       setReason("");
       setBusy(false);
-      setTimeout(() => pinRef.current?.focus(), 50);
     }
   }, [open]);
 
@@ -78,7 +76,6 @@ export function ManagerOverrideDialog({
           <div className="space-y-1">
             <Label>Manager PIN</Label>
             <Input
-              ref={pinRef}
               type="password"
               inputMode="numeric"
               maxLength={8}

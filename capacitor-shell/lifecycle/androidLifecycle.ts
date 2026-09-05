@@ -84,12 +84,12 @@ async function onResume(router: ShellRouter, queryClient: QueryClient) {
 
   try {
     const cachedUser = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+    const cachedMe = cachedUser
+      ? await readMeta<any>(`authenticated_me:${cachedUser}`).catch(() => undefined)
+      : undefined;
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) {
-      // A long background/resume must not eject a cashier solely because the
-      // cloud auth refresh is unavailable. Keep a valid device-local PIN
-      // session and let the next sync/heartbeat retry the backend.
-      if (cachedUser) {
+      if (cachedMe?.profile && cachedMe?.store) {
         queryClient.invalidateQueries();
         return;
       }

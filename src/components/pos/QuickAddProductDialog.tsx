@@ -170,7 +170,6 @@ export function QuickAddProductDialog({
           <div className="space-y-1">
             <Label>Name</Label>
             <Input
-              autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Iced Coffee"

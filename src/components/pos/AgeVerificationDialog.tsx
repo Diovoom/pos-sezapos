@@ -627,6 +627,7 @@ export function AgeVerificationDialog({
                   }}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Tab") e.preventDefault(); }}
                   className="mx-auto max-w-xl font-mono"
+                  inputMode="none"
                   autoComplete="off"
                   aria-label="Government ID scanner input"
                 />
@@ -660,7 +661,6 @@ export function AgeVerificationDialog({
                     onChange={(e) => setManualDob(e.target.value)}
                     max={new Date().toISOString().slice(0, 10)}
                     className="text-lg h-12"
-                    autoFocus
                   />
                   <p className="text-xs text-muted-foreground">
                     Age at today's date will be calculated automatically.

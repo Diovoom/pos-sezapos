@@ -37,14 +37,14 @@ try {
   process.exit(1);
 }
 
-const result = spawnSync(process.execPath, [capacitorCli, "copy", "android"], {
+const result = spawnSync(process.execPath, [capacitorCli, "sync", "android"], {
   cwd: root,
   stdio: "inherit",
   shell: false,
 });
 
 if (result.error) {
-  console.error("[SEZA] Capacitor copy failed:", result.error);
+  console.error("[SEZA] Capacitor sync failed:", result.error);
   process.exit(1);
 }
 
@@ -52,4 +52,4 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
-console.log("[SEZA] Android assets/config copied successfully.");
+console.log("[SEZA] Android assets/config synced successfully.");

@@ -575,8 +575,7 @@ export function CloseShiftDialog({
                             step="0.01"
                             min="0"
                             inputMode="decimal"
-                            autoFocus
-                            value={totalInput}
+                                          value={totalInput}
                             onChange={(e) => setTotalInput(e.target.value)}
                             placeholder="0.00"
                           />
@@ -675,8 +674,7 @@ export function CloseShiftDialog({
                           min="0"
                           max={counted}
                           inputMode="decimal"
-                          autoFocus
-                          value={safeDrop}
+                                      value={safeDrop}
                           onChange={(e) => setSafeDrop(e.target.value)}
                           placeholder={suggestedDrop.toFixed(2)}
                         />

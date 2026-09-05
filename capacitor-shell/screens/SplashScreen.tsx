@@ -38,8 +38,8 @@ export function SplashScreen() {
         style={{
           width: 28,
           height: 28,
-          border: "3px solid rgba(255,255,255,.28)",
-          borderTopColor: "#fff",
+          border: "3px solid #cbd5e1",
+          borderTopColor: "#2563eb",
           borderRadius: "50%",
           animation: "seza-spin .9s linear infinite",
         }}

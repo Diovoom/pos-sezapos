@@ -41,12 +41,16 @@ export async function refreshDeviceBootstrap(force = false): Promise<boolean> {
       cacheMeta("store_id", pairing.storeId),
       cacheMeta(`store:${pairing.storeId}`, store),
       cacheMeta("store", store),
-      cacheMeta(`categories:${pairing.storeId}`, data.categories ?? []),
-      cacheMeta(`role_permissions:${pairing.storeId}`, data.role_permissions ?? []),
+      Array.isArray(data.categories)
+        ? cacheMeta(`categories:${pairing.storeId}`, data.categories)
+        : Promise.resolve(),
+      Array.isArray(data.role_permissions)
+        ? cacheMeta(`role_permissions:${pairing.storeId}`, data.role_permissions)
+        : Promise.resolve(),
       Array.isArray(data.products)
         ? cacheProducts(data.products)
         : Promise.resolve(),
-      cacheEmployees(data.employees ?? []),
+      Array.isArray(data.employees) ? cacheEmployees(data.employees) : Promise.resolve(),
       cacheMeta("device_bootstrap_at", data.prepared_at ?? new Date().toISOString()),
     ]);
 

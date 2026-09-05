@@ -1,6 +1,3 @@
-// Client-side TanStack Router for the bundled Capacitor shell.
-// Heavy POS screens are loaded only when their route is opened so the login
-// and loading UI can paint before checkout/report/PDF code is downloaded.
 import { lazy, Suspense, type ComponentType, type ReactNode } from "react";
 import {
   createRootRoute,
@@ -11,8 +8,18 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
-import { supabase } from "./supabase";
-import { readMeta } from "@/lib/offline/db";
+import { getPairing } from "./lib/pairing";
+import { deleteMeta, readMeta } from "@/lib/offline/db";
+
+
+async function hasLocalRegisterIdentity(): Promise<boolean> {
+  const userId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+  if (!userId) return false;
+  const me = await readMeta<any>(`authenticated_me:${userId}`).catch(() => undefined);
+  if (me?.profile && me?.store) return true;
+  await deleteMeta("authenticated_me_current_user").catch(() => {});
+  return false;
+}
 
 function lazyNamed<T extends ComponentType<any>>(
   importer: () => Promise<Record<string, unknown>>,
@@ -115,16 +122,12 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   beforeLoad: async () => {
+    if (!getPairing()) throw redirect({ to: "/pair", replace: true });
     if (typeof window !== "undefined" && localStorage.getItem("seza.employee_select_required") === "1") {
       throw redirect({ to: "/auth", replace: true });
     }
-    const cachedUser = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
-    if (cachedUser) throw redirect({ to: "/pos", replace: true });
-    const session = await Promise.race([
-      supabase.auth.getSession().then(({ data }) => data.session),
-      new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 700)),
-    ]);
-    throw redirect({ to: session ? "/pos" : "/auth", replace: true });
+    if (await hasLocalRegisterIdentity()) throw redirect({ to: "/pos", replace: true });
+    throw redirect({ to: "/auth", replace: true });
   },
   component: () => null,
 });
@@ -150,19 +153,12 @@ const pairRoute = createRoute({
 });
 
 const requireAuth = async () => {
+  if (!getPairing()) throw redirect({ to: "/pair", replace: true });
   if (typeof window !== "undefined" && localStorage.getItem("seza.employee_select_required") === "1") {
     throw redirect({ to: "/auth", replace: true });
   }
-  // A register that already authenticated this employee must still open while
-  // the network is slow/offline. Supabase session refresh is background state,
-  // not a reason to freeze navigation.
-  const cachedUser = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
-  if (cachedUser) return;
-  const session = await Promise.race([
-    supabase.auth.getSession().then(({ data }) => data.session),
-    new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 700)),
-  ]);
-  if (!session) throw redirect({ to: "/auth", replace: true });
+  if (await hasLocalRegisterIdentity()) return;
+  throw redirect({ to: "/auth", replace: true });
 };
 
 const shellRoute = (

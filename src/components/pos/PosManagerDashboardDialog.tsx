@@ -1,3 +1,4 @@
+import { useRef, type TouchEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Clock,
@@ -38,11 +39,39 @@ export function PosManagerDashboardDialog({
   const navigate = useNavigate();
   const { data: me } = useMe();
   const permissions = usePermissions();
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const role = String(me?.roles?.[0] ?? "cashier").toLowerCase();
   const isManager = permissions.isSuper || permissions.isManager || me?.roles?.includes("super_admin") === true;
+
   const go = (to: string) => {
+    try { sessionStorage.setItem("seza.posToolOrigin", "manager-dashboard"); } catch {}
     onOpenChange(false);
     navigate({ to: to as any });
+  };
+
+  const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    if ((scrollRef.current?.scrollTop ?? 0) > 0) {
+      swipeStart.current = null;
+      return;
+    }
+    const touch = event.touches[0];
+    swipeStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  };
+
+  const onTouchMove = () => {
+    if ((scrollRef.current?.scrollTop ?? 0) > 0) swipeStart.current = null;
+  };
+
+  const onTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    const start = swipeStart.current;
+    swipeStart.current = null;
+    if (!start || (scrollRef.current?.scrollTop ?? 0) > 0) return;
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    const dy = touch.clientY - start.y;
+    const dx = Math.abs(touch.clientX - start.x);
+    if (dy >= 90 && dy > dx * 1.25) onOpenChange(false);
   };
 
   const tools: Tool[] = [
@@ -95,14 +124,22 @@ export function PosManagerDashboardDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[94dvh] max-w-6xl flex-col overflow-hidden p-0">
-        <DialogHeader className="border-b p-4 pr-12 text-left">
+      <DialogContent
+        className="flex h-[94dvh] max-w-6xl flex-col overflow-hidden p-0 overscroll-contain"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        <div className="flex shrink-0 justify-center pt-2" aria-hidden="true">
+          <span className="h-1 w-12 rounded-full bg-muted-foreground/30" />
+        </div>
+        <DialogHeader className="border-b px-4 pb-4 pt-2 pr-12 text-left">
           <DialogTitle>{isManager ? "Manager dashboard" : "Dashboard"}</DialogTitle>
           <DialogDescription>
             Tools available to {role} at {storeName}. The current employee stays signed in.
           </DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-24">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {tools
               .filter((tool) => isManager || !tool.managerOnly)

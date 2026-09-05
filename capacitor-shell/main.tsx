@@ -1,10 +1,9 @@
-import { StrictMode, useCallback, useEffect, useMemo, useState } from "react";
+import { StrictMode, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
 import { SplashScreen as SplashScreenUi } from "./screens/SplashScreen";
-import { BrandedBootScreen } from "./screens/BrandedBootScreen";
 import { BootFailureScreen } from "./screens/BootFailureScreen";
 import { createShellRouter } from "./router";
 import { assertNativeSupabaseConfiguration, supabase } from "./supabase";
@@ -17,6 +16,13 @@ import { initializePairing } from "./lib/pairing";
 import { readMeta } from "@/lib/offline/db";
 
 const STARTUP_TIMEOUT_MS = 8_000;
+
+async function hasCachedRegisterIdentity(): Promise<boolean> {
+  const userId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+  if (!userId) return false;
+  const me = await readMeta<any>(`authenticated_me:${userId}`).catch(() => undefined);
+  return !!(me?.profile && me?.store);
+}
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -44,16 +50,11 @@ async function hideNativeSplash(): Promise<void> {
     if (capacitor?.Plugins?.SplashScreen?.hide) {
       await capacitor.Plugins.SplashScreen.hide({ fadeOutDuration: 300 });
     }
-  } catch {
-    // The HTML fallback remains visible if the native plugin is unavailable.
-  }
+  } catch {}
 }
 
 function ShellApp() {
-  const [sessionReady, setSessionReady] = useState(false);
-  const [booted, setBooted] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
-  const [runtimeError, setRuntimeError] = useState<unknown>(null);
+  const [ready, setReady] = useState(false);
 
   const queryClient = useMemo(
     () =>
@@ -73,80 +74,40 @@ function ShellApp() {
   );
   const router = useMemo(() => createShellRouter(queryClient), [queryClient]);
 
-  const finishBoot = useCallback(() => {
-    setBooted(true);
-    void router.navigate({ to: "/pos", replace: true });
-  }, [router]);
-
   useEffect(() => {
     let alive = true;
     let stopHeartbeat = () => {};
 
-    const start = async () => {
+    void (async () => {
       try {
         await initAndroidLifecycle(router, queryClient);
         stopHeartbeat = startDeviceHeartbeat();
-
-        const { data } = await withTimeout(
-          supabase.auth.getSession(),
-          STARTUP_TIMEOUT_MS,
-          "Session verification",
-        );
-        if (!alive) return;
-        setHasSession(Boolean(data.session));
-        setSessionReady(true);
       } catch (error) {
-        if (!alive) return;
-        // Cloud/session verification is never a boot-critical dependency for a
-        // provisioned register. Continue into the local router and let cached
-        // device/employee state decide whether /pos or /auth should open.
-        console.warn("[SEZA POS] cloud session unavailable during boot; continuing local-first", error);
-        setHasSession(false);
-        setSessionReady(true);
+        console.warn("[SEZA POS] Android lifecycle startup deferred", error);
       } finally {
+        if (alive) setReady(true);
         await hideNativeSplash();
       }
-    };
-
-    void start();
+    })();
 
     const { data: subscription } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
 
-      // A register is shared by multiple employees. Never preserve React Query
-      // data from the previous auth identity across PIN switches. That was the
-      // reason a cashier could still see the owner's role/store/cart state.
-      queryClient.clear();
       void router.invalidate();
 
       if (event === "SIGNED_OUT") {
-        setHasSession(false);
-        // Cloud Auth is secondary on a paired register. If a device-local PIN
-        // identity still exists, a token refresh/sign-out event must not kick
-        // the cashier back to the PIN screen. Explicit Switch/Sign out clears
-        // this local identity BEFORE calling Supabase signOut.
-        void readMeta<string>("authenticated_me_current_user").then((cachedUser) => {
-          if (cachedUser) {
-            setBooted(true);
-            void router.invalidate();
-            return;
-          }
-          setBooted(false);
+        void hasCachedRegisterIdentity().then((hasLocalIdentity) => {
+          if (hasLocalIdentity) return;
+          queryClient.clear();
           void router.navigate({ to: "/auth", replace: true });
         });
-      } else if (event === "SIGNED_IN") {
-        setHasSession(true);
-        void readMeta<string>("authenticated_me_current_user").then((cachedUser) => {
-          // Background cloud-session establishment after a local PIN login
-          // should be invisible to the cashier, not replay the boot screen.
-          setBooted(Boolean(cachedUser));
-        });
+        return;
+      }
+
+      if (event === "SIGNED_IN") {
         void import("@/lib/offline/sync").then(({ syncNow }) =>
-          syncNow().catch((error) => console.warn("[SEZA POS] signed-in sync deferred", error)),
+          syncNow().catch(() => undefined),
         );
-      } else {
-        // Password/PIN/profile updates must also refresh the active identity.
-        void router.invalidate();
       }
     });
 
@@ -166,9 +127,7 @@ function ShellApp() {
       try {
         const { CapacitorUpdater } = await import("@capgo/capacitor-updater");
         await CapacitorUpdater.notifyAppReady();
-      } catch {
-        // Not running natively, or updater is unavailable. Startup continues.
-      }
+      } catch {}
     })();
 
     return () => {
@@ -180,12 +139,7 @@ function ShellApp() {
     };
   }, [router, queryClient]);
 
-  if (runtimeError) return <BootFailureScreen error={runtimeError} />;
-  if (!sessionReady) return <SplashScreenUi />;
-
-  if (hasSession && !booted) {
-    return <BrandedBootScreen onReady={finishBoot} />;
-  }
+  if (!ready) return <SplashScreenUi />;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -206,9 +160,6 @@ async function bootstrap() {
     try {
       await withTimeout(initializePairing(), STARTUP_TIMEOUT_MS, "Device pairing initialization");
     } catch (error) {
-      // Secure-storage recovery should never turn the entire register into a
-      // fatal boot screen. Continue to the router; an uninitialized device can
-      // re-enter pairing while the local store recovers.
       console.warn("[SEZA POS] pairing storage initialization deferred", error);
     }
     createRoot(rootElement).render(

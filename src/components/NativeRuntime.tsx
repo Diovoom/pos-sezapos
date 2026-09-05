@@ -6,7 +6,6 @@ import type { QueryClient } from "@tanstack/react-query";
 import { isNativeMode } from "@/lib/native";
 import { syncNow } from "@/lib/offline/sync";
 
-/** Android lifecycle polish: reliable resume, network recovery and native chrome. */
 export function NativeRuntime({ queryClient }: { queryClient: QueryClient }) {
   useEffect(() => {
     if (!isNativeMode()) return;
@@ -15,7 +14,7 @@ export function NativeRuntime({ queryClient }: { queryClient: QueryClient }) {
     document.body.classList.add("native-app-ready");
 
     void StatusBar.setStyle({ style: Style.Dark }).catch(() => undefined);
-    void StatusBar.setBackgroundColor({ color: "#1e40af" }).catch(() => undefined);
+    void StatusBar.setBackgroundColor({ color: "#ffffff" }).catch(() => undefined);
     void StatusBar.setOverlaysWebView({ overlay: false }).catch(() => undefined);
 
     const refresh = () => {

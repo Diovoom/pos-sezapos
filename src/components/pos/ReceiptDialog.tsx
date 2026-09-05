@@ -258,8 +258,7 @@ export function ReceiptDialog({
                   <Input
                     id="receipt-email"
                     type="email"
-                    autoFocus
-                    placeholder="customer@example.com"
+                          placeholder="customer@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     onKeyDown={(e) => {

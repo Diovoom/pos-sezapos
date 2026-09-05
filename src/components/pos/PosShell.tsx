@@ -93,6 +93,13 @@ export function PosShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const permissions = usePermissions();
   useStoreLanguageSync();
+
+  useEffect(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+      active.blur();
+    }
+  }, [pathname]);
   const storeId = (me?.profile?.store_id ?? me?.store?.id) as string | undefined;
   const userId = me?.user?.id as string | undefined;
   const storeName = (me?.store?.name as string | undefined) ?? "SEZA POS";
@@ -213,10 +220,14 @@ export function PosShell({ children }: { children: ReactNode }) {
       setManagerDashboard(true);
       return;
     }
-    // Preserve one predictable hierarchy in the APK:
-    // checkout -> dashboard -> selected tool. Every tool arrow returns to
-    // dashboard; only the dashboard X returns to checkout.
-    try { sessionStorage.setItem("seza.openManagerDashboard", "1"); } catch { /* ignore */ }
+
+    let fromManagerDashboard = false;
+    try {
+      fromManagerDashboard = sessionStorage.getItem("seza.posToolOrigin") === "manager-dashboard";
+      sessionStorage.removeItem("seza.posToolOrigin");
+      if (fromManagerDashboard) sessionStorage.setItem("seza.openManagerDashboard", "1");
+    } catch {}
+
     navigate({ to: "/pos" as any });
   };
 
@@ -274,17 +285,25 @@ export function PosShell({ children }: { children: ReactNode }) {
     return () => { window.removeEventListener("pos-hardware-change", refreshHardware); window.removeEventListener("seza-hardware-status", refreshHardware); };
   }, [isNativeShell]);
 
+  useEffect(() => {
+    if (meQuery.isLoading || (me?.profile && me?.store)) return;
+    const timer = window.setTimeout(() => {
+      navigate({ to: "/auth", replace: true });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [meQuery.isLoading, me?.profile, me?.store, navigate]);
+
   if (meQuery.isLoading || !me?.profile || !me?.store) {
     return (
-      <div className="fixed inset-0 z-[2147483000] bg-[#1e40af] text-white flex flex-col items-center justify-center gap-5 p-6">
+      <div className="fixed inset-0 z-[2147483000] bg-white text-slate-900 flex flex-col items-center justify-center gap-5 p-6">
         <div className="size-28 rounded-full bg-white shadow-2xl grid place-items-center overflow-hidden">
           <StoreLogo className="size-20 rounded-full" />
         </div>
         <div className="text-2xl font-bold">{me?.store?.name ?? "SEZA POS"}</div>
-        <div className="w-[min(340px,72vw)] h-2 rounded-full bg-white/20 overflow-hidden">
-          <div className="h-full w-2/3 rounded-full bg-white animate-pulse" />
+        <div className="w-[min(340px,72vw)] h-2 rounded-full bg-slate-200 overflow-hidden">
+          <div className="h-full w-2/3 rounded-full bg-blue-600 animate-pulse" />
         </div>
-        <div className="text-sm text-white/80">Loading register…</div>
+        <div className="text-sm text-slate-500">Loading register…</div>
       </div>
     );
   }
