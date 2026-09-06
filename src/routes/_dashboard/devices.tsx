@@ -55,7 +55,9 @@ type Snapshot = {
   route?: string | null;
   printer?: {
     driver_label?: string;
+    configured?: boolean;
     paired?: boolean;
+    connected?: boolean;
     name?: string | null;
     last_ok?: string | null;
     last_error?: string | null;
@@ -70,7 +72,11 @@ type Snapshot = {
   terminal?: {
     label?: string;
     plugin_linked?: boolean | null;
+    merchant_ready?: boolean;
+    connect_status?: string;
+    location_ready?: boolean;
     tap_to_pay_supported?: boolean | null;
+    configured_reader?: string | null;
     connected_reader?: string | null;
     last_error?: string | null;
   };
@@ -134,6 +140,24 @@ function DevicesPage() {
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
   });
+
+  const paymentStatusQ = useQuery({
+    queryKey: ["device-page-stripe-status", storeId],
+    enabled: Boolean(storeId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("stores")
+        .select("stripe_connect_status,stripe_card_payments_status,stripe_terminal_location_id")
+        .eq("id", storeId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const merchantPaymentReady =
+    paymentStatusQ.data?.stripe_connect_status === "ready" &&
+    ["active", "enabled"].includes(String(paymentStatusQ.data?.stripe_card_payments_status || "").toLowerCase()) &&
+    Boolean(paymentStatusQ.data?.stripe_terminal_location_id);
 
   useEffect(() => {
     if (!storeId) return;
@@ -280,11 +304,15 @@ function DevicesPage() {
                       icon={Printer}
                       label="Receipt printer"
                       value={
-                        snap.printer?.paired
-                          ? `${snap.printer.name ?? snap.printer.driver_label ?? "Paired"}`
-                          : "Not paired"
+                        snap.printer?.connected
+                          ? `${snap.printer.name ?? snap.printer.driver_label ?? "Receipt printer"} · connected`
+                          : snap.printer?.last_ok
+                          ? `${snap.printer.name ?? snap.printer.driver_label ?? "Receipt printer"} · working`
+                          : snap.printer?.configured || snap.printer?.paired
+                            ? `${snap.printer.name ?? snap.printer.driver_label ?? "Receipt printer"} · configured`
+                            : "Not configured"
                       }
-                      ok={snap.printer?.paired}
+                      ok={Boolean(snap.printer?.connected || snap.printer?.last_ok || snap.printer?.paired)}
                     />
                     <StatusRow
                       icon={ScanLine}
@@ -313,9 +341,20 @@ function DevicesPage() {
                       value={
                         snap.terminal?.connected_reader
                           ? `Connected: ${snap.terminal.connected_reader}`
-                          : (snap.terminal?.label ?? "Not configured")
+                          : snap.terminal?.configured_reader
+                            ? `${snap.terminal.configured_reader} · configured`
+                          : snap.terminal?.merchant_ready || merchantPaymentReady
+                            ? "Stripe ready · reader not connected"
+                            : (snap.terminal?.label && snap.terminal.label !== "None"
+                              ? snap.terminal.label
+                              : "Not configured")
                       }
-                      ok={!!snap.terminal?.connected_reader}
+                      ok={Boolean(
+                        snap.terminal?.connected_reader ||
+                          snap.terminal?.configured_reader ||
+                          snap.terminal?.merchant_ready ||
+                          merchantPaymentReady,
+                      )}
                     />
                     <div className="mt-4 flex items-center justify-between gap-3">
                       <p className="text-xs text-muted-foreground">

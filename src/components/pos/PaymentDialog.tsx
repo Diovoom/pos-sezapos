@@ -21,7 +21,7 @@ import {
   WifiOff,
   SplitSquareHorizontal,
 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
   getActiveProvider,
   logPaymentAttempt,
@@ -31,6 +31,7 @@ import {
 } from "@/lib/pos/payment-terminal";
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import { ManagerOverrideDialog } from "@/components/pos/ManagerOverrideDialog";
+import { isNativeMode } from "@/lib/native";
 
 export type PaymentMethod =
   "cash" | "card" | "tap" | "apple_pay" | "google_pay" | "gift_card" | "split";
@@ -68,6 +69,45 @@ type Props = {
   // friction rather than security.
   bypassCancelApproval?: boolean;
 };
+
+/**
+ * The active payment provider is persisted in localStorage, but the Stripe
+ * terminal selection is restored asynchronously when the Android register
+ * starts. Reading getActiveProvider() only once therefore leaves checkout
+ * stuck on "No payment terminal" even after Stripe has been restored.
+ *
+ * Keep the checkout state subscribed to provider changes and, on Android,
+ * finish restoring the Stripe selection before deciding that no terminal is
+ * configured.
+ */
+function useActivePaymentProvider() {
+  const [provider, setProvider] = useState(() => getActiveProvider());
+
+  useEffect(() => {
+    let disposed = false;
+    const refresh = () => {
+      if (!disposed) setProvider(getActiveProvider());
+    };
+
+    window.addEventListener("seza:payment-provider-changed", refresh);
+
+    if (isNativeMode()) {
+      void import("@/lib/hardware/terminal-stripe")
+        .then(({ restoreStripeTerminalSelection }) => restoreStripeTerminalSelection())
+        .catch(() => false)
+        .finally(refresh);
+    } else {
+      refresh();
+    }
+
+    return () => {
+      disposed = true;
+      window.removeEventListener("seza:payment-provider-changed", refresh);
+    };
+  }, []);
+
+  return provider;
+}
 
 // Once cash or card is selected we lock the payment flow  -  cashiers cannot
 // silently back out. A manager PIN is required to cancel. Cash panel handles
@@ -342,7 +382,7 @@ function SplitPanel({
   onComplete: (p: CompletedPayment) => void;
   onCancel: () => void;
 }) {
-  const provider = getActiveProvider();
+  const provider = useActivePaymentProvider();
   const [cashText, setCashText] = useState("");
   const [event, setEvent] = useState<PaymentEvent>({
     status: "idle",
@@ -542,7 +582,8 @@ function TerminalPanel({
   // still go through onCancel.
   onCancelNoApproval: () => void;
 }) {
-  const provider = getActiveProvider();
+  const provider = useActivePaymentProvider();
+  const navigate = useNavigate();
   const [event, setEvent] = useState<PaymentEvent>({ status: "idle", message: "Ready" });
   const [result, setResult] = useState<PaymentResult | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -599,10 +640,14 @@ function TerminalPanel({
       });
   };
 
+  const startedProviderRef = useRef<string | null>(null);
   useEffect(() => {
-    if (provider) start();
+    if (provider && startedProviderRef.current !== provider.id) {
+      startedProviderRef.current = provider.id;
+      start();
+    }
     return () => abortRef.current?.abort();
-  }, []);
+  }, [provider?.id]);
 
   // ---- No provider connected: block card payments entirely. ----
   if (!provider) {
@@ -634,8 +679,14 @@ function TerminalPanel({
           <Button variant="outline" className="flex-1" onClick={onCancelNoApproval}>
             Back to cart
           </Button>
-          <Button asChild className="flex-1">
-            <Link to="/settings">Open Settings</Link>
+          <Button
+            className="flex-1"
+            onClick={() => {
+              onCancelNoApproval();
+              void navigate({ to: "/payment-terminal" as any });
+            }}
+          >
+            Open payment terminal
           </Button>
         </div>
       </div>

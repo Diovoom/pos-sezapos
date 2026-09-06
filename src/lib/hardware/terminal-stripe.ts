@@ -2,6 +2,7 @@ import type { TerminalDriverId } from "./index";
 import { isNativeMode } from "@/lib/native";
 import { supabase } from "@/integrations/supabase/client";
 import { readMeta } from "@/lib/offline/db";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 const REMOTE_API = "https://sezapos.com";
 
@@ -220,6 +221,85 @@ function connectionType(
   return mod.TerminalConnectTypes.TapToPay;
 }
 
+
+function readerList(value: unknown): any[] {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  if (Array.isArray(record.readers)) return record.readers;
+  if (Array.isArray(record.value)) return record.value;
+  return [];
+}
+
+function friendlyTerminalError(error: unknown, fallback: string): Error {
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : error && typeof error === "object" && "message" in error
+          ? String((error as { message?: unknown }).message ?? "")
+          : "";
+
+  // This was reaching the cashier UI verbatim from the native Stripe bridge.
+  // Never expose JavaScript/runtime diagnostics to a merchant.
+  if (/cannot read (?:properties|property) of (?:undefined|null).*reading ['\"]?0|undefined.*\[0\]/i.test(raw)) {
+    return new Error(
+      "Stripe Reader M2 was not returned by Android. Reconnect the USB cable, allow USB access if prompted, then try again.",
+    );
+  }
+  if (/usb.*permission|permission.*usb|permission (?:was )?denied/i.test(raw)) {
+    return new Error("USB access is required for Reader M2. Reconnect the reader and allow USB access.");
+  }
+
+  return new Error(userFacingError(error, fallback));
+}
+
+async function discoverReaderList(
+  mod: StripeModule,
+  configuration: TerminalConfiguration,
+): Promise<any[]> {
+  let eventReaders: any[] = [];
+  let listener: { remove: () => Promise<void> } | null = null;
+
+  try {
+    listener = await mod.StripeTerminal.addListener(
+      mod.TerminalEventsEnum.DiscoveredReaders,
+      (event: unknown) => {
+        const next = readerList(event);
+        if (next.length) eventReaders = next;
+      },
+    );
+  } catch {
+    listener = null;
+  }
+
+  try {
+    let result: unknown;
+    try {
+      result = await mod.StripeTerminal.discoverReaders({
+        type: connectionType(mod, configuration.driver, configuration.connectionMethod),
+        locationId: configuration.locationId,
+      });
+    } catch (error) {
+      throw friendlyTerminalError(error, "Could not search for the Stripe card reader.");
+    }
+    let readers = readerList(result);
+
+    if (!readers.length && !eventReaders.length) {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    }
+    if (!readers.length) readers = eventReaders;
+
+    if (!readers.length) {
+      await mod.StripeTerminal.cancelDiscoverReaders().catch(() => undefined);
+    }
+    return readers;
+  } finally {
+    if (listener) await listener.remove().catch(() => undefined);
+  }
+}
+
 async function initialize(testMode: boolean) {
   const mod = await loadModule();
   if (!tokenListenerInstalled) {
@@ -251,13 +331,10 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
   if (current.reader && connected?.terminalId === configuration.terminalId) return { mod, reader: current.reader };
 
   onStatus?.("Discovering Stripe reader…");
-  const result = await mod.StripeTerminal.discoverReaders({
-    type: connectionType(mod, configuration.driver, configuration.connectionMethod),
-    locationId: configuration.locationId,
-  });
+  const readers = await discoverReaderList(mod, configuration);
   const reader = configuration.serial
-    ? result.readers.find((item) => item.serialNumber === configuration.serial) ?? result.readers[0]
-    : result.readers[0];
+    ? readers.find((item) => item?.serialNumber === configuration.serial) ?? readers[0]
+    : readers[0];
   if (!reader) {
     throw new Error(
       configuration.driver === "stripe-m2" && configuration.connectionMethod === "usb"
@@ -267,7 +344,11 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
   }
 
   onStatus?.(`Connecting ${reader.label || reader.serialNumber}…`);
-  await mod.StripeTerminal.connectReader({ reader, autoReconnectOnUnexpectedDisconnect: true });
+  try {
+    await mod.StripeTerminal.connectReader({ reader, autoReconnectOnUnexpectedDisconnect: true });
+  } catch (error) {
+    throw friendlyTerminalError(error, "Could not connect to the Stripe card reader.");
+  }
   connected = {
     terminalId: configuration.terminalId,
     driver: configuration.driver,
@@ -276,6 +357,7 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
   await updateStripeTerminal("connected", configuration.terminalId, { serial: reader.serialNumber });
   localStorage.setItem("pos.terminal.connectedAt", new Date().toISOString());
   localStorage.removeItem("pos.terminal.lastError");
+  window.dispatchEvent(new Event("seza:device-config-changed"));
   return { mod, reader };
 }
 
@@ -323,21 +405,28 @@ export async function isTapToPaySupported() {
 export async function discoverReaders(driver: TerminalDriverId) {
   const configuration = await activeConfiguration(driver);
   const mod = await initialize(configuration.testMode);
-  const result = await mod.StripeTerminal.discoverReaders({
-    type: connectionType(mod, configuration.driver, configuration.connectionMethod),
-    locationId: configuration.locationId,
-  });
-  return result.readers.map((reader) => ({ id: reader.serialNumber, label: reader.label || reader.serialNumber }));
+  const readers = await discoverReaderList(mod, configuration);
+  return readers.map((reader) => ({
+    id: String(reader?.serialNumber || reader?.id || "reader"),
+    label: String(reader?.label || reader?.serialNumber || "Stripe reader"),
+  }));
 }
 
 export async function connectReader(driver: TerminalDriverId, onStatus?: (message: string) => void) {
-  const configuration = await activeConfiguration(driver);
-  const { reader } = await ensureReader(configuration, onStatus);
-  return { terminalId: configuration.terminalId, serialNumber: reader.serialNumber, label: reader.label || reader.serialNumber };
+  try {
+    const configuration = await activeConfiguration(driver);
+    const { reader } = await ensureReader(configuration, onStatus);
+    return { terminalId: configuration.terminalId, serialNumber: reader.serialNumber, label: reader.label || reader.serialNumber };
+  } catch (error) {
+    const friendly = friendlyTerminalError(error, "Could not connect to the Stripe card reader.");
+    if (typeof localStorage !== "undefined") localStorage.setItem("pos.terminal.lastError", friendly.message);
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("seza:device-config-changed"));
+    throw friendly;
+  }
 }
 
 export function connectedReader() {
-  return connected?.driver ?? null;
+  return connected?.serial || connected?.driver || null;
 }
 
 export async function isReady(driver: TerminalDriverId) {
@@ -371,9 +460,10 @@ export async function charge(
     onStatus?.("Payment approved");
     return { ok: true, ref: intent.id };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Stripe Terminal payment failed";
+    const message = friendlyTerminalError(error, "Stripe Terminal payment failed. Please try again.").message;
     if (paymentIntentId) await recordPaymentResult(paymentIntentId, "failed", message);
     if (typeof localStorage !== "undefined") localStorage.setItem("pos.terminal.lastError", message);
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("seza:device-config-changed"));
     return { ok: false, error: message };
   }
 }

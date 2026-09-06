@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, CreditCard, ExternalLink, Loader2, Unplug, Wifi } from "lucide-react";
+import { CheckCircle2, CreditCard, ExternalLink, Loader2, RefreshCw, Unplug, Wifi } from "lucide-react";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { setActiveTerminal } from "@/lib/hardware";
@@ -42,10 +42,24 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
 
   const stripeReady = Boolean(context.data?.ready && context.data?.locationId);
   const terminals = context.data?.terminals ?? [];
-  const terminal = terminals[0] as StripeTerminalRecord | undefined;
+  const terminal = (terminals.find((item) => item.status === "active") ?? terminals[0]) as
+    | StripeTerminalRecord
+    | undefined;
+
+  const readerReady = useQuery({
+    queryKey: ["stripe-reader-ready", terminal?.id],
+    enabled: Boolean(stripeReady && terminal?.status === "active"),
+    queryFn: () => isReady(READER_DRIVER),
+    retry: false,
+    refetchInterval: 10_000,
+  });
+  const physicallyConnected = readerReady.data === true;
 
   const refresh = async () => {
-    await qc.invalidateQueries({ queryKey: ["stripe-terminal-context"] });
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["stripe-terminal-context"] }),
+      qc.invalidateQueries({ queryKey: ["stripe-reader-ready"] }),
+    ]);
   };
 
   const connectExisting = async (reader: StripeTerminalRecord) => {
@@ -53,11 +67,14 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     setActiveTerminal(READER_DRIVER);
     setActivePaymentProvider("stripe-terminal");
     try {
-      return await connectReader(READER_DRIVER, (message) => toast.loading(message, { id: "seza-reader" }));
+      const connected = await connectReader(READER_DRIVER, (message) => toast.loading(message, { id: "seza-reader" }));
+      window.dispatchEvent(new Event("seza:device-config-changed"));
+      return connected;
     } catch (error) {
-      setActiveTerminal("none");
-      setActivePaymentProvider(null);
-      await updateStripeTerminal("disconnected", reader.id).catch(() => undefined);
+      // Keep the reader configured when a USB/Bluetooth connection attempt is
+      // interrupted. Checkout can then retry the physical connection instead
+      // of incorrectly falling back to "No payment terminal".
+      window.dispatchEvent(new Event("seza:device-config-changed"));
       throw error;
     } finally {
       toast.dismiss("seza-reader");
@@ -76,12 +93,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       });
       const created = saved.terminals[saved.terminals.length - 1];
       if (!created) throw new Error("The card reader could not be prepared.");
-      try {
-        return await connectExisting(created);
-      } catch (error) {
-        await updateStripeTerminal("remove", created.id).catch(() => undefined);
-        throw error;
-      }
+      return connectExisting(created);
     },
     onSuccess: async (reader) => {
       await refresh();
@@ -129,6 +141,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       await updateStripeTerminal("disconnected", reader.id).catch(() => undefined);
       setActiveTerminal("none");
       setActivePaymentProvider(null);
+      window.dispatchEvent(new Event("seza:device-config-changed"));
     },
     onSuccess: async () => {
       await refresh();
@@ -143,6 +156,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       await updateStripeTerminal("remove", reader.id);
       setActiveTerminal("none");
       setActivePaymentProvider(null);
+      window.dispatchEvent(new Event("seza:device-config-changed"));
     },
     onSuccess: async () => {
       await refresh();
@@ -155,6 +169,24 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     return (
       <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" /> Checking payment setup…
+      </div>
+    );
+  }
+
+  if (context.isError) {
+    return (
+      <div className="max-w-2xl">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><CreditCard className="size-5" /> Card reader</CardTitle>
+            <CardDescription>{userFacingError(context.error, "Could not check payment setup.")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" onClick={() => context.refetch()}>
+              <RefreshCw className="mr-2 size-4" /> Try again
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -211,17 +243,21 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                 <div>
                   <div className="font-medium">{readerLabel(terminal)}</div>
                   <div className="mt-1 text-sm text-muted-foreground">
-                    {terminal.status === "active" ? "Connected" : "Not connected"} · {connectionMethod(terminal) === "usb" ? "USB" : "Bluetooth"}
+                    {physicallyConnected
+                      ? "Connected"
+                      : terminal.status === "active"
+                        ? "Configured · reader not detected"
+                        : "Not connected"} · {connectionMethod(terminal) === "usb" ? "USB" : "Bluetooth"}
                   </div>
                 </div>
-                {terminal.status === "active" && <CheckCircle2 className="size-5 text-emerald-600" />}
+                {physicallyConnected && <CheckCircle2 className="size-5 text-emerald-600" />}
               </div>
 
               {canEdit && (
                 <div className="flex flex-wrap gap-2">
                   <Button onClick={() => reconnect.mutate(terminal)} disabled={reconnect.isPending}>
                     {reconnect.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wifi className="mr-2 size-4" />}
-                    {terminal.status === "active" ? "Reconnect" : "Connect reader"}
+                    {physicallyConnected ? "Reconnect" : "Connect reader"}
                   </Button>
                   <Button variant="outline" onClick={() => test.mutate(terminal)} disabled={test.isPending}>Test reader</Button>
                   {terminal.status === "active" && (

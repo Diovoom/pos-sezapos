@@ -5,6 +5,7 @@ import { hardwareSnapshot } from "@/lib/hardware/native-receipt";
 import { getActiveTerminal } from "@/lib/hardware";
 import { loadScannerConfig } from "./scannerConfig";
 import * as escposBle from "@/lib/hardware/escpos-ble";
+import * as escposUsb from "@/lib/hardware/escpos-usb";
 import * as stripeTerminal from "@/lib/hardware/terminal-stripe";
 import { refreshDeviceBootstrap } from "./deviceBootstrap";
 import { isNetworkConnectedNow } from "@/lib/offline/useOnline";
@@ -31,6 +32,22 @@ async function buildSnapshot() {
   const hardware = hardwareSnapshot();
   const scanner = loadScannerConfig();
   const savedPrinter = escposBle.getSavedTarget();
+  const selectedUsbPrinterId = escposUsb.selectedUsbDeviceId();
+  let usbPrinterConnected = false;
+  let usbPrinterName: string | null = null;
+  if (hardware.driver === "escpos-usb" && selectedUsbPrinterId != null) {
+    try {
+      usbPrinterConnected = await escposUsb.usbPrinterReady();
+    } catch {
+      usbPrinterConnected = false;
+    }
+    try {
+      const devices = await escposUsb.listUsbPrinters();
+      usbPrinterName = devices.find((device) => device.deviceId === selectedUsbPrinterId)?.name ?? null;
+    } catch {
+      usbPrinterName = null;
+    }
+  }
   let terminalPlugin: boolean | null = null;
   let tapToPay: boolean | null = null;
   try {
@@ -44,6 +61,30 @@ async function buildSnapshot() {
     // Optional device capability.
   }
   const activeTerminal = getActiveTerminal();
+  let terminalSetup: {
+    ready: boolean;
+    connectStatus: string;
+    locationReady: boolean;
+    configuredReader: string | null;
+  } = {
+    ready: false,
+    connectStatus: "not_started",
+    locationReady: false,
+    configuredReader: null,
+  };
+  try {
+    const context = await stripeTerminal.getStripeTerminalContext();
+    const configuredTerminal =
+      context.terminals.find((terminal) => terminal.status === "active") ?? context.terminals[0];
+    terminalSetup = {
+      ready: Boolean(context.ready),
+      connectStatus: context.connectStatus || "not_started",
+      locationReady: Boolean(context.terminalLocationReady),
+      configuredReader: configuredTerminal
+        ? configuredTerminal.serial || configuredTerminal.label || "Stripe Reader M2"
+        : null,
+    };
+  } catch {}
 
   return {
     captured_at: new Date().toISOString(),
@@ -52,8 +93,16 @@ async function buildSnapshot() {
     printer: {
       driver: hardware.driver,
       driver_label: hardware.driverLabel,
-      paired: !!savedPrinter,
-      name: savedPrinter?.name ?? null,
+      configured: hardware.driver !== "none",
+      paired:
+        hardware.driver === "escpos-usb"
+          ? selectedUsbPrinterId != null
+          : Boolean(savedPrinter || hardware.lastPrintOk),
+      connected: hardware.driver === "escpos-usb" ? usbPrinterConnected : Boolean(savedPrinter),
+      name:
+        hardware.driver === "escpos-usb"
+          ? usbPrinterName ?? (selectedUsbPrinterId != null ? `USB printer ${selectedUsbPrinterId}` : null)
+          : savedPrinter?.name ?? null,
       paper_width: hardware.paperWidth,
       auto_print: hardware.autoPrint,
       last_ok: hardware.lastPrintOk,
@@ -77,6 +126,10 @@ async function buildSnapshot() {
       label: activeTerminal.label,
       plugin_linked: terminalPlugin,
       tap_to_pay_supported: tapToPay,
+      merchant_ready: terminalSetup.ready,
+      connect_status: terminalSetup.connectStatus,
+      location_ready: terminalSetup.locationReady,
+      configured_reader: terminalSetup.configuredReader,
       connected_reader: stripeTerminal.connectedReader(),
       last_connected_at: localStorage.getItem("pos.terminal.connectedAt"),
       last_error: localStorage.getItem("pos.terminal.lastError"),
@@ -97,13 +150,18 @@ export async function sendDeviceHeartbeat(force = false) {
   const pairing = getPairing();
   if (!pairing) return;
 
-  const snapshot = await buildSnapshot();
-  const key = stableSnapshotKey(snapshot);
-  const now = Date.now();
-  if (!force && key === lastSnapshotKey && now - lastSentAt < MAX_SILENCE_MS) return;
-
   sending = true;
   try {
+    // Restore the Stripe selection *before* taking the status snapshot. The
+    // old flow fired both operations concurrently, so the dashboard often
+    // received terminal="None" even though Stripe was already configured.
+    await stripeTerminal.restoreStripeTerminalSelection().catch(() => false);
+
+    const snapshot = await buildSnapshot();
+    const key = stableSnapshotKey(snapshot);
+    const now = Date.now();
+    if (!force && key === lastSnapshotKey && now - lastSentAt < MAX_SILENCE_MS) return;
+
     const response = await nativeFetch(`${API_BASE_URL}/api/public/pos/device-heartbeat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -144,20 +202,19 @@ function scheduleNext() {
 export function startDeviceHeartbeat() {
   if (typeof window === "undefined") return () => {};
   stopped = false;
-  void stripeTerminal.restoreStripeTerminalSelection().catch(() => false);
   void sendDeviceHeartbeat(true);
   scheduleNext();
 
   const refreshForegroundSnapshot = () => {
     // Refresh store/products whenever cashier returns to SEZA.
     void refreshDeviceBootstrap(true).catch(() => undefined);
-    void stripeTerminal.restoreStripeTerminalSelection().catch(() => false);
     void sendDeviceHeartbeat(true);
   };
 
   const onOnline = refreshForegroundSnapshot;
   const onFocus = refreshForegroundSnapshot;
   const onConfigChanged = () => void sendDeviceHeartbeat(true);
+  const onHardwareChanged = () => void sendDeviceHeartbeat(true);
 
   const onVisibility = () => {
     if (document.visibilityState === "visible") {
@@ -172,6 +229,7 @@ export function startDeviceHeartbeat() {
   window.addEventListener("online", onOnline);
   window.addEventListener("focus", onFocus);
   window.addEventListener("seza:device-config-changed", onConfigChanged as EventListener);
+  window.addEventListener("pos-hardware-change", onHardwareChanged as EventListener);
   document.addEventListener("visibilitychange", onVisibility);
 
   return () => {
@@ -181,6 +239,7 @@ export function startDeviceHeartbeat() {
     window.removeEventListener("online", onOnline);
     window.removeEventListener("focus", onFocus);
     window.removeEventListener("seza:device-config-changed", onConfigChanged as EventListener);
+    window.removeEventListener("pos-hardware-change", onHardwareChanged as EventListener);
     document.removeEventListener("visibilitychange", onVisibility);
   };
 }
