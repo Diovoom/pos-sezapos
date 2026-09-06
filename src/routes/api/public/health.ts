@@ -70,7 +70,7 @@ export const Route = createFileRoute("/api/public/health")({
             },
             responseTimeMs: Date.now() - started,
             checkedAt: new Date().toISOString(),
-            version: "1.3.3",
+            version: "1.3.4",
           },
           { headers: { "cache-control": "no-store", ...CORS } },
         );

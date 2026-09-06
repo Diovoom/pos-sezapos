@@ -2,13 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { authenticatedWriteRateLimit } from "@/lib/security/rate-limit";
 import Stripe from "stripe";
-import { getStripeSecretKey, getStripeErrorMessage, type StripeEnv } from "@/lib/stripe.server";
+import { getStripeSecretKey, getStripeErrorMessage, getStripeMode, type StripeEnv } from "@/lib/stripe.server";
 
 const DASHBOARD_URL = (process.env.SEZA_DASHBOARD_URL || "https://dashboard.sezapos.com").replace(/\/$/, "");
-
-function connectEnv(): StripeEnv {
-  return process.env.STRIPE_CONNECT_MODE === "live" ? "live" : "sandbox";
-}
 
 function connectStripeClient(env: StripeEnv): any {
   return new Stripe(getStripeSecretKey(env), { apiVersion: "2026-08-26.preview" as any }) as any;
@@ -51,6 +47,21 @@ function cardStatus(account: any): string | null {
   );
 }
 
+async function ensurePlatformManagedDashboard(stripe: any, accountId: string) {
+  let account = await stripe.v2.core.accounts.retrieve(accountId, {
+    include: ["configuration.merchant", "identity", "requirements", "defaults"],
+  });
+
+  if (String(account?.dashboard || "").toLowerCase() !== "none") {
+    account = await stripe.v2.core.accounts.update(accountId, {
+      dashboard: "none",
+      include: ["configuration.merchant", "identity", "requirements", "defaults"],
+    });
+  }
+
+  return account;
+}
+
 function hasTerminalAddress(store: any) {
   return Boolean(store.address && store.city && store.state && store.zip && store.country);
 }
@@ -89,11 +100,9 @@ async function refreshConnectedAccount(userId: string) {
     };
   }
 
-  const env = connectEnv();
+  const env = getStripeMode();
   const stripe: any = connectStripeClient(env);
-  const account = await stripe.v2.core.accounts.retrieve(accountId, {
-    include: ["configuration.merchant", "identity", "requirements"],
-  });
+  const account = await ensurePlatformManagedDashboard(stripe, accountId);
   const status = cardStatus(account);
   const cardReady = ["active", "enabled"].includes(String(status).toLowerCase());
   let locationId = store.stripe_terminal_location_id || null;
@@ -141,16 +150,20 @@ export const startStripeConnectOnboarding = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     await assertOwner(context);
     const { admin, profile, store } = await loadStore(context.userId);
-    const env = connectEnv();
+    const env = getStripeMode();
     const stripe: any = connectStripeClient(env);
     let accountId = String(store.stripe_connected_account_id || "").trim();
 
     try {
+      if (accountId) {
+        await ensurePlatformManagedDashboard(stripe, accountId);
+      }
+
       if (!accountId) {
         const account = await stripe.v2.core.accounts.create({
           contact_email: store.email || profile.email || undefined,
           display_name: String(store.name || "SEZA POS Store").slice(0, 100),
-          dashboard: "full",
+          dashboard: "none",
           identity: {
             country: String(store.country || "US").toLowerCase(),
             ...(store.name

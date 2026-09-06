@@ -9,6 +9,10 @@ const getEnv = (key: string): string => {
 
 export type StripeEnv = "sandbox" | "live";
 
+export function getStripeMode(): StripeEnv {
+  return process.env.STRIPE_CONNECT_MODE === "live" ? "live" : "sandbox";
+}
+
 export function getStripeSecretKey(env: StripeEnv): string {
   return env === "sandbox" ? getEnv("STRIPE_SANDBOX_SECRET_KEY") : getEnv("STRIPE_LIVE_SECRET_KEY");
 }
@@ -22,35 +26,36 @@ export function createStripeClient(env: StripeEnv): Stripe {
 export function getStripeErrorMessage(error: unknown): string {
   if (error && typeof error === "object") {
     const stripeError = error as {
-      message?: string;
       type?: string;
       code?: string;
       decline_code?: string;
-      param?: string;
-      requestId?: string;
       raw?: {
-        message?: string;
         type?: string;
         code?: string;
         decline_code?: string;
-        param?: string;
-        requestId?: string;
       };
     };
 
-    const message = stripeError.raw?.message ?? stripeError.message;
-    if (message) {
-      const details = [
-        stripeError.raw?.type ?? stripeError.type,
-        stripeError.raw?.code ?? stripeError.code,
-        stripeError.raw?.decline_code ?? stripeError.decline_code,
-        stripeError.raw?.param ?? stripeError.param,
-        stripeError.raw?.requestId ?? stripeError.requestId,
-      ].filter(Boolean);
-      return details.length ? `${message} (${details.join(", ")})` : message;
+    const type = String(stripeError.raw?.type ?? stripeError.type ?? "").toLowerCase();
+    const code = String(stripeError.raw?.code ?? stripeError.code ?? "").toLowerCase();
+    const declineCode = String(stripeError.raw?.decline_code ?? stripeError.decline_code ?? "").toLowerCase();
+
+    if (code === "card_declined" || declineCode) {
+      return "The card was declined. Try another payment method.";
+    }
+    if (code === "expired_card") return "The card has expired. Try another payment method.";
+    if (code === "incorrect_cvc") return "The card security code is incorrect.";
+    if (code === "processing_error") return "The payment could not be processed. Please try again.";
+    if (type.includes("rate_limit")) return "The payment service is busy. Please try again in a moment.";
+    if (type.includes("authentication") || code.includes("api_key") || code === "invalid_v2_key") {
+      return "Payment setup is temporarily unavailable. Please contact SEZA Support.";
+    }
+    if (type.includes("permission") || code.includes("permission")) {
+      return "Payment setup needs attention. Please contact SEZA Support.";
     }
   }
-  return "Stripe request failed";
+
+  return "The payment service could not complete the request. Please try again.";
 }
 
 export async function verifyWebhook(

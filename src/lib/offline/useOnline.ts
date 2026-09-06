@@ -52,7 +52,7 @@ export function isBackendReachableNow(): boolean {
 
 /** Imperative read used by non-React code paths (sync driver, finalize). */
 export function isOnlineNow(): boolean {
-  return isBackendReachableNow();
+  return isNetworkConnectedNow();
 }
 
 function subscribe(cb: () => void) {

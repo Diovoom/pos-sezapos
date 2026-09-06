@@ -44,6 +44,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { userFacingError } from "@/lib/user-error";
 import { getAllOfflineSales, type OfflineSale } from "@/lib/offline/db";
 import { useOnline, useSyncEvents } from "@/lib/offline/useOnline";
+import { refundStripeSale } from "@/lib/hardware/terminal-stripe";
 
 export const Route = createFileRoute("/_pos/refunds")({
   head: () => ({
@@ -73,6 +74,7 @@ type SaleRow = {
   payment_method: string;
   created_at: string;
   customer_name: string | null;
+  terminal_ref?: string | null;
   localOnly?: boolean;
   sale_items: Array<{
     id: string;
@@ -85,7 +87,7 @@ type SaleRow = {
 };
 
 const SALE_SELECT =
-  "id,receipt_number,total,subtotal,tax,discount,amount_tendered,change_due,refunded_amount,refund_status,status,payment_method,created_at,customer_name,sale_items(id,product_id,product_name,quantity,unit_price,line_total)";
+  "id,receipt_number,total,subtotal,tax,discount,amount_tendered,change_due,refunded_amount,refund_status,status,payment_method,created_at,customer_name,terminal_ref,sale_items(id,product_id,product_name,quantity,unit_price,line_total)";
 
 const REASONS = [
   { v: "damaged", l: "Damaged" },
@@ -121,6 +123,7 @@ function offlineToSaleRow(sale: OfflineSale): SaleRow {
     payment_method: "cash",
     created_at: sale.local_created_at,
     customer_name: sale.customer_name ?? null,
+    terminal_ref: null,
     localOnly: !synced,
     sale_items: sale.items.map((item, index) => ({
       id: `offline:${sale.id}:${index}`,
@@ -414,6 +417,11 @@ function RefundDialog({
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [override, setOverride] = useState<ManagerOverrideResult | null>(null);
+  const [refundAttemptId, setRefundAttemptId] = useState(() => crypto.randomUUID());
+  useEffect(() => {
+    setRefundAttemptId(crypto.randomUUID());
+  }, [sale?.id]);
+
   const { has, isSuper } = usePermissions();
   const canCreate = isSuper || has("refunds.create");
   const canApprove = isSuper || has("refunds.approve");
@@ -468,6 +476,21 @@ function RefundDialog({
           : itemsToRefund.filter((x) => x.qty > 0);
 
       if (effectiveItems.length === 0) throw new Error("Select at least one item and quantity");
+
+      const processorRefund =
+        ["card", "tap", "apple_pay", "google_pay"].includes(String(sale.payment_method)) &&
+        type !== "store_credit" &&
+        type !== "exchange";
+      if (processorRefund) {
+        if (!String(sale.terminal_ref || "").startsWith("pi_")) {
+          throw new Error("This card sale is not linked to a Stripe payment. Refund it through the original processor.");
+        }
+        await refundStripeSale({
+          saleId: sale.id,
+          amountCents: Math.round(refundTotal * 100),
+          idempotencyId: refundAttemptId,
+        });
+      }
 
       const { data: refund, error } = await supabase
         .from("refunds")

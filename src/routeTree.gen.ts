@@ -108,7 +108,11 @@ import { Route as ApiEmailTransactionalSendRouteImport } from './routes/api/emai
 import { Route as ApiEmailQueueProcessRouteImport } from './routes/api/email/queue/process'
 import { Route as AdminAppAdminSupportTicketIdRouteImport } from './routes/_adminApp/admin.support.$ticketId'
 import { Route as AdminAppAdminBusinessesStoreIdRouteImport } from './routes/_adminApp/admin.businesses.$storeId'
+import { Route as ApiPublicPosStripeTerminalRefundRouteImport } from './routes/api/public/pos/stripe-terminal/refund'
+import { Route as ApiPublicPosStripeTerminalReaderRouteImport } from './routes/api/public/pos/stripe-terminal/reader'
+import { Route as ApiPublicPosStripeTerminalPaymentResultRouteImport } from './routes/api/public/pos/stripe-terminal/payment-result'
 import { Route as ApiPublicPosStripeTerminalPaymentIntentRouteImport } from './routes/api/public/pos/stripe-terminal/payment-intent'
+import { Route as ApiPublicPosStripeTerminalContextRouteImport } from './routes/api/public/pos/stripe-terminal/context'
 import { Route as ApiPublicPosStripeTerminalConnectionTokenRouteImport } from './routes/api/public/pos/stripe-terminal/connection-token'
 import { Route as ApiPublicPosFinixStatusRouteImport } from './routes/api/public/pos/finix/status'
 import { Route as ApiPublicPosFinixSaleRouteImport } from './routes/api/public/pos/finix/sale'
@@ -621,10 +625,34 @@ const AdminAppAdminBusinessesStoreIdRoute =
     path: '/admin/businesses/$storeId',
     getParentRoute: () => AdminAppRouteRoute,
   } as any)
+const ApiPublicPosStripeTerminalRefundRoute =
+  ApiPublicPosStripeTerminalRefundRouteImport.update({
+    id: '/api/public/pos/stripe-terminal/refund',
+    path: '/api/public/pos/stripe-terminal/refund',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPosStripeTerminalReaderRoute =
+  ApiPublicPosStripeTerminalReaderRouteImport.update({
+    id: '/api/public/pos/stripe-terminal/reader',
+    path: '/api/public/pos/stripe-terminal/reader',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPosStripeTerminalPaymentResultRoute =
+  ApiPublicPosStripeTerminalPaymentResultRouteImport.update({
+    id: '/api/public/pos/stripe-terminal/payment-result',
+    path: '/api/public/pos/stripe-terminal/payment-result',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPosStripeTerminalPaymentIntentRoute =
   ApiPublicPosStripeTerminalPaymentIntentRouteImport.update({
     id: '/api/public/pos/stripe-terminal/payment-intent',
     path: '/api/public/pos/stripe-terminal/payment-intent',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPosStripeTerminalContextRoute =
+  ApiPublicPosStripeTerminalContextRouteImport.update({
+    id: '/api/public/pos/stripe-terminal/context',
+    path: '/api/public/pos/stripe-terminal/context',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicPosStripeTerminalConnectionTokenRoute =
@@ -750,7 +778,11 @@ export interface FileRoutesByFullPath {
   '/api/public/pos/finix/sale': typeof ApiPublicPosFinixSaleRoute
   '/api/public/pos/finix/status': typeof ApiPublicPosFinixStatusRoute
   '/api/public/pos/stripe-terminal/connection-token': typeof ApiPublicPosStripeTerminalConnectionTokenRoute
+  '/api/public/pos/stripe-terminal/context': typeof ApiPublicPosStripeTerminalContextRoute
   '/api/public/pos/stripe-terminal/payment-intent': typeof ApiPublicPosStripeTerminalPaymentIntentRoute
+  '/api/public/pos/stripe-terminal/payment-result': typeof ApiPublicPosStripeTerminalPaymentResultRoute
+  '/api/public/pos/stripe-terminal/reader': typeof ApiPublicPosStripeTerminalReaderRoute
+  '/api/public/pos/stripe-terminal/refund': typeof ApiPublicPosStripeTerminalRefundRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -853,7 +885,11 @@ export interface FileRoutesByTo {
   '/api/public/pos/finix/sale': typeof ApiPublicPosFinixSaleRoute
   '/api/public/pos/finix/status': typeof ApiPublicPosFinixStatusRoute
   '/api/public/pos/stripe-terminal/connection-token': typeof ApiPublicPosStripeTerminalConnectionTokenRoute
+  '/api/public/pos/stripe-terminal/context': typeof ApiPublicPosStripeTerminalContextRoute
   '/api/public/pos/stripe-terminal/payment-intent': typeof ApiPublicPosStripeTerminalPaymentIntentRoute
+  '/api/public/pos/stripe-terminal/payment-result': typeof ApiPublicPosStripeTerminalPaymentResultRoute
+  '/api/public/pos/stripe-terminal/reader': typeof ApiPublicPosStripeTerminalReaderRoute
+  '/api/public/pos/stripe-terminal/refund': typeof ApiPublicPosStripeTerminalRefundRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -960,7 +996,11 @@ export interface FileRoutesById {
   '/api/public/pos/finix/sale': typeof ApiPublicPosFinixSaleRoute
   '/api/public/pos/finix/status': typeof ApiPublicPosFinixStatusRoute
   '/api/public/pos/stripe-terminal/connection-token': typeof ApiPublicPosStripeTerminalConnectionTokenRoute
+  '/api/public/pos/stripe-terminal/context': typeof ApiPublicPosStripeTerminalContextRoute
   '/api/public/pos/stripe-terminal/payment-intent': typeof ApiPublicPosStripeTerminalPaymentIntentRoute
+  '/api/public/pos/stripe-terminal/payment-result': typeof ApiPublicPosStripeTerminalPaymentResultRoute
+  '/api/public/pos/stripe-terminal/reader': typeof ApiPublicPosStripeTerminalReaderRoute
+  '/api/public/pos/stripe-terminal/refund': typeof ApiPublicPosStripeTerminalRefundRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1065,7 +1105,11 @@ export interface FileRouteTypes {
     | '/api/public/pos/finix/sale'
     | '/api/public/pos/finix/status'
     | '/api/public/pos/stripe-terminal/connection-token'
+    | '/api/public/pos/stripe-terminal/context'
     | '/api/public/pos/stripe-terminal/payment-intent'
+    | '/api/public/pos/stripe-terminal/payment-result'
+    | '/api/public/pos/stripe-terminal/reader'
+    | '/api/public/pos/stripe-terminal/refund'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1168,7 +1212,11 @@ export interface FileRouteTypes {
     | '/api/public/pos/finix/sale'
     | '/api/public/pos/finix/status'
     | '/api/public/pos/stripe-terminal/connection-token'
+    | '/api/public/pos/stripe-terminal/context'
     | '/api/public/pos/stripe-terminal/payment-intent'
+    | '/api/public/pos/stripe-terminal/payment-result'
+    | '/api/public/pos/stripe-terminal/reader'
+    | '/api/public/pos/stripe-terminal/refund'
   id:
     | '__root__'
     | '/'
@@ -1274,7 +1322,11 @@ export interface FileRouteTypes {
     | '/api/public/pos/finix/sale'
     | '/api/public/pos/finix/status'
     | '/api/public/pos/stripe-terminal/connection-token'
+    | '/api/public/pos/stripe-terminal/context'
     | '/api/public/pos/stripe-terminal/payment-intent'
+    | '/api/public/pos/stripe-terminal/payment-result'
+    | '/api/public/pos/stripe-terminal/reader'
+    | '/api/public/pos/stripe-terminal/refund'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1337,7 +1389,11 @@ export interface RootRouteChildren {
   ApiPublicPosFinixSaleRoute: typeof ApiPublicPosFinixSaleRoute
   ApiPublicPosFinixStatusRoute: typeof ApiPublicPosFinixStatusRoute
   ApiPublicPosStripeTerminalConnectionTokenRoute: typeof ApiPublicPosStripeTerminalConnectionTokenRoute
+  ApiPublicPosStripeTerminalContextRoute: typeof ApiPublicPosStripeTerminalContextRoute
   ApiPublicPosStripeTerminalPaymentIntentRoute: typeof ApiPublicPosStripeTerminalPaymentIntentRoute
+  ApiPublicPosStripeTerminalPaymentResultRoute: typeof ApiPublicPosStripeTerminalPaymentResultRoute
+  ApiPublicPosStripeTerminalReaderRoute: typeof ApiPublicPosStripeTerminalReaderRoute
+  ApiPublicPosStripeTerminalRefundRoute: typeof ApiPublicPosStripeTerminalRefundRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2035,11 +2091,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAppAdminBusinessesStoreIdRouteImport
       parentRoute: typeof AdminAppRouteRoute
     }
+    '/api/public/pos/stripe-terminal/refund': {
+      id: '/api/public/pos/stripe-terminal/refund'
+      path: '/api/public/pos/stripe-terminal/refund'
+      fullPath: '/api/public/pos/stripe-terminal/refund'
+      preLoaderRoute: typeof ApiPublicPosStripeTerminalRefundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pos/stripe-terminal/reader': {
+      id: '/api/public/pos/stripe-terminal/reader'
+      path: '/api/public/pos/stripe-terminal/reader'
+      fullPath: '/api/public/pos/stripe-terminal/reader'
+      preLoaderRoute: typeof ApiPublicPosStripeTerminalReaderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pos/stripe-terminal/payment-result': {
+      id: '/api/public/pos/stripe-terminal/payment-result'
+      path: '/api/public/pos/stripe-terminal/payment-result'
+      fullPath: '/api/public/pos/stripe-terminal/payment-result'
+      preLoaderRoute: typeof ApiPublicPosStripeTerminalPaymentResultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/pos/stripe-terminal/payment-intent': {
       id: '/api/public/pos/stripe-terminal/payment-intent'
       path: '/api/public/pos/stripe-terminal/payment-intent'
       fullPath: '/api/public/pos/stripe-terminal/payment-intent'
       preLoaderRoute: typeof ApiPublicPosStripeTerminalPaymentIntentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pos/stripe-terminal/context': {
+      id: '/api/public/pos/stripe-terminal/context'
+      path: '/api/public/pos/stripe-terminal/context'
+      fullPath: '/api/public/pos/stripe-terminal/context'
+      preLoaderRoute: typeof ApiPublicPosStripeTerminalContextRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/pos/stripe-terminal/connection-token': {
@@ -2298,8 +2382,14 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPosFinixStatusRoute: ApiPublicPosFinixStatusRoute,
   ApiPublicPosStripeTerminalConnectionTokenRoute:
     ApiPublicPosStripeTerminalConnectionTokenRoute,
+  ApiPublicPosStripeTerminalContextRoute:
+    ApiPublicPosStripeTerminalContextRoute,
   ApiPublicPosStripeTerminalPaymentIntentRoute:
     ApiPublicPosStripeTerminalPaymentIntentRoute,
+  ApiPublicPosStripeTerminalPaymentResultRoute:
+    ApiPublicPosStripeTerminalPaymentResultRoute,
+  ApiPublicPosStripeTerminalReaderRoute: ApiPublicPosStripeTerminalReaderRoute,
+  ApiPublicPosStripeTerminalRefundRoute: ApiPublicPosStripeTerminalRefundRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

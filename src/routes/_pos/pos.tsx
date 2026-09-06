@@ -718,11 +718,10 @@ export function PosPage() {
     const customerReceiptNumber = createLocalReceiptNumber(seq, deviceId, createdAt);
     let registerSessionId: string | null = null;
     try {
-      const rs = await readMeta<{ id: string } | null>("open_register_session");
-      registerSessionId = rs?.id ?? null;
-    } catch {
-      // A cached register session is optional for offline cash checkout.
-    }
+      const scoped = await readMeta<{ id: string } | null>(`open_register_session:${uid}`);
+      const legacy = scoped ? null : await readMeta<{ id: string } | null>("open_register_session");
+      registerSessionId = scoped?.id ?? legacy?.id ?? null;
+    } catch {}
     await saveOfflineSale({
       id: localId,
       idempotency_key: localId,

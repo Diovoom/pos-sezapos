@@ -370,17 +370,21 @@ export function AuthScreen() {
       }
 
       if (data.token_hash && !cloudSessionReady) {
-        void (async () => {
-          try {
-            await supabase.auth.signOut({ scope: "local" } as any).catch(() => {});
-            const { error: otpErr } = await supabase.auth.verifyOtp({
-              token_hash: data.token_hash!, type: "magiclink",
-            });
-            if (otpErr) console.warn("[SEZA POS] cloud session deferred:", otpErr.message);
-          } catch (cloudError) {
-            console.warn("[SEZA POS] cloud session deferred:", cloudError);
-          }
-        })();
+        try {
+          await supabase.auth.signOut({ scope: "local" } as any).catch(() => {});
+          const { error: otpErr } = await supabase.auth.verifyOtp({
+            token_hash: data.token_hash,
+            type: "magiclink",
+          });
+          if (!otpErr) cloudSessionReady = true;
+          else console.warn("[SEZA POS] cloud session unavailable:", otpErr.message);
+        } catch (cloudError) {
+          console.warn("[SEZA POS] cloud session unavailable:", cloudError);
+        }
+      }
+
+      if (cloudSessionReady) {
+        void import("@/lib/offline/sync").then(({ syncNow }) => syncNow().catch(() => undefined));
       }
 
       setError(null);

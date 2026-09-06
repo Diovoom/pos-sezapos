@@ -144,12 +144,14 @@ function scheduleNext() {
 export function startDeviceHeartbeat() {
   if (typeof window === "undefined") return () => {};
   stopped = false;
+  void stripeTerminal.restoreStripeTerminalSelection().catch(() => false);
   void sendDeviceHeartbeat(true);
   scheduleNext();
 
   const refreshForegroundSnapshot = () => {
     // Refresh store/products whenever cashier returns to SEZA.
     void refreshDeviceBootstrap(true).catch(() => undefined);
+    void stripeTerminal.restoreStripeTerminalSelection().catch(() => false);
     void sendDeviceHeartbeat(true);
   };
 

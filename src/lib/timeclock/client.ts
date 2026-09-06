@@ -17,7 +17,10 @@ export async function postTimeClockAction(input: TimeClockRequest): Promise<{
   const token = data.session?.access_token;
   if (!token) throw new Error("Your session has expired. Sign in again.");
   const base = isNativeMode() ? "https://sezapos.com" : "";
-  const response = await fetch(`${base}/api/public/pos/timeclock`, {
+  const request = isNativeMode()
+    ? (await import("../../../capacitor-shell/lib/nativeHttp")).nativeFetch
+    : fetch;
+  const response = await request(`${base}/api/public/pos/timeclock`, {
     method: "POST",
     headers: {
       "content-type": "application/json",

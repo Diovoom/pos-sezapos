@@ -167,22 +167,28 @@ export function CloseShiftDialog({
     }
   };
 
-  // Live totals for this shift (sales + refunds + movements).
   const totals = useQuery({
     enabled: open,
     queryKey: ["close-shift", "totals", session.id],
     queryFn: async () => {
+      const [offlineSales, offlineMovements] = await Promise.all([
+        getAllOfflineSales(),
+        getAllOfflineCashMovements(),
+      ]);
+      const openedAt = new Date(session.opened_at).getTime();
+      const now = Date.now();
+      const localSales = offlineSales.filter((sale) => {
+        if (sale.status === "conflict" || sale.store_id !== session.store_id) return false;
+        if (sale.register_session_id === session.id) return true;
+        if (sale.register_session_id || sale.cashier_id !== cashierUserId) return false;
+        const occurredAt = new Date(sale.local_created_at).getTime();
+        return occurredAt >= openedAt && occurredAt <= now;
+      });
+      const localMovements = offlineMovements.filter(
+        (movement) => movement.register_session_id === session.id,
+      );
+
       if (!isOnlineNow()) {
-        const [sales, movements] = await Promise.all([
-          getAllOfflineSales(),
-          getAllOfflineCashMovements(),
-        ]);
-        const localSales = sales.filter(
-          (sale) => sale.register_session_id === session.id && sale.status !== "conflict",
-        );
-        const localMovements = movements.filter(
-          (movement) => movement.register_session_id === session.id,
-        );
         const cashSales = localSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
         const grossSales = localSales.reduce((sum, sale) => sum + Number(sale.subtotal || 0), 0);
         const totalDiscount = localSales.reduce((sum, sale) => sum + Number(sale.discount || 0), 0);
@@ -195,7 +201,6 @@ export function CloseShiftDialog({
         const safeDrops = localMovements
           .filter((movement) => movement.type === "safe_drop")
           .reduce((sum, movement) => sum + Number(movement.amount || 0), 0);
-        const expected = Number(session.opening_cash) + cashSales + deposits - payouts - safeDrops;
         return {
           salesCount: localSales.length,
           grossSales,
@@ -208,8 +213,8 @@ export function CloseShiftDialog({
           deposits,
           payouts,
           safeDrops,
-          expected,
-          noSaleCount: localMovements.filter((movement) => movement.type === "no_sale").length,
+          expected: Number(session.opening_cash) + cashSales + deposits - payouts - safeDrops,
+          noSaleCount: 0,
           noSaleEvents: [],
         };
       }
@@ -217,7 +222,7 @@ export function CloseShiftDialog({
       const [salesRes, refundRes, movRes, noSaleRes] = await Promise.all([
         sb
           .from("sales")
-          .select("total, tax, subtotal, discount, payment_method, status")
+          .select("id, total, tax, subtotal, discount, payment_method, status")
           .eq("register_session_id", session.id),
         sb
           .from("refunds")
@@ -225,7 +230,7 @@ export function CloseShiftDialog({
           .eq("sales.register_session_id", session.id),
         sb
           .from("cash_movements")
-          .select("type, amount, reason, notes, created_at")
+          .select("id, type, amount, reason, notes, created_at")
           .eq("register_session_id", session.id),
         sb
           .from("audit_log")
@@ -234,12 +239,30 @@ export function CloseShiftDialog({
           .eq("entity_id", session.id),
       ]);
 
-      const sales = (salesRes.data ?? []) as any[];
-
+      const saleMap = new Map<string, any>();
+      for (const sale of (salesRes.data ?? []) as any[]) saleMap.set(String(sale.id), sale);
+      for (const sale of localSales) {
+        if (!saleMap.has(sale.id)) {
+          saleMap.set(sale.id, {
+            id: sale.id,
+            total: sale.total,
+            tax: sale.tax,
+            subtotal: sale.subtotal,
+            discount: sale.discount,
+            payment_method: "cash",
+            status: "completed",
+          });
+        }
+      }
+      const sales = Array.from(saleMap.values());
       const refunds = (refundRes.data ?? []) as any[];
 
-      const movs = (movRes.data ?? []) as any[];
-
+      const movementMap = new Map<string, any>();
+      for (const movement of (movRes.data ?? []) as any[]) movementMap.set(String(movement.id), movement);
+      for (const movement of localMovements) {
+        if (!movementMap.has(movement.id)) movementMap.set(movement.id, movement);
+      }
+      const movs = Array.from(movementMap.values());
       const noSales = (noSaleRes.data ?? []) as any[];
       const completed = sales.filter((sale) => sale.status === "completed");
       const voided = sales.filter((sale) => sale.status === "voided");
@@ -373,9 +396,8 @@ export function CloseShiftDialog({
       await cacheMeta("open_register_session", null).catch(() => {});
 
       if (isOnlineNow()) {
-        void import("@/lib/offline/sync").then(({ syncNow }) =>
-          syncNow().catch((error) => console.warn("[SEZA POS] shift close sync deferred", error)),
-        );
+        const { syncNow } = await import("@/lib/offline/sync");
+        await syncNow().catch(() => undefined);
       }
       return closedLocal;
     },
@@ -386,6 +408,11 @@ export function CloseShiftDialog({
       );
       const ok = await runPostCloseHook();
       if (!ok) return;
+
+      if (isOnlineNow()) {
+        const { syncNow } = await import("@/lib/offline/sync");
+        await syncNow().catch(() => undefined);
+      }
 
       // Print the end-of-shift report immediately while this employee session
       // is still authenticated. Printing is local USB/ESC-POS; a printer error

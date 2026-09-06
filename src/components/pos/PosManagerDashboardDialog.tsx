@@ -45,7 +45,10 @@ export function PosManagerDashboardDialog({
   const isManager = permissions.isSuper || permissions.isManager || me?.roles?.includes("super_admin") === true;
 
   const go = (to: string) => {
-    try { sessionStorage.setItem("seza.posToolOrigin", "manager-dashboard"); } catch {}
+    try {
+      sessionStorage.removeItem("seza.openManagerDashboard");
+      sessionStorage.setItem("seza.posToolOrigin", "manager-dashboard");
+    } catch {}
     onOpenChange(false);
     navigate({ to: to as any });
   };

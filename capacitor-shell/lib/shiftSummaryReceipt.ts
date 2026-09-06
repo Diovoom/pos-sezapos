@@ -278,7 +278,7 @@ export async function printShiftSummary(
   parts.push(b.align("center"), b.bold(true));
   text("END SHIFT REVIEW SUMMARY\n");
   parts.push(b.bold(false));
-  text("SEZA POS v1.3.3\n\n\n");
+  text("SEZA POS v1.3.4\n\n\n");
   parts.push(b.charSpacing(0), b.cut());
 
   const printer = getActivePrinter();

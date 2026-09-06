@@ -13,7 +13,7 @@ import { LogIn, LogOut, Coffee, PlayCircle, Loader2 } from "lucide-react";
 import { format, formatDistanceStrict } from "date-fns";
 import { useState } from "react";
 import { CloseShiftDialog } from "@/components/pos/CloseShiftDialog";
-import { cacheMeta, readMeta, saveOfflineAction } from "@/lib/offline/db";
+import { cacheMeta, readMeta, saveOfflineAction, deleteMeta } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import type { EmployeeTimeClockAction } from "@/lib/employees.functions";
 import { logAudit } from "@/lib/audit-log";
@@ -125,6 +125,26 @@ export function TimeclockPage() {
     const saved = Number(localStorage.getItem("pos.register.lastOpeningCash") ?? "100");
     return Number.isFinite(saved) && saved >= 0 ? saved.toFixed(2) : "100.00";
   });
+
+  const returnToPin = async () => {
+    if (userId) {
+      await Promise.all([
+        deleteMeta(`timeclock_open:${userId}`).catch(() => {}),
+        deleteMeta(`open_register_session:${userId}`).catch(() => {}),
+      ]);
+    }
+    await Promise.all([
+      deleteMeta("authenticated_me_current_user").catch(() => {}),
+      deleteMeta("authenticated_me").catch(() => {}),
+      deleteMeta("profile").catch(() => {}),
+      deleteMeta("timeclock_open").catch(() => {}),
+      deleteMeta("open_register_session").catch(() => {}),
+    ]);
+    try { localStorage.setItem("seza.forcePinLogin", "1"); } catch {}
+    qc.clear();
+    await supabase.auth.signOut({ scope: "local" } as any).catch(() => supabase.auth.signOut());
+    navigate({ to: "/auth", search: { mode: "pin" } as any, replace: true });
+  };
 
   const { data: open } = useQuery<TimeEntry | null>({
     queryKey: ["myOpenEntry", me.data?.user.id],
@@ -475,6 +495,13 @@ export function TimeclockPage() {
         return;
       }
     }
+    if (isNativeShell) {
+      try {
+        await clockOut.mutateAsync();
+        await returnToPin();
+      } catch {}
+      return;
+    }
     clockOut.mutate();
   };
 
@@ -715,8 +742,7 @@ export function TimeclockPage() {
           }}
           onClosed={() => {
             setShiftReviewOpen(false);
-            qc.invalidateQueries({ queryKey: ["timeclock", "open-shift"] });
-            invalidate();
+            void returnToPin();
           }}
         />
       )}

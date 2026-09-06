@@ -1,11 +1,6 @@
 const TECHNICAL_ERROR_PATTERN =
-  /(?:<!doctype|<html|<head|<body|<script|<style|<meta|<\/|\b(?:postgres|supabase|postgrest|sqlstate|constraint|row-level security|rls|jwt|uuid|stack|trace|schema cache|syntax error|http.?error|internal server error)\b|\b(?:PGRST|2350\d|42501)\b|https?:\/\/|\bat\s+\S+\([^)]*:\d+:\d+\)|\{\s*"(?:error|message|stack)"|\b(?:select|insert|update|delete)\s+.+\s+from\b)/i;
+  /(?:<!doctype|<html|<head|<body|<script|<style|<meta|<\/|\b(?:postgres|supabase|postgrest|sqlstate|constraint|row-level security|rls|jwt|uuid|stack|trace|schema cache|syntax error|http.?error|internal server error|api key|authorization header|invalid_request_error|invalid_v2_key|request[_ -]?id|process\.env|secret key|webhook secret)\b|\b(?:PGRST|2350\d|42501)\b|\b(?:sk|rk|pk)_(?:test|live)_[A-Za-z0-9_*.-]+|\bwhsec_[A-Za-z0-9_*.-]+|https?:\/\/|\bat\s+\S+\([^)]*:\d+:\d+\)|\{\s*"(?:error|message|stack)"|\b(?:select|insert|update|delete)\s+.+\s+from\b)/i;
 
-/**
- * Converts internal, provider, network and HTML error responses into short
- * merchant-facing language. Raw code, markup, URLs, database details and stack
- * traces must never be shown in the SEZA merchant interface.
- */
 export function userFacingError(error: unknown, fallback: string): string {
   const message =
     error instanceof Error

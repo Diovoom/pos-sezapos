@@ -1,7 +1,3 @@
-// Stripe Terminal connection token endpoint. The Android POS shell
-// requests this on demand; the token is passed to the Terminal SDK so it
-// can talk to Stripe as this merchant. Bearer-authenticated so only
-// signed-in employees can mint tokens on behalf of their store.
 import { createFileRoute } from "@tanstack/react-router";
 
 const CORS: Record<string, string> = {
@@ -28,31 +24,32 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/connection
           limit: 30,
           windowSeconds: 60,
           blockSeconds: 300,
-          maxBodyBytes: 8192,
+          maxBodyBytes: 16384,
           allowMissingOrigin: true,
           skipOriginCheck: false,
         });
         if (blocked) return blocked;
+
+        let body: any = {};
+        try {
+          body = await request.json();
+        } catch {}
         const auth = request.headers.get("authorization") ?? "";
-        const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-        if (!token) return json({ error: "Missing bearer token" }, 401);
+        const bearerToken = auth.startsWith("Bearer ") ? auth.slice(7) : "";
 
         try {
-          const { resolveStripeTerminalMerchant } = await import("@/lib/stripe-terminal.server");
-          const merchant = await resolveStripeTerminalMerchant(token);
-          const { createTerminalStripeClient } = await import("@/lib/stripe-terminal.server");
-          const stripe = createTerminalStripeClient(merchant.testMode);
-          // Direct-charge architecture: Terminal resources are scoped to the connected merchant.
-          const ct = await stripe.terminal.connectionTokens.create(
+          const { resolveStripeTerminalMerchant, createTerminalStripeClient } = await import(
+            "@/lib/stripe-terminal.server"
+          );
+          const merchant = await resolveStripeTerminalMerchant({ bearerToken, nativeAuth: body.nativeAuth });
+          const stripe = createTerminalStripeClient(merchant.environment);
+          const token = await stripe.terminal.connectionTokens.create(
             {},
             { stripeAccount: merchant.stripeAccountId },
           );
-          return json({ secret: ct.secret });
-        } catch (e) {
-          const { getStripeErrorMessage } = await import("@/lib/stripe.server").catch(() => ({
-            getStripeErrorMessage: () => "Stripe error",
-          }));
-          return json({ error: getStripeErrorMessage(e) }, 500);
+          return json({ secret: token.secret, environment: merchant.environment });
+        } catch (error) {
+          return json({ error: error instanceof Error ? error.message : "Stripe connection failed" }, 400);
         }
       },
     },

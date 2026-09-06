@@ -225,7 +225,10 @@ export function PosShell({ children }: { children: ReactNode }) {
     try {
       fromManagerDashboard = sessionStorage.getItem("seza.posToolOrigin") === "manager-dashboard";
       sessionStorage.removeItem("seza.posToolOrigin");
-      if (fromManagerDashboard) sessionStorage.setItem("seza.openManagerDashboard", "1");
+      if (fromManagerDashboard) {
+        sessionStorage.setItem("seza.openManagerDashboard", "1");
+        setManagerDashboard(true);
+      }
     } catch {}
 
     navigate({ to: "/pos" as any });
@@ -235,7 +238,6 @@ export function PosShell({ children }: { children: ReactNode }) {
     if (pathname !== "/pos") return;
     try {
       if (sessionStorage.getItem("seza.openManagerDashboard") === "1") {
-        sessionStorage.removeItem("seza.openManagerDashboard");
         setManagerDashboard(true);
       }
     } catch {
@@ -641,7 +643,12 @@ export function PosShell({ children }: { children: ReactNode }) {
 
       <PosManagerDashboardDialog
         open={managerDashboard}
-        onOpenChange={setManagerDashboard}
+        onOpenChange={(value) => {
+          setManagerDashboard(value);
+          if (!value && pathname === "/pos") {
+            try { sessionStorage.removeItem("seza.openManagerDashboard"); } catch {}
+          }
+        }}
         storeId={storeId ?? ""}
         storeName={me?.store?.name ?? "SEZA POS"}
       />

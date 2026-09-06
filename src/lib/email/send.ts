@@ -115,7 +115,10 @@ export async function sendTransactionalEmail(
   }
 
   try {
-    const res = await fetch(sendUrl(), {
+    const request = isNativeMode()
+      ? (await import("../../../capacitor-shell/lib/nativeHttp")).nativeFetch
+      : fetch;
+    const res = await request(sendUrl(), {
       method: "POST",
       headers,
       body: JSON.stringify({
