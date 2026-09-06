@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +19,18 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-re
     handlers: {
       OPTIONS: () => new Response(null, { status: 204, headers: CORS }),
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.pos.stripe_payment_result",
+          limit: 60,
+          windowSeconds: 60,
+          blockSeconds: 300,
+          maxBodyBytes: 32768,
+          allowMissingOrigin: true,
+          skipOriginCheck: false,
+        });
+        if (blocked) return blocked;
+
         let body: any;
         try {
           body = await request.json();
@@ -43,7 +56,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-re
           if (error) throw error;
           return json({ ok: true });
         } catch (error) {
-          return json({ error: error instanceof Error ? error.message : "Could not update payment result" }, 400);
+          return json({ error: userFacingError(error, "Could not update payment result.") }, 400);
         }
       },
     },
