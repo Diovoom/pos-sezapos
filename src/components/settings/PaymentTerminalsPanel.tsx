@@ -24,7 +24,7 @@ type Terminal = {
 function statusTone(value: string | null | undefined) {
   const status = String(value || "").toLowerCase();
   if (["ready", "active", "enabled"].includes(status)) return "text-emerald-700 bg-emerald-500/10 border-emerald-500/20";
-  if (["onboarding", "payments_ready", "pending"].includes(status)) return "text-amber-700 bg-amber-500/10 border-amber-500/20";
+  if (["onboarding", "payments_ready", "pending", "migration_required"].includes(status)) return "text-amber-700 bg-amber-500/10 border-amber-500/20";
   return "text-muted-foreground bg-muted/40";
 }
 
@@ -92,6 +92,12 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
 
   const connectStatus = status.data?.status || store.data?.stripe_connect_status || "not_started";
   const cardStatus = status.data?.cardPaymentsStatus || store.data?.stripe_card_payments_status || null;
+  const migrationRequired = Boolean(status.data?.migrationRequired || connectStatus === "migration_required");
+  const cardStatusLabel = ["restricted", "pending", "inactive"].includes(String(cardStatus || "").toLowerCase())
+    ? "Setup required"
+    : cardStatus
+      ? String(cardStatus).replaceAll("_", " ")
+      : "Not ready";
   const locationReady = Boolean(status.data?.terminalLocationReady || store.data?.stripe_terminal_location_id);
   const ready = connectStatus === "ready" && ["active", "enabled"].includes(String(cardStatus || "").toLowerCase()) && locationReady;
   const hasAddress = Boolean(store.data?.address && store.data?.city && store.data?.state && store.data?.zip && store.data?.country);
@@ -113,7 +119,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
             </div>
             <div className={`rounded-lg border p-3 ${statusTone(cardStatus)}`}>
               <div className="text-xs font-medium uppercase tracking-wide">Card payments</div>
-              <div className="mt-1 font-semibold capitalize">{cardStatus ? String(cardStatus).replaceAll("_", " ") : "Not ready"}</div>
+              <div className="mt-1 font-semibold capitalize">{cardStatusLabel}</div>
             </div>
             <div className={`rounded-lg border p-3 ${locationReady ? statusTone("ready") : statusTone("pending")}`}>
               <div className="text-xs font-medium uppercase tracking-wide">Terminal location</div>
@@ -127,11 +133,17 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
             </div>
           )}
 
+          {migrationRequired && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+              This sandbox payment profile was created with the old setup. Restart secure payment setup once to create the new SEZA-managed test profile. Your store data is not affected.
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2">
             {isOwner && canEdit && (
               <Button onClick={() => connect.mutate()} disabled={connect.isPending}>
                 {connect.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <ExternalLink className="mr-2 size-4" />}
-                {ready ? "Update Stripe verification or payout details" : connectStatus === "not_started" ? "Connect Stripe" : "Continue Stripe setup"}
+                {ready ? "Update payment verification or payout details" : migrationRequired ? "Restart secure payment setup" : connectStatus === "not_started" ? "Set up payments" : "Continue payment setup"}
               </Button>
             )}
             <Button variant="outline" onClick={refresh} disabled={status.isFetching || store.isFetching}>
