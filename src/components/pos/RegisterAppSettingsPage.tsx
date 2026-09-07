@@ -158,7 +158,7 @@ export function RegisterAppSettingsPage() {
           </div>
         </nav>
 
-        <div className="min-h-0 overflow-y-auto overscroll-contain touch-pan-y p-4 pb-24 md:p-6 md:pb-10">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] p-4 pb-28 md:p-6 md:pb-10">
           <div className="mx-auto max-w-4xl space-y-4">
             {section === "general" && (
               <SettingsGroup title="General" description="Basic identity and behavior for this register.">
@@ -297,29 +297,18 @@ export function RegisterAppSettingsPage() {
             )}
 
             {section === "support" && (
-              <SettingsGroup title="SEZA Support" description="Message support, call us, or request a secure screen-share session.">
-                <LinkRow
-                  icon={<MessageCircle className="size-4" />}
-                  title="Message SEZA Support"
-                  description="Open your live support conversations and send a message to SEZA Admin."
-                  onClick={() => navigate({ to: "/support" as any })}
-                />
+              <SettingsGroup
+                title="Screen sharing"
+                description="SEZA Admin can start a secure view-only screen-sharing session while helping you."
+              >
                 <SettingRow
-                  title="Screen sharing"
-                  description="Only SEZA Admin can start a screen-share request. This register will show Allow or Decline, and nothing is shared until you approve."
+                  title="Share screen with SEZA Admin"
+                  description="Only SEZA Admin can start screen sharing. This register will show Allow or Decline before anything is shared."
                 >
                   <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                     <MonitorUp className="size-4" />
-                    Admin requested only
+                    Admin initiated
                   </div>
-                </SettingRow>
-                <SettingRow title="Call SEZA Support" description="Call support directly from this register.">
-                  <Button asChild variant="outline">
-                    <a href={`tel:${LEGAL_CONFIG.phone}`}>
-                      <Phone className="mr-2 size-4" />
-                      {LEGAL_CONFIG.phoneDisplay}
-                    </a>
-                  </Button>
                 </SettingRow>
               </SettingsGroup>
             )}

@@ -22,7 +22,7 @@ export function PaymentTerminalPage() {
           </div>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] touch-pan-y p-4 pb-24">
         <div className="mx-auto max-w-4xl space-y-4">
           <Card>
             <CardContent className="grid gap-3 p-4 md:grid-cols-2">

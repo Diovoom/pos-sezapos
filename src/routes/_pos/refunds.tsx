@@ -264,7 +264,7 @@ export function RefundsPage() {
         title="Refunds & receipts"
         subtitle="Search, reprint, refund, exchange, or void a receipt."
       />
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24 space-y-4 md:p-6 md:pb-10">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] touch-pan-y p-4 pb-24 space-y-4 md:p-6 md:pb-10">
         <div className="flex max-w-2xl items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

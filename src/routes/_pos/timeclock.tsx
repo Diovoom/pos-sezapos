@@ -19,6 +19,7 @@ import type { EmployeeTimeClockAction } from "@/lib/employees.functions";
 import { logAudit } from "@/lib/audit-log";
 import { userFacingError } from "@/lib/user-error";
 import { testDrawer } from "@/lib/hardware/native-receipt";
+import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
 
 // Native APK shell detection  -  Clock Out on the APK routes through the
 // existing Shift Review flow when a register shift is open, and enforces
@@ -445,7 +446,7 @@ export function TimeclockPage() {
           },
         });
         toast.error(
-          "Multiple open shifts were found. Ask a manager to review and close the correct shift.",
+          `Multiple open shifts detected. A manager must resolve this from the dashboard. Ref: ${correlationId}`,
         );
         return;
       }
@@ -514,7 +515,7 @@ export function TimeclockPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader title="Clock & Shift review" subtitle="Clock in or out, review time entries, and review or close the current shift." />
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24 space-y-4 md:p-6 md:pb-10">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] touch-pan-y p-4 pb-24 space-y-4 md:p-6 md:pb-10">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">
@@ -702,6 +703,7 @@ export function TimeclockPage() {
             })}
           </CardContent>
         </Card>
+        <ManagerSupportFooter />
       </div>
 
       {/*

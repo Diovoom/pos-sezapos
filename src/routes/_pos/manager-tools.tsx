@@ -30,7 +30,7 @@ export function PosManagerToolsPage() {
           </div>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] touch-pan-y p-4 pb-24">
         <div className="mx-auto max-w-6xl">
           <div className="grid gap-4 lg:grid-cols-2">
             <NativeUsbPrinterPanel />

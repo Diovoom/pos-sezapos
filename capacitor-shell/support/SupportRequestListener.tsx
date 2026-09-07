@@ -217,7 +217,7 @@ export function SupportRequestListener() {
     setBusy(false);
     if ("ok" in res) {
       toast[decision === "accept" ? "success" : "message"](
-        decision === "accept" ? "Screen sharing approved" : "Screen-share request declined",
+        decision === "accept" ? "Screen sharing approved" : "Screen sharing declined",
       );
       setPending(null);
       void refresh();
@@ -284,7 +284,7 @@ export function SupportRequestListener() {
           <div className="min-w-0 flex-1">
             <div className="font-medium truncate">Screen sharing is not active</div>
             <div className="text-[10px] text-muted-foreground">
-              End this old support session and request screen sharing again.
+              End this old session and wait for SEZA Admin to start screen sharing again.
             </div>
           </div>
           <button
@@ -303,7 +303,7 @@ export function SupportRequestListener() {
           role="status"
         >
           <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">Support request waiting — will show when checkout finishes.</span>
+          <span className="truncate">Screen sharing is waiting — it will appear when checkout finishes.</span>
         </div>
       )}
 
@@ -312,7 +312,7 @@ export function SupportRequestListener() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" />
-              SEZA Support is requesting permission to view your screen
+              SEZA Support wants to view your screen
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm">

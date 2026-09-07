@@ -138,7 +138,7 @@ export function PosManagerDashboardDialog({
             Tools available to {role} at {storeName}. The current employee stays signed in.
           </DialogDescription>
         </DialogHeader>
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] touch-pan-y p-4 pb-24">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {tools
               .filter((tool) => isManager || !tool.managerOnly)

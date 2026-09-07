@@ -156,7 +156,7 @@ export function RegisterPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader title="Register" subtitle="Cash drawer controls for the current shift." />
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24 space-y-4 md:p-6 md:pb-10">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] touch-pan-y p-4 pb-24 space-y-4 md:p-6 md:pb-10">
         {openSession.isLoading ? (
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="size-4 animate-spin" /> Loading…

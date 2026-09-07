@@ -221,7 +221,7 @@ function SupportScreenInner() {
   );
 
   return (
-    <div className="min-h-full w-full">
+    <div className="h-full min-h-0 w-full overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] pb-24">
       {selectedId ? (
         <TicketDetail id={selectedId} onBack={() => setSelectedId(null)} />
       ) : (
