@@ -5,6 +5,7 @@ import { NativeScannerPanel } from "@/components/settings/NativeScannerPanel";
 import { NativeDrawerPanel } from "@/components/settings/NativeDrawerPanel";
 import { NativeCustomerDisplayPanel } from "@/components/settings/NativeCustomerDisplayPanel";
 import { useMe } from "@/hooks/useMe";
+import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
 
 export const Route = createFileRoute("/_pos/manager-tools")({
   ssr: false,
@@ -30,13 +31,16 @@ export function PosManagerToolsPage() {
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24">
-        <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-2">
-          <NativeUsbPrinterPanel />
-          <NativeScannerPanel />
-          <NativeDrawerPanel />
-          {storeId ? (
-            <NativeCustomerDisplayPanel storeId={storeId} storeName={storeName} />
-          ) : null}
+        <div className="mx-auto max-w-6xl">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <NativeUsbPrinterPanel />
+            <NativeScannerPanel />
+            <NativeDrawerPanel />
+            {storeId ? (
+              <NativeCustomerDisplayPanel storeId={storeId} storeName={storeName} />
+            ) : null}
+          </div>
+          <ManagerSupportFooter />
         </div>
       </div>
     </div>

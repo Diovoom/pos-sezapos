@@ -51,6 +51,7 @@ import {
 } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import { userFacingError } from "@/lib/user-error";
+import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
 
 export const Route = createFileRoute("/_pos/register")({
   head: () => ({
@@ -107,6 +108,7 @@ const DEPOSIT_REASONS = ["Cash drop from safe", "Owner deposit", "Change fund to
 export function RegisterPage() {
   const { data: me } = useMe();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const storeId = me?.store?.id as string | undefined;
   const userId = me?.user?.id as string | undefined;
   const registerKey = employeeMetaKey("open_register_session", userId);
@@ -153,7 +155,7 @@ export function RegisterPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <PageHeader title="Register" subtitle="Open and close the cash register for this shift" />
+      <PageHeader title="Register" subtitle="Cash drawer controls for the current shift." />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24 space-y-4 md:p-6 md:pb-10">
         {openSession.isLoading ? (
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -165,13 +167,21 @@ export function RegisterPage() {
             onChanged={() => qc.invalidateQueries({ queryKey: ["register"] })}
           />
         ) : (
-          <OpenRegisterCard
-            storeId={storeId}
-            onOpened={() => qc.invalidateQueries({ queryKey: ["register"] })}
-          />
+          <Card className="max-w-xl">
+            <CardHeader>
+              <CardTitle>No open register shift</CardTitle>
+              <CardDescription>
+                Clock in from Clock &amp; Shift review before using register cash controls.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => navigate({ to: "/timeclock" as any })}>
+                Open Clock &amp; Shift review
+              </Button>
+            </CardContent>
+          </Card>
         )}
-
-        <HistoryCard sessions={history.data ?? []} />
+        <ManagerSupportFooter />
       </div>
     </div>
   );
@@ -398,148 +408,27 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
     <>
       <Card className="max-w-3xl">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between flex-wrap gap-2">
-            <span className="flex items-center gap-2">
-              <Wallet className="size-5" /> Current Shift
-            </span>
-            <Badge className="bg-success/15 text-success border-success/30" variant="outline">
-              Opened {new Date(session.opened_at).toLocaleString()}
-            </Badge>
+          <CardTitle className="flex items-center gap-2">
+            <Wallet className="size-5" /> Register
           </CardTitle>
           <CardDescription>
-            {me?.profile?.full_name || me?.user?.email} · {me?.store?.name ?? "Register"}
+            Cash controls for {me?.profile?.full_name || me?.user?.email} at {me?.store?.name ?? "this register"}.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <Stat label="Opening float" value={fmt(session.opening_cash)} />
-            <Stat label="Time worked" value={`${Math.floor(workedMin / 60)}h ${workedMin % 60}m`} />
-            <Stat label="Sales" value={String(totals.data?.salesCount ?? 0)} />
-            <Stat label="Cash sales" value={fmt(totals.data?.cashSales ?? 0)} />
-            <Stat label="Card / other" value={fmt(totals.data?.cardSales ?? 0)} muted />
-            <Stat label="No-sale opens" value={String(noSaleCount.data ?? 0)} />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={() => setCloseOpen(true)}
-              className="flex-1 min-w-[220px]"
-              variant="destructive"
-            >
-              <Lock className="size-4 mr-2" /> Review &amp; Close Shift
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Button size="lg" variant="outline" onClick={() => setDrawerOpen(true)} className="h-20 justify-start text-base">
+              <DoorOpen className="mr-3 size-5" /> Open cash drawer
             </Button>
-            <Button variant="outline" onClick={() => setDrawerOpen(true)}>
-              <DoorOpen className="size-4 mr-2" /> Open Cash Drawer
+            <Button size="lg" variant="outline" onClick={() => setPayoutOpen(true)} className="h-20 justify-start text-base">
+              <ArrowUpFromLine className="mr-3 size-5" /> Payout
             </Button>
-            <Button variant="outline" onClick={() => setPayoutOpen(true)}>
-              <ArrowUpFromLine className="size-4 mr-2" /> Payout
-            </Button>
-            <Button variant="outline" onClick={() => setDepositOpen(true)}>
-              <ArrowDownToLine className="size-4 mr-2" /> Deposit
+            <Button size="lg" variant="outline" onClick={() => setDepositOpen(true)} className="h-20 justify-start text-base">
+              <ArrowDownToLine className="mr-3 size-5" /> Deposit
             </Button>
           </div>
-
-          {safeDropRows.length > 0 && (
-            <div>
-              <div className="text-sm font-medium mb-2">
-                Safe drops this shift · {fmt(safeDropTotal)}
-              </div>
-              <div className="rounded-md border divide-y">
-                {safeDropRows.map((m) => (
-                  <div key={m.id} className="p-2 flex items-center justify-between text-sm">
-                    <div>
-                      <div className="font-medium">{m.reason}</div>
-                      {m.notes && <div className="text-xs text-muted-foreground">{m.notes}</div>}
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(m.created_at).toLocaleString()}
-                      </div>
-                    </div>
-                    <div className="font-mono text-destructive">-{fmt(Number(m.amount))}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {(payouts.length > 0 || deposits.length > 0) && (
-            <div>
-              <div className="text-sm font-medium mb-2">
-                Cash movements · +{fmt(depositsTotal)} / -{fmt(payoutsTotal)}
-              </div>
-              <div className="rounded-md border divide-y">
-                {movements
-                  .data!.filter((m) => m.type !== "safe_drop")
-                  .map((m) => (
-                    <div key={m.id} className="p-2 flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        {m.type === "payout" ? (
-                          <ArrowUpFromLine className="size-4 text-destructive" />
-                        ) : (
-                          <ArrowDownToLine className="size-4 text-success" />
-                        )}
-                        <div>
-                          <div className="font-medium capitalize">
-                            {m.type} - {m.reason}
-                          </div>
-                          {m.notes && (
-                            <div className="text-xs text-muted-foreground">{m.notes}</div>
-                          )}
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(m.created_at).toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
-                      <div
-                        className={`font-mono ${m.type === "payout" ? "text-destructive" : "text-success"}`}
-                      >
-                        {m.type === "payout" ? "-" : "+"}
-                        {fmt(Number(m.amount))}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
-
-      <CloseShiftDialog
-        open={closeOpen}
-        onOpenChange={setCloseOpen}
-        session={session}
-        store={me?.store ?? null}
-        cashierUserId={me?.user?.id}
-        beforeSignOut={async () => {
-          if (!userId) return;
-          const key = `timeclock_open:${userId}`;
-          const current = await readMeta<any>(key).catch(() => null);
-          if (!current) return; // idempotent: already clocked out is success
-          const occurredAt = new Date().toISOString();
-          const closed = { ...current, clock_out: occurredAt, break_start: null };
-          const historyKey = `timeclock_history:${userId}`;
-          const history = (await readMeta<any[]>(historyKey).catch(() => [])) ?? [];
-          await cacheMeta(historyKey, [closed, ...history.filter((row) => row.id !== closed.id)].slice(0, 20));
-          await cacheMeta(key, null);
-          await saveOfflineAction({
-            id: crypto.randomUUID(),
-            idempotency_key: `timeclock:${userId}:clock_out:${occurredAt}`,
-            kind: "timeclock",
-            store_id: storeId ?? session.store_id,
-            user_id: userId,
-            payload: { action: "clock_out", occurredAt },
-            local_created_at: occurredAt,
-            status: "pending",
-            attempts: 0,
-          });
-          if (isOnlineNow()) void import("@/lib/offline/sync").then(({ syncNow }) => syncNow().catch(() => {}));
-        }}
-        onClosed={() => {
-          setCloseOpen(false);
-          onChanged();
-
-          navigate({ to: "/auth", search: { mode: "pin" } as any, replace: true });
-        }}
-      />
 
       <OpenDrawerDialog
         open={drawerOpen}
@@ -547,7 +436,7 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
         session={{ id: session.id, store_id: session.store_id }}
         storeId={session.store_id}
         cashierId={me?.user?.id}
-        onCountShift={() => setCloseOpen(true)}
+        onCountShift={() => navigate({ to: "/timeclock" as any })}
         onSafeDropRecorded={invalidate}
       />
 
@@ -721,6 +610,7 @@ function CashMovementDialog({
               type="number"
               step="0.01"
               min="0"
+              autoFocus
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"

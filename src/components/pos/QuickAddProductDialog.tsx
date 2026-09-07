@@ -4,7 +4,7 @@
 // products table via RLS  -  the server enforces store scope and the
 // products.create / products.quick_add permission. On success, returns the
 // created product to the caller (typically added to the current cart line).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +62,7 @@ export function QuickAddProductDialog({
   const [barcode, setBarcode] = useState("");
   const [taxable, setTaxable] = useState(true);
   const [busy, setBusy] = useState(false);
+  const priceRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -170,8 +171,20 @@ export function QuickAddProductDialog({
           <div className="space-y-1">
             <Label>Name</Label>
             <Input
+              autoFocus
+              type="text"
+              inputMode="text"
+              enterKeyHint="next"
+              autoCapitalize="words"
+              autoComplete="off"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  priceRef.current?.focus();
+                }
+              }}
               placeholder="e.g. Iced Coffee"
             />
           </div>
@@ -179,9 +192,25 @@ export function QuickAddProductDialog({
             <div className="space-y-1">
               <Label>Price</Label>
               <Input
+                ref={priceRef}
+                type="number"
                 inputMode="decimal"
+                enterKeyHint="next"
+                autoComplete="off"
+                min="0"
+                step="0.01"
                 value={price}
-                onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ""))}
+                onChange={(e) => {
+                  const normalized = e.target.value.replace(/[^0-9.]/g, "");
+                  const [whole = "", ...rest] = normalized.split(".");
+                  const decimal = rest.join("").slice(0, 2);
+                  setPrice(
+                    normalized.includes(".")
+                      ? `${whole || "0"}.${decimal}`
+                      : whole,
+                  );
+                }}
+                placeholder="0.00"
               />
             </div>
             <div className="space-y-1">

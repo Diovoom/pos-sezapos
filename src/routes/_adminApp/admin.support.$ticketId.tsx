@@ -10,6 +10,7 @@ import {
   adminTransitionSupportCase,
   adminSendSupportMessage,
 } from "@/lib/admin/company-admin.functions";
+import { adminStartSupportSession } from "@/lib/admin/admin.functions";
 import { supabaseAdminAuth } from "@/integrations/supabase/admin-client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,7 @@ import {
   Send,
   LockKeyhole,
   Smartphone,
+  MonitorUp,
   Building2,
   User,
   Activity,
@@ -89,6 +91,7 @@ function SupportCasePage() {
   const releaseCase = useServerFn(adminReleaseSupportCase);
   const sendMessage = useServerFn(adminSendSupportMessage);
   const endSupportChat = useServerFn(adminEndSupportChat);
+  const startScreenSession = useServerFn(adminStartSupportSession);
   const qc = useQueryClient();
 
   const query = useQuery({
@@ -274,6 +277,27 @@ function SupportCasePage() {
   const assignedToMe = Boolean(adminUserId && ticket.assigned_admin_id === adminUserId);
   const assignedToOther = Boolean(ticket.assigned_admin_id && !assignedToMe);
 
+  async function requestScreen() {
+    if (!store?.id) return;
+    setBusy(true);
+    try {
+      if (!ticket.assigned_admin_id) {
+        await claimCase({ data: { ticketId } });
+      }
+      await startScreenSession({
+        data: {
+          storeId: store.id,
+          reason: `Support case #${ticket.ticket_number ?? ticket.id}: ${ticket.subject}`,
+        },
+      });
+      toast.success("Screen-share request sent to the SEZA register");
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not request screen access");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Link
@@ -344,6 +368,11 @@ function SupportCasePage() {
               disabled={busy}
             >
               <Clock3 className="mr-2 h-4 w-4" /> Wait for merchant
+            </Button>
+          )}
+          {!isFinal && !assignedToOther && store?.id && (
+            <Button variant="outline" onClick={() => void requestScreen()} disabled={busy}>
+              <MonitorUp className="mr-2 h-4 w-4" /> Request screen
             </Button>
           )}
           {!chatEnded && assignedToMe && (

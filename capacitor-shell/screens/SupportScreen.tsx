@@ -9,6 +9,7 @@ import { nativeFetch, userSafeNetworkMessage } from "../lib/nativeHttp";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { API_BASE_URL, getBearer } from "../supabase";
 import { useMe } from "@/hooks/useMe";
 import { PageHeader } from "@/components/pos/AppShell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -89,7 +90,9 @@ const CATEGORIES: Array<{ value: string; label: string }> = [
 const STATUS_LABEL: Record<string, string> = {
   open: "Open",
   in_progress: "In progress",
+  investigating: "In progress",
   waiting_customer: "Waiting on you",
+  waiting_for_merchant: "Waiting on you",
   waiting_support: "Waiting on support",
   resolved: "Resolved",
   closed: "Closed",
@@ -111,8 +114,38 @@ function statusVariant(s: string): "default" | "secondary" | "outline" | "destru
 
 const DRAFT_KEY = "seza.support.draft.v1";
 const READ_KEY = "seza.support.readAt.v1";
-const OPEN_STATUSES = ["open", "in_progress", "waiting_customer", "waiting_support"];
+const OPEN_STATUSES = [
+  "open",
+  "in_progress",
+  "investigating",
+  "waiting_customer",
+  "waiting_for_merchant",
+  "waiting_support",
+];
 const CLOSED_STATUSES = ["resolved", "closed"];
+
+async function postSupportTicket(payload: Record<string, unknown>) {
+  const token = await getBearer();
+  if (!token) throw new Error("Your session has expired. Sign in again.");
+  const response = await nativeFetch(`${API_BASE_URL}/api/public/pos/support-ticket`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  let data: any = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+  if (!response.ok) {
+    throw new Error(data?.error || userSafeNetworkMessage());
+  }
+  return data as { ok: true; id?: string; ticketNumber?: number | null; reopened?: boolean };
+}
 
 function loadDraft(): { subject: string; category: string; priority: string; body: string; includeDiag: boolean } {
   try {
@@ -202,7 +235,15 @@ function TicketList({ onOpen }: { onOpen: (id: string) => void }) {
   const qc = useQueryClient();
   const storeId = me.data?.store?.id as string | undefined;
   const userId = me.data?.user?.id as string | undefined;
-  const [showCreate, setShowCreate] = useState(false);
+  const [showCreate, setShowCreate] = useState(() => {
+    try {
+      const open = localStorage.getItem("seza.support.openCreate") === "1";
+      if (open) localStorage.removeItem("seza.support.openCreate");
+      return open;
+    } catch {
+      return false;
+    }
+  });
 
   const listQuery = useQuery({
     queryKey: ["shell", "support", "tickets", storeId ?? "none"],
@@ -450,21 +491,7 @@ function CreateTicketForm({
     }
     setSubmitting(true);
     try {
-      const { data: ticket, error } = await supabase
-        .from("support_tickets")
-        .insert({
-          store_id: storeId,
-          requester_id: userId,
-          subject: s.slice(0, 200),
-          category,
-          priority,
-          status: "open",
-        })
-        .select("id, ticket_number")
-        .single();
-      if (error) throw error;
-
-      let messageBody = b.slice(0, 5000);
+      let messageBody = b.slice(0, 4000);
       if (includeDiag) {
         try {
           const diag = await collectDiagnostics({
@@ -472,23 +499,31 @@ function CreateTicketForm({
             storeId,
             employeeId: userId,
           });
-          messageBody += "\n" + formatDiagnosticsBlock(diag);
+          messageBody = `${messageBody}\n${formatDiagnosticsBlock(diag)}`.slice(0, 4000);
         } catch { /* diagnostics best-effort */ }
       }
 
-      const { error: noteErr } = await supabase
-        .from("support_ticket_notes")
-        .insert({
-          ticket_id: ticket.id,
-          author_id: userId,
-          body: messageBody,
-          internal: false, // merchant-visible message
-        });
-      if (noteErr) throw noteErr;
+      const ticket = await postSupportTicket({
+        action: "create",
+        subject: s,
+        body: messageBody,
+        category,
+        priority,
+      });
+      if (!ticket.id) throw new Error("Support case was not created");
 
       submittedRef.current = true;
-      try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
-      toast.success(`Ticket #${ticket.ticket_number ?? ""} created`);
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+        const screenShareIntent = localStorage.getItem("seza.support.screenShareIntent") === "1";
+        if (screenShareIntent) {
+          localStorage.removeItem("seza.support.screenShareIntent");
+          toast.message("Screen-share request sent", {
+            description: "A SEZA Admin can now request secure screen access. You will approve Android permission before sharing starts.",
+          });
+        }
+      } catch { /* noop */ }
+      toast.success(`Ticket #${ticket.ticketNumber ?? ""} created`);
       onCreated(ticket.id);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to submit ticket";
@@ -698,18 +733,10 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
       if (!userId || !storeId) throw new Error("Not signed in");
       const b = reply.trim();
       if (!b) throw new Error("Message is empty");
-      const { error } = await supabase.from("support_ticket_notes").insert({
-        ticket_id: id,
-        author_id: userId,
-        body: b.slice(0, 5000),
-        internal: false,
-      });
-      if (error) throw error;
-      // Nudge status back to waiting_support so admins see fresh activity.
-      // Uses the secure RPC — direct table UPDATE is no longer permitted.
-      await supabase.rpc("merchant_update_support_ticket", {
-        _ticket_id: id,
-        _status: "waiting_support",
+      await postSupportTicket({
+        action: "reply",
+        ticketId: id,
+        body: b.slice(0, 4000),
       });
     },
     onSuccess: () => {

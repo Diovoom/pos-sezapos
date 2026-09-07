@@ -3,6 +3,7 @@ import { PaymentTerminalsPanel } from "@/components/settings/PaymentTerminalsPan
 import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
 
 export function PaymentTerminalPage() {
   const permissions = usePermissions();
@@ -39,6 +40,7 @@ export function PaymentTerminalPage() {
           <p className="mt-3 text-xs text-muted-foreground">
             A saved terminal is not considered connected until its provider SDK confirms the physical reader.
           </p>
+          <ManagerSupportFooter />
         </div>
       </div>
     </div>

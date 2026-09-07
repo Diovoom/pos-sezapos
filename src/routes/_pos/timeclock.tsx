@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { LogIn, LogOut, Coffee, PlayCircle, Loader2 } from "lucide-react";
+import { ClipboardCheck, LogIn, LogOut, Coffee, PlayCircle, Loader2 } from "lucide-react";
 import { format, formatDistanceStrict } from "date-fns";
 import { useState } from "react";
 import { CloseShiftDialog } from "@/components/pos/CloseShiftDialog";
@@ -19,6 +19,7 @@ import type { EmployeeTimeClockAction } from "@/lib/employees.functions";
 import { logAudit } from "@/lib/audit-log";
 import { userFacingError } from "@/lib/user-error";
 import { testDrawer } from "@/lib/hardware/native-receipt";
+import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
 
 // Native APK shell detection  -  Clock Out on the APK routes through the
 // existing Shift Review flow when a register shift is open, and enforces
@@ -30,10 +31,10 @@ const isNativeShell =
 export const Route = createFileRoute("/_pos/timeclock")({
   head: () => ({
     meta: [
-      { title: "Time Clock  -  SEZA POS" },
+      { title: "Clock & Shift review  -  SEZA POS" },
       {
         name: "description",
-        content: "Clock in, take breaks, and clock out for the current shift.",
+        content: "Clock in or out, review time entries, and review or close the current register shift.",
       },
     ],
   }),
@@ -513,7 +514,7 @@ export function TimeclockPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <PageHeader title="Time Clock" subtitle="Clock in, take breaks, clock out." />
+      <PageHeader title="Clock & Shift review" subtitle="Clock in or out, review time entries, and review or close the current shift." />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24 space-y-4 md:p-6 md:pb-10">
         <Card>
           <CardHeader className="pb-3">
@@ -567,6 +568,16 @@ export function TimeclockPage() {
               >
                 <LogOut className="size-4 mr-2" /> Clock out
               </Button>
+              {openShift?.id ? (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => setShiftReviewOpen(true)}
+                  disabled={anyBusy}
+                >
+                  <ClipboardCheck className="size-4 mr-2" /> Review &amp; close shift
+                </Button>
+              ) : null}
               <Button
                 size="lg"
                 variant="outline"
@@ -692,6 +703,7 @@ export function TimeclockPage() {
             })}
           </CardContent>
         </Card>
+        <ManagerSupportFooter />
       </div>
 
       {/*

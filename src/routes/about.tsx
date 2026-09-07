@@ -9,12 +9,12 @@ import { Shield, Zap, Heart, Users, Lock, Cloud } from "lucide-react";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About  -  SEZA POS" },
+      { title: "About Us  -  SEZA POS" },
       {
         name: "description",
         content: `Learn about ${LEGAL_CONFIG.companyName}, the team behind SEZA POS, our mission, values, and commitment to building reliable point-of-sale software for independent retailers.`,
       },
-      { property: "og:title", content: "About SEZA POS" },
+      { property: "og:title", content: "About Us  -  SEZA POS" },
       {
         property: "og:description",
         content: "Our mission, values, and commitment to independent retailers.",
@@ -39,7 +39,7 @@ function AboutPage() {
     <MarketingShell>
       <section className="max-w-3xl mx-auto px-6 py-16 text-center">
         <p className="text-sm font-medium text-primary uppercase tracking-wide">
-          About {LEGAL_CONFIG.companyName}
+          About Us
         </p>
         <h1 className="mt-3 text-4xl md:text-5xl font-bold tracking-tight">
           Built around the business behind the counter.

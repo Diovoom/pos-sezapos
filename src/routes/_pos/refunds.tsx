@@ -45,6 +45,7 @@ import { userFacingError } from "@/lib/user-error";
 import { getAllOfflineSales, type OfflineSale } from "@/lib/offline/db";
 import { useOnline, useSyncEvents } from "@/lib/offline/useOnline";
 import { refundStripeSale } from "@/lib/hardware/terminal-stripe";
+import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
 
 export const Route = createFileRoute("/_pos/refunds")({
   head: () => ({
@@ -358,6 +359,7 @@ export function RefundsPage() {
             </TableBody>
           </Table>
         </Card>
+        <ManagerSupportFooter />
       </div>
 
       <RefundDialog

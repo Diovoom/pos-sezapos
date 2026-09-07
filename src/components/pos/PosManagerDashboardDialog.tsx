@@ -2,11 +2,11 @@ import { useRef, type TouchEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Clock,
-  Cloud,
   CreditCard,
   MonitorCog,
   RotateCcw,
   Settings,
+  Wallet,
 } from "lucide-react";
 import {
   Dialog,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { useMe } from "@/hooks/useMe";
 import { usePermissions } from "@/hooks/usePermissions";
+import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
 
 type Tool = {
   label: string;
@@ -82,47 +83,40 @@ export function PosManagerDashboardDialog({
   const tools: Tool[] = [
     {
       label: "Refunds & receipts",
-      description: "Find a sale, prepare a refund, return, or reprint.",
+      description: "Find a sale, prepare a refund or return, and reprint receipts.",
       icon: RotateCcw,
       to: "/refunds",
     },
     {
-      label: "Shift review",
-      description: "Review the drawer, safe drops, and close the register shift.",
-      icon: Clock,
-      to: "/register",
-    },
-    {
-      label: "Clock out",
-      description: "Open the time clock and end the current employee shift.",
-      icon: Clock,
-      to: "/timeclock",
-    },
-    {
       label: "Peripheral hardware",
-      description: "Configure and test the printer, scanner, drawer, and customer display.",
+      description: "Configure and test the printer, scanner, cash drawer, and customer display.",
       icon: MonitorCog,
       to: "/manager-tools",
     },
     {
-      label: "Sync queue",
-      description: "Review records waiting for SEZA Cloud and retry synchronization.",
-      icon: Cloud,
-      to: "/pending-sync",
-      managerOnly: true,
+      label: "Clock & Shift review",
+      description: "Clock in or out, review time entries, and review or close the current shift.",
+      icon: Clock,
+      to: "/timeclock",
     },
     {
-      label: "Register & app settings",
-      description: "Register behavior, kiosk mode, app updates, and device preferences.",
-      icon: Settings,
-      to: "/settings",
-      managerOnly: true,
+      label: "Register",
+      description: "Open the cash drawer and record payouts or deposits.",
+      icon: Wallet,
+      to: "/register",
     },
     {
       label: "Payment terminal",
       description: "Connect and select the card terminal used by this register.",
       icon: CreditCard,
       to: "/payment-terminal",
+      managerOnly: true,
+    },
+    {
+      label: "App settings",
+      description: "Register preferences, receipts, sync, Android behavior, and app settings.",
+      icon: Settings,
+      to: "/settings",
       managerOnly: true,
     },
   ];
@@ -161,6 +155,7 @@ export function PosManagerDashboardDialog({
                 </button>
               ))}
           </div>
+          <ManagerSupportFooter />
         </div>
       </DialogContent>
     </Dialog>

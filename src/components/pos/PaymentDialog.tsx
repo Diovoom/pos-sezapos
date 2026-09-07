@@ -198,19 +198,27 @@ export function PaymentDialog({
 
 /* -------- Cash -------- */
 
-const QUICK = [5, 10, 20, 50, 100];
+function moneyDigits(value: string) {
+  if (!value) return "";
+  const cents = Math.max(0, Math.round((Number(value) || 0) * 100));
+  return cents > 0 ? String(cents) : "";
+}
+
+function formatMoneyDigits(digits: string) {
+  if (!digits) return "";
+  return (Number(digits) / 100).toFixed(2);
+}
 
 function appendMoneyKey(value: string, key: string) {
-  if (key === ".") {
-    if (value.includes(".")) return value;
-    return value ? `${value}.` : "0.";
-  }
+  const current = moneyDigits(value);
+  const next = `${current}${key}`.replace(/^0+(?=\d)/, "");
+  if (next.length > 9) return value;
+  return formatMoneyDigits(next);
+}
 
-  const [whole, decimal = ""] = value.split(".");
-  if (value.includes(".") && decimal.length >= 2) return value;
-  if (!value.includes(".") && whole.length >= 7) return value;
-  if (!value || value === "0") return key;
-  return `${value}${key}`;
+function deleteMoneyKey(value: string) {
+  const current = moneyDigits(value);
+  return formatMoneyDigits(current.slice(0, -1));
 }
 
 function MoneyKeypad({
@@ -222,7 +230,8 @@ function MoneyKeypad({
   onChange: (value: string) => void;
   label: string;
 }) {
-  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"];
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0"];
+
   return (
     <div className="space-y-2" aria-label={label}>
       <div className="grid grid-cols-3 gap-2">
@@ -242,7 +251,7 @@ function MoneyKeypad({
           variant="outline"
           className="h-11 text-lg font-semibold"
           aria-label="Delete last digit"
-          onClick={() => onChange(value.slice(0, -1))}
+          onClick={() => onChange(deleteMoneyKey(value))}
         >
           ⌫
         </Button>
@@ -256,6 +265,21 @@ function MoneyKeypad({
         Clear amount
       </Button>
     </div>
+  );
+}
+
+function suggestedTenders(total: number) {
+  if (total <= 0) return [] as number[];
+
+  const nearestDollar = Math.floor(total) + 1;
+  const commonBills = [5, 10, 20, 50, 100, 200, 500];
+  const nextBill =
+    commonBills.find((amount) => amount > nearestDollar) ??
+    Math.ceil((nearestDollar + 1) / 100) * 100;
+
+  return [nearestDollar, nextBill].filter(
+    (amount, index, values) =>
+      amount > total + 0.004 && values.indexOf(amount) === index,
   );
 }
 
@@ -307,14 +331,14 @@ function CashPanel({
           <Button type="button" variant="outline" onClick={() => setTenderedStr(total.toFixed(2))}>
             Exact
           </Button>
-          {QUICK.map((v) => (
+          {suggestedTenders(total).map((amount) => (
             <Button
-              key={v}
+              key={amount}
               type="button"
               variant="outline"
-              onClick={() => setTenderedStr(String(Math.max(v, Math.ceil(total / v) * v)))}
+              onClick={() => setTenderedStr(amount.toFixed(2))}
             >
-              {fmtCurrency(Math.max(v, Math.ceil(total / v) * v), currency)}
+              {fmtCurrency(amount, currency)}
             </Button>
           ))}
         </div>
@@ -335,11 +359,7 @@ function CashPanel({
               {fmtCurrency(ok ? change : short, currency)}
             </div>
           </div>
-          {ok ? (
-            <CheckCircle2 className="size-8 text-success" />
-          ) : (
-            <AlertTriangle className="size-8 text-muted-foreground" />
-          )}
+          {ok && <CheckCircle2 className="size-8 text-success" />}
         </div>
       </div>
 

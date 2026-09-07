@@ -22,7 +22,6 @@ import {
   Calculator,
   Percent,
   Heart,
-  RotateCcw,
   ShoppingCart,
   ImageIcon,
   AlertTriangle,
@@ -254,7 +253,6 @@ export function PosPage() {
   const canCreateSale = perms.has("sales.create") || perms.isSuper;
   const canVoid = perms.has("sales.void") || perms.isSuper;
   const canDiscount = perms.has("sales.discount") || perms.isSuper;
-  const canRefund = perms.has("refunds.create") || perms.isSuper;
   const canCancelTender = perms.has("payment.cancel") || perms.isSuper;
   const canOpenItem =
     perms.isSuper || perms.isManager || perms.has("products.create") || perms.has("products.quick_add");
@@ -1356,8 +1354,8 @@ export function PosPage() {
       <div className="min-h-0 flex-1 flex flex-col md:flex-row overflow-hidden">
         <section className="flex-1 md:basis-[76%] flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
           <div className="p-3 flex flex-col gap-2">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
+            <div className="flex min-w-0 items-stretch gap-2">
+              <div className="relative min-w-0 flex-1">
                 <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   ref={searchRef}
@@ -1373,25 +1371,60 @@ export function PosPage() {
                       }
                     }
                   }}
-                  placeholder={`${t("pos.search_placeholder")} (⌘K)`}
-                  className="h-12 pl-10 pr-14 bg-card text-sm"
+                  inputMode="search"
+                  enterKeyHint="search"
+                  autoComplete="off"
+                  placeholder={t("pos.search_placeholder")}
+                  className={cn(
+                    "h-11 bg-card pl-10 text-sm",
+                    showMobileCamera ? "pr-11" : "pr-3",
+                  )}
                 />
-                <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 border rounded text-[10px] font-mono text-muted-foreground">
-                  ⌘K
-                </kbd>
+                {showMobileCamera && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setScannerOpen(true)}
+                    className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2"
+                    title="Scan product barcode with camera"
+                    aria-label="Scan product barcode"
+                  >
+                    <Camera className="size-4" />
+                  </Button>
+                )}
               </div>
-              {showMobileCamera && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setScannerOpen(true)}
-                  className="h-12 w-12 shrink-0"
-                  title="Scan product barcode with camera"
-                  aria-label="Scan product barcode"
-                >
-                  <Camera className="size-5" />
-                </Button>
-              )}
+
+              <Button
+                variant="outline"
+                className="h-11 shrink-0 px-4 text-xs"
+                onClick={() => setCustomOpen(true)}
+                disabled={!canOpenItem}
+                title={canOpenItem ? "Add a custom item" : "Owner or manager approval required"}
+              >
+                <Plus className="mr-2 size-4" />
+                Open item
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-11 shrink-0 px-3 text-xs"
+                onClick={() => setDiscountOpen(true)}
+                disabled={!canDiscount}
+                title={canDiscount ? undefined : "Discount permission required"}
+              >
+                <Percent className="mr-1.5 size-4" />
+                {discount ? "Edit discount" : "Discount"}
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-11 shrink-0 px-3 text-xs"
+                onClick={() => setLoyaltyOpen(true)}
+              >
+                <Heart className="mr-1.5 size-4" />
+                {loyalty ? "Loyalty ✓" : "Loyalty"}
+              </Button>
             </div>
 
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
@@ -1427,45 +1460,6 @@ export function PosPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-4 gap-2">
-              <Button
-                variant="outline"
-                className="h-9 text-xs"
-                onClick={() => setCustomOpen(true)}
-                disabled={!canOpenItem}
-                title={canOpenItem ? "Add a custom item" : "Owner or manager approval required"}
-              >
-                <Plus className="size-4 mr-2" />
-                Open item
-              </Button>
-              <Button
-                variant="outline"
-                className="h-9 text-xs"
-                onClick={() => setDiscountOpen(true)}
-                disabled={!canDiscount}
-                title={canDiscount ? undefined : "Discount permission required"}
-              >
-                <Percent className="size-4 mr-2" />
-                {discount ? "Edit discount" : "Discount"}
-              </Button>
-              <Button
-                variant="outline"
-                className="h-9 text-xs"
-                onClick={() => setLoyaltyOpen(true)}
-              >
-                <Heart className="size-4 mr-2" />
-                {loyalty ? "Loyalty ✓" : "Loyalty"}
-              </Button>
-              <Button
-                variant="outline"
-                className="h-9 text-xs"
-                title={canRefund ? "Open refund workflow" : "Manager approval will be required"}
-                onClick={() => navigate({ to: "/refunds" })}
-              >
-                <RotateCcw className="size-4 mr-2" />
-                Refund
-              </Button>
-            </div>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto p-3 pt-0 pb-[calc(10rem+env(safe-area-inset-bottom))] md:pb-4 overscroll-contain">

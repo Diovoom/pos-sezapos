@@ -413,7 +413,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             <FooterColumn
               title="Company"
               links={[
-                { to: "/about", label: "About" },
+                { to: "/about", label: "About Us" },
                 { to: "/contact", label: "Contact" },
                 { to: "/status", label: "System status" },
               ]}

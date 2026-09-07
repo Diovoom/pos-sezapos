@@ -68,9 +68,12 @@ import { isOnlineNow } from "@/lib/offline/useOnline";
 import { PosManagerDashboardDialog } from "@/components/pos/PosManagerDashboardDialog";
 import { usbPrinterReady } from "@/lib/hardware/escpos-usb";
 import {
+  listNativeCustomerDisplays,
   nativeCustomerDisplayStatus,
   startNativeCustomerDisplay,
+  updateNativeCustomerDisplay,
 } from "@/lib/hardware/customer-display-native";
+import { emptyCustomerDisplayPayload } from "@/lib/pos/customer-display-sync";
 
 const POS_NAV: ReadonlyArray<{ to: string; labelKey: string; icon: typeof ScanBarcode }> = [];
 
@@ -271,11 +274,57 @@ export function PosShell({ children }: { children: ReactNode }) {
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [isNativeShell, storeId, me?.user?.id, me?.profile?.full_name, openShift.data?.id]);
 
-  // Do not auto-start a previously selected customer display during employee
-  // sign-in. Some Android-x86/PrimeOS builds re-route or replace the primary
-  // surface as soon as a secondary Presentation is created, which can leave
-  // the cashier screen solid blue immediately after PIN login. The display is
-  // now started only from the manager hardware screen after explicit testing.
+  useEffect(() => {
+    if (!isNativeShell || !storeId || !storeName) return;
+    let cancelled = false;
+    let retryTimer: number | undefined;
+    let attempts = 0;
+
+    const ensureCustomerDisplay = async () => {
+      if (cancelled) return;
+      if (localStorage.getItem("pos.customerDisplay.autoStart") === "0") return;
+
+      attempts += 1;
+      const status = await nativeCustomerDisplayStatus().catch(() => ({ running: false, displayId: -1 }));
+      let displayId = status.displayId;
+
+      if (!status.running) {
+        const listed = await listNativeCustomerDisplays().catch(() => ({ displays: [], activeDisplayId: -1 }));
+        if (cancelled) return;
+        const savedId = Number(localStorage.getItem("pos.hardware.customerDisplayId") ?? "-1");
+        const chosen = listed.displays.find((display) => display.displayId === savedId) ?? listed.displays[0];
+
+        if (!chosen) {
+          if (attempts < 8) retryTimer = window.setTimeout(() => void ensureCustomerDisplay(), 1000);
+          return;
+        }
+
+        const started = await startNativeCustomerDisplay(chosen.displayId, storeId, storeName).catch(() => null);
+        if (!started || cancelled) return;
+        displayId = started.displayId;
+        localStorage.setItem("pos.hardware.customerDisplayId", String(displayId));
+        localStorage.setItem("pos.hw.display.status", "connected");
+        localStorage.setItem("pos.hw.display.lastSeen", String(Date.now()));
+      }
+
+      const idle = {
+        ...emptyCustomerDisplayPayload(storeId),
+        storeName,
+        updatedAt: new Date().toISOString(),
+      };
+      await updateNativeCustomerDisplay(idle).catch(() => undefined);
+      if (!cancelled) setDisplayRunning(true);
+    };
+
+    const handleConfigChanged = () => void ensureCustomerDisplay();
+    void ensureCustomerDisplay();
+    window.addEventListener("seza:device-config-changed", handleConfigChanged);
+    return () => {
+      cancelled = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
+      window.removeEventListener("seza:device-config-changed", handleConfigChanged);
+    };
+  }, [isNativeShell, storeId, storeName]);
 
   useEffect(() => {
     if (!isNativeShell) return;
