@@ -83,13 +83,20 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
         {isLoading ? (
           <div className="text-sm text-muted-foreground">Loading permissions…</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div>
+            <div className="mb-2 text-xs text-muted-foreground md:hidden">
+              Swipe left or right to view every role.
+            </div>
+            <div
+              className="-mx-4 overflow-x-scroll overscroll-x-contain px-4 touch-pan-x md:mx-0 md:px-0"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
+            <table className="min-w-[820px] w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left p-2">Permission</th>
+                  <th className="sticky left-0 z-20 min-w-[260px] bg-background text-left p-2">Permission</th>
                   {ROLES.map((r) => (
-                    <th key={r} className="p-2 text-center capitalize">
+                    <th key={r} className="min-w-[120px] whitespace-nowrap p-2 text-center capitalize">
                       {r}
                     </th>
                   ))}
@@ -108,7 +115,7 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
                     </tr>
                     {ALL_PERMISSIONS.filter((p) => p.group === group).map((p) => (
                       <tr key={p.key} className="border-b last:border-b-0">
-                        <td className="p-2">
+                        <td className="sticky left-0 z-10 min-w-[260px] bg-background p-2">
                           <div>{p.label}</div>
                           <div className="text-xs text-muted-foreground font-mono">{p.key}</div>
                         </td>
@@ -135,6 +142,7 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </CardContent>

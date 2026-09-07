@@ -249,7 +249,7 @@ function CashDrawerPanel() {
     setBusy(true);
     try {
       const r = await runTestDrawer();
-      if (r.ok) toast.success("Drawer pulse sent");
+      if (r.ok) toast.success("Cash drawer opened");
       else if (r.reason === "no_driver") toast.error("Select a printer driver first");
       else if (r.reason === "not_ready") toast.error("Printer not connected — pair a printer to open the drawer.");
       else if (r.reason === "not_native") toast.error("Available only in the SEZA POS app.");
@@ -260,7 +260,7 @@ function CashDrawerPanel() {
   return (
     <Card>
       <CardHeader><CardTitle className="flex items-center gap-2"><DollarSign className="h-4 w-4" />Cash Drawer</CardTitle>
-        <CardDescription>Cash drawers open via the connected receipt printer's kick-out signal (RJ-11).</CardDescription></CardHeader>
+        <CardDescription>Use the connected receipt printer to open the cash drawer.</CardDescription></CardHeader>
       <CardContent className="space-y-4">
         <div className="rounded-md border p-3 text-sm">
           <div className="flex items-center justify-between">
@@ -277,11 +277,11 @@ function CashDrawerPanel() {
           <Switch checked={enabled} onCheckedChange={setEnabled} />
         </div>
         <div className="flex items-center justify-between">
-          <div><Label>Open on cash sale</Label><p className="text-sm text-muted-foreground">Pulse the drawer when a cash payment completes.</p></div>
+          <div><Label>Open on cash sale</Label><p className="text-sm text-muted-foreground">Open the drawer when a cash payment completes.</p></div>
           <Switch checked={kickOnCash} onCheckedChange={setKickOnCash} disabled={!enabled} />
         </div>
         <div className="flex items-center justify-between">
-          <div><Label>Open on cash refund</Label><p className="text-sm text-muted-foreground">Pulse the drawer when a cash refund is issued.</p></div>
+          <div><Label>Open on cash refund</Label><p className="text-sm text-muted-foreground">Open the drawer when a cash refund is issued.</p></div>
           <Switch checked={kickOnRefund} onCheckedChange={setKickOnRefund} disabled={!enabled} />
         </div>
         <div className="space-y-2">
@@ -351,7 +351,7 @@ function TerminalPanel() {
     } finally { setSuggesting(false); }
   };
   const discover = async () => {
-    if (!pluginOk) return toast.error("Stripe Terminal plugin is not linked in this build.");
+    if (!pluginOk) return toast.error("Card reader service is unavailable. Contact SEZA Support.");
     setDiscovering(true); setReaders(null);
     try {
       const list = await stripeTerminal.discoverReaders(activeId);
@@ -373,7 +373,7 @@ function TerminalPanel() {
       if (r.ok) {
         setConnected(activeId);
         window.localStorage.setItem(LS.terminalConnected, new Date().toISOString());
-        toast.success(`Terminal reachable (ref ${r.ref.slice(0, 12)}…). Void this test charge in the Stripe dashboard.`);
+        toast.success("Card reader connection verified.");
       } else {
         setLastError(r.error); window.localStorage.setItem(LS.terminalLastError, r.error);
         toast.error(r.error);
@@ -414,8 +414,8 @@ function TerminalPanel() {
         </div>
 
         <div className="rounded-md border p-3 text-sm">
-          <div className="flex items-center justify-between"><span className="text-muted-foreground">Plugin available</span>
-            <span>{pluginOk === null ? "Checking…" : pluginOk ? <Badge variant="secondary">Yes</Badge> : <Badge variant="outline">Not linked</Badge>}</span></div>
+          <div className="flex items-center justify-between"><span className="text-muted-foreground">Reader service</span>
+            <span>{pluginOk === null ? "Checking…" : pluginOk ? <Badge variant="secondary">Yes</Badge> : <Badge variant="outline">Unavailable</Badge>}</span></div>
           <div className="flex items-center justify-between"><span className="text-muted-foreground">Capability</span><span className="font-medium">{capacityLabel}</span></div>
           <div className="flex items-center justify-between"><span className="text-muted-foreground">Connection</span>
             <span>{connected === activeId && activeId !== "none" ? <Badge variant="secondary">Connected</Badge> : <Badge variant="outline">Not connected</Badge>}</span></div>
@@ -425,7 +425,7 @@ function TerminalPanel() {
         {activeId !== "none" && !pluginOk && (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
             <AlertTriangle className="mr-1 inline h-4 w-4" />
-            The Stripe Terminal Capacitor plugin is not linked in this Android build. Reader discovery and payment are unavailable until the plugin is installed and the app is rebuilt.
+            Card reader service is unavailable on this register. Contact SEZA Support.
           </div>
         )}
 
@@ -445,14 +445,14 @@ function TerminalPanel() {
           <ul className="divide-y rounded border">
             {readers.map((r) => (
               <li key={r.id} className="flex items-center justify-between gap-2 p-2">
-                <div className="text-sm">{r.label}<div className="text-xs text-muted-foreground">{r.id}</div></div>
+                <div className="text-sm">{r.label}</div>
                 <Button size="sm" onClick={() => { setConnecting(r.id); toast.info("Selected. Run a Test connection to confirm."); setConnecting(null); }} disabled={!!connecting}>Select</Button>
               </li>
             ))}
           </ul>
         )}
         <p className="text-xs text-muted-foreground">
-          Card-present charges create a Stripe PaymentIntent on our server. We never simulate a successful reader connection — a failed test above is a real failure to report.
+          Use Test connection after selecting a reader to confirm it is ready for checkout.
         </p>
       </CardContent>
     </Card>
@@ -679,7 +679,7 @@ function HardwareStatusPanel() {
     setBusy("drawer");
     try {
       const r = await runTestDrawer();
-      r.ok ? toast.success("Drawer pulse sent") : toast.error(r.reason === "not_ready" ? "Drawer/printer not connected" : (r.error ?? "Drawer error"));
+      r.ok ? toast.success("Cash drawer opened") : toast.error(r.reason === "not_ready" ? "Drawer/printer not connected" : (r.error ?? "Drawer error"));
     } finally { setBusy(null); refresh(); }
   };
   const copyDiag = async () => {
@@ -757,14 +757,14 @@ function HardwareStatusPanel() {
             <Scan className="mr-2 h-4 w-4" />Configure scanner
           </Button>
           <Button variant="outline" onClick={copyDiag} disabled={copyingDiag}>
-            {copyingDiag ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LifeBuoy className="mr-2 h-4 w-4" />}Copy diagnostics
+            {copyingDiag ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LifeBuoy className="mr-2 h-4 w-4" />}Share device info
           </Button>
           <Button variant="outline" onClick={() => { window.history.pushState({}, "", "/support"); window.dispatchEvent(new PopStateEvent("popstate")); }}>
             <LifeBuoy className="mr-2 h-4 w-4" />Open Support
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Hardware failure never blocks a completed sale. Copy diagnostics into a Support ticket if the printer, drawer, scanner, or terminal is misbehaving.
+          Hardware failure never blocks a completed sale. Share device info into a Support ticket if the printer, drawer, scanner, or terminal is misbehaving.
         </p>
       </CardContent>
     </Card>

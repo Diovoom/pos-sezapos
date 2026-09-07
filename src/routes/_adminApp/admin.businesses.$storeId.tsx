@@ -116,7 +116,12 @@ function useReasonDialog() {
 function BusinessWorkspace() {
   const { storeId } = Route.useParams();
   const qc = useQueryClient();
-  const env = getStripeEnvironment();
+  let env: "sandbox" | "live" = "live";
+  try {
+    env = getStripeEnvironment();
+  } catch {
+    // The support workspace must not depend on a browser Stripe key being present.
+  }
   const { ask, dialog } = useReasonDialog();
   const getWorkspace = useServerFn(adminGetPrivateBusinessWorkspace);
   const query = useQuery({
@@ -285,14 +290,14 @@ function BusinessWorkspace() {
           <Button
             onClick={() =>
               audited(
-                "Request Support View",
-                "The merchant must approve before screen sharing or detailed troubleshooting begins.",
+                "Request screen share",
+                "The register will receive an Allow / Decline prompt. Nothing is shared until the merchant approves Android screen capture.",
                 (reason) => startSupport({ data: { storeId, reason } }),
-                "Support request sent",
+                "Screen-share request sent",
               )
             }
           >
-            <Eye className="mr-2 h-4 w-4" /> Request Support View
+            <Eye className="mr-2 h-4 w-4" /> Request screen share
           </Button>
         </div>
       </div>

@@ -142,7 +142,9 @@ async function postSupportTicket(payload: Record<string, unknown>) {
     data = null;
   }
   if (!response.ok) {
-    throw new Error(data?.error || userSafeNetworkMessage());
+    const raw = typeof data?.error === "string" ? data.error : "";
+    const technical = /duplicate key|unique constraint|violates|postgres|supabase|pgrst|relation|column|sqlstate|uuid|permission denied|syntax error/i.test(raw);
+    throw new Error(technical ? "SEZA Support could not complete that request. Please try again." : (raw || userSafeNetworkMessage()));
   }
   return data as { ok: true; id?: string; ticketNumber?: number | null; reopened?: boolean };
 }
@@ -218,10 +220,14 @@ function SupportScreenInner() {
     !!selectedId,
   );
 
-  return selectedId ? (
-    <TicketDetail id={selectedId} onBack={() => setSelectedId(null)} />
-  ) : (
-    <TicketList onOpen={(id) => setSelectedId(id)} />
+  return (
+    <div className="min-h-full w-full">
+      {selectedId ? (
+        <TicketDetail id={selectedId} onBack={() => setSelectedId(null)} />
+      ) : (
+        <TicketList onOpen={(id) => setSelectedId(id)} />
+      )}
+    </div>
   );
 }
 
@@ -323,7 +329,8 @@ function TicketList({ onOpen }: { onOpen: (id: string) => void }) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-4 pb-24">
+    <div className="min-h-full w-full">
+      <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-4 pb-28">
       <PageHeader title="Support" subtitle="Contact SEZA Support and follow up on your tickets." />
 
       <div className="flex items-center gap-2">
@@ -371,6 +378,7 @@ function TicketList({ onOpen }: { onOpen: (id: string) => void }) {
           <TicketGroup title="Closed" tickets={closedTickets} readMap={readMap} onOpen={onOpen} muted />
         </>
       )}
+      </div>
     </div>
   );
 }
@@ -452,6 +460,13 @@ function CreateTicketForm({
   const [priority, setPriority] = useState(initial.priority);
   const [body, setBody] = useState(initial.body);
   const [includeDiag, setIncludeDiag] = useState(initial.includeDiag);
+  useEffect(() => {
+    try {
+      localStorage.removeItem("seza.support.screenShareIntent");
+    } catch {
+      // Storage is optional; support remains available.
+    }
+  }, []);
   const [submitting, setSubmitting] = useState(false);
   const submittedRef = useRef(false);
 
@@ -515,18 +530,12 @@ function CreateTicketForm({
       submittedRef.current = true;
       try {
         localStorage.removeItem(DRAFT_KEY);
-        const screenShareIntent = localStorage.getItem("seza.support.screenShareIntent") === "1";
-        if (screenShareIntent) {
-          localStorage.removeItem("seza.support.screenShareIntent");
-          toast.message("Screen-share request sent", {
-            description: "A SEZA Admin can now request secure screen access. You will approve Android permission before sharing starts.",
-          });
-        }
+        localStorage.removeItem("seza.support.screenShareIntent");
       } catch { /* noop */ }
-      toast.success(`Ticket #${ticket.ticketNumber ?? ""} created`);
+      toast.success(`Support request #${ticket.ticketNumber ?? ""} sent`);
       onCreated(ticket.id);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to submit ticket";
+      const msg = e instanceof Error ? e.message : "Support request could not be sent.";
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -534,8 +543,8 @@ function CreateTicketForm({
   }
 
   return (
-    <div className="h-full min-h-0 overflow-hidden flex flex-col">
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+    <div className="min-h-full w-full">
+      <div>
         {/* Extra mobile bottom space prevents the fixed action row from
             covering diagnostics or the final text field. */}
         <div className="max-w-2xl mx-auto w-full p-4 md:p-6 space-y-4 pb-28 md:pb-6">
@@ -545,7 +554,10 @@ function CreateTicketForm({
           <ArrowLeft className="size-4 mr-1" /> Back
         </Button>
       </div>
-      <PageHeader title="New support ticket" subtitle="Tell us what's happening. We'll reply here." />
+      <PageHeader
+        title="New support request"
+        subtitle="Tell us what's happening. We'll reply here."
+      />
 
       {!online && (
         <Alert>
@@ -614,12 +626,12 @@ function CreateTicketForm({
             <ShieldCheck className="size-4 mt-0.5 text-muted-foreground shrink-0" />
             <div className="flex-1 space-y-1">
               <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="diag" className="text-sm">Attach device diagnostics</Label>
+                <Label htmlFor="diag" className="text-sm">Include device details</Label>
                 <Switch id="diag" checked={includeDiag} onCheckedChange={setIncludeDiag} />
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Adds app version, Android version, device model, screen size, current screen, network status,
-                and a correlation ID. Never includes PINs, tokens, or payment card data.
+                Shares basic device and connection information with SEZA Support to help resolve the issue.
+                Payment card data and employee PINs are never included.
               </p>
             </div>
           </div>
@@ -633,7 +645,7 @@ function CreateTicketForm({
           action row immediately above that nav on mobile; keep it in-flow on
           desktop. Android adjustResize moves it above the keyboard. */}
       <div
-        className="fixed md:static left-0 right-0 bottom-14 shrink-0 border-t bg-background/95 backdrop-blur z-50"
+        className="shrink-0 border-t bg-background"
       >
         <div className="max-w-2xl mx-auto w-full px-4 pt-3 pb-2 flex items-center gap-2">
           <Button variant="outline" onClick={onCancel} disabled={submitting} className="min-h-12">
@@ -745,7 +757,7 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
       qc.invalidateQueries({ queryKey: ["shell", "support", "ticket", id] });
       if (storeId) qc.invalidateQueries({ queryKey: ["shell", "support", "tickets", storeId] });
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to send"),
+    onError: () => toast.error("Message could not be sent. Please try again."),
     onSettled: () => setSending(false),
   });
 
@@ -766,7 +778,7 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
       qc.invalidateQueries({ queryKey: ["shell", "support", "ticket", id] });
       if (storeId) qc.invalidateQueries({ queryKey: ["shell", "support", "tickets", storeId] });
     },
-    onError: (e: Error) => toast.error(e.message ?? "Could not close ticket"),
+    onError: () => toast.error("Support request could not be closed. Please try again."),
   });
 
   async function onSend() {
@@ -804,7 +816,7 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
 
   return (
-    <div className="flex flex-col h-full max-w-2xl mx-auto w-full">
+    <div className="min-h-full max-w-2xl mx-auto w-full pb-24">
       <div className="p-3 md:p-4 border-b flex items-center gap-2 sticky top-0 bg-background/95 backdrop-blur z-10">
         <Button variant="ghost" size="sm" onClick={onBack} className="min-h-11" aria-label="Back to tickets">
           <ArrowLeft className="size-4" />
@@ -827,7 +839,7 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3">
+      <div className="p-3 md:p-4 space-y-3">
         {notesQ.isLoading ? (
           <div className="text-sm text-muted-foreground flex items-center gap-2">
             <Loader2 className="size-4 animate-spin" /> Loading conversation…
@@ -842,7 +854,7 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
         <div ref={scrollBottomRef} />
       </div>
 
-      <div className="border-t p-3 space-y-2 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+      <div className="border-t bg-background p-3 space-y-2 pb-6">
         {closed ? (
           <div className="text-xs text-muted-foreground text-center py-2">
             This ticket is {STATUS_LABEL[t.status]?.toLowerCase() ?? t.status}. Open a new ticket to continue.

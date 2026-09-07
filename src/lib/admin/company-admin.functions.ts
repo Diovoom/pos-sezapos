@@ -1637,8 +1637,8 @@ export const adminUpdateMyProfile = createServerFn({ method: "POST" })
     return { ok: true, full_name: fullName, phone };
   });
 
-export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
+export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { storeId: string }) => data)
   .handler(async ({ data, context }) => {
     // Privacy-first merchant account workspace. It never queries or returns
@@ -1693,7 +1693,7 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "POST" 
         supabaseAdmin
           .from("subscriptions")
           .select(
-            "id,status,environment,stripe_customer_id,stripe_subscription_id,price_id,product_id,current_period_start,current_period_end,cancel_at_period_end,canceled_at,created_at,updated_at",
+            "id,status,environment,stripe_customer_id,stripe_subscription_id,price_id,product_id,current_period_start,current_period_end,cancel_at_period_end,created_at,updated_at",
           )
           .eq("store_id", storeId)
           .order("created_at", { ascending: false }),
@@ -1760,7 +1760,7 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "POST" 
     const activeSupportSession =
       (supportSessionsResult.data ?? []).find(
         (session: any) =>
-          ["pending", "accepted"].includes(session.status) &&
+          ["pending", "active"].includes(session.status) &&
           (!session.expires_at || new Date(session.expires_at).getTime() > now),
       ) ?? null;
     const offlineDevices = devices.filter(

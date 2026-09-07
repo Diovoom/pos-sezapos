@@ -19,7 +19,6 @@ import type { EmployeeTimeClockAction } from "@/lib/employees.functions";
 import { logAudit } from "@/lib/audit-log";
 import { userFacingError } from "@/lib/user-error";
 import { testDrawer } from "@/lib/hardware/native-receipt";
-import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
 
 // Native APK shell detection  -  Clock Out on the APK routes through the
 // existing Shift Review flow when a register shift is open, and enforces
@@ -446,7 +445,7 @@ export function TimeclockPage() {
           },
         });
         toast.error(
-          `Multiple open shifts detected. A manager must resolve this from the dashboard. Ref: ${correlationId}`,
+          "Multiple open shifts were found. Ask a manager to review and close the correct shift.",
         );
         return;
       }
@@ -703,7 +702,6 @@ export function TimeclockPage() {
             })}
           </CardContent>
         </Card>
-        <ManagerSupportFooter />
       </div>
 
       {/*

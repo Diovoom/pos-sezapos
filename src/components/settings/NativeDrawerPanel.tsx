@@ -23,7 +23,7 @@ export function NativeDrawerPanel() {
           </Badge>
         </CardTitle>
         <CardDescription>
-          The drawer connects to the receipt printer. SEZA sends the ESC/POS drawer pulse through the selected printer.
+          The cash drawer opens through the connected receipt printer.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -36,7 +36,7 @@ export function NativeDrawerPanel() {
             localStorage.setItem("pos.hw.drawer.status", "connected");
             localStorage.setItem("pos.hw.drawer.lastSeen", String(Date.now()));
             window.dispatchEvent(new Event("seza-hardware-status"));
-            toast.success("Cash drawer pulse sent");
+            toast.success("Cash drawer opened");
           } catch (error) {
             toast.error(userFacingError(error, "Could not open the cash drawer"));
           } finally { setBusy(false); }

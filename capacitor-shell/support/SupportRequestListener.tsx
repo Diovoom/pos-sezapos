@@ -12,9 +12,8 @@
 //   - On Accept: request MediaProjection consent from Android FIRST, then
 //     resolve the session as `android_screen_share` and mount the live
 //     screen-share peer (`AndroidScreenShare`).
-//   - If MediaProjection consent is denied or the device is too old for the
-//     WebCodecs pipeline, gracefully fall back to accepting the session as
-//     `android_diagnostics_only` so support still gets device context.
+//   - If MediaProjection consent is denied or live sharing is unsupported,
+//     decline the request cleanly. Diagnostics are never substituted for a live screen.
 //   - Defer the prompt while a payment or shift-close is in flight
 //     (`paymentBusy` from the native activity flags) so a modal cannot
 //     interrupt a tender.
@@ -164,45 +163,61 @@ export function SupportRequestListener() {
     setBusy(true);
     const target = pending;
 
-    let clientCapability: "android_screen_share" | "android_diagnostics_only" | undefined;
-    let clientMetadata: Record<string, unknown> | null = null;
+    let clientCapability: "android_screen_share" | undefined;
 
     if (decision === "accept") {
-      // Ask for MediaProjection consent BEFORE resolving the session so a
-      // decline at the OS prompt doesn't leave us in an ambiguous state.
-      let liveOk = false;
-      if (isNativeScreenCaptureAvailable() && canPipeToMediaStream()) {
-        try {
-          const { granted } = await nativeScreenCapture.requestPermission();
-          liveOk = !!granted;
-        } catch {
-          liveOk = false;
-        }
-      }
-      clientCapability = liveOk ? "android_screen_share" : "android_diagnostics_only";
-      try {
-        const { collectDiagnostics } = await import("./diagnostics");
-        clientMetadata = await collectDiagnostics({
-          route: (typeof window !== "undefined" ? window.location.pathname : "/") ?? "/",
-          storeId: storeId ?? null,
-          employeeId: (me.data?.profile?.employee_id ?? null) as string | null,
+      if (!isNativeScreenCaptureAvailable() || !canPipeToMediaStream()) {
+        const declined = await postSupport("support-respond", {
+          sessionId: target.id,
+          decision: "decline",
         });
-      } catch { /* diagnostics best-effort */ }
-      if (!liveOk) {
-        toast.message("Live screen sharing was declined — sharing diagnostics only.");
+        setBusy(false);
+        if ("ok" in declined) {
+          setPending(null);
+          toast.error("Live screen sharing is not available on this Android system yet.");
+          void refresh();
+        } else {
+          toast.error(declined.error);
+        }
+        return;
       }
+
+      let granted = false;
+      try {
+        const permission = await nativeScreenCapture.requestPermission();
+        granted = !!permission.granted;
+      } catch {
+        granted = false;
+      }
+
+      if (!granted) {
+        const declined = await postSupport("support-respond", {
+          sessionId: target.id,
+          decision: "decline",
+        });
+        setBusy(false);
+        if ("ok" in declined) {
+          setPending(null);
+          toast.message("Screen sharing was not started.");
+          void refresh();
+        } else {
+          toast.error(declined.error);
+        }
+        return;
+      }
+
+      clientCapability = "android_screen_share";
     }
 
     const res = await postSupport("support-respond", {
       sessionId: target.id,
       decision,
       clientCapability: decision === "accept" ? clientCapability : undefined,
-      clientMetadata: decision === "accept" ? clientMetadata : undefined,
     });
     setBusy(false);
     if ("ok" in res) {
       toast[decision === "accept" ? "success" : "message"](
-        decision === "accept" ? "SEZA Support access granted" : "Support request declined",
+        decision === "accept" ? "Screen sharing approved" : "Screen-share request declined",
       );
       setPending(null);
       void refresh();
@@ -267,9 +282,9 @@ export function SupportRequestListener() {
         >
           <Eye className="h-4 w-4 text-amber-700 dark:text-amber-300 shrink-0" />
           <div className="min-w-0 flex-1">
-            <div className="font-medium truncate">SEZA Support View is active</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Read-only diagnostics · ends in {mm}:{ss}
+            <div className="font-medium truncate">Screen sharing is not active</div>
+            <div className="text-[10px] text-muted-foreground">
+              End this old support session and request screen sharing again.
             </div>
           </div>
           <button
@@ -302,7 +317,7 @@ export function SupportRequestListener() {
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm">
                 <p>
-                  A SEZA Support agent
+                  A SEZA Admin
                   {pending?.admin_email ? ` (${pending.admin_email})` : ""} is asking to watch
                   your Point-of-Sale screen live for up to 30 minutes.
                 </p>

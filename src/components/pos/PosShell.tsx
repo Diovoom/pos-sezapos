@@ -74,6 +74,7 @@ import {
   updateNativeCustomerDisplay,
 } from "@/lib/hardware/customer-display-native";
 import { emptyCustomerDisplayPayload } from "@/lib/pos/customer-display-sync";
+import { applyStoredDisplayPreferences } from "@/lib/display-preferences";
 
 const POS_NAV: ReadonlyArray<{ to: string; labelKey: string; icon: typeof ScanBarcode }> = [];
 
@@ -96,6 +97,13 @@ export function PosShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const permissions = usePermissions();
   useStoreLanguageSync();
+
+  useEffect(() => {
+    const apply = () => applyStoredDisplayPreferences();
+    apply();
+    window.addEventListener("seza:display-preferences-changed", apply);
+    return () => window.removeEventListener("seza:display-preferences-changed", apply);
+  }, []);
 
   useEffect(() => {
     const active = document.activeElement;
@@ -615,7 +623,16 @@ export function PosShell({ children }: { children: ReactNode }) {
             </DropdownMenu>
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+        <div
+          className={cn(
+            "relative min-h-0 flex-1",
+            pathname === "/pos"
+              ? "overflow-hidden"
+              : "overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]",
+          )}
+        >
+          {children}
+        </div>
       </main>
 
       {/* Mobile POS bottom nav */}

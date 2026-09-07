@@ -61,7 +61,7 @@ export function BootFailureScreen({ error }: Props) {
         <h1 style={{ margin: "14px 0 8px", fontSize: 24 }}>SEZA POS could not start</h1>
         <p style={{ margin: 0, color: "#475569", lineHeight: 1.55 }}>
           The app stopped during startup instead of opening a blank screen. Check the internet
-          connection, then try again. If it continues, send the diagnostic code to SEZA Support.
+          connection, then try again. If it continues, send the support code to SEZA Support.
         </p>
         <div
           style={{
@@ -104,7 +104,7 @@ export function BootFailureScreen({ error }: Props) {
               cursor: "pointer",
             }}
           >
-            {copied ? "Diagnostics copied" : "Copy diagnostics"}
+            {copied ? "Support info copied" : "Copy support info"}
           </button>
         </div>
       </section>

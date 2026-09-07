@@ -498,7 +498,7 @@ export function CloseShiftDialog({
                 <>
                   {step === 1 && "Review your shift activity."}
                   {step === 2 && "Count all cash currently in the drawer."}
-                  {step === 3 && "Variance is calculated by the server."}
+                  {step === 3 && "SEZA checks the drawer difference."}
                   {step === 4 && "Remove cash for the safe."}
                   {step === 5 && "Confirm and close."}
                 </>
@@ -517,9 +517,6 @@ export function CloseShiftDialog({
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       {postCloseFailed.message}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1 font-mono">
-                      Ref: {postCloseFailed.correlationId}
                     </div>
                   </div>
                 </div>

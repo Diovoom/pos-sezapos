@@ -796,7 +796,7 @@ export const adminResetPin = createServerFn({ method: "POST" })
     }
 
     const pin = data.pin && /^\d{6}$/.test(data.pin) ? data.pin : generatePin();
-    const { hashPin } = await import("./pin.server");
+    const { hashPin, verifyPin } = await import("./pin.server");
     const { isWeakPin, pinFingerprint } = await import("./pos/fingerprint.server");
     if (isWeakPin(pin))
       throw new Error("That PIN is too easy to guess. Pick a less obvious 6-digit code.");
@@ -806,12 +806,35 @@ export const adminResetPin = createServerFn({ method: "POST" })
       .eq("id", data.user_id)
       .maybeSingle();
     if (!prof?.store_id) throw new Error("Employee has no store assignment");
-    const fp = pinFingerprint(prof.store_id, pin);
-    const { data: conflict } = await admin.rpc("pos_pin_conflict_check", {
-      _store_id: prof.store_id,
-      _fingerprint: fp,
-      _exclude_user: data.user_id,
-    });
+
+    let fp: string | null = null;
+    try {
+      fp = pinFingerprint(prof.store_id, pin);
+    } catch {
+      fp = null;
+    }
+
+    let conflict = false;
+    if (fp) {
+      const { data } = await admin.rpc("pos_pin_conflict_check", {
+        _store_id: prof.store_id,
+        _fingerprint: fp,
+        _exclude_user: data.user_id,
+      });
+      conflict = !!data;
+    } else {
+      const { data: activeProfiles, error: readError } = await admin
+        .from("profiles")
+        .select("id,pin_hash")
+        .eq("store_id", prof.store_id)
+        .eq("status", "active")
+        .neq("id", data.user_id);
+      if (readError) throw new Error("Employee PINs could not be checked right now");
+      conflict = (activeProfiles ?? []).some(
+        (row: { pin_hash?: string | null }) => !!row.pin_hash && verifyPin(pin, row.pin_hash),
+      );
+    }
+
     if (conflict)
       throw new Error(
         "Another active employee at this store already uses that PIN. Pick a different one.",

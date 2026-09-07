@@ -86,27 +86,41 @@ function base64ToBytes(b64: string): Uint8Array {
 }
 
 /**
- * Feature-detect whether the WebView can:
- *   - decode H.264 with WebCodecs
- *   - and generate a MediaStreamTrack from produced frames
- *
- * Both are required to publish the native-encoded stream over WebRTC without
- * shipping a decoder in native.
+ * Feature-detect the Android WebView path used for live support sharing.
+ * We intentionally use canvas.captureStream instead of MediaStreamTrackGenerator
+ * because captureStream is available on many WebViews where TrackGenerator is not.
  */
 export function canPipeToMediaStream(): boolean {
+  if (typeof document === "undefined") return false;
+  const g = globalThis as unknown as {
+    VideoDecoder?: unknown;
+    EncodedVideoChunk?: unknown;
+  };
+  const canvas = document.createElement("canvas") as HTMLCanvasElement & {
+    captureStream?: (fps?: number) => MediaStream;
+  };
   return (
-    typeof (globalThis as unknown as { VideoDecoder?: unknown }).VideoDecoder !== "undefined" &&
-    typeof (globalThis as unknown as { MediaStreamTrackGenerator?: unknown }).MediaStreamTrackGenerator !==
-      "undefined"
+    typeof g.VideoDecoder !== "undefined" &&
+    typeof g.EncodedVideoChunk !== "undefined" &&
+    typeof canvas.captureStream === "function"
   );
 }
 
+function concatBytes(...parts: Uint8Array[]): Uint8Array {
+  const size = parts.reduce((sum, part) => sum + part.byteLength, 0);
+  const out = new Uint8Array(size);
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.byteLength;
+  }
+  return out;
+}
+
 /**
- * Build a decoded MediaStream from native H.264 frames. Uses WebCodecs
- * `VideoDecoder` → `VideoFrame` and pipes into a `MediaStreamTrackGenerator`.
- *
- * The caller feeds encoded packets via `push()` and codec init via `configure()`.
- * Stop with `close()`.
+ * Decode the native H.264 MediaProjection stream into an off-screen canvas,
+ * then publish that canvas as a normal MediaStream for WebRTC. No merchant
+ * preview is rendered and no input/control channel is created.
  */
 export function createDecodedStream(): {
   stream: MediaStream;
@@ -115,38 +129,56 @@ export function createDecodedStream(): {
   close: () => void;
 } | null {
   if (!canPipeToMediaStream()) return null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const TrackGen = (globalThis as any).MediaStreamTrackGenerator;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Decoder = (globalThis as any).VideoDecoder;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const EVC = (globalThis as any).EncodedVideoChunk;
 
-  const generator = new TrackGen({ kind: "video" });
-  const writer = generator.writable.getWriter();
-  const stream = new MediaStream([generator]);
+  const canvas = document.createElement("canvas") as HTMLCanvasElement & {
+    captureStream: (fps?: number) => MediaStream;
+  };
+  canvas.width = 720;
+  canvas.height = 1280;
+  const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true } as any);
+  if (!ctx) return null;
+  ctx.fillStyle = "#111827";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const stream = canvas.captureStream(15);
   let closed = false;
   let configured = false;
+  let configPrefix = new Uint8Array();
 
   const decoder = new Decoder({
     output: (frame: VideoFrame) => {
-      if (closed) { frame.close(); return; }
-      // Drop frames if the writer isn't ready — better than falling behind.
-      writer.write(frame).catch(() => { frame.close(); });
+      if (closed) {
+        frame.close();
+        return;
+      }
+      try {
+        const width = Number(frame.displayWidth || frame.codedWidth || canvas.width);
+        const height = Number(frame.displayHeight || frame.codedHeight || canvas.height);
+        if (width > 0 && height > 0 && (canvas.width !== width || canvas.height !== height)) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+      } finally {
+        frame.close();
+      }
     },
-    error: (e: unknown) => {
-      console.warn("[nativeScreenCapture] decoder error", e);
+    error: (error: unknown) => {
+      if (import.meta.env.DEV) console.debug("[nativeScreenCapture] decoder unavailable", error);
     },
   });
 
   function toAvcCodecString(spsB64: string): string {
     try {
       const sps = base64ToBytes(spsB64);
-      // Skip Annex-B start code if present.
       let off = 0;
       if (sps[0] === 0 && sps[1] === 0 && sps[2] === 1) off = 3;
       else if (sps[0] === 0 && sps[1] === 0 && sps[2] === 0 && sps[3] === 1) off = 4;
-      // Skip NAL header byte.
       off += 1;
       const profile = sps[off] ?? 0x42;
       const constraints = sps[off + 1] ?? 0;
@@ -162,41 +194,52 @@ export function createDecodedStream(): {
     stream,
     configure(codec) {
       if (closed) return;
+      const sps = codec.sps ? base64ToBytes(codec.sps) : new Uint8Array();
+      const pps = codec.pps ? base64ToBytes(codec.pps) : new Uint8Array();
+      configPrefix = concatBytes(sps, pps);
       const codecString = codec.sps ? toAvcCodecString(codec.sps) : "avc1.42e01f";
       try {
+        if (codec.width > 0 && codec.height > 0) {
+          canvas.width = codec.width;
+          canvas.height = codec.height;
+        }
         decoder.configure({
           codec: codecString,
           codedWidth: codec.width,
           codedHeight: codec.height,
           optimizeForLatency: true,
           hardwareAcceleration: "prefer-hardware",
-        });
+          avc: { format: "annexb" },
+        } as any);
         configured = true;
-      } catch (e) {
-        console.warn("[nativeScreenCapture] configure failed", e);
+      } catch (error) {
+        configured = false;
+        if (import.meta.env.DEV) console.debug("[nativeScreenCapture] configure unavailable", error);
       }
     },
     push(pkt) {
       if (closed || !configured) return;
       try {
-        const bytes = base64ToBytes(pkt.data);
-        const chunk = new EVC({
-          type: pkt.keyframe ? "key" : "delta",
-          timestamp: pkt.ptsUs,
-          data: bytes,
-        });
-        decoder.decode(chunk);
-      } catch (e) {
-        // A stray delta before the first keyframe is expected — swallow.
-        if (import.meta.env.DEV) console.debug("[nativeScreenCapture] decode skip", e);
+        let bytes = base64ToBytes(pkt.data);
+        if (pkt.keyframe && configPrefix.byteLength > 0) {
+          bytes = concatBytes(configPrefix, bytes);
+        }
+        decoder.decode(
+          new EVC({
+            type: pkt.keyframe ? "key" : "delta",
+            timestamp: pkt.ptsUs,
+            data: bytes,
+          }),
+        );
+      } catch (error) {
+        if (import.meta.env.DEV) console.debug("[nativeScreenCapture] frame skipped", error);
       }
     },
     close() {
       if (closed) return;
       closed = true;
       try { decoder.close(); } catch { /* noop */ }
-      try { writer.close(); } catch { /* noop */ }
-      try { generator.stop?.(); } catch { /* noop */ }
+      stream.getTracks().forEach((track) => track.stop());
     },
   };
 }

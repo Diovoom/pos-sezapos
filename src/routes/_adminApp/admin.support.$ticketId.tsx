@@ -372,7 +372,7 @@ function SupportCasePage() {
           )}
           {!isFinal && !assignedToOther && store?.id && (
             <Button variant="outline" onClick={() => void requestScreen()} disabled={busy}>
-              <MonitorUp className="mr-2 h-4 w-4" /> Request screen
+              <MonitorUp className="mr-2 h-4 w-4" /> Request screen share
             </Button>
           )}
           {!chatEnded && assignedToMe && (

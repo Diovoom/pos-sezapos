@@ -92,19 +92,16 @@ export function PendingSyncScreen() {
       subject: `Offline sale needs attention · #${s.local_seq}`,
       category: "billing",
       priority: "high",
-      description:
-        `A queued offline sale is not synchronizing.\n\n` +
-        `Local reference: #${s.local_seq}\n` +
-        `Local ID: ${s.id}\n` +
-        `Correlation ID: ${s.correlation_id ?? "—"}\n` +
+      body:
+        `An offline sale needs help synchronizing.\n\n` +
+        `Sale reference: #${s.local_seq}\n` +
         `Status: ${s.status}\n` +
         `Attempts: ${s.attempts}\n` +
         `Last attempt: ${s.last_attempt_at ?? "—"}\n` +
-        `Error: ${safeErrorLabel(s.last_error_code, s.last_error)}\n` +
         `Created: ${s.local_created_at}\n`,
-      includeDiagnostics: true,
+      includeDiag: true,
     };
-    try { localStorage.setItem("seza.support.draft", JSON.stringify(draft)); } catch { /* noop */ }
+    try { localStorage.setItem("seza.support.draft.v1", JSON.stringify(draft)); } catch { /* noop */ }
     navigate({ to: "/support" });
   };
 
@@ -147,12 +144,12 @@ export function PendingSyncScreen() {
               onClick={() => {
                 const draft = {
                   subject: "Terminal store reassignment blocked",
-                  category: "technical",
+                  category: "device",
                   priority: "urgent",
-                  description: `Previous store: ${storeConflict.previousStoreId}\nRequested store: ${storeConflict.requestedStoreId}\nPreserved records: ${storeConflict.preservedUnsyncedRecords}\nDetected: ${storeConflict.detectedAt}`,
-                  includeDiagnostics: true,
+                  body: `This register cannot switch stores because ${storeConflict.preservedUnsyncedRecords} pending record${storeConflict.preservedUnsyncedRecords === 1 ? "" : "s"} still need attention.`,
+                  includeDiag: true,
                 };
-                try { localStorage.setItem("seza.support.draft", JSON.stringify(draft)); } catch { /* noop */ }
+                try { localStorage.setItem("seza.support.draft.v1", JSON.stringify(draft)); } catch { /* noop */ }
                 navigate({ to: "/support" });
               }}
             >

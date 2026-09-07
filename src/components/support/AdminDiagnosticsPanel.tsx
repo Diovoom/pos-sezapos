@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Minimize2, Maximize2, Copy, Smartphone } from "lucide-react";
+import { X, Minimize2, Maximize2, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { adminEndSupportSession } from "@/lib/admin/admin.functions";
-import { DiagnosticsViewer } from "@/components/support/DiagnosticsViewer";
 
 type Props = {
   sessionId: string;
@@ -32,7 +31,7 @@ export function AdminDiagnosticsPanel({
   businessName,
   storeCode,
   employeeName,
-  metadata,
+  metadata: _metadata,
   onClosed,
 }: Props) {
   const [minimized, setMinimized] = useState(false);
@@ -142,22 +141,16 @@ export function AdminDiagnosticsPanel({
       {!minimized || expanded ? (
         <div
           className={cn(
-            "overflow-y-auto p-3",
+            "overflow-y-auto p-4",
             expanded ? "max-h-[calc(100vh-8rem)]" : "max-h-[60vh]",
           )}
         >
-          <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-800 dark:text-amber-200">
-            Live screen viewing wasn't granted for this Android session - the merchant accepted
-            diagnostics only. You can still help using the device context and hardware state shared
-            below.
+          <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+            <div className="font-semibold">Live screen was not shared</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              End this session and request screen access again. The merchant must approve the Android screen-sharing prompt before a live view can open.
+            </p>
           </div>
-          {metadata ? (
-            <DiagnosticsViewer diagnostics={metadata} />
-          ) : (
-            <div className="text-xs text-muted-foreground">
-              No client diagnostics were shared for this session.
-            </div>
-          )}
         </div>
       ) : null}
     </div>

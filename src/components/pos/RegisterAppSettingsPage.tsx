@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   ChevronRight,
@@ -12,6 +12,9 @@ import {
   Save,
   Settings2,
   Smartphone,
+  Sun,
+  Type,
+  RotateCcw,
   WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -21,9 +24,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
+import { deviceControl } from "@/lib/device-control";
+import { applyTextScale, readTextScale } from "@/lib/display-preferences";
+import { isNativeMode } from "@/lib/native";
 
 const keys = {
   label: "pos.device.label",
@@ -33,7 +40,7 @@ const keys = {
   customerDisplayAuto: "pos.customerDisplay.autoStart",
 } as const;
 
-type Section = "general" | "receipts" | "connections" | "sync" | "support" | "android";
+type Section = "general" | "display" | "receipts" | "connections" | "sync" | "support" | "android";
 
 const sections: Array<{
   id: Section;
@@ -41,6 +48,7 @@ const sections: Array<{
   icon: typeof Settings2;
 }> = [
   { id: "general", label: "General", icon: Settings2 },
+  { id: "display", label: "Display & accessibility", icon: Sun },
   { id: "receipts", label: "Receipts", icon: ReceiptText },
   { id: "connections", label: "Connections", icon: MonitorCog },
   { id: "sync", label: "Sync & offline", icon: WifiOff },
@@ -63,6 +71,20 @@ export function RegisterAppSettingsPage() {
   const [customerDisplayAuto, setCustomerDisplayAuto] = useState(
     () => read(keys.customerDisplayAuto, "1") !== "0",
   );
+  const native = isNativeMode();
+  const [brightness, setBrightness] = useState(0.85);
+  const [textScale, setTextScale] = useState(() => readTextScale());
+
+  useEffect(() => {
+    applyTextScale(textScale, false);
+  }, [textScale]);
+
+  useEffect(() => {
+    if (!native) return;
+    void deviceControl.getState().then((state) => {
+      if (Number.isFinite(state.brightness)) setBrightness(state.brightness);
+    }).catch(() => undefined);
+  }, [native]);
 
   const save = () => {
     localStorage.setItem(keys.label, label.trim() || "Register 1");
@@ -80,24 +102,24 @@ export function RegisterAppSettingsPage() {
     window.dispatchEvent(new Event("seza:device-config-changed"));
   };
 
-  const requestScreenShare = () => {
-    try {
-      localStorage.setItem(
-        "seza.support.draft.v1",
-        JSON.stringify({
-          subject: "Screen share request",
-          category: "device",
-          priority: "high",
-          body: "I need SEZA Support to view this register. Please start a secure screen-share session.",
-          includeDiag: true,
-        }),
-      );
-      localStorage.setItem("seza.support.openCreate", "1");
-      localStorage.setItem("seza.support.screenShareIntent", "1");
-    } catch {
-      // Support still opens if local storage is unavailable.
-    }
-    navigate({ to: "/support" as any });
+  const updateBrightness = async (value: number) => {
+    const normalized = Math.min(1, Math.max(0.2, value));
+    setBrightness(normalized);
+    if (!native) return;
+    await deviceControl.setBrightness(normalized).catch(() => {
+      toast.error("Unable to change screen brightness");
+    });
+  };
+
+  const updateTextScale = (value: number) => {
+    setTextScale(value);
+    applyTextScale(value, true);
+  };
+
+  const resetDisplay = async () => {
+    updateTextScale(1);
+    await updateBrightness(0.85);
+    toast.success("Display preferences reset");
   };
 
   return (
@@ -116,7 +138,7 @@ export function RegisterAppSettingsPage() {
 
       <div className="min-h-0 flex-1 overflow-hidden md:grid md:grid-cols-[220px_1fr]">
         <nav className="border-b bg-background md:border-b-0 md:border-r">
-          <div className="flex gap-1 overflow-x-auto p-2 md:block md:space-y-1 md:overflow-visible md:p-3">
+          <div className="flex gap-1 overflow-x-auto touch-pan-x p-2 md:block md:space-y-1 md:overflow-visible md:p-3">
             {sections.map((item) => (
               <button
                 key={item.id}
@@ -136,7 +158,7 @@ export function RegisterAppSettingsPage() {
           </div>
         </nav>
 
-        <div className="min-h-0 overflow-y-auto overscroll-contain p-4 pb-24 md:p-6 md:pb-10">
+        <div className="min-h-0 overflow-y-auto overscroll-contain touch-pan-y p-4 pb-24 md:p-6 md:pb-10">
           <div className="mx-auto max-w-4xl space-y-4">
             {section === "general" && (
               <SettingsGroup title="General" description="Basic identity and behavior for this register.">
@@ -153,6 +175,52 @@ export function RegisterAppSettingsPage() {
                   <Button onClick={save}>
                     <Save className="mr-2 size-4" />
                     Save
+                  </Button>
+                </SettingRow>
+              </SettingsGroup>
+            )}
+
+            {section === "display" && (
+              <SettingsGroup title="Display & accessibility" description="Adjust the cashier screen for the person using this register.">
+                <SettingRow title="Screen brightness" description="Changes the SEZA cashier screen brightness while the app is open.">
+                  <div className="flex w-64 items-center gap-3">
+                    <Sun className="size-4 text-muted-foreground" />
+                    <Slider
+                      value={[Math.round(brightness * 100)]}
+                      min={20}
+                      max={100}
+                      step={5}
+                      disabled={!native}
+                      onValueChange={(values) => void updateBrightness((values[0] ?? 85) / 100)}
+                    />
+                    <span className="w-12 text-right text-sm tabular-nums">{Math.round(brightness * 100)}%</span>
+                  </div>
+                </SettingRow>
+                <SettingRow title="Text size" description="Make labels, buttons, and settings easier to read across the POS.">
+                  <div className="flex w-64 items-center gap-3">
+                    <Type className="size-4 text-muted-foreground" />
+                    <Slider
+                      value={[Math.round(textScale * 100)]}
+                      min={90}
+                      max={130}
+                      step={5}
+                      onValueChange={(values) => updateTextScale((values[0] ?? 100) / 100)}
+                    />
+                    <span className="w-12 text-right text-sm tabular-nums">{Math.round(textScale * 100)}%</span>
+                  </div>
+                </SettingRow>
+                {native && (
+                  <LinkRow
+                    icon={<Sun className="size-4" />}
+                    title="More Android display options"
+                    description="Open Android display settings for system-level brightness and display controls."
+                    onClick={() => void deviceControl.openDisplaySettings()}
+                  />
+                )}
+                <SettingRow title="Reset display preferences" description="Return SEZA brightness and text size to the recommended defaults.">
+                  <Button variant="outline" onClick={() => void resetDisplay()}>
+                    <RotateCcw className="mr-2 size-4" />
+                    Reset
                   </Button>
                 </SettingRow>
               </SettingsGroup>
@@ -236,12 +304,15 @@ export function RegisterAppSettingsPage() {
                   description="Open your live support conversations and send a message to SEZA Admin."
                   onClick={() => navigate({ to: "/support" as any })}
                 />
-                <LinkRow
-                  icon={<MonitorUp className="size-4" />}
-                  title="Share screen with SEZA Admin"
-                  description="Request secure view-only screen sharing. You approve Android screen access before sharing starts."
-                  onClick={requestScreenShare}
-                />
+                <SettingRow
+                  title="Screen sharing"
+                  description="Only SEZA Admin can start a screen-share request. This register will show Allow or Decline, and nothing is shared until you approve."
+                >
+                  <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                    <MonitorUp className="size-4" />
+                    Admin requested only
+                  </div>
+                </SettingRow>
                 <SettingRow title="Call SEZA Support" description="Call support directly from this register.">
                   <Button asChild variant="outline">
                     <a href={`tel:${LEGAL_CONFIG.phone}`}>

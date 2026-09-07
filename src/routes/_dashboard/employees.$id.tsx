@@ -725,7 +725,7 @@ function EmployeeIdCard({ profile, onChanged }: { profile: Profile; onChanged: (
 function PinCard({ profile, onChanged }: { profile: Profile; onChanged: () => void }) {
   const reset = useServerFn(adminResetPin);
   const [manual, setManual] = useState("");
-  const [force, setForce] = useState(true);
+  const [force, setForce] = useState(false);
   const [issued, setIssued] = useState<string | null>(null);
 
   const generateM = useMutation({

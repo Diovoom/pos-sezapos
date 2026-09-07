@@ -112,7 +112,13 @@ export const Route = createFileRoute("/api/public/pos/support-ticket")({
             })
             .select("id,ticket_number,subject")
             .single();
-          if (ticketError) return json({ error: ticketError.message }, 400);
+          if (ticketError) {
+            console.error("[support] ticket create failed", {
+              code: ticketError.code,
+              constraint: ticketError.details,
+            });
+            return json({ error: "Support request could not be created. Please try again." }, 400);
+          }
 
           const { error: noteError } = await admin.from("support_ticket_notes").insert({
             ticket_id: ticket.id,
@@ -123,7 +129,8 @@ export const Route = createFileRoute("/api/public/pos/support-ticket")({
           });
           if (noteError) {
             await admin.from("support_tickets").delete().eq("id", ticket.id);
-            return json({ error: noteError.message }, 400);
+            console.error("[support] first message create failed", { code: noteError.code });
+            return json({ error: "Support request could not be created. Please try again." }, 400);
           }
 
           try {
@@ -175,7 +182,10 @@ export const Route = createFileRoute("/api/public/pos/support-ticket")({
           body: message,
           internal: false,
         });
-        if (noteError) return json({ error: noteError.message }, 400);
+        if (noteError) {
+          console.error("[support] reply create failed", { code: noteError.code });
+          return json({ error: "Message could not be sent. Please try again." }, 400);
+        }
 
         const patch: Record<string, unknown> = {
           status: "waiting_support",
@@ -191,7 +201,10 @@ export const Route = createFileRoute("/api/public/pos/support-ticket")({
           patch.closed_at = null;
         }
         const { error: updateError } = await admin.from("support_tickets").update(patch).eq("id", ticketId);
-        if (updateError) return json({ error: updateError.message }, 400);
+        if (updateError) {
+          console.error("[support] ticket update failed", { code: updateError.code });
+          return json({ error: "Support request could not be updated. Please try again." }, 400);
+        }
 
         return json({ ok: true, reopened: reopen });
       },

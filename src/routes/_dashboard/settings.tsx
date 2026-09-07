@@ -212,7 +212,7 @@ export function SettingsPage() {
                   .filter((s) => !s.href)
                   .map((s) => (
                     <option key={s.id} value={s.id}>
-                      {t(g.labelKey)} - {t(s.labelKey)}
+                      {t(s.labelKey)}
                     </option>
                   )),
               )}
@@ -1391,35 +1391,67 @@ function BackupPanel() {
 }
 
 function IntegrationsPanel() {
-  const rows = [
-    { name: "Stripe", desc: "Payments and terminal", status: "Not connected" },
-    { name: "Square", desc: "Payments and terminal", status: "Not connected" },
-    { name: "Clover", desc: "Payments and terminal", status: "Not connected" },
-    { name: "QuickBooks", desc: "Accounting sync", status: "Not connected" },
-    { name: "Xero", desc: "Accounting sync", status: "Not connected" },
-    { name: "Mailgun", desc: "Email receipts", status: "Not connected" },
-    { name: "Twilio", desc: "SMS receipts", status: "Not connected" },
-    { name: "Webhooks", desc: "Push events to your own URL", status: "Not connected" },
-  ];
+  const me = useMe();
+  const storeId = (me.data?.profile?.store_id ?? me.data?.store?.id) as string | undefined;
+  const { data: stripeState, isLoading } = useQuery({
+    queryKey: ["settings-stripe-integration", storeId],
+    enabled: !!storeId,
+    queryFn: async () => {
+      const { data, error } = await (supabase.from as any)("stores")
+        .select(
+          "stripe_connected_account_id,stripe_connect_status,stripe_card_payments_status,stripe_terminal_location_id",
+        )
+        .eq("id", storeId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as
+        | {
+            stripe_connected_account_id?: string | null;
+            stripe_connect_status?: string | null;
+            stripe_card_payments_status?: string | null;
+            stripe_terminal_location_id?: string | null;
+          }
+        | null;
+    },
+    staleTime: 30_000,
+  });
+
+  const accountReady = !!stripeState?.stripe_connected_account_id;
+  const paymentsReady = ["active", "enabled", "ready"].includes(
+    String(stripeState?.stripe_card_payments_status ?? "").toLowerCase(),
+  );
+  const status = isLoading
+    ? "Checking"
+    : accountReady && paymentsReady
+      ? "Connected"
+      : accountReady
+        ? "Setup incomplete"
+        : "Not connected";
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Integrations</CardTitle>
-        <CardDescription>Payment, accounting, and messaging integrations.</CardDescription>
+        <CardDescription>Payment services connected to this SEZA store.</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-3">
-          {rows.map((r) => (
-            <div key={r.name} className="rounded-md border p-3 flex items-center justify-between">
-              <div>
-                <div className="font-medium text-sm">{r.name}</div>
-                <div className="text-xs text-muted-foreground">{r.desc}</div>
-              </div>
-              <Badge variant="outline" className="text-xs">
-                {r.status}
-              </Badge>
-            </div>
-          ))}
+        <div className="rounded-md border p-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium">Stripe</div>
+            <div className="text-sm text-muted-foreground">Payments and card terminal</div>
+          </div>
+          <Badge
+            variant="outline"
+            className={
+              status === "Connected"
+                ? "border-success text-success"
+                : status === "Setup incomplete"
+                  ? "border-warning text-warning"
+                  : undefined
+            }
+          >
+            {status}
+          </Badge>
         </div>
       </CardContent>
     </Card>

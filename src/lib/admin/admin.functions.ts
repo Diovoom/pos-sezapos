@@ -1805,13 +1805,14 @@ export const adminStartSupportSession = createServerFn({ method: "POST" })
     const reason = requireReason(data.reason);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Cancel any pre-existing pending request from this admin for this store.
+    // Start from a clean state. A stale pending/active session must never block
+    // a new admin-initiated screen-share request for this register.
     await supabaseAdmin
       .from("admin_support_sessions")
       .update({ status: "ended", ended_at: new Date().toISOString() })
       .eq("admin_id", context.userId)
       .eq("store_id", data.storeId)
-      .eq("status", "pending");
+      .in("status", ["pending", "active"]);
 
     const expires = new Date(Date.now() + 30 * 60_000).toISOString();
     const { data: row, error } = await supabaseAdmin
