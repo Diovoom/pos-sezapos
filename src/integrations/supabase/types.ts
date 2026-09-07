@@ -1846,6 +1846,7 @@ export type Database = {
           created_at: string
           currency: string
           currency_symbol: string | null
+          customer_display_settings: Json
           date_format: string | null
           email: string | null
           id: string
@@ -1903,6 +1904,7 @@ export type Database = {
           created_at?: string
           currency?: string
           currency_symbol?: string | null
+          customer_display_settings?: Json
           date_format?: string | null
           email?: string | null
           id?: string
@@ -1960,6 +1962,7 @@ export type Database = {
           created_at?: string
           currency?: string
           currency_symbol?: string | null
+          customer_display_settings?: Json
           date_format?: string | null
           email?: string | null
           id?: string

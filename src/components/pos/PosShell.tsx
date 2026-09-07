@@ -75,6 +75,7 @@ import {
 } from "@/lib/hardware/customer-display-native";
 import { emptyCustomerDisplayPayload } from "@/lib/pos/customer-display-sync";
 import { applyStoredDisplayPreferences } from "@/lib/display-preferences";
+import { resolveCustomerDisplaySettings } from "@/lib/customer-display-preferences";
 
 const POS_NAV: ReadonlyArray<{ to: string; labelKey: string; icon: typeof ScanBarcode }> = [];
 
@@ -180,6 +181,23 @@ export function PosShell({ children }: { children: ReactNode }) {
 
   const isNativeShell =
     typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.();
+
+  const customerDisplayStore = useQuery({
+    queryKey: ["pos-shell", "customer-display-settings", storeId],
+    enabled: isNativeShell && !!storeId,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      if (!storeId) return null;
+      const { data, error } = await (supabase.from as any)("stores")
+        .select("id,name,logo_url,customer_display_settings")
+        .eq("id", storeId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+  });
 
   const doSignOut = async () => {
     await qc.cancelQueries();
@@ -292,6 +310,20 @@ export function PosShell({ children }: { children: ReactNode }) {
       if (cancelled) return;
       if (localStorage.getItem("pos.customerDisplay.autoStart") === "0") return;
 
+      const displayStore = customerDisplayStore.data ?? me?.store ?? null;
+      const effectiveStoreName = (displayStore?.name as string | undefined) ?? storeName;
+      const prefs = resolveCustomerDisplaySettings(displayStore?.customer_display_settings);
+      const idle = {
+        ...emptyCustomerDisplayPayload(storeId),
+        storeName: effectiveStoreName,
+        logoUrl: displayStore?.logo_url ?? null,
+        idleMode: prefs.idleMode,
+        idleMessage: prefs.welcomeMessage,
+        idleImageUrl: prefs.imageUrl,
+        idleTextScale: prefs.textScale,
+        updatedAt: new Date().toISOString(),
+      };
+
       attempts += 1;
       const status = await nativeCustomerDisplayStatus().catch(() => ({ running: false, displayId: -1 }));
       let displayId = status.displayId;
@@ -307,7 +339,12 @@ export function PosShell({ children }: { children: ReactNode }) {
           return;
         }
 
-        const started = await startNativeCustomerDisplay(chosen.displayId, storeId, storeName).catch(() => null);
+        const started = await startNativeCustomerDisplay(
+          chosen.displayId,
+          storeId,
+          effectiveStoreName,
+          idle,
+        ).catch(() => null);
         if (!started || cancelled) return;
         displayId = started.displayId;
         localStorage.setItem("pos.hardware.customerDisplayId", String(displayId));
@@ -315,11 +352,6 @@ export function PosShell({ children }: { children: ReactNode }) {
         localStorage.setItem("pos.hw.display.lastSeen", String(Date.now()));
       }
 
-      const idle = {
-        ...emptyCustomerDisplayPayload(storeId),
-        storeName,
-        updatedAt: new Date().toISOString(),
-      };
       await updateNativeCustomerDisplay(idle).catch(() => undefined);
       if (!cancelled) setDisplayRunning(true);
     };
@@ -332,7 +364,13 @@ export function PosShell({ children }: { children: ReactNode }) {
       if (retryTimer) window.clearTimeout(retryTimer);
       window.removeEventListener("seza:device-config-changed", handleConfigChanged);
     };
-  }, [isNativeShell, storeId, storeName]);
+  }, [
+    isNativeShell,
+    storeId,
+    storeName,
+    customerDisplayStore.data,
+    me?.store,
+  ]);
 
   useEffect(() => {
     if (!isNativeShell) return;

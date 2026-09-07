@@ -81,6 +81,7 @@ import { isNativeMode } from "@/lib/native";
 import { PasskeyPanel } from "@/components/settings/PasskeyPanel";
 import { AndroidDevicePanel } from "@/components/settings/AndroidDevicePanel";
 import { NativeUsbPrinterPanel } from "@/components/settings/NativeUsbPrinterPanel";
+import { CustomerDisplayPanel } from "@/components/settings/CustomerDisplayPanel";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   head: () => ({
@@ -114,6 +115,7 @@ const GROUPS: Group[] = [
     items: [
       { id: "general", labelKey: "settings.store_info", icon: Building2 },
       { id: "branding", labelKey: "settings.branding", icon: Palette },
+      { id: "display", labelKey: "Customer display", icon: Monitor },
       { id: "receipt", labelKey: "settings.receipts", icon: ReceiptIcon },
       { id: "inventory", labelKey: "settings.inventory", icon: Package },
       { id: "age", labelKey: "settings.age", icon: ShieldAlert },
@@ -1283,52 +1285,6 @@ function CameraPanel() {
   );
 }
 
-function CustomerDisplayPanel() {
-  const { data: store } = useQuery({
-    queryKey: ["store"],
-    queryFn: async () => (await supabase.from("stores").select("id").limit(1).maybeSingle()).data,
-  });
-
-  const openCustomerDisplay = () => {
-    const url = new URL("/customer-display", window.location.origin);
-    if (store?.id) url.searchParams.set("store", store.id);
-    window.open(url.toString(), "customer-display", "width=800,height=600");
-  };
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Customer display</CardTitle>
-          <CardDescription>
-            Second-screen or tablet display for customers to see the cart, tax, and total.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button onClick={openCustomerDisplay}>Open customer display window</Button>
-          <p className="text-xs text-muted-foreground">
-            Move the window to the customer-facing screen, then use fullscreen for the best view.
-          </p>
-        </CardContent>
-      </Card>
-      <PrefPanel
-        prefKey="display"
-        title="Display preferences"
-        desc="What to show on the customer display."
-        fields={[
-          { k: "show_items", label: "Show items", type: "switch", default: "true" },
-          { k: "show_tax", label: "Show tax breakdown", type: "switch", default: "true" },
-          {
-            k: "show_thank_you",
-            label: "Show 'Thank you' screen after sale",
-            type: "switch",
-            default: "true",
-          },
-        ]}
-      />
-    </div>
-  );
-}
 
 /* ================= Backup / Integrations / Appearance / About ================= */
 

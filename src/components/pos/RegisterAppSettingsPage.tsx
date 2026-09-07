@@ -31,6 +31,12 @@ import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
 import { deviceControl } from "@/lib/device-control";
 import { applyTextScale, readTextScale } from "@/lib/display-preferences";
 import { isNativeMode } from "@/lib/native";
+import { useMe } from "@/hooks/useMe";
+import {
+  CUSTOMER_DISPLAY_LOCAL_KEYS,
+  clearLocalCustomerDisplayOverrides,
+  normalizeCustomerDisplaySettings,
+} from "@/lib/customer-display-preferences";
 
 const keys = {
   label: "pos.device.label",
@@ -40,7 +46,7 @@ const keys = {
   customerDisplayAuto: "pos.customerDisplay.autoStart",
 } as const;
 
-type Section = "general" | "display" | "receipts" | "connections" | "sync" | "support" | "android";
+type Section = "general" | "display" | "customer" | "receipts" | "connections" | "sync" | "support" | "android";
 
 const sections: Array<{
   id: Section;
@@ -49,6 +55,7 @@ const sections: Array<{
 }> = [
   { id: "general", label: "General", icon: Settings2 },
   { id: "display", label: "Display & accessibility", icon: Sun },
+  { id: "customer", label: "Customer display", icon: MonitorCog },
   { id: "receipts", label: "Receipts", icon: ReceiptText },
   { id: "connections", label: "Connections", icon: MonitorCog },
   { id: "sync", label: "Sync & offline", icon: WifiOff },
@@ -63,6 +70,7 @@ function read(key: string, fallback: string) {
 
 export function RegisterAppSettingsPage() {
   const navigate = useNavigate();
+  const me = useMe();
   const [section, setSection] = useState<Section>("general");
   const [label, setLabel] = useState(() => read(keys.label, "Register 1"));
   const [paper, setPaper] = useState(() => read(keys.paper, "80"));
@@ -71,6 +79,20 @@ export function RegisterAppSettingsPage() {
   const [customerDisplayAuto, setCustomerDisplayAuto] = useState(
     () => read(keys.customerDisplayAuto, "1") !== "0",
   );
+  const [useOwnerCustomerDisplay, setUseOwnerCustomerDisplay] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return !Object.values(CUSTOMER_DISPLAY_LOCAL_KEYS).some((key) => localStorage.getItem(key) != null);
+  });
+  const [customerIdleMode, setCustomerIdleMode] = useState<"message" | "image">(
+    () => read(CUSTOMER_DISPLAY_LOCAL_KEYS.idleMode, "message") === "image" ? "image" : "message",
+  );
+  const [customerMessage, setCustomerMessage] = useState(() =>
+    read(CUSTOMER_DISPLAY_LOCAL_KEYS.welcomeMessage, "Welcome"),
+  );
+  const [customerTextScale, setCustomerTextScale] = useState(() => {
+    const parsed = Number(read(CUSTOMER_DISPLAY_LOCAL_KEYS.textScale, "1"));
+    return Number.isFinite(parsed) ? Math.min(1.8, Math.max(0.8, parsed)) : 1;
+  });
   const native = isNativeMode();
   const [brightness, setBrightness] = useState(0.85);
   const [textScale, setTextScale] = useState(() => readTextScale());
@@ -85,6 +107,30 @@ export function RegisterAppSettingsPage() {
       if (Number.isFinite(state.brightness)) setBrightness(state.brightness);
     }).catch(() => undefined);
   }, [native]);
+
+  useEffect(() => {
+    if (!useOwnerCustomerDisplay) return;
+    const owner = normalizeCustomerDisplaySettings((me.data?.store as any)?.customer_display_settings);
+    setCustomerIdleMode(owner.idleMode);
+    setCustomerMessage(owner.welcomeMessage);
+    setCustomerTextScale(owner.textScale);
+  }, [me.data?.store, useOwnerCustomerDisplay]);
+
+  const saveCustomerDisplay = () => {
+    if (typeof window === "undefined") return;
+    if (useOwnerCustomerDisplay) {
+      clearLocalCustomerDisplayOverrides();
+    } else {
+      localStorage.setItem(CUSTOMER_DISPLAY_LOCAL_KEYS.idleMode, customerIdleMode);
+      localStorage.setItem(
+        CUSTOMER_DISPLAY_LOCAL_KEYS.welcomeMessage,
+        customerMessage.trim().slice(0, 48) || "Welcome",
+      );
+      localStorage.setItem(CUSTOMER_DISPLAY_LOCAL_KEYS.textScale, String(customerTextScale));
+    }
+    window.dispatchEvent(new Event("seza:device-config-changed"));
+    toast.success(useOwnerCustomerDisplay ? "Using owner customer-display settings" : "Customer display updated");
+  };
 
   const save = () => {
     localStorage.setItem(keys.label, label.trim() || "Register 1");
@@ -226,6 +272,88 @@ export function RegisterAppSettingsPage() {
               </SettingsGroup>
             )}
 
+            {section === "customer" && (
+              <SettingsGroup
+                title="Customer display"
+                description="Control the idle screen customers see before a sale starts."
+              >
+                <SettingRow
+                  title="Auto-connect"
+                  description="Open the customer-facing screen automatically when SEZA detects the second display."
+                >
+                  <Switch checked={customerDisplayAuto} onCheckedChange={updateCustomerDisplayAuto} />
+                </SettingRow>
+                <SettingRow
+                  title="Use owner dashboard defaults"
+                  description="Follow the store-wide message, store photo, and text size configured by the owner."
+                >
+                  <Switch checked={useOwnerCustomerDisplay} onCheckedChange={setUseOwnerCustomerDisplay} />
+                </SettingRow>
+                <SettingRow
+                  title="Idle screen"
+                  description="Choose what this register shows when there is no active cart."
+                >
+                  <Select
+                    value={customerIdleMode}
+                    onValueChange={(value) => setCustomerIdleMode(value === "image" ? "image" : "message")}
+                    disabled={useOwnerCustomerDisplay}
+                  >
+                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="message">Message</SelectItem>
+                      <SelectItem value="image">Store photo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </SettingRow>
+                <SettingRow
+                  title="Welcome message"
+                  description="For example: Welcome to EV's Shop. Up to 48 characters."
+                >
+                  <Input
+                    className="w-64"
+                    value={customerMessage}
+                    onChange={(event) => setCustomerMessage(event.target.value.slice(0, 48))}
+                    disabled={useOwnerCustomerDisplay}
+                    placeholder="Welcome"
+                    maxLength={48}
+                  />
+                </SettingRow>
+                <SettingRow
+                  title="Welcome text size"
+                  description="Adjust only the large idle message on the customer display."
+                >
+                  <div className="flex w-64 items-center gap-3">
+                    <Type className="size-4 text-muted-foreground" />
+                    <Slider
+                      value={[Math.round(customerTextScale * 100)]}
+                      min={80}
+                      max={180}
+                      step={10}
+                      disabled={useOwnerCustomerDisplay}
+                      onValueChange={(values) =>
+                        setCustomerTextScale(Math.min(1.8, Math.max(0.8, (values[0] ?? 100) / 100)))
+                      }
+                    />
+                    <span className="w-12 text-right text-sm tabular-nums">
+                      {Math.round(customerTextScale * 100)}%
+                    </span>
+                  </div>
+                </SettingRow>
+                <SettingRow
+                  title="Store photo"
+                  description="Upload or change the store photo from Owner Dashboard → Settings → Customer display."
+                >
+                  <span className="text-xs font-semibold text-muted-foreground">Owner controlled</span>
+                </SettingRow>
+                <SettingRow title="Apply customer display" description="Refresh the secondary screen with these settings.">
+                  <Button onClick={saveCustomerDisplay}>
+                    <Save className="mr-2 size-4" />
+                    Apply
+                  </Button>
+                </SettingRow>
+              </SettingsGroup>
+            )}
+
             {section === "receipts" && (
               <SettingsGroup title="Receipts" description="Printing behavior after a completed sale.">
                 <SettingRow title="Auto-print after sale" description="Print the receipt immediately after checkout.">
@@ -264,12 +392,6 @@ export function RegisterAppSettingsPage() {
 
             {section === "connections" && (
               <SettingsGroup title="Connections" description="Hardware and payment connections used by this register.">
-                <SettingRow
-                  title="Customer display auto-connect"
-                  description="Automatically open the customer-facing screen when SEZA detects the second display."
-                >
-                  <Switch checked={customerDisplayAuto} onCheckedChange={updateCustomerDisplayAuto} />
-                </SettingRow>
                 <LinkRow
                   icon={<MonitorCog className="size-4" />}
                   title="Peripheral hardware"

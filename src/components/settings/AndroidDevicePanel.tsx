@@ -24,6 +24,7 @@ const initialState: DeviceControlState = {
   immersive: false,
   inLockTask: false,
   deviceOwner: false,
+  brightness: 0.85,
 };
 
 export function AndroidDevicePanel() {
@@ -65,9 +66,13 @@ export function AndroidDevicePanel() {
       }
 
       setState((current) => ({ ...current, [key]: enabled }));
-      toast.success("Setting updated");
+      toast.success("Android terminal setting updated");
     } catch (error) {
-      toast.error("This setting could not be updated. Please try again.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to update terminal setting",
+      );
     } finally {
       setBusy(false);
     }
@@ -81,7 +86,11 @@ export function AndroidDevicePanel() {
       await refresh();
       toast.success("Kiosk mode started");
     } catch (error) {
-      toast.error("Kiosk mode could not be started.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to start kiosk mode",
+      );
     } finally {
       setBusy(false);
     }
@@ -95,7 +104,11 @@ export function AndroidDevicePanel() {
       await refresh();
       toast.success("Kiosk mode stopped");
     } catch (error) {
-      toast.error("Kiosk mode could not be stopped.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to stop kiosk mode",
+      );
     } finally {
       setBusy(false);
     }
@@ -107,7 +120,9 @@ export function AndroidDevicePanel() {
     try {
       await deviceControl.relaunch();
     } catch (error) {
-      toast.error("SEZA could not restart. Please try again.");
+      toast.error(
+        error instanceof Error ? error.message : "Unable to restart SEZA",
+      );
       setBusy(false);
     }
   };
@@ -122,7 +137,8 @@ export function AndroidDevicePanel() {
           Android terminal mode
         </CardTitle>
         <CardDescription>
-          Control how SEZA behaves on this Android register.
+          Controls for a dedicated SEZA POS machine. Full kiosk lockdown
+          requires the hardware to provision SEZA as a device-owner app.
         </CardDescription>
       </CardHeader>
 
@@ -153,7 +169,10 @@ export function AndroidDevicePanel() {
           <div className="text-muted-foreground">
             {state.inLockTask
               ? "Kiosk mode is active."
-              : "Kiosk mode is not active."}
+              : "Kiosk mode is not active."}{" "}
+            {state.deviceOwner
+              ? "This terminal is provisioned as device owner."
+              : "Screen pinning may ask for Android confirmation until device-owner provisioning is completed."}
           </div>
         </div>
 
@@ -183,7 +202,8 @@ export function AndroidDevicePanel() {
 
         <p className="flex items-start gap-2 text-xs text-muted-foreground">
           <Power className="mt-0.5 size-3.5 shrink-0" />
-          Some Android devices may wait until the screen is unlocked before opening SEZA after a restart.
+          Android can delay boot launching until the user unlocks the device.
+          Test this on the exact terminal model.
         </p>
       </CardContent>
     </Card>

@@ -7,6 +7,7 @@ export type DeviceControlState = {
   immersive: boolean;
   inLockTask: boolean;
   deviceOwner: boolean;
+  brightness: number;
 };
 
 type DeviceControlPlugin = {
@@ -14,6 +15,8 @@ type DeviceControlPlugin = {
   setLaunchOnBoot(options: { enabled: boolean }): Promise<void>;
   setKeepAwake(options: { enabled: boolean }): Promise<void>;
   setImmersive(options: { enabled: boolean }): Promise<void>;
+  setBrightness(options: { value: number }): Promise<void>;
+  openDisplaySettings(): Promise<void>;
   startKiosk(): Promise<void>;
   stopKiosk(): Promise<void>;
   relaunch(): Promise<void>;
@@ -28,6 +31,8 @@ export const deviceControl = {
   setLaunchOnBoot: (enabled: boolean) => NativeDeviceControl.setLaunchOnBoot({ enabled }),
   setKeepAwake: (enabled: boolean) => NativeDeviceControl.setKeepAwake({ enabled }),
   setImmersive: (enabled: boolean) => NativeDeviceControl.setImmersive({ enabled }),
+  setBrightness: (value: number) => NativeDeviceControl.setBrightness({ value }),
+  openDisplaySettings: () => NativeDeviceControl.openDisplaySettings(),
   startKiosk: () => NativeDeviceControl.startKiosk(),
   stopKiosk: () => NativeDeviceControl.stopKiosk(),
   relaunch: () => NativeDeviceControl.relaunch(),

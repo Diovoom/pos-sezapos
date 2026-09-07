@@ -237,9 +237,22 @@ export function CustomerDisplayPage() {
           </div>
         ) : sale.lines.length === 0 ? (
           <div className="h-full min-h-[320px] grid place-items-center text-center">
-            <div>
-              <p className="text-5xl md:text-7xl font-black tracking-tight">Welcome</p>
-            </div>
+            {sale.idleMode === "image" && sale.idleImageUrl ? (
+              <img
+                src={sale.idleImageUrl}
+                alt=""
+                className="max-h-[48vh] max-w-[46vw] rounded-3xl object-contain shadow-2xl"
+              />
+            ) : (
+              <p
+                className="max-w-[92vw] font-black leading-[1.05] tracking-tight break-words"
+                style={{
+                  fontSize: `${Math.round(64 * Math.min(1.8, Math.max(0.8, Number(sale.idleTextScale ?? 1))))}px`,
+                }}
+              >
+                {sale.idleMessage?.trim() || "Welcome"}
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-3">

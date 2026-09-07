@@ -14,6 +14,10 @@ export type CustomerDisplayPayload = {
   storeId: string | null;
   storeName: string;
   logoUrl?: string | null;
+  idleMode?: "message" | "image";
+  idleMessage?: string | null;
+  idleImageUrl?: string | null;
+  idleTextScale?: number | null;
   currency: string;
   phase: "idle" | "sale" | "processing" | "complete" | "declined" | "cancelled";
   statusMessage?: string | null;
@@ -39,6 +43,10 @@ export function emptyCustomerDisplayPayload(storeId: string | null = null): Cust
     version: 2,
     storeId,
     storeName: "SEZA POS",
+    idleMode: "message",
+    idleMessage: "Welcome",
+    idleImageUrl: null,
+    idleTextScale: 1,
     currency: "USD",
     phase: "idle",
     lines: [],

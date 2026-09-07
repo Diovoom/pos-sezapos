@@ -10,7 +10,7 @@ export type NativeDisplayInfo = {
 
 type CustomerDisplayPlugin = {
   listDisplays(): Promise<{ displays: NativeDisplayInfo[]; activeDisplayId: number }>;
-  start(options: { displayId: number; storeId: string; storeName?: string }): Promise<{ started: boolean; displayId: number }>;
+  start(options: { displayId: number; storeId: string; storeName?: string; idlePayload?: string }): Promise<{ started: boolean; displayId: number }>;
   update(options: { payload: string }): Promise<void>;
   stop(): Promise<void>;
   status(): Promise<{ running: boolean; displayId: number }>;
@@ -22,8 +22,18 @@ export async function listNativeCustomerDisplays() {
   return NativeCustomerDisplay.listDisplays();
 }
 
-export async function startNativeCustomerDisplay(displayId: number, storeId: string, storeName?: string) {
-  return NativeCustomerDisplay.start({ displayId, storeId, storeName });
+export async function startNativeCustomerDisplay(
+  displayId: number,
+  storeId: string,
+  storeName?: string,
+  idlePayload?: unknown,
+) {
+  return NativeCustomerDisplay.start({
+    displayId,
+    storeId,
+    storeName,
+    idlePayload: idlePayload ? JSON.stringify(idlePayload) : undefined,
+  });
 }
 
 export async function updateNativeCustomerDisplay(payload: unknown) {

@@ -22,6 +22,7 @@ import {
   Calculator,
   Percent,
   Heart,
+  RotateCcw,
   ShoppingCart,
   ImageIcon,
   AlertTriangle,
@@ -66,7 +67,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { logAudit } from "@/lib/audit-log";
-import { useOnline, isOnlineNow, isNetworkConnectedNow } from "@/lib/offline/useOnline";
+import { useOnline, isOnlineNow } from "@/lib/offline/useOnline";
 import {
   cacheProducts,
   adjustCachedProductStock,
@@ -94,6 +95,7 @@ import {
   publishCustomerDisplay,
   type CustomerDisplayPayload,
 } from "@/lib/pos/customer-display-sync";
+import { resolveCustomerDisplaySettings } from "@/lib/customer-display-preferences";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
@@ -253,6 +255,7 @@ export function PosPage() {
   const canCreateSale = perms.has("sales.create") || perms.isSuper;
   const canVoid = perms.has("sales.void") || perms.isSuper;
   const canDiscount = perms.has("sales.discount") || perms.isSuper;
+  const canRefund = perms.has("refunds.create") || perms.isSuper;
   const canCancelTender = perms.has("payment.cancel") || perms.isSuper;
   const canOpenItem =
     perms.isSuper || perms.isManager || perms.has("products.create") || perms.has("products.quick_add");
@@ -329,7 +332,7 @@ export function PosPage() {
       if (!activeStoreId) return null;
       const key = `store:${activeStoreId}`;
       const cached = await readMeta<any>(key).catch(() => undefined);
-      if (isNativeMode() || !isOnlineNow()) return cached ?? me.data?.store ?? null;
+      if (!isOnlineNow()) return cached ?? me.data?.store ?? null;
       try {
         const { data, error } = await supabase
           .from("stores")
@@ -378,7 +381,7 @@ export function PosPage() {
       if (!activeUserId) return null;
       const key = `profile:${activeUserId}`;
       const cached = await readMeta<any>(key).catch(() => undefined);
-      if (isNativeMode() || !isOnlineNow()) return cached ?? me.data?.profile ?? null;
+      if (!isOnlineNow()) return cached ?? me.data?.profile ?? null;
       try {
         const { data, error } = await supabase
           .from("profiles")
@@ -416,7 +419,7 @@ export function PosPage() {
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["categories", store?.id ?? "unassigned"],
     queryFn: async () => {
-      if (isNativeMode() || !isOnlineNow()) return (await readMeta<Category[]>(`categories:${store?.id ?? "unassigned"}`)) ?? [];
+      if (!isOnlineNow()) return (await readMeta<Category[]>(`categories:${store?.id ?? "unassigned"}`)) ?? [];
       try {
         const { data, error } = await supabase
           .from("categories")
@@ -438,19 +441,6 @@ export function PosPage() {
     refetchInterval: false,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      if (isNativeMode()) {
-        let cached = await loadCachedProducts();
-        if (cached.length === 0 && isNetworkConnectedNow()) {
-          try {
-            const { refreshDeviceBootstrap } = await import("../../../capacitor-shell/lib/deviceBootstrap");
-            await refreshDeviceBootstrap(true);
-            cached = await loadCachedProducts();
-          } catch {
-            // Keep using the local catalog if bootstrap refresh is unavailable.
-          }
-        }
-        return cached.filter((product) => product.status !== "inactive") as unknown as Product[];
-      }
       if (!isOnlineNow()) {
         const cached = await loadCachedProducts();
         return cached.filter((product) => product.status !== "inactive") as unknown as Product[];
@@ -516,6 +506,7 @@ export function PosPage() {
       if (hit.category_id) setActiveCategory(hit.category_id);
       addToCart(hit);
       setSearch("");
+      window.setTimeout(() => searchRef.current?.focus(), 0);
       return true;
     }
     if (quickAddAllowed) {
@@ -527,6 +518,8 @@ export function PosPage() {
   };
 
   useEffect(() => {
+    window.setTimeout(() => searchRef.current?.focus(), 50);
+
     const onKey = (e: KeyboardEvent) => {
       // Government-ID verification owns the scanner while its dialog is open.
       // Never route PDF417 ID data into product lookup.
@@ -718,11 +711,10 @@ export function PosPage() {
     const customerReceiptNumber = createLocalReceiptNumber(seq, deviceId, createdAt);
     let registerSessionId: string | null = null;
     try {
-      const scoped = await readMeta<{ id: string } | null>(`open_register_session:${uid}`);
-      const legacy = scoped ? null : await readMeta<{ id: string } | null>("open_register_session");
-      registerSessionId = scoped?.id ?? legacy?.id ?? null;
+      const rs = await readMeta<{ id: string } | null>("open_register_session");
+      registerSessionId = rs?.id ?? null;
     } catch {
-      // Missing cached register-session metadata is valid for offline recovery.
+      // A cached register session is optional for offline cash checkout.
     }
     await saveOfflineSale({
       id: localId,
@@ -943,12 +935,17 @@ export function PosPage() {
       };
       setReceipt(rd);
       setReceiptOpen(true);
+      const customerDisplayPrefs = resolveCustomerDisplaySettings(store?.customer_display_settings);
       const completedDisplay: CustomerDisplayPayload = {
         type: "seza-pos-display",
         version: 2,
         storeId: store?.id ?? null,
         storeName: store?.name ?? "Store",
         logoUrl: store?.logo_url ?? null,
+        idleMode: customerDisplayPrefs.idleMode,
+        idleMessage: customerDisplayPrefs.welcomeMessage,
+        idleImageUrl: customerDisplayPrefs.imageUrl,
+        idleTextScale: customerDisplayPrefs.textScale,
         currency,
         phase: "complete",
         lines: rd.lines.map((line, index) => ({
@@ -1075,12 +1072,17 @@ export function PosPage() {
     const activeStatus = finalize.isPending
       ? { phase: "processing" as const, message: "Please wait while payment is confirmed." }
       : displayStatus;
+    const customerDisplayPrefs = resolveCustomerDisplaySettings(store?.customer_display_settings);
     const payload: CustomerDisplayPayload = {
       type: "seza-pos-display",
       version: 2,
       storeId: store?.id ?? null,
       storeName: store?.name ?? "Store",
       logoUrl: store?.logo_url ?? null,
+      idleMode: customerDisplayPrefs.idleMode,
+      idleMessage: customerDisplayPrefs.welcomeMessage,
+      idleImageUrl: customerDisplayPrefs.imageUrl,
+      idleTextScale: customerDisplayPrefs.textScale,
       currency,
       phase: activeStatus?.phase ?? (cart.length ? "sale" : "idle"),
       statusMessage: activeStatus?.message ?? null,
@@ -1109,6 +1111,7 @@ export function PosPage() {
     store?.id,
     store?.name,
     store?.logo_url,
+    store?.customer_display_settings,
     displayCompletion,
     displayStatus,
     finalize.isPending,
@@ -1354,8 +1357,8 @@ export function PosPage() {
       <div className="min-h-0 flex-1 flex flex-col md:flex-row overflow-hidden">
         <section className="flex-1 md:basis-[76%] flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
           <div className="p-3 flex flex-col gap-2">
-            <div className="flex min-w-0 items-stretch gap-2">
-              <div className="relative min-w-0 flex-1">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
                 <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   ref={searchRef}
@@ -1371,60 +1374,25 @@ export function PosPage() {
                       }
                     }
                   }}
-                  inputMode="search"
-                  enterKeyHint="search"
-                  autoComplete="off"
-                  placeholder={t("pos.search_placeholder")}
-                  className={cn(
-                    "h-11 bg-card pl-10 text-sm",
-                    showMobileCamera ? "pr-11" : "pr-3",
-                  )}
+                  placeholder={`${t("pos.search_placeholder")} (⌘K)`}
+                  className="h-12 pl-10 pr-14 bg-card text-sm"
                 />
-                {showMobileCamera && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setScannerOpen(true)}
-                    className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2"
-                    title="Scan product barcode with camera"
-                    aria-label="Scan product barcode"
-                  >
-                    <Camera className="size-4" />
-                  </Button>
-                )}
+                <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 border rounded text-[10px] font-mono text-muted-foreground">
+                  ⌘K
+                </kbd>
               </div>
-
-              <Button
-                variant="outline"
-                className="h-11 shrink-0 px-4 text-xs"
-                onClick={() => setCustomOpen(true)}
-                disabled={!canOpenItem}
-                title={canOpenItem ? "Add a custom item" : "Owner or manager approval required"}
-              >
-                <Plus className="mr-2 size-4" />
-                Open item
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-11 shrink-0 px-3 text-xs"
-                onClick={() => setDiscountOpen(true)}
-                disabled={!canDiscount}
-                title={canDiscount ? undefined : "Discount permission required"}
-              >
-                <Percent className="mr-1.5 size-4" />
-                {discount ? "Edit discount" : "Discount"}
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-11 shrink-0 px-3 text-xs"
-                onClick={() => setLoyaltyOpen(true)}
-              >
-                <Heart className="mr-1.5 size-4" />
-                {loyalty ? "Loyalty ✓" : "Loyalty"}
-              </Button>
+              {showMobileCamera && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setScannerOpen(true)}
+                  className="h-12 w-12 shrink-0"
+                  title="Scan product barcode with camera"
+                  aria-label="Scan product barcode"
+                >
+                  <Camera className="size-5" />
+                </Button>
+              )}
             </div>
 
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
@@ -1460,6 +1428,45 @@ export function PosPage() {
               ))}
             </div>
 
+            <div className="grid grid-cols-4 gap-2">
+              <Button
+                variant="outline"
+                className="h-9 text-xs"
+                onClick={() => setCustomOpen(true)}
+                disabled={!canOpenItem}
+                title={canOpenItem ? "Add a custom item" : "Owner or manager approval required"}
+              >
+                <Plus className="size-4 mr-2" />
+                Open item
+              </Button>
+              <Button
+                variant="outline"
+                className="h-9 text-xs"
+                onClick={() => setDiscountOpen(true)}
+                disabled={!canDiscount}
+                title={canDiscount ? undefined : "Discount permission required"}
+              >
+                <Percent className="size-4 mr-2" />
+                {discount ? "Edit discount" : "Discount"}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-9 text-xs"
+                onClick={() => setLoyaltyOpen(true)}
+              >
+                <Heart className="size-4 mr-2" />
+                {loyalty ? "Loyalty ✓" : "Loyalty"}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-9 text-xs"
+                title={canRefund ? "Open refund workflow" : "Manager approval will be required"}
+                onClick={() => navigate({ to: "/refunds" })}
+              >
+                <RotateCcw className="size-4 mr-2" />
+                Refund
+              </Button>
+            </div>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto p-3 pt-0 pb-[calc(10rem+env(safe-area-inset-bottom))] md:pb-4 overscroll-contain">
@@ -1638,6 +1645,7 @@ export function PosPage() {
               value={voidReason}
               onChange={(e) => setVoidReason(e.target.value)}
               placeholder="e.g. customer changed mind, wrong scan"
+              autoFocus
             />
           </div>
           <DialogFooter>

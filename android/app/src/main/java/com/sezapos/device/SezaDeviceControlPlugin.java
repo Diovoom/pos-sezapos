@@ -5,6 +5,7 @@ import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.provider.Settings;
 import android.view.View;
 import android.view.WindowManager;
 
@@ -20,6 +21,7 @@ public class SezaDeviceControlPlugin extends Plugin {
     public static final String BOOT = "launch_on_boot";
     public static final String AWAKE = "keep_awake";
     public static final String IMMERSIVE = "immersive";
+    public static final String BRIGHTNESS = "brightness";
 
     private SharedPreferences prefs() {
         return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -32,6 +34,11 @@ public class SezaDeviceControlPlugin extends Plugin {
         } else {
             activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
+        float brightness = prefs.getFloat(BRIGHTNESS, 0.85f);
+        WindowManager.LayoutParams layoutParams = activity.getWindow().getAttributes();
+        layoutParams.screenBrightness = Math.max(0.2f, Math.min(1.0f, brightness));
+        activity.getWindow().setAttributes(layoutParams);
+
         if (prefs.getBoolean(IMMERSIVE, true)) applyImmersive(activity);
     }
 
@@ -55,6 +62,7 @@ public class SezaDeviceControlPlugin extends Plugin {
         result.put("immersive", prefs().getBoolean(IMMERSIVE, true));
         result.put("inLockTask", getActivity() != null && getActivity().isInMultiWindowMode() == false && isLockTaskActive());
         result.put("deviceOwner", isDeviceOwner());
+        result.put("brightness", prefs().getFloat(BRIGHTNESS, 0.85f));
         call.resolve(result);
     }
 
@@ -82,6 +90,32 @@ public class SezaDeviceControlPlugin extends Plugin {
             else getActivity().getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
         });
         call.resolve();
+    }
+
+    @PluginMethod
+    public void setBrightness(PluginCall call) {
+        Double requested = call.getDouble("value", 0.85);
+        float value = requested == null ? 0.85f : requested.floatValue();
+        value = Math.max(0.2f, Math.min(1.0f, value));
+        prefs().edit().putFloat(BRIGHTNESS, value).apply();
+        final float brightness = value;
+        getActivity().runOnUiThread(() -> {
+            WindowManager.LayoutParams layoutParams = getActivity().getWindow().getAttributes();
+            layoutParams.screenBrightness = brightness;
+            getActivity().getWindow().setAttributes(layoutParams);
+        });
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void openDisplaySettings(PluginCall call) {
+        try {
+            android.content.Intent intent = new android.content.Intent(Settings.ACTION_DISPLAY_SETTINGS);
+            getActivity().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Unable to open Android display settings", e);
+        }
     }
 
     @PluginMethod
