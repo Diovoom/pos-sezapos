@@ -1,24 +1,24 @@
 {
-  "version": "1.3.3",
-  "build": 9,
-  "minimumSupportedVersion": "1.0.0",
-  "mandatory": false,
-  "updateUrl": "https://sezapos.com/support",
-  "releaseNotes": [
-    "Reworked Android customer display into a dedicated secondary-display activity so the cashier touchscreen remains on the primary display",
-    "Hardened printed receipts to remove processor/reference lines and show cashier as first name plus last initial",
-    "Improved customer-display persistence and refresh behavior on display reconnects",
-    "Added layered login, signup, API, admin, messaging, and database write rate limits",
-    "Added optional Turnstile verification and server-side owner/admin role checks",
-    "Reduced repeated dashboard polling and hardened request size, origin, and secret-key checks",
-    "Removed duplicate patch trees, stale backups, caches, and raw admin login-attempt records",
-    "Prevent ZXing barcode modules from loading during SSR so marketing, owner, and admin routes start reliably",
-    "Atomic and idempotent POS sale finalization",
-    "Immediate offline cash checkout with durable retry states",
-    "Protection against losing unsynced records during store reassignment",
-    "Encrypted Android device pairing secrets and disabled app-data backup",
-    "Persistent offline product image cache and safer product-grid spacing",
-    "Support lifecycle, audit logging, and maintenance consistency fixes",
-    "Whole-sentence language fallback without corrupting product or brand text"
-  ]
+    "version":  "1.3.3",
+    "build":  10,
+    "minimumSupportedVersion":  "1.0.0",
+    "mandatory":  false,
+    "updateUrl":  "https://sezapos.com/support",
+    "releaseNotes":  [
+                         "Reworked Android customer display into a dedicated secondary-display activity so the cashier touchscreen remains on the primary display",
+                         "Hardened printed receipts to remove processor/reference lines and show cashier as first name plus last initial",
+                         "Improved customer-display persistence and refresh behavior on display reconnects",
+                         "Added layered login, signup, API, admin, messaging, and database write rate limits",
+                         "Added optional Turnstile verification and server-side owner/admin role checks",
+                         "Reduced repeated dashboard polling and hardened request size, origin, and secret-key checks",
+                         "Removed duplicate patch trees, stale backups, caches, and raw admin login-attempt records",
+                         "Prevent ZXing barcode modules from loading during SSR so marketing, owner, and admin routes start reliably",
+                         "Atomic and idempotent POS sale finalization",
+                         "Immediate offline cash checkout with durable retry states",
+                         "Protection against losing unsynced records during store reassignment",
+                         "Encrypted Android device pairing secrets and disabled app-data backup",
+                         "Persistent offline product image cache and safer product-grid spacing",
+                         "Support lifecycle, audit logging, and maintenance consistency fixes",
+                         "Whole-sentence language fallback without corrupting product or brand text"
+                     ]
 }
