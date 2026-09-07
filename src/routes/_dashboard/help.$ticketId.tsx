@@ -11,6 +11,8 @@ import { ArrowLeft, Send, Loader2, MessageSquare, CheckCircle2 } from "lucide-re
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
+import { useServerFn } from "@tanstack/react-start";
+import { merchantReplySupportCase } from "@/lib/support.functions";
 
 export const Route = createFileRoute("/_dashboard/help/$ticketId")({
   head: () => ({
@@ -25,6 +27,7 @@ export const Route = createFileRoute("/_dashboard/help/$ticketId")({
 function MerchantSupportChat() {
   const { ticketId } = Route.useParams();
   const qc = useQueryClient();
+  const replyCase = useServerFn(merchantReplySupportCase);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -42,7 +45,7 @@ function MerchantSupportChat() {
             .eq("id", ticketId)
             .maybeSingle(),
           (supabase.from as any)("support_ticket_notes")
-            .select("id,ticket_id,author_id,author_email,body,internal,sender_kind,created_at")
+            .select("id,ticket_id,author_id,author_email,body,internal,created_at")
             .eq("ticket_id", ticketId)
             .eq("internal", false)
             .order("created_at", { ascending: true }),
@@ -101,21 +104,11 @@ function MerchantSupportChat() {
 
   async function sendMessage() {
     if (!message.trim() || !query.data) return;
-    if (query.data.ticket.status === "closed") {
-      toast.error("This case is closed. Open a new ticket for a new problem.");
-      return;
-    }
     setBusy(true);
     try {
-      const { error } = await supabase.from("support_ticket_notes").insert({
-        ticket_id: ticketId,
-        author_id: query.data.currentUserId,
-        author_email: query.data.currentUserEmail,
-        body: message.trim(),
-        internal: false,
-      });
-      if (error) throw error;
+      const result = await replyCase({ data: { ticketId, body: message.trim() } });
       setMessage("");
+      if (result.reopened) toast.success("Support case reopened and message sent");
       refresh();
     } catch (error) {
       toast.error(
@@ -199,7 +192,10 @@ function MerchantSupportChat() {
           ) : (
             messages.map((item: any) => {
               const mine = item.author_id === currentUserId;
-              const fromSeza = item.sender_kind === "admin";
+              const authorEmail = String(item.author_email ?? "").toLowerCase();
+              const fromSeza =
+                !mine &&
+                (item.author_id === ticket.assigned_admin_id || authorEmail.endsWith("@sezapos.com"));
               const label = mine
                 ? "You"
                 : fromSeza
@@ -222,35 +218,28 @@ function MerchantSupportChat() {
             })
           )}
 
-          {closed ? (
-            <div className="rounded-lg bg-muted p-4 text-sm">
-              This case is closed. Open a new ticket if you need help with a different or recurring
-              problem.
-            </div>
-          ) : (
-            <div className="space-y-2 border-t pt-4">
-              {ended && (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-                  SEZA ended the previous live session. Sending a new message will reactivate the
-                  conversation.
-                </div>
+          <div className="space-y-2 border-t pt-4">
+            {(ended || closed || ticket.status === "resolved") && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+                This case was finished. If the problem is still happening, send a reply and SEZA
+                will reopen the same case automatically.
+              </div>
+            )}
+            <Textarea
+              rows={4}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Reply to SEZA Support…"
+            />
+            <Button className="w-full sm:w-auto" onClick={sendMessage} disabled={busy || !message.trim()}>
+              {busy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
               )}
-              <Textarea
-                rows={4}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Reply to SEZA Support…"
-              />
-              <Button className="w-full sm:w-auto" onClick={sendMessage} disabled={busy || !message.trim()}>
-                {busy ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="mr-2 h-4 w-4" />
-                )}
-                Send message
-              </Button>
-            </div>
-          )}
+              {ended || closed || ticket.status === "resolved" ? "Reopen case and send" : "Send message"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

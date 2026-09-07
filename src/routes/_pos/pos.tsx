@@ -447,7 +447,9 @@ export function PosPage() {
             const { refreshDeviceBootstrap } = await import("../../../capacitor-shell/lib/deviceBootstrap");
             await refreshDeviceBootstrap(true);
             cached = await loadCachedProducts();
-          } catch {}
+          } catch {
+            // Keep using the local catalog if bootstrap refresh is unavailable.
+          }
         }
         return cached.filter((product) => product.status !== "inactive") as unknown as Product[];
       }
@@ -721,7 +723,9 @@ export function PosPage() {
       const scoped = await readMeta<{ id: string } | null>(`open_register_session:${uid}`);
       const legacy = scoped ? null : await readMeta<{ id: string } | null>("open_register_session");
       registerSessionId = scoped?.id ?? legacy?.id ?? null;
-    } catch {}
+    } catch {
+      // Missing cached register-session metadata is valid for offline recovery.
+    }
     await saveOfflineSale({
       id: localId,
       idempotency_key: localId,

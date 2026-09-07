@@ -229,7 +229,9 @@ export function PosShell({ children }: { children: ReactNode }) {
         sessionStorage.setItem("seza.openManagerDashboard", "1");
         setManagerDashboard(true);
       }
-    } catch {}
+    } catch {
+      // sessionStorage is best-effort navigation state only.
+    }
 
     navigate({ to: "/pos" as any });
   };
@@ -646,7 +648,11 @@ export function PosShell({ children }: { children: ReactNode }) {
         onOpenChange={(value) => {
           setManagerDashboard(value);
           if (!value && pathname === "/pos") {
-            try { sessionStorage.removeItem("seza.openManagerDashboard"); } catch {}
+            try {
+              sessionStorage.removeItem("seza.openManagerDashboard");
+            } catch {
+              // sessionStorage cleanup is best effort only.
+            }
           }
         }}
         storeId={storeId ?? ""}

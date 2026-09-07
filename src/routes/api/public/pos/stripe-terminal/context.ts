@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -33,7 +34,9 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/context")(
         let body: any = {};
         try {
           body = await request.json();
-        } catch {}
+        } catch {
+          // An empty or non-JSON body is allowed; authorization headers can still identify the caller.
+        }
         const auth = request.headers.get("authorization") ?? "";
         const bearerToken = auth.startsWith("Bearer ") ? auth.slice(7) : "";
 
@@ -62,7 +65,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/context")(
             terminals,
           });
         } catch (error) {
-          return json({ error: error instanceof Error ? error.message : "Stripe setup unavailable" }, 401);
+          return json({ error: userFacingError(error, "Payment setup is temporarily unavailable.") }, 401);
         }
       },
     },

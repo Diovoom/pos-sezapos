@@ -140,7 +140,11 @@ export function TimeclockPage() {
       deleteMeta("timeclock_open").catch(() => {}),
       deleteMeta("open_register_session").catch(() => {}),
     ]);
-    try { localStorage.setItem("seza.forcePinLogin", "1"); } catch {}
+    try {
+      localStorage.setItem("seza.forcePinLogin", "1");
+    } catch {
+      // localStorage may be unavailable; auth cleanup must still continue.
+    }
     qc.clear();
     await supabase.auth.signOut({ scope: "local" } as any).catch(() => supabase.auth.signOut());
     navigate({ to: "/auth", search: { mode: "pin" } as any, replace: true });
@@ -499,7 +503,9 @@ export function TimeclockPage() {
       try {
         await clockOut.mutateAsync();
         await returnToPin();
-      } catch {}
+      } catch {
+        // Clock-out errors are handled by the mutation/UI; remain on this screen.
+      }
       return;
     }
     clockOut.mutate();

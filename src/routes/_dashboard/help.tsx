@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +38,8 @@ import {
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { marketingUrl } from "@/lib/host";
 import { userFacingError } from "@/lib/errors/user-facing";
+import { useServerFn } from "@tanstack/react-start";
+import { createMerchantSupportCase } from "@/lib/support.functions";
 
 export const Route = createFileRoute("/_dashboard/help")({
   head: () => ({
@@ -62,6 +64,8 @@ type SupportCategory = "account" | "billing" | "inventory" | "register" | "payme
 
 export function HelpPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate({ from: "/help" });
+  const createCase = useServerFn(createMerchantSupportCase);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState<SupportCategory>("other");
@@ -82,51 +86,27 @@ export function HelpPage() {
   });
 
   const create = useMutation({
-    mutationFn: async () => {
-      const { data: session } = await supabase.auth.getUser();
-      if (!session.user) throw new Error("Your session has expired. Sign in again to continue.");
-
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("store_id")
-        .eq("id", session.user.id)
-        .maybeSingle();
-      if (profileError) throw profileError;
-      if (!profile?.store_id) throw new Error("Your store could not be found. Contact SEZA Support.");
-
-      const { error, data: ticket } = await (supabase.from as any)("support_tickets")
-        .insert({
-          store_id: profile.store_id,
-          requester_id: session.user.id,
-          requester_email: session.user.email ?? null,
+    mutationFn: async () =>
+      createCase({
+        data: {
           subject: subject.trim(),
+          body: message.trim(),
           category,
           priority,
-          status: "open",
-          chat_status: "waiting",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-
-      if (message.trim()) {
-        const { error: noteError } = await supabase.from("support_ticket_notes").insert({
-          ticket_id: ticket.id,
-          author_id: session.user.id,
-          author_email: session.user.email ?? null,
-          body: message.trim(),
-          internal: false,
-        });
-        if (noteError) throw noteError;
-      }
-    },
-    onSuccess: () => {
-      toast.success("Your support request was sent.");
+        },
+      }),
+    onSuccess: async (ticket) => {
+      toast.success(
+        ticket.ticketNumber
+          ? `Support case #${ticket.ticketNumber} created`
+          : "Support case created",
+      );
       setSubject("");
       setMessage("");
       setCategory("other");
       setPriority("normal");
-      qc.invalidateQueries({ queryKey: ["my-support-tickets"] });
+      await qc.invalidateQueries({ queryKey: ["my-support-tickets"] });
+      navigate({ to: "/help/$ticketId", params: { ticketId: ticket.id } });
     },
     onError: (error) =>
       toast.error(
@@ -156,10 +136,10 @@ export function HelpPage() {
         />
         <SupportOption
           icon={Mail}
-          title="Email support"
-          description="Send screenshots or details from your business email."
-          action="Send email"
-          href={`mailto:${LEGAL_CONFIG.supportEmail}`}
+          title="Open support case"
+          description="Create a saved case that SEZA can reply to and resolve."
+          action="Create case"
+          href="#open-support-request"
         />
         <SupportOption
           icon={Globe}
@@ -197,7 +177,7 @@ export function HelpPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="open-support-request" className="scroll-mt-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <LifeBuoy className="size-5 text-primary" /> Open a support request

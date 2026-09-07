@@ -243,7 +243,7 @@ function friendlyTerminalError(error: unknown, fallback: string): Error {
 
   // This was reaching the cashier UI verbatim from the native Stripe bridge.
   // Never expose JavaScript/runtime diagnostics to a merchant.
-  if (/cannot read (?:properties|property) of (?:undefined|null).*reading ['\"]?0|undefined.*\[0\]/i.test(raw)) {
+  if (/cannot read (?:properties|property) of (?:undefined|null).*reading ['"]?0|undefined.*\[0\]/i.test(raw)) {
     return new Error(
       "Stripe Reader M2 was not returned by Android. Reconnect the USB cable, allow USB access if prompted, then try again.",
     );
@@ -316,7 +316,9 @@ async function initialize(testMode: boolean) {
     if (initializedMode !== null) {
       try {
         await mod.StripeTerminal.disconnectReader();
-      } catch {}
+      } catch {
+        // Best-effort disconnect while switching Stripe Terminal modes.
+      }
       connected = null;
     }
     await mod.StripeTerminal.initialize({ isTest: testMode });
@@ -472,7 +474,9 @@ export async function cancelActivePayment() {
   try {
     const mod = await loadModule();
     await mod.StripeTerminal.cancelCollectPaymentMethod();
-  } catch {}
+  } catch {
+    // There may be no active payment collection to cancel.
+  }
 }
 
 export async function disconnect() {
@@ -480,7 +484,9 @@ export async function disconnect() {
   try {
     const mod = await loadModule();
     await mod.StripeTerminal.disconnectReader();
-  } catch {}
+  } catch {
+    // Treat an already-disconnected reader as successfully disconnected.
+  }
   connected = null;
   if (terminalId) await updateStripeTerminal("disconnected", terminalId).catch(() => undefined);
 }

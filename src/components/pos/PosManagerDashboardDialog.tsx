@@ -48,7 +48,9 @@ export function PosManagerDashboardDialog({
     try {
       sessionStorage.removeItem("seza.openManagerDashboard");
       sessionStorage.setItem("seza.posToolOrigin", "manager-dashboard");
-    } catch {}
+    } catch {
+      // sessionStorage can be unavailable in restricted/private browser contexts.
+    }
     onOpenChange(false);
     navigate({ to: to as any });
   };
