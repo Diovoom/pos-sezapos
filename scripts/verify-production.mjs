@@ -15,6 +15,17 @@ function read(rel) {
   return fs.readFileSync(full, "utf8");
 }
 
+function readJson(rel) {
+  const body = read(rel).replace(/^\uFEFF/, "");
+  if (!body) return {};
+  try {
+    return JSON.parse(body);
+  } catch (error) {
+    failures.push(`${rel}: invalid JSON (${error instanceof Error ? error.message : String(error)})`);
+    return {};
+  }
+}
+
 function requireText(rel, needle, label = needle) {
   const body = read(rel);
   if (!body.includes(needle)) failures.push(`${rel}: missing ${label}`);
@@ -25,8 +36,8 @@ function forbidText(rel, needle, label = needle) {
   if (body.includes(needle)) failures.push(`${rel}: contains forbidden ${label}`);
 }
 
-const pkg = JSON.parse(read("package.json") || "{}");
-const publicVersion = JSON.parse(read("public/version.json") || "{}");
+const pkg = readJson("package.json");
+const publicVersion = readJson("public/version.json");
 const gradle = read("android/app/build.gradle");
 const gradleVersion = gradle.match(/versionName\s+["']([^"']+)["']/)?.[1];
 const gradleBuild = Number(gradle.match(/versionCode\s+(\d+)/)?.[1]);
@@ -196,7 +207,7 @@ requireText(
   "browser-only ZXing runtime import",
 );
 
-const lock = JSON.parse(read("package-lock.json") || "{}");
+const lock = readJson("package-lock.json");
 const zxing = lock.packages?.["node_modules/@zxing/library"];
 if (zxing?.engines?.node && String(zxing.engines.node).includes(">= 24")) {
   const nvm = read(".nvmrc").trim();
