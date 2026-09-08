@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ArchiveCheck, LifeBuoy, Loader2, MessageSquare, Plus, RefreshCw, Send } from "lucide-react";
+import { ArrowLeft, Archive, LifeBuoy, Loader2, MessageSquare, Plus, RefreshCw, Send } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
@@ -381,7 +381,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
                           if (window.confirm("Mark this support case solved and close it?")) closeCase.mutate();
                         }}
                       >
-                        <ArchiveCheck className="mr-1 h-4 w-4" /> Close case
+                        <Archive className="mr-1 h-4 w-4" /> Close case
                       </Button>
                     )}
                   </div>

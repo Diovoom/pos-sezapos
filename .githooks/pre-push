@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+echo ""
+echo "SEZA pre-push gate: checking the same production source before GitHub..."
+npm run verify:production
+npm run verify:security
+npm run lint
+npm run build
+npm run android:build
+npm run android:verify-native
+
+echo "SEZA pre-push gate passed. Git push may continue."

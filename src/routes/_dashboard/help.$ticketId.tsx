@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Send, Loader2, MessageSquare, CheckCircle2, ArchiveCheck } from "lucide-react";
+import { ArrowLeft, Send, Loader2, MessageSquare, CheckCircle2, Archive } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
@@ -188,7 +188,7 @@ function MerchantSupportChat() {
         </Badge>
         {!closed && (
           <Button className="ml-auto" size="sm" variant="outline" onClick={() => void closeCase()} disabled={busy}>
-            <ArchiveCheck className="mr-2 h-4 w-4" /> Mark solved & close
+            <Archive className="mr-2 h-4 w-4" /> Mark solved & close
           </Button>
         )}
       </div>

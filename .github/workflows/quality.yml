@@ -33,6 +33,8 @@ jobs:
         run: |
           npm config set registry https://registry.npmjs.org/
           npm ci --legacy-peer-deps
+      - name: Verify icon imports
+        run: node scripts/verify-lucide-imports.mjs
       - name: Verify release contracts
         run: npm run verify:production
       - name: Verify security contracts
