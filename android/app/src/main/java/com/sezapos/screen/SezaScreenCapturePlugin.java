@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Base64;
 
 import androidx.activity.result.ActivityResult;
@@ -21,23 +23,10 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  *
  * VIEW-ONLY live screen sharing for SEZA Support.
  *
- * Contract:
- *   - requestPermission(): opens system MediaProjection consent dialog.
- *     Resolves { granted:boolean, resultCode:int, dataIntent:string } where
- *     dataIntent is an opaque token kept inside the plugin (not exposed to JS).
- *   - start({ maxWidth?, maxFps?, bitrateKbps? }): starts foreground service +
- *     H.264 encoder, begins emitting `frame` events with base64 NALs.
- *   - stop(): tears everything down.
- *   - Events:
- *       "state"  -> { state: "starting"|"active"|"paused"|"stopped"|"permission_revoked" }
- *       "frame"  -> { data:string (base64), keyframe:boolean, ptsUs:number }
- *       "codec"  -> { mime:"video/avc", width:int, height:int, sps:string, pps:string }
- *       "error"  -> { message:string }
- *
- * The plugin never accepts input events back from JS. There is no touch,
- * keyboard, clipboard, camera, mic, or file surface exposed. Merchant remains
- * in full control via the persistent foreground-service notification and the
- * in-app banner.
+ * start() deliberately does not resolve until the foreground MediaProjection
+ * service reports ACTIVE. Older builds resolved immediately after launching
+ * the service, which made JavaScript believe sharing had started even when the
+ * device encoder failed a moment later.
  */
 @CapacitorPlugin(name = "SezaScreenCapture")
 public class SezaScreenCapturePlugin extends Plugin {
@@ -45,6 +34,30 @@ public class SezaScreenCapturePlugin extends Plugin {
     private Integer pendingResultCode = null;
     private Intent pendingResultData = null;
     private boolean serviceBound = false;
+    private PluginCall pendingStartCall = null;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private Runnable startTimeout = null;
+
+    private void clearStartTimeout() {
+        if (startTimeout != null) {
+            mainHandler.removeCallbacks(startTimeout);
+            startTimeout = null;
+        }
+    }
+
+    private void resolveStartIfWaiting() {
+        PluginCall call = pendingStartCall;
+        pendingStartCall = null;
+        clearStartTimeout();
+        if (call != null) call.resolve();
+    }
+
+    private void rejectStartIfWaiting(String message) {
+        PluginCall call = pendingStartCall;
+        pendingStartCall = null;
+        clearStartTimeout();
+        if (call != null) call.reject(message == null ? "Screen capture failed to start" : message);
+    }
 
     @PluginMethod
     public void requestPermission(PluginCall call) {
@@ -91,9 +104,14 @@ public class SezaScreenCapturePlugin extends Plugin {
             call.reject("Permission not granted");
             return;
         }
+        if (pendingStartCall != null) {
+            call.reject("Screen capture is already starting");
+            return;
+        }
+
         int maxWidth = call.getInt("maxWidth", 720);
-        int maxFps = call.getInt("maxFps", 24);
-        int bitrateKbps = call.getInt("bitrateKbps", 500);
+        int maxFps = call.getInt("maxFps", 15);
+        int bitrateKbps = call.getInt("bitrateKbps", 700);
 
         Activity activity = getActivity();
         if (activity == null) {
@@ -101,13 +119,18 @@ public class SezaScreenCapturePlugin extends Plugin {
             return;
         }
 
-        Intent svc = new Intent(activity, ScreenCaptureService.class);
-        svc.setAction(ScreenCaptureService.ACTION_START);
-        svc.putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, pendingResultCode);
-        svc.putExtra(ScreenCaptureService.EXTRA_RESULT_DATA, pendingResultData);
-        svc.putExtra(ScreenCaptureService.EXTRA_MAX_WIDTH, maxWidth);
-        svc.putExtra(ScreenCaptureService.EXTRA_MAX_FPS, maxFps);
-        svc.putExtra(ScreenCaptureService.EXTRA_BITRATE_KBPS, bitrateKbps);
+        pendingStartCall = call;
+        startTimeout = () -> {
+            if (pendingStartCall != null) {
+                rejectStartIfWaiting("Screen capture service did not become active");
+                try {
+                    Intent stop = new Intent(activity, ScreenCaptureService.class);
+                    stop.setAction(ScreenCaptureService.ACTION_STOP);
+                    activity.startService(stop);
+                } catch (Throwable ignored) {}
+            }
+        };
+        mainHandler.postDelayed(startTimeout, 12_000);
 
         ScreenCaptureService.setPluginListener(new ScreenCaptureService.Listener() {
             @Override
@@ -115,9 +138,17 @@ public class SezaScreenCapturePlugin extends Plugin {
                 JSObject o = new JSObject();
                 o.put("state", state);
                 notifyListeners("state", o);
-                if ("stopped".equals(state) || "permission_revoked".equals(state)) {
-                    // Consent is single-use; clear it so a new session must be
-                    // approved again.
+
+                if ("active".equals(state)) {
+                    serviceBound = true;
+                    resolveStartIfWaiting();
+                } else if ("stopped".equals(state) || "permission_revoked".equals(state)) {
+                    if (pendingStartCall != null) {
+                        rejectStartIfWaiting(
+                                "permission_revoked".equals(state)
+                                        ? "Screen sharing permission was revoked"
+                                        : "Screen capture stopped before it became active");
+                    }
                     pendingResultCode = null;
                     pendingResultData = null;
                     serviceBound = false;
@@ -146,23 +177,36 @@ public class SezaScreenCapturePlugin extends Plugin {
 
             @Override
             public void onError(String message) {
+                String safe = message == null ? "unknown" : message;
                 JSObject o = new JSObject();
-                o.put("message", message == null ? "unknown" : message);
+                o.put("message", safe);
                 notifyListeners("error", o);
+                if (pendingStartCall != null) rejectStartIfWaiting(safe);
             }
         });
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            activity.startForegroundService(svc);
-        } else {
-            activity.startService(svc);
+        Intent svc = new Intent(activity, ScreenCaptureService.class);
+        svc.setAction(ScreenCaptureService.ACTION_START);
+        svc.putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, pendingResultCode);
+        svc.putExtra(ScreenCaptureService.EXTRA_RESULT_DATA, pendingResultData);
+        svc.putExtra(ScreenCaptureService.EXTRA_MAX_WIDTH, maxWidth);
+        svc.putExtra(ScreenCaptureService.EXTRA_MAX_FPS, maxFps);
+        svc.putExtra(ScreenCaptureService.EXTRA_BITRATE_KBPS, bitrateKbps);
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                activity.startForegroundService(svc);
+            } else {
+                activity.startService(svc);
+            }
+        } catch (Throwable t) {
+            rejectStartIfWaiting("Could not start screen capture service: " + t.getMessage());
         }
-        serviceBound = true;
-        call.resolve();
     }
 
     @PluginMethod
     public void stop(PluginCall call) {
+        rejectStartIfWaiting("Screen capture was stopped");
         Activity activity = getActivity();
         if (activity != null && serviceBound) {
             Intent svc = new Intent(activity, ScreenCaptureService.class);
@@ -177,7 +221,8 @@ public class SezaScreenCapturePlugin extends Plugin {
 
     @Override
     protected void handleOnDestroy() {
-        super.handleOnDestroy();
+        rejectStartIfWaiting("Screen capture plugin was destroyed");
         ScreenCaptureService.setPluginListener(null);
+        super.handleOnDestroy();
     }
 }

@@ -88,6 +88,7 @@ public class ScreenCaptureService extends Service {
     private HandlerThread encoderThread;
     private Handler encoderHandler;
     private volatile boolean running = false;
+    private volatile boolean intentionalStop = false;
     private final Object lock = new Object();
 
     private byte[] sps;
@@ -114,7 +115,11 @@ public class ScreenCaptureService extends Service {
         }
         if (!ACTION_START.equals(action)) return START_NOT_STICKY;
 
-        if (running) return START_NOT_STICKY;
+        if (running) {
+            emitState("active");
+            return START_NOT_STICKY;
+        }
+        intentionalStop = false;
         int resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0);
         Intent data = intent.getParcelableExtra(EXTRA_RESULT_DATA);
         int maxWidth = intent.getIntExtra(EXTRA_MAX_WIDTH, 720);
@@ -159,6 +164,10 @@ public class ScreenCaptureService extends Service {
         projection.registerCallback(new MediaProjection.Callback() {
             @Override
             public void onStop() {
+                // projection.stop() during our own teardown also triggers this
+                // callback. Do not report that intentional shutdown as a fresh
+                // permission revocation or recursively tear the service down.
+                if (intentionalStop) return;
                 emitState("permission_revoked");
                 stopEverything("stopped");
                 stopSelf();
@@ -194,15 +203,11 @@ public class ScreenCaptureService extends Service {
         format.setInteger(MediaFormat.KEY_BIT_RATE, bitrateKbps * 1000);
         format.setInteger(MediaFormat.KEY_FRAME_RATE, maxFps);
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            format.setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR);
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            // Constrained baseline for maximum WebCodecs decoder compatibility.
-            format.setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline);
-            format.setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.AVCLevel31);
-        }
-
+        // Do not force bitrate mode/profile/level here. A number of embedded
+        // POS Android builds advertise AVC but reject VBR/Baseline/Level31
+        // combinations during configure(). WebCodecs reads the encoder's real
+        // SPS, so the safest production path is to let the codec choose a
+        // supported AVC profile and level.
         encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
         encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         inputSurface = encoder.createInputSurface();
@@ -245,6 +250,7 @@ public class ScreenCaptureService extends Service {
 
             @Override
             public void onError(MediaCodec codec, MediaCodec.CodecException e) {
+                if (intentionalStop) return;
                 emitError("codec error: " + e.getMessage());
                 stopEverything("stopped");
                 stopSelf();
@@ -309,7 +315,11 @@ public class ScreenCaptureService extends Service {
     }
 
     private void stopEverything(String state) {
+        boolean hadResources;
         synchronized (lock) {
+            hadResources = running || encoder != null || inputSurface != null || virtualDisplay != null || projection != null;
+            if (!hadResources) return;
+            intentionalStop = true;
             running = false;
             try { if (encoder != null) { encoder.stop(); } } catch (Throwable ignored) {}
             try { if (encoder != null) { encoder.release(); } } catch (Throwable ignored) {}

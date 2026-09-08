@@ -1302,9 +1302,9 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
       )[String(ticket.status)] ?? String(ticket.status);
 
     const allowedTransitions: Record<string, string[]> = {
-      open: ["investigating", "waiting_for_merchant", "resolved"],
-      investigating: ["open", "waiting_for_merchant", "resolved"],
-      waiting_for_merchant: ["open", "investigating", "resolved"],
+      open: ["investigating", "waiting_for_merchant", "resolved", "closed"],
+      investigating: ["open", "waiting_for_merchant", "resolved", "closed"],
+      waiting_for_merchant: ["open", "investigating", "resolved", "closed"],
       resolved: ["open", "closed"],
       closed: ["open"],
     };
@@ -1342,23 +1342,21 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
       patch.priority = "normal";
       eventType = "resolved";
     } else if (data.status === "closed") {
-      if (currentStatus !== "resolved") {
-        throw new Error("Resolve the case before closing it");
-      }
       const summary = cleanText(
         data.resolutionSummary || ticket.resolution_summary || ticket.resolution,
         4000,
       );
-      if (summary.length < 5) throw new Error("Resolve the case with a summary before closing it");
+      if (summary.length < 5) throw new Error("Add a short resolution summary before closing the case");
       patch.resolution_summary = summary;
       patch.resolution = summary;
+      patch.resolution_code = cleanText(data.resolutionCode, 80) || ticket.resolution_code || "fixed";
       patch.closed_at = now;
       patch.resolved_at = ticket.resolved_at ?? now;
       patch.chat_status = "ended";
       patch.chat_ended_at = ticket.chat_ended_at ?? now;
       patch.chat_ended_by = ticket.chat_ended_by ?? context.userId;
       patch.priority = "normal";
-      eventType = "closed";
+      eventType = currentStatus === "resolved" ? "closed" : "resolved_and_closed";
     } else if (data.status === "open" && ["resolved", "closed"].includes(currentStatus)) {
       patch.resolved_at = null;
       patch.closed_at = null;

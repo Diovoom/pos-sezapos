@@ -1801,7 +1801,7 @@ export const adminStartSupportSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { storeId: string; reason: string }) => data)
   .handler(async ({ data, context }) => {
-    const admin = await ensureSuperAdmin(context);
+    const admin = await ensureSupportStaff(context);
     const reason = requireReason(data.reason);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -1845,7 +1845,7 @@ export const adminCancelSupportRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { sessionId: string }) => data)
   .handler(async ({ data, context }) => {
-    const admin = await ensureSuperAdmin(context);
+    const admin = await ensureSupportStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: sess } = await supabaseAdmin
       .from("admin_support_sessions")
@@ -1915,7 +1915,7 @@ export const adminEndSupportSession = createServerFn({ method: "POST" })
 export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await ensureSuperAdmin(context);
+    await ensureSupportStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const admin: any = supabaseAdmin;

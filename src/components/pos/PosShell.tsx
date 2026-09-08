@@ -661,14 +661,7 @@ export function PosShell({ children }: { children: ReactNode }) {
             </DropdownMenu>
           </div>
         </div>
-        <div
-          className={cn(
-            "relative min-h-0 flex-1",
-            pathname === "/pos"
-              ? "overflow-hidden"
-              : "overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]",
-          )}
-        >
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           {children}
         </div>
       </main>

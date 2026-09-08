@@ -8,6 +8,7 @@ import {
   adminListCommunications,
   adminMarkCommunicationRead,
   adminSendSupportMessage,
+  adminTransitionSupportCase,
 } from "@/lib/admin/company-admin.functions";
 import { supabaseAdminAuth } from "@/integrations/supabase/admin-client";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,7 @@ export function AdminPersistentChat() {
   const getCase = useServerFn(adminGetSupportCase);
   const sendMessage = useServerFn(adminSendSupportMessage);
   const endChat = useServerFn(adminEndSupportChat);
+  const transition = useServerFn(adminTransitionSupportCase);
   const markRead = useServerFn(adminMarkCommunicationRead);
   const qc = useQueryClient();
 
@@ -262,6 +264,37 @@ export function AdminPersistentChat() {
     }
   }
 
+  async function closeSelectedCase() {
+    if (!selectedId) return;
+    const summary = window.prompt("Briefly describe how this support case was resolved:", "Issue completed with merchant.");
+    if (summary == null) return;
+    if (summary.trim().length < 5) {
+      toast.error("Add a short resolution summary before closing the case");
+      return;
+    }
+    setBusy(true);
+    try {
+      await transition({
+        data: {
+          ticketId: selectedId,
+          status: "closed",
+          resolutionSummary: summary.trim(),
+          resolutionCode: "fixed",
+          reason: "Closed from live support chat",
+        },
+      });
+      toast.success("Support case resolved and closed");
+      setOpen(false);
+      rememberAdminChat(null);
+      setSelectedId(null);
+      refresh();
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not close support case");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function send() {
     if (!selectedId || !message.trim()) return;
     setBusy(true);
@@ -354,7 +387,15 @@ export function AdminPersistentChat() {
                 </Badge>
               </div>
               {selectedId && (
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void closeSelectedCase()}
+                    disabled={busy}
+                  >
+                    Resolve & close
+                  </Button>
                   <Button
                     type="button"
                     variant="destructive"

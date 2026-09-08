@@ -44,6 +44,7 @@ import {
   LockKeyhole,
   Smartphone,
   MonitorUp,
+  MonitorCog,
   Building2,
   User,
   Activity,
@@ -370,6 +371,13 @@ function SupportCasePage() {
               <Clock3 className="mr-2 h-4 w-4" /> Wait for merchant
             </Button>
           )}
+          {store?.id && (
+            <Button asChild variant="outline">
+              <Link to="/admin/businesses/$storeId" params={{ storeId: store.id }}>
+                <MonitorCog className="mr-2 h-4 w-4" /> Manage merchant & POS
+              </Link>
+            </Button>
+          )}
           {!isFinal && !assignedToOther && store?.id && (
             <Button variant="outline" onClick={() => void requestScreen()} disabled={busy}>
               <MonitorUp className="mr-2 h-4 w-4" /> Request screen share
@@ -677,9 +685,9 @@ function SupportCasePage() {
       <Dialog open={resolveOpen} onOpenChange={setResolveOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Resolve support case</DialogTitle>
+            <DialogTitle>Finish support case</DialogTitle>
             <DialogDescription>
-              A real resolution summary is required. The case stays in history and can be reopened.
+              Record what was fixed. You can keep the case resolved for review or resolve and close it now.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -714,10 +722,17 @@ function SupportCasePage() {
               Cancel
             </Button>
             <Button
+              variant="outline"
               disabled={busy || resolutionSummary.trim().length < 5}
               onClick={() => changeStatus("resolved", { resolutionSummary, resolutionCode })}
             >
-              Save resolution
+              Save as resolved
+            </Button>
+            <Button
+              disabled={busy || resolutionSummary.trim().length < 5}
+              onClick={() => changeStatus("closed", { resolutionSummary, resolutionCode })}
+            >
+              Resolve & close
             </Button>
           </DialogFooter>
         </DialogContent>

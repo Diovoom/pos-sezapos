@@ -533,25 +533,17 @@ function SupportPage() {
                       className="flex-1"
                       onClick={(event) => {
                         event.stopPropagation();
-                        navigate({
-                          to: "/admin/support/$ticketId",
-                          params: { ticketId: ticket.id },
-                        });
+                        if (!ticket.assigned_admin_id && !finalStatus) void claimOne(ticket.id);
+                        else
+                          navigate({
+                            to: "/admin/support/$ticketId",
+                            params: { ticketId: ticket.id },
+                          });
                       }}
                     >
-                      Open case <ExternalLink className="ml-2 h-4 w-4" />
+                      {!ticket.assigned_admin_id && !finalStatus ? "Claim & open" : "Open workspace"}
+                      <ExternalLink className="ml-2 h-4 w-4" />
                     </Button>
-                    {!ticket.assigned_admin_id && !finalStatus && (
-                      <Button
-                        variant="outline"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void claimOne(ticket.id);
-                        }}
-                      >
-                        Claim
-                      </Button>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -689,30 +681,20 @@ function SupportPage() {
                       </td>
                       <td className="p-3 text-right">
                         <div className="flex justify-end gap-2">
-                          {!ticket.assigned_admin_id && !finalStatus && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                void claimOne(ticket.id);
-                              }}
-                            >
-                              Claim
-                            </Button>
-                          )}
                           <Button
                             type="button"
                             size="sm"
                             onClick={(event) => {
                               event.stopPropagation();
-                              navigate({
-                                to: "/admin/support/$ticketId",
-                                params: { ticketId: ticket.id },
-                              });
+                              if (!ticket.assigned_admin_id && !finalStatus) void claimOne(ticket.id);
+                              else
+                                navigate({
+                                  to: "/admin/support/$ticketId",
+                                  params: { ticketId: ticket.id },
+                                });
                             }}
                           >
-                            Open case
+                            {!ticket.assigned_admin_id && !finalStatus ? "Claim & open" : "Open workspace"}
                           </Button>
                         </div>
                       </td>

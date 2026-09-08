@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, LifeBuoy, Loader2, MessageSquare, Plus, RefreshCw, Send } from "lucide-react";
+import { ArrowLeft, ArchiveCheck, LifeBuoy, Loader2, MessageSquare, Plus, RefreshCw, Send } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
@@ -238,6 +238,21 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
     onError: (error: any) => toast.error(error?.message ?? "Could not send message"),
   });
 
+  const closeCase = useMutation({
+    mutationFn: async () => {
+      if (!selectedTicket) return;
+      const { error } = await (supabase.rpc as any)("merchant_close_support_case", {
+        _ticket_id: selectedTicket.id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Support case closed");
+      refreshAll();
+    },
+    onError: (error: any) => toast.error(error?.message ?? "Could not close support case"),
+  });
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b bg-background/95 px-4 py-3 backdrop-blur">
@@ -276,7 +291,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
               Cashiers see their own cases. Owners and managers can see their store’s cases.
             </CardDescription>
           </CardHeader>
-          <CardContent className="max-h-[70vh] space-y-2 overflow-y-auto">
+          <CardContent className="space-y-2 lg:max-h-[70vh] lg:overflow-y-auto">
             {ticketsQuery.isLoading ? (
               <div className="py-8 text-center text-sm text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading…
@@ -346,7 +361,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
                       {format(new Date(selectedTicket.created_at), "MMM d, yyyy 'at' h:mm a")}
                     </CardDescription>
                   </div>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
                     <Badge variant={priorityVariant(selectedTicket.priority)}>
                       {selectedTicket.priority}
                     </Badge>
@@ -356,6 +371,19 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
                     >
                       {selectedTicket.chat_status === "ended" ? "Chat ended" : "Live chat"}
                     </Badge>
+                    {selectedTicket.status !== "closed" && (
+                      <Button
+                        className="ml-1"
+                        size="sm"
+                        variant="outline"
+                        disabled={closeCase.isPending}
+                        onClick={() => {
+                          if (window.confirm("Mark this support case solved and close it?")) closeCase.mutate();
+                        }}
+                      >
+                        <ArchiveCheck className="mr-1 h-4 w-4" /> Close case
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -371,7 +399,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
                   </div>
                 )}
 
-                <div className="max-h-[48vh] space-y-3 overflow-y-auto rounded-lg border bg-muted/10 p-3">
+                <div className="space-y-3 rounded-lg border bg-muted/10 p-3 lg:max-h-[48vh] lg:overflow-y-auto">
                   {conversationQuery.isLoading ? (
                     <div className="py-10 text-center text-sm text-muted-foreground">
                       <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading conversation…

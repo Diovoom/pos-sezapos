@@ -27,6 +27,16 @@ export function MerchantScreenShare({
     let seenAdminHello = false;
     let makingOffer = false;
     const pc = new RTCPeerConnection(RTC_CONFIG);
+    const pendingAdminIce: RTCIceCandidateInit[] = [];
+
+    async function flushAdminIce() {
+      if (!pc.remoteDescription) return;
+      while (pendingAdminIce.length) {
+        const candidate = pendingAdminIce.shift();
+        if (!candidate) continue;
+        try { await pc.addIceCandidate(candidate); } catch { /* stale candidate */ }
+      }
+    }
     const signaling = openSignalingChannel(supabase, channelToken, (msg) => {
       if (!disposed)
         void handleSignal(msg).catch((error) => console.error("[merchant-rtc]", error));
@@ -88,11 +98,11 @@ export function MerchantScreenShare({
         await sendOffer();
       } else if (msg.kind === "answer" && pc.signalingState === "have-local-offer") {
         await pc.setRemoteDescription(msg.sdp);
+        await flushAdminIce();
       } else if (msg.kind === "ice") {
-        try {
-          await pc.addIceCandidate(msg.candidate);
-        } catch {
-          /* candidate can arrive early */
+        if (!pc.remoteDescription) pendingAdminIce.push(msg.candidate);
+        else {
+          try { await pc.addIceCandidate(msg.candidate); } catch { /* stale candidate */ }
         }
       } else if (msg.kind === "bye") {
         end("admin_ended");

@@ -88,8 +88,7 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
               Swipe left or right to view every role.
             </div>
             <div
-              className="-mx-4 overflow-x-scroll overscroll-x-contain px-4 touch-pan-x md:mx-0 md:px-0"
-              style={{ WebkitOverflowScrolling: "touch" }}
+              className="-mx-4 max-w-[calc(100%+2rem)] touch-auto overflow-x-auto overscroll-x-contain px-4 [-webkit-overflow-scrolling:touch] md:mx-0 md:max-w-full md:px-0"
             >
             <table className="min-w-[820px] w-full text-sm">
               <thead>

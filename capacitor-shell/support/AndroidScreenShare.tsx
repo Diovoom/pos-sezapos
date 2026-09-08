@@ -18,9 +18,8 @@
 // The component takes ownership of the session's lifetime after the merchant
 // accepts. It calls `/api/public/pos/support-end` on any terminal event so
 // the DB row is closed and audit rows are written.
-import { nativeFetch, userSafeNetworkMessage } from "../lib/nativeHttp";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { supabase, API_BASE_URL, getBearer } from "../supabase";
+import { supabase } from "../supabase";
 import {
   nativeScreenCapture,
   createDecodedStream,
@@ -45,18 +44,6 @@ type Props = {
   onEnded: (reason: string) => void;
 };
 
-async function postEnd(sessionId: string): Promise<void> {
-  try {
-    const token = await getBearer();
-    if (!token) return;
-    await nativeFetch(`${API_BASE_URL}/api/public/pos/support-end`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ sessionId }),
-      keepalive: true,
-    });
-  } catch { /* best-effort */ }
-}
 
 export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEnded }: Props) {
   const [encoderState, setEncoderState] = useState<EncoderState>("starting");
@@ -69,10 +56,11 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
     (reason: string) => {
       if (endedRef.current) return;
       endedRef.current = true;
-      void postEnd(sessionId);
+      // The parent listener owns the HTTPS support-end mutation. Keeping one
+      // owner prevents duplicate end requests and false session shutdowns.
       onEnded(reason);
     },
-    [onEnded, sessionId],
+    [onEnded],
   );
 
   // Duration ticker.
@@ -129,6 +117,19 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
     let seenAdminHello = false;
     let makingOffer = false;
     let firstConnectedLogged = false;
+    let sawEncoderActive = false;
+    let lastEncoderError: string | null = null;
+    const pendingAdminIce: RTCIceCandidateInit[] = [];
+
+    async function flushAdminIce() {
+      if (!pc.remoteDescription) return;
+      while (pendingAdminIce.length) {
+        const candidate = pendingAdminIce.shift();
+        if (!candidate) continue;
+        try { await pc.addIceCandidate(candidate); }
+        catch (e) { console.warn("[android-rtc] addIce", e); }
+      }
+    }
 
     async function sendOffer() {
       if (disposed || makingOffer) return;
@@ -164,12 +165,12 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
       if (st === "connected" && !firstConnectedLogged) {
         firstConnectedLogged = true;
       }
-      if (st === "failed") end("connection_lost");
-      if (st === "disconnected") {
-        // Give ICE a chance to restore itself before giving up.
-        setTimeout(() => {
-          if (!disposed && pc.connectionState === "disconnected") end("network_timeout");
-        }, 15_000);
+      if (st === "failed" || st === "disconnected") {
+        // A network path failure must not close the support session. Keep the
+        // merchant capture alive and renegotiate; the admin viewer can recover
+        // when Wi-Fi/Ethernet/NAT conditions change.
+        try { pc.restartIce(); } catch { /* older engine */ }
+        if (seenAdminHello) void sendOffer();
       }
     };
 
@@ -183,11 +184,15 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
         case "answer":
           if (pc.signalingState === "have-local-offer") {
             await pc.setRemoteDescription(msg.sdp);
+            await flushAdminIce();
           }
           break;
         case "ice":
-          try { await pc.addIceCandidate(msg.candidate); }
-          catch (e) { console.warn("[android-rtc] addIce", e); }
+          if (!pc.remoteDescription) pendingAdminIce.push(msg.candidate);
+          else {
+            try { await pc.addIceCandidate(msg.candidate); }
+            catch (e) { console.warn("[android-rtc] addIce", e); }
+          }
           break;
         case "bye":
           end("admin_ended");
@@ -202,9 +207,15 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
       try {
         listenerHandles.push(
           await nativeScreenCapture.onState((s) => {
+            if (disposed) return;
             setEncoderState(s);
+            if (s === "active") sawEncoderActive = true;
             if (s === "permission_revoked") end("merchant_stopped_sharing");
-            if (s === "stopped" && !endedRef.current) end("merchant_stopped_sharing");
+            // Ignore stale/pre-start stopped events. The native start promise
+            // rejects with the real encoder error if startup fails.
+            if (s === "stopped" && sawEncoderActive && !endedRef.current) {
+              end("merchant_stopped_sharing");
+            }
           }),
         );
         listenerHandles.push(
@@ -215,6 +226,8 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
         );
         listenerHandles.push(
           await nativeScreenCapture.onError((m) => {
+            if (disposed) return;
+            lastEncoderError = m;
             console.warn("[android-rtc] encoder error", m);
           }),
         );
@@ -222,20 +235,25 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
         // Announce presence before starting — an admin already waiting will
         // reply "hello" and trigger the initial offer.
         await signaling.send({ kind: "hello", from: "merchant" });
-        await nativeScreenCapture.start({ maxWidth: 720, maxFps: 24, bitrateKbps: 500 });
+        // Native start now resolves only after MediaProjection + encoder are
+        // actually active. This prevents a false "approved" state followed by
+        // an immediate Support View ended message.
+        await nativeScreenCapture.start({ maxWidth: 720, maxFps: 15, bitrateKbps: 700 });
       } catch (e) {
+        if (disposed) return;
         console.error("[android-rtc] start failed", e);
-        toast.error("Could not start screen sharing.");
+        const raw = lastEncoderError || (e instanceof Error ? e.message : String(e));
+        toast.error(raw ? `Screen sharing could not start: ${raw}` : "Could not start screen sharing.");
         end("start_failed");
       }
     })();
 
     return () => {
       disposed = true;
+      // Remove callbacks before stopping MediaProjection. A React remount or
+      // transient session refresh is not a merchant-initiated end and must not
+      // flip the database session to ended.
       for (const h of listenerHandles) { void h.remove().catch(() => {}); }
-      try {
-        signaling.send({ kind: "bye", from: "merchant", reason: "merchant_unmounted" }).catch(() => {});
-      } catch { /* noop */ }
       signaling.close();
       try { decoded.close(); } catch { /* noop */ }
       try { pc.close(); } catch { /* noop */ }

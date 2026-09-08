@@ -83,6 +83,16 @@ export function AdminScreenViewer({
     let disposed = false;
     const pc = new RTCPeerConnection(RTC_CONFIG);
     pcRef.current = pc;
+    const pendingMerchantIce: RTCIceCandidateInit[] = [];
+
+    async function flushMerchantIce() {
+      if (!pc.remoteDescription) return;
+      while (pendingMerchantIce.length) {
+        const candidate = pendingMerchantIce.shift();
+        if (!candidate) continue;
+        try { await pc.addIceCandidate(candidate); } catch { /* stale candidate */ }
+      }
+    }
 
     try {
       pc.addTransceiver("video", { direction: "recvonly" });
@@ -137,14 +147,14 @@ export function AdminScreenViewer({
           }
         }
         await pc.setRemoteDescription(message.sdp);
+        await flushMerchantIce();
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         await signaling.send({ kind: "answer", from: "admin", sdp: pc.localDescription!.toJSON() });
       } else if (message.kind === "ice") {
-        try {
-          await pc.addIceCandidate(message.candidate);
-        } catch {
-          /* candidate can arrive before SDP */
+        if (!pc.remoteDescription) pendingMerchantIce.push(message.candidate);
+        else {
+          try { await pc.addIceCandidate(message.candidate); } catch { /* stale candidate */ }
         }
       } else if (message.kind === "bye") {
         setStatus("ended");

@@ -184,7 +184,7 @@ export function RegisterAppSettingsPage() {
 
       <div className="min-h-0 flex-1 overflow-hidden md:grid md:grid-cols-[220px_1fr]">
         <nav className="border-b bg-background md:border-b-0 md:border-r">
-          <div className="flex gap-1 overflow-x-auto touch-pan-x p-2 md:block md:space-y-1 md:overflow-visible md:p-3">
+          <div className="flex gap-1 overflow-x-auto touch-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] p-2 md:block md:space-y-1 md:overflow-visible md:p-3">
             {sections.map((item) => (
               <button
                 key={item.id}

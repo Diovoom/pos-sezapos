@@ -169,7 +169,9 @@ function AdminLayout() {
   const supportSessionQuery = useQuery({
     queryKey: ["admin_support_session_active"],
     queryFn: () => getSession(),
-    refetchInterval: 15_000,
+    // Support view state is operationally live; do not leave the admin waiting
+    // 15 seconds after a merchant accepts or a session changes state.
+    refetchInterval: 2_000,
   });
 
   const activeSession = supportSessionQuery.data?.session as
@@ -245,7 +247,7 @@ function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen flex bg-surface text-foreground">
+    <div className="flex h-dvh min-h-0 overflow-hidden bg-surface text-foreground">
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-40 w-64 bg-background border-r flex flex-col transition-transform lg:translate-x-0 lg:static",
@@ -303,7 +305,7 @@ function AdminLayout() {
         />
       )}
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="border-b bg-background px-4 py-2 flex items-center gap-2 sticky top-0 z-20">
           <Button
             variant="ghost"
@@ -493,7 +495,7 @@ function AdminLayout() {
             />
           ))}
 
-        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
+        <main className="min-h-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-y-contain p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] sm:p-6 sm:pb-6">
           <Outlet />
         </main>
         <AdminPersistentChat />

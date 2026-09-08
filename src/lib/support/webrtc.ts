@@ -31,6 +31,7 @@ export const RTC_ICE_SERVERS: RTCIceServer[] = [
 export const RTC_CONFIG: RTCConfiguration = {
   iceServers: RTC_ICE_SERVERS,
   bundlePolicy: "max-bundle",
+  iceCandidatePoolSize: 4,
 };
 
 export type SignalRole = "merchant" | "admin";

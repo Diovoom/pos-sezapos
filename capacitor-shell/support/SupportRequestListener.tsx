@@ -104,14 +104,17 @@ export function SupportRequestListener() {
   // Hold-off flag when a payment / shift close is in flight — keep the
   // pending request queued but do NOT mount the AlertDialog until safe.
   const [holdOff, setHoldOff] = useState(false);
-  // Set by AndroidScreenShare when it wants to be torn down locally without
-  // waiting for a Realtime round-trip.
-  const localEndedRef = useRef<string | null>(null);
+  const activeRef = useRef<SupportRequest | null>(null);
+  const acceptedAtRef = useRef(0);
+
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
 
   const refresh = useCallback(async () => {
     if (!storeId) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("admin_support_sessions")
       .select(
         "id, store_id, admin_email, reason, status, requested_at, expires_at, channel_token, client_capability",
@@ -120,9 +123,25 @@ export function SupportRequestListener() {
       .in("status", ["pending", "active"])
       .gt("expires_at", new Date().toISOString())
       .order("requested_at", { ascending: false });
+
+    // Never tear down a live MediaProjection because of a transient direct
+    // Supabase read failure. The HTTPS support endpoints remain authoritative.
+    if (error) {
+      console.warn("[support-share] refresh failed", error.message);
+      return;
+    }
+
     const rows = (data ?? []) as SupportRequest[];
     setPending(rows.find((r) => r.status === "pending") ?? null);
-    setActive(rows.find((r) => r.status === "active") ?? null);
+    const serverActive = rows.find((r) => r.status === "active") ?? null;
+    setActive((current) => {
+      if (serverActive) return serverActive;
+      // Right after Accept, the API response and Realtime/direct-read can race.
+      // Keep the locally accepted session alive for a short grace period so a
+      // temporary empty read cannot unmount the encoder and end the session.
+      if (current && Date.now() - acceptedAtRef.current < 10_000) return current;
+      return null;
+    });
   }, [storeId]);
 
   useEffect(() => {
@@ -138,7 +157,22 @@ export function SupportRequestListener() {
           table: "admin_support_sessions",
           filter: `store_id=eq.${storeId}`,
         },
-        () => { void refresh(); },
+        (payload) => {
+          const next = payload.new as Partial<SupportRequest> | undefined;
+          // A real server-side end/decline should tear down immediately.
+          if (
+            next?.id &&
+            activeRef.current?.id === next.id &&
+            next.status &&
+            !["pending", "active"].includes(next.status)
+          ) {
+            acceptedAtRef.current = 0;
+            activeRef.current = null;
+            setActive(null);
+            return;
+          }
+          void refresh();
+        },
       )
       .subscribe();
     const iv = setInterval(() => { void refresh(); }, 20_000);
@@ -216,11 +250,22 @@ export function SupportRequestListener() {
     });
     setBusy(false);
     if ("ok" in res) {
+      if (decision === "accept") {
+        const accepted: SupportRequest = {
+          ...target,
+          status: "active",
+          client_capability: "android_screen_share",
+          expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+        };
+        acceptedAtRef.current = Date.now();
+        activeRef.current = accepted;
+        setActive(accepted);
+      }
       toast[decision === "accept" ? "success" : "message"](
         decision === "accept" ? "Screen sharing approved" : "Screen sharing declined",
       );
       setPending(null);
-      void refresh();
+      setTimeout(() => void refresh(), 1200);
     } else {
       // If we asked the OS for consent but couldn't record the accept
       // server-side, make sure we release the encoder before returning.
@@ -234,15 +279,17 @@ export function SupportRequestListener() {
   }
 
   async function endActive(reason: string = "merchant_stopped") {
-    if (!active) return;
+    const current = activeRef.current;
+    if (!current) return;
     setBusy(true);
     // Local teardown first — don't wait on network to stop capture.
     try { await nativeScreenCapture.stop(); } catch { /* noop */ }
-    localEndedRef.current = reason;
-    const res = await postSupport("support-end", { sessionId: active.id });
+    const res = await postSupport("support-end", { sessionId: current.id, note: reason });
     setBusy(false);
     if ("ok" in res) {
       toast.message("Support View ended.");
+      acceptedAtRef.current = 0;
+      activeRef.current = null;
       setActive(null);
       void refresh();
     } else {
