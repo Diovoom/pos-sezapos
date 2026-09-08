@@ -107,10 +107,9 @@ export function PosManagerDashboardDialog({
     },
     {
       label: "Payment terminal",
-      description: "Connect and select the card terminal used by this register.",
+      description: "Check or reconnect the card terminal used by this register.",
       icon: CreditCard,
       to: "/payment-terminal",
-      managerOnly: true,
     },
     {
       label: "App settings",

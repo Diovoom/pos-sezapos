@@ -7,7 +7,11 @@ import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
 
 export function PaymentTerminalPage() {
   const permissions = usePermissions();
-  const canEdit = permissions.isSuper || permissions.isManager || permissions.has("hardware.configure");
+  const canConfigure =
+    permissions.isSuper || permissions.isManager || permissions.has("hardware.configure");
+  // Reconnecting an already-prepared reader is a register operation, not merchant-account setup.
+  // Any signed-in register employee can recover the reader if it disconnects mid-shift.
+  const canOperate = true;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-muted/25">
@@ -17,7 +21,7 @@ export function PaymentTerminalPage() {
           <div>
             <h1 className="text-lg font-black">Payment terminal</h1>
             <p className="text-xs text-muted-foreground">
-              Complete owner processor setup, then pair and test the certified reader used by this register.
+              Check or reconnect the certified card reader used by this register.
             </p>
           </div>
         </div>
@@ -36,7 +40,7 @@ export function PaymentTerminalPage() {
               </div>
             </CardContent>
           </Card>
-          <PaymentTerminalsPanel canEdit={canEdit} />
+          <PaymentTerminalsPanel canEdit={canConfigure} canOperate={canOperate} />
           <p className="mt-3 text-xs text-muted-foreground">
             A saved terminal is not considered connected until its provider SDK confirms the physical reader.
           </p>
