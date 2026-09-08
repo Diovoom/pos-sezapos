@@ -135,7 +135,23 @@ export function SupportRequestListener() {
     setPending(rows.find((r) => r.status === "pending") ?? null);
     const serverActive = rows.find((r) => r.status === "active") ?? null;
     setActive((current) => {
-      if (serverActive) return serverActive;
+      if (serverActive) {
+        // The accept write and the follow-up direct read can briefly disagree
+        // about nullable capability/token fields even though they refer to the
+        // same active session. Never replace a known-good local screen-share
+        // identity with an incomplete snapshot: doing so unmounts
+        // AndroidScreenShare, whose cleanup correctly stops MediaProjection.
+        if (current?.id === serverActive.id) {
+          return {
+            ...current,
+            ...serverActive,
+            channel_token: serverActive.channel_token || current.channel_token,
+            client_capability:
+              serverActive.client_capability || current.client_capability,
+          };
+        }
+        return serverActive;
+      }
       // Right after Accept, the API response and Realtime/direct-read can race.
       // Keep the locally accepted session alive for a short grace period so a
       // temporary empty read cannot unmount the encoder and end the session.

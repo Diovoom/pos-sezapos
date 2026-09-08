@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import i18n from "@/i18n";
+import { MARKETING_RUNTIME_FALLBACKS } from "@/i18n/marketing-runtime-fallbacks";
 import { RUNTIME_FALLBACKS } from "@/i18n/runtime-fallbacks";
 
 const ORIGINAL_TEXT = new WeakMap<Text, string>();
@@ -63,9 +64,11 @@ function buildDictionary(): RuntimeDictionary {
   const translated = i18n.getResourceBundle(lang, "common") as unknown;
   flattenPairs(english, translated, exact);
 
-  const fallback: Record<string, string> =
-    RUNTIME_FALLBACKS[lang] ?? RUNTIME_FALLBACKS[lang.split("-")[0]] ?? {};
-  for (const [source, target] of Object.entries(fallback)) exact.set(source, target);
+  for (const pack of [RUNTIME_FALLBACKS, MARKETING_RUNTIME_FALLBACKS]) {
+    const fallback: Record<string, string> =
+      pack[lang] ?? pack[lang.split("-")[0]] ?? {};
+    for (const [source, target] of Object.entries(fallback)) exact.set(source, target);
+  }
 
   const normalizedMap = new Map<string, string>();
   for (const [source, target] of exact) normalizedMap.set(normalized(source), target);

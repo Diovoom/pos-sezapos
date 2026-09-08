@@ -1919,7 +1919,7 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const admin: any = supabaseAdmin;
-    const { data } = await admin
+    const { data, error } = await admin
       .from("admin_support_sessions")
       .select(
         "id, store_id, started_at, expires_at, reason, status, decided_at, decision_note, requested_at, decided_by, client_capability, client_metadata, channel_token",
@@ -1930,6 +1930,10 @@ export const adminMyActiveSupportSession = createServerFn({ method: "GET" })
       .order("requested_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    // A refetch error must stay an error. Returning { session: null } here
+    // makes the 2-second Admin poll unmount a healthy WebRTC viewer. React
+    // Query retains the previous successful data when a refetch rejects.
+    if (error) throw new Error(`Could not refresh support session: ${error.message}`);
     if (!data || !data.store_id) return { session: null };
 
     // Enrich with business + employee context for the admin banner.

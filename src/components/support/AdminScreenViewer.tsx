@@ -110,22 +110,41 @@ export function AdminScreenViewer({
       setMinimized(false);
     };
 
-    pc.onconnectionstatechange = () => {
-      if (disposed) return;
-      if (pc.connectionState === "connected") setStatus("connected");
-      else if (pc.connectionState === "failed") {
-        setStatus("failed");
-        setErrorText("The live video connection failed. The case and chat remain open.");
-        setMinimized(true);
-      } else if (pc.connectionState === "closed" && explicitEndRef.current) {
-        setStatus("ended");
-      }
-    };
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
     const signaling = openSignalingChannel(supabaseAdminAuth, channelToken, (message) => {
       if (!disposed)
         void handleSignal(message).catch((error) => console.error("[admin-rtc]", error));
     });
+
+    pc.onconnectionstatechange = () => {
+      if (disposed) return;
+      if (pc.connectionState === "connected") {
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+        setStatus("connected");
+        setErrorText(null);
+      } else if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+        // Mobile networks and Android WebViews can momentarily drop the ICE
+        // path while the MediaProjection encoder is still healthy. Keep the
+        // viewer mounted, request renegotiation and only mark it failed if the
+        // connection cannot recover after a short window.
+        setStatus("connecting");
+        setErrorText("Reconnecting to the merchant screen…");
+        try { pc.restartIce(); } catch { /* older engine */ }
+        signaling.send({ kind: "hello", from: "admin" }).catch(() => {});
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(() => {
+          if (disposed || pc.connectionState === "connected") return;
+          setStatus("failed");
+          setErrorText("The live video connection could not recover. The case and chat remain open.");
+          setMinimized(true);
+        }, 12_000);
+      } else if (pc.connectionState === "closed" && explicitEndRef.current) {
+        setStatus("ended");
+      }
+    };
+
 
     pc.onicecandidate = (event) => {
       if (event.candidate)
@@ -189,6 +208,7 @@ export function AdminScreenViewer({
       disposed = true;
       clearInterval(helloTimer);
       clearTimeout(failTimer);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       // Route navigation must not end the merchant's session. Only the close
       // button calls the server end action and broadcasts an explicit bye.
       signaling.close();
