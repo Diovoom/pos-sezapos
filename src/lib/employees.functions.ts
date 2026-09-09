@@ -442,12 +442,42 @@ export const completeFirstLogin = createServerFn({ method: "POST" })
         .eq("id", ctx.userId)
         .maybeSingle();
       if (!prof?.store_id) throw new Error("You are not assigned to a store");
-      const fp = pinFingerprint(prof.store_id, data.pin);
-      const { data: conflict } = await admin.rpc("pos_pin_conflict_check", {
-        _store_id: prof.store_id,
-        _fingerprint: fp,
-        _exclude_user: ctx.userId,
-      });
+      // The keyed fingerprint is an optimization for fast duplicate checks.
+      // A missing PIN_FINGERPRINT_HMAC_SECRET must never block a merchant
+      // from completing onboarding. Fall back to store-scoped scrypt
+      // verification and leave the fingerprint null until the server secret
+      // is configured.
+      let fp: string | null = null;
+      try {
+        fp = pinFingerprint(prof.store_id, data.pin);
+      } catch {
+        fp = null;
+      }
+
+      let conflict = false;
+      if (fp) {
+        const { data, error } = await admin.rpc("pos_pin_conflict_check", {
+          _store_id: prof.store_id,
+          _fingerprint: fp,
+          _exclude_user: ctx.userId,
+        });
+        if (error) throw new Error("Employee PINs could not be checked right now");
+        conflict = !!data;
+      } else {
+        const { verifyPin } = await import("./pin.server");
+        const { data: activeProfiles, error: readError } = await admin
+          .from("profiles")
+          .select("id,pin_hash")
+          .eq("store_id", prof.store_id)
+          .eq("status", "active")
+          .neq("id", ctx.userId);
+        if (readError) throw new Error("Employee PINs could not be checked right now");
+        conflict = (activeProfiles ?? []).some(
+          (row: { pin_hash?: string | null }) =>
+            !!row.pin_hash && verifyPin(data.pin!, row.pin_hash),
+        );
+      }
+
       if (conflict)
         throw new Error(
           "Another active employee at this store already uses that PIN. Pick a different one.",
@@ -506,12 +536,41 @@ export const setMyPin = createServerFn({ method: "POST" })
       .eq("id", ctx.userId)
       .maybeSingle();
     if (!prof?.store_id) throw new Error("You are not assigned to a store");
-    const fp = pinFingerprint(prof.store_id, data.pin);
-    const { data: conflict } = await admin.rpc("pos_pin_conflict_check", {
-      _store_id: prof.store_id,
-      _fingerprint: fp,
-      _exclude_user: ctx.userId,
-    });
+    // Keep PIN setup available even when the optional fingerprint HMAC
+    // secret is missing from the deployment. The scrypt PIN hash remains
+    // authoritative; the fingerprint only accelerates same-store duplicate
+    // detection.
+    let fp: string | null = null;
+    try {
+      fp = pinFingerprint(prof.store_id, data.pin);
+    } catch {
+      fp = null;
+    }
+
+    let conflict = false;
+    if (fp) {
+      const { data, error } = await admin.rpc("pos_pin_conflict_check", {
+        _store_id: prof.store_id,
+        _fingerprint: fp,
+        _exclude_user: ctx.userId,
+      });
+      if (error) throw new Error("Employee PINs could not be checked right now");
+      conflict = !!data;
+    } else {
+      const { verifyPin } = await import("./pin.server");
+      const { data: activeProfiles, error: readError } = await admin
+        .from("profiles")
+        .select("id,pin_hash")
+        .eq("store_id", prof.store_id)
+        .eq("status", "active")
+        .neq("id", ctx.userId);
+      if (readError) throw new Error("Employee PINs could not be checked right now");
+      conflict = (activeProfiles ?? []).some(
+        (row: { pin_hash?: string | null }) =>
+          !!row.pin_hash && verifyPin(data.pin, row.pin_hash),
+      );
+    }
+
     if (conflict)
       throw new Error(
         "Another active employee at this store already uses that PIN. Pick a different one.",

@@ -112,12 +112,41 @@ export const Route = createFileRoute("/api/public/pos/set-my-pin")({
             400,
           );
 
-        const fp = pinFingerprint(prof.store_id, pin);
-        const { data: conflict } = await admin.rpc("pos_pin_conflict_check", {
-          _store_id: prof.store_id,
-          _fingerprint: fp,
-          _exclude_user: userId,
-        });
+        // Fingerprints speed up duplicate checks, but they are not required
+        // to store or verify a PIN. If the deployment is missing the optional
+        // PIN_FINGERPRINT_HMAC_SECRET, fall back to checking the scrypt hashes
+        // for active employees in this store instead of blocking setup.
+        let fp: string | null = null;
+        try {
+          fp = pinFingerprint(prof.store_id, pin);
+        } catch {
+          fp = null;
+        }
+
+        let conflict = false;
+        if (fp) {
+          const { data, error: conflictError } = await admin.rpc("pos_pin_conflict_check", {
+            _store_id: prof.store_id,
+            _fingerprint: fp,
+            _exclude_user: userId,
+          });
+          if (conflictError) return json({ error: "Employee PINs could not be checked right now" }, 503);
+          conflict = !!data;
+        } else {
+          const { verifyPin } = await import("@/lib/pin.server");
+          const { data: activeProfiles, error: readError } = await admin
+            .from("profiles")
+            .select("id,pin_hash")
+            .eq("store_id", prof.store_id)
+            .eq("status", "active")
+            .neq("id", userId);
+          if (readError) return json({ error: "Employee PINs could not be checked right now" }, 503);
+          conflict = (activeProfiles ?? []).some(
+            (row: { pin_hash?: string | null }) =>
+              !!row.pin_hash && verifyPin(pin, row.pin_hash),
+          );
+        }
+
         if (conflict)
           return json(
             {
