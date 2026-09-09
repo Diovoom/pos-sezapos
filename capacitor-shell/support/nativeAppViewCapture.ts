@@ -101,6 +101,7 @@ export function createAppViewCaptureBridge(): {
   start: () => Promise<void>;
   close: () => Promise<void>;
   getLastError: () => string | null;
+  setFrameConsumer: (consumer: ((frame: AppViewFrame) => void) | null) => void;
 } | null {
   if (!isNativeAppViewCaptureAvailable() || !canPipeAppViewToMediaStream()) return null;
 
@@ -169,6 +170,7 @@ export function createAppViewCaptureBridge(): {
   let firstFrameReject: ((error: Error) => void) | null = null;
   let lastError: string | null = null;
   let firstFrameSeen = false;
+  let frameConsumer: ((frame: AppViewFrame) => void) | null = null;
 
   const firstFrame = new Promise<void>((resolve, reject) => {
     firstFrameResolve = resolve;
@@ -180,7 +182,17 @@ export function createAppViewCaptureBridge(): {
     async start() {
       listenerHandles.push(
         await impl.addListener("frame", (frame) => {
-          if (closed || decoding || !frame?.data) return;
+          if (closed || !frame?.data) return;
+
+          // Give the transport the original JPEG frame directly. The admin
+          // viewer can render these frames without depending on
+          // CanvasCaptureMediaStreamTrack, which is unreliable on this POS
+          // Android WebView. Keep the canvas/video path as a fallback.
+          try { frameConsumer?.(frame); } catch (error) {
+            console.warn("[seza-app-view] frame consumer", error);
+          }
+
+          if (decoding) return;
           decoding = true;
           void drawJpeg(canvas, ctx, frame)
             .then(() => {
@@ -237,6 +249,9 @@ export function createAppViewCaptureBridge(): {
     },
     getLastError() {
       return lastError;
+    },
+    setFrameConsumer(consumer) {
+      frameConsumer = consumer;
     },
   };
 }

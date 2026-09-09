@@ -33,6 +33,11 @@ type Props = {
   onEnded: (reason: string) => void;
 };
 
+const SCREEN_FRAME_CHANNEL = "seza-screen-frames";
+const SCREEN_FRAME_CHUNK_CHARS = 12_000;
+const SCREEN_FRAME_MAX_BUFFERED_BYTES = 500_000;
+
+
 export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEnded }: Props) {
   const [durationLabel, setDurationLabel] = useState("00:00");
   const [tick, setTick] = useState(0);
@@ -84,6 +89,53 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
     }
 
     const pc = new RTCPeerConnection(RTC_CONFIG);
+
+    // The Android POS WebView can establish an RTP video connection while
+    // still publishing only a black canvas. Send the original captured JPEG
+    // frames over a dedicated WebRTC DataChannel as the primary Android
+    // transport. The video track remains as a fallback for normal browsers.
+    const frameChannel = pc.createDataChannel(SCREEN_FRAME_CHANNEL, { ordered: true });
+    frameChannel.binaryType = "arraybuffer";
+    frameChannel.bufferedAmountLowThreshold = 128_000;
+    let frameSequence = 0;
+
+    capture.setFrameConsumer((frame) => {
+      if (disposed || frameChannel.readyState !== "open") return;
+
+      // Prefer the newest screen frame under congestion. A support viewer
+      // should stay current rather than queue several seconds of old images.
+      if (frameChannel.bufferedAmount > SCREEN_FRAME_MAX_BUFFERED_BYTES) return;
+
+      const data = frame.data;
+      if (!data) return;
+      const totalChunks = Math.max(1, Math.ceil(data.length / SCREEN_FRAME_CHUNK_CHARS));
+      const frameId = `${Date.now().toString(36)}-${(frameSequence++).toString(36)}`;
+
+      try {
+        frameChannel.send(JSON.stringify({
+          t: "meta",
+          id: frameId,
+          n: totalChunks,
+          w: frame.width,
+          h: frame.height,
+          at: frame.capturedAt,
+        }));
+        for (let index = 0; index < totalChunks; index++) {
+          frameChannel.send(JSON.stringify({
+            t: "chunk",
+            id: frameId,
+            i: index,
+            d: data.slice(
+              index * SCREEN_FRAME_CHUNK_CHARS,
+              (index + 1) * SCREEN_FRAME_CHUNK_CHARS,
+            ),
+          }));
+        }
+      } catch (error) {
+        console.warn("[android-rtc] frame channel send", error);
+      }
+    });
+
     const videoTrack = capture.stream.getVideoTracks()[0];
     if (!videoTrack) {
       void capture.close();
@@ -207,6 +259,8 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
     return () => {
       disposed = true;
       signaling.close();
+      capture.setFrameConsumer(null);
+      try { frameChannel.close(); } catch { /* noop */ }
       try { pc.close(); } catch { /* noop */ }
       void capture.close();
     };

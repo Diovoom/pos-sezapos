@@ -40,6 +40,7 @@ export function AdminScreenViewer({
   onClosed,
 }: Props) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [frameSrc, setFrameSrc] = useState<string | null>(null);
   const [status, setStatus] = useState<"connecting" | "connected" | "failed" | "ended">(
     "connecting",
   );
@@ -58,6 +59,7 @@ export function AdminScreenViewer({
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const explicitEndRef = useRef(false);
+  const visualReceivedRef = useRef(false);
   const endServerFn = useServerFn(adminEndSupportSession);
   const qc = useQueryClient();
 
@@ -89,6 +91,8 @@ export function AdminScreenViewer({
 
   useEffect(() => {
     let disposed = false;
+    visualReceivedRef.current = false;
+    setFrameSrc(null);
     const pc = new RTCPeerConnection(RTC_CONFIG);
     pcRef.current = pc;
     const pendingMerchantIce: RTCIceCandidateInit[] = [];
@@ -114,9 +118,88 @@ export function AdminScreenViewer({
       const stream = event.streams[0] ?? new MediaStream([event.track]);
       streamRef.current = stream;
       setRemoteStream(stream);
-      setStatus("connected");
-      setErrorText(null);
-      setMinimized(false);
+
+      // Browser/web screen share still uses the regular RTP video track.
+      // Android uses the JPEG DataChannel below because this POS WebView can
+      // negotiate a video track successfully while sending only black frames.
+      if (capability !== "android_screen_share") {
+        visualReceivedRef.current = true;
+        setStatus("connected");
+        setErrorText(null);
+        setMinimized(false);
+      }
+    };
+
+    const frameAssemblies = new Map<string, {
+      n: number;
+      w: number;
+      h: number;
+      at: number;
+      parts: Array<string | undefined>;
+      createdAt: number;
+    }>();
+
+    const pruneFrameAssemblies = () => {
+      const cutoff = Date.now() - 5_000;
+      for (const [id, assembly] of frameAssemblies) {
+        if (assembly.createdAt < cutoff) frameAssemblies.delete(id);
+      }
+    };
+
+    pc.ondatachannel = (event) => {
+      if (event.channel.label !== "seza-screen-frames") return;
+      const channel = event.channel;
+
+      channel.onmessage = (messageEvent) => {
+        if (disposed || typeof messageEvent.data !== "string") return;
+        let message: any;
+        try {
+          message = JSON.parse(messageEvent.data);
+        } catch {
+          return;
+        }
+
+        if (message?.t === "meta" && typeof message.id === "string") {
+          const total = Number(message.n);
+          if (!Number.isFinite(total) || total < 1 || total > 64) return;
+          frameAssemblies.set(message.id, {
+            n: total,
+            w: Number(message.w) || 0,
+            h: Number(message.h) || 0,
+            at: Number(message.at) || Date.now(),
+            parts: new Array(total),
+            createdAt: Date.now(),
+          });
+          pruneFrameAssemblies();
+          return;
+        }
+
+        if (
+          message?.t !== "chunk" ||
+          typeof message.id !== "string" ||
+          typeof message.d !== "string"
+        ) {
+          return;
+        }
+
+        const assembly = frameAssemblies.get(message.id);
+        if (!assembly) return;
+        const index = Number(message.i);
+        if (!Number.isInteger(index) || index < 0 || index >= assembly.n) return;
+        assembly.parts[index] = message.d;
+
+        if (!assembly.parts.every((part) => typeof part === "string")) return;
+
+        const base64 = assembly.parts.join("");
+        frameAssemblies.delete(message.id);
+        if (!base64) return;
+
+        visualReceivedRef.current = true;
+        setFrameSrc(`data:image/jpeg;base64,${base64}`);
+        setStatus("connected");
+        setErrorText(null);
+        setMinimized(false);
+      };
     };
 
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -131,8 +214,13 @@ export function AdminScreenViewer({
       if (pc.connectionState === "connected") {
         if (reconnectTimer) clearTimeout(reconnectTimer);
         reconnectTimer = null;
-        setStatus("connected");
-        setErrorText(null);
+        if (visualReceivedRef.current) {
+          setStatus("connected");
+          setErrorText(null);
+        } else {
+          setStatus("connecting");
+          setErrorText("Connected to the POS. Waiting for screen pixels…");
+        }
       } else if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
         // Mobile networks and Android WebViews can momentarily drop the ICE
         // path while the MediaProjection encoder is still healthy. Keep the
@@ -204,7 +292,18 @@ export function AdminScreenViewer({
     }, 2500);
 
     const failTimer = setTimeout(() => {
-      if (!disposed && pc.connectionState !== "connected" && !streamRef.current) {
+      if (disposed || visualReceivedRef.current) return;
+
+      if (pc.connectionState === "connected" && capability === "android_screen_share") {
+        setStatus("failed");
+        setErrorText(
+          "Connected to the POS, but no screen pixels arrived. Re-share from the merchant device.",
+        );
+        setMinimized(false);
+        return;
+      }
+
+      if (pc.connectionState !== "connected" && !streamRef.current) {
         setStatus("failed");
         setErrorText(
           "Waiting for the merchant timed out. Keep the case open and ask them to share again.",
@@ -221,13 +320,14 @@ export function AdminScreenViewer({
       // Route navigation must not end the merchant's session. Only the close
       // button calls the server end action and broadcasts an explicit bye.
       signaling.close();
+      frameAssemblies.clear();
       try {
         pc.close();
       } catch {
         /* noop */
       }
     };
-  }, [sessionId, channelToken]);
+  }, [sessionId, channelToken, capability]);
 
   useEffect(() => {
     if (status !== "connected") return;
@@ -345,13 +445,28 @@ export function AdminScreenViewer({
 
       {!compact && (
         <div className="relative bg-black">
-          {remoteStream ? (
+          {frameSrc ? (
+            <img
+              src={frameSrc}
+              alt="Live merchant SEZA POS screen"
+              draggable={false}
+              className={cn(
+                "block w-full bg-black object-contain select-none",
+                expanded ? "h-[calc(100vh-7rem)]" : "aspect-video",
+              )}
+              style={{ pointerEvents: "none" }}
+            />
+          ) : remoteStream && capability !== "android_screen_share" ? (
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
               onLoadedData={(event) => {
+                visualReceivedRef.current = true;
+                setStatus("connected");
+                setErrorText(null);
+                setMinimized(false);
                 void event.currentTarget.play().catch(() => {});
               }}
               className={cn(
@@ -369,7 +484,7 @@ export function AdminScreenViewer({
             >
               <div className="max-w-sm text-sm">
                 {status === "connecting" &&
-                  "The merchant accepted. Waiting for the first live frame…"}
+                  (errorText || "The merchant accepted. Waiting for the first live frame…")}
                 {status === "failed" && (
                   <>
                     <AlertTriangle className="mx-auto mb-2 h-6 w-6 text-red-500" />
