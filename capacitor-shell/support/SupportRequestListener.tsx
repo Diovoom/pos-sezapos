@@ -9,11 +9,10 @@
 //   - Subscribe once (per signed-in employee) to admin_support_sessions for
 //     the caller's store via Supabase realtime.
 //   - Show an Accept / Decline prompt when a pending request arrives.
-//   - On Accept: request MediaProjection consent from Android FIRST, then
-//     resolve the session as `android_screen_share` and mount the live
-//     screen-share peer (`AndroidScreenShare`).
-//   - If MediaProjection consent is denied or live sharing is unsupported,
-//     decline the request cleanly. Diagnostics are never substituted for a live screen.
+//   - On Accept: approve an app-window-only Android share and mount the live
+//     screen-share peer (`AndroidScreenShare`). The native capture is limited to
+//     the SEZA POS Activity; other Android apps and system UI are excluded.
+//   - If app-window capture is unsupported, decline the request cleanly.
 //   - Defer the prompt while a payment or shift-close is in flight
 //     (`paymentBusy` from the native activity flags) so a modal cannot
 //     interrupt a tender.
@@ -38,10 +37,10 @@ import { ShieldCheck, Eye, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getActivityState } from "../lifecycle/activityState";
 import {
-  nativeScreenCapture,
-  isNativeScreenCaptureAvailable,
-  canPipeToMediaStream,
-} from "./nativeScreenCapture";
+  isNativeAppViewCaptureAvailable,
+  canPipeAppViewToMediaStream,
+  stopNativeAppViewCapture,
+} from "./nativeAppViewCapture";
 import { AndroidScreenShare } from "./AndroidScreenShare";
 
 type SupportRequest = {
@@ -124,7 +123,7 @@ export function SupportRequestListener() {
       .gt("expires_at", new Date().toISOString())
       .order("requested_at", { ascending: false });
 
-    // Never tear down a live MediaProjection because of a transient direct
+    // Never tear down a live capture because of a transient direct
     // Supabase read failure. The HTTPS support endpoints remain authoritative.
     if (error) {
       console.warn("[support-share] refresh failed", error.message);
@@ -140,7 +139,7 @@ export function SupportRequestListener() {
         // about nullable capability/token fields even though they refer to the
         // same active session. Never replace a known-good local screen-share
         // identity with an incomplete snapshot: doing so unmounts
-        // AndroidScreenShare, whose cleanup correctly stops MediaProjection.
+        // AndroidScreenShare, whose cleanup correctly stops the local capture.
         if (current?.id === serverActive.id) {
           return {
             ...current,
@@ -216,7 +215,7 @@ export function SupportRequestListener() {
     let clientCapability: "android_screen_share" | undefined;
 
     if (decision === "accept") {
-      if (!isNativeScreenCaptureAvailable() || !canPipeToMediaStream()) {
+      if (!isNativeAppViewCaptureAvailable() || !canPipeAppViewToMediaStream()) {
         const declined = await postSupport("support-respond", {
           sessionId: target.id,
           decision: "decline",
@@ -224,7 +223,7 @@ export function SupportRequestListener() {
         setBusy(false);
         if ("ok" in declined) {
           setPending(null);
-          toast.error("Live screen sharing is not available on this Android system yet.");
+          toast.error("Live SEZA screen sharing is not available on this Android system yet.");
           void refresh();
         } else {
           toast.error(declined.error);
@@ -232,30 +231,9 @@ export function SupportRequestListener() {
         return;
       }
 
-      let granted = false;
-      try {
-        const permission = await nativeScreenCapture.requestPermission();
-        granted = !!permission.granted;
-      } catch {
-        granted = false;
-      }
-
-      if (!granted) {
-        const declined = await postSupport("support-respond", {
-          sessionId: target.id,
-          decision: "decline",
-        });
-        setBusy(false);
-        if ("ok" in declined) {
-          setPending(null);
-          toast.message("Screen sharing was not started.");
-          void refresh();
-        } else {
-          toast.error(declined.error);
-        }
-        return;
-      }
-
+      // The merchant's Allow tap is the consent boundary. The native plugin
+      // captures only this app's own Activity window, so Android's whole-device
+      // MediaProjection permission is deliberately not requested.
       clientCapability = "android_screen_share";
     }
 
@@ -283,9 +261,6 @@ export function SupportRequestListener() {
       setPending(null);
       setTimeout(() => void refresh(), 1200);
     } else {
-      // If we asked the OS for consent but couldn't record the accept
-      // server-side, make sure we release the encoder before returning.
-      if (decision === "accept") { try { await nativeScreenCapture.stop(); } catch { /* noop */ } }
       toast.error(res.error);
       if (res.status === 409 || res.status === 410) {
         setPending(null);
@@ -298,8 +273,9 @@ export function SupportRequestListener() {
     const current = activeRef.current;
     if (!current) return;
     setBusy(true);
-    // Local teardown first — don't wait on network to stop capture.
-    try { await nativeScreenCapture.stop(); } catch { /* noop */ }
+    // Privacy first: stop local capture immediately, even if the network call
+    // that closes the audited server session is slow or temporarily fails.
+    await stopNativeAppViewCapture();
     const res = await postSupport("support-end", { sessionId: current.id, note: reason });
     setBusy(false);
     if ("ok" in res) {
@@ -396,8 +372,9 @@ export function SupportRequestListener() {
                   <Badge variant="outline">You can stop it anytime</Badge>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  If you tap Allow, Android will show a system prompt to confirm screen capture.
-                  A red banner and a system notification stay visible the whole time.
+                  If you tap Allow, SEZA Support can see only the SEZA POS app screen. Other
+                  Android apps and system screens are not captured. A red banner stays visible
+                  while sharing is active.
                 </p>
               </div>
             </AlertDialogDescription>

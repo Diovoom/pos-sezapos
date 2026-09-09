@@ -8,6 +8,7 @@ import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 import com.sezapos.security.SezaSecureStoragePlugin;
 import com.sezapos.screen.SezaScreenCapturePlugin;
+import com.sezapos.screen.SezaAppViewCapturePlugin;
 import com.sezapos.share.SezaPdfSharePlugin;
 import com.sezapos.device.SezaDeviceControlPlugin;
 import com.sezapos.device.SezaUsbPrinterPlugin;
@@ -17,6 +18,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(SezaScreenCapturePlugin.class);
+        registerPlugin(SezaAppViewCapturePlugin.class);
         registerPlugin(SezaSecureStoragePlugin.class);
         registerPlugin(SezaPdfSharePlugin.class);
         registerPlugin(SezaDeviceControlPlugin.class);
