@@ -51,6 +51,7 @@ function normalized(value: string) {
 }
 
 type RuntimeDictionary = {
+  lang: string;
   exact: Map<string, string>;
   normalized: Map<string, string>;
 };
@@ -58,7 +59,7 @@ type RuntimeDictionary = {
 function buildDictionary(): RuntimeDictionary {
   const lang = languageCode();
   const exact = new Map<string, string>();
-  if (lang === "en-US" || lang === "en") return { exact, normalized: new Map() };
+  if (lang === "en-US" || lang === "en") return { lang, exact, normalized: new Map() };
 
   const english = i18n.getResourceBundle("en-US", "common") as unknown;
   const translated = i18n.getResourceBundle(lang, "common") as unknown;
@@ -73,7 +74,7 @@ function buildDictionary(): RuntimeDictionary {
   const normalizedMap = new Map<string, string>();
   for (const [source, target] of exact) normalizedMap.set(normalized(source), target);
 
-  return { exact, normalized: normalizedMap };
+  return { lang, exact, normalized: normalizedMap };
 }
 
 function preserveCapitalization(original: string, translated: string) {
@@ -81,11 +82,77 @@ function preserveCapitalization(original: string, translated: string) {
   return translated;
 }
 
+const DYNAMIC_UI_TEMPLATES: Record<string, {
+  offlineDevices: (count: string) => string;
+  offline: (count: string) => string;
+  openCases: (count: string) => string;
+  unreadSupport: (count: string) => string;
+}> = {
+  fr: {
+    offlineDevices: (count) => `${count} appareil(s) hors ligne`,
+    offline: (count) => `${count} hors ligne`,
+    openCases: (count) => `${count} dossier(s) ouvert(s)`,
+    unreadSupport: (count) => `${count} message(s) d’assistance non lu(s)`,
+  },
+  es: {
+    offlineDevices: (count) => `${count} dispositivo(s) sin conexión`,
+    offline: (count) => `${count} sin conexión`,
+    openCases: (count) => `${count} caso(s) abierto(s)`,
+    unreadSupport: (count) => `${count} mensaje(s) de soporte sin leer`,
+  },
+  ht: {
+    offlineDevices: (count) => `${count} aparèy offline`,
+    offline: (count) => `${count} offline`,
+    openCases: (count) => `${count} dosye ouvè`,
+    unreadSupport: (count) => `${count} mesaj sipò ki poko li`,
+  },
+  "pt-BR": {
+    offlineDevices: (count) => `${count} dispositivo(s) offline`,
+    offline: (count) => `${count} offline`,
+    openCases: (count) => `${count} caso(s) aberto(s)`,
+    unreadSupport: (count) => `${count} mensagem(ns) de suporte não lida(s)`,
+  },
+  ar: {
+    offlineDevices: (count) => `${count} جهاز غير متصل`,
+    offline: (count) => `${count} غير متصل`,
+    openCases: (count) => `${count} حالة مفتوحة`,
+    unreadSupport: (count) => `${count} رسالة دعم غير مقروءة`,
+  },
+  he: {
+    offlineDevices: (count) => `${count} מכשיר(ים) לא מקוון(ים)`,
+    offline: (count) => `${count} לא מקוון`,
+    openCases: (count) => `${count} פניות פתוחות`,
+    unreadSupport: (count) => `${count} הודעות תמיכה שלא נקראו`,
+  },
+};
+
+function translateDynamicUi(core: string, lang: string): string | null {
+  const templates = DYNAMIC_UI_TEMPLATES[lang] ?? DYNAMIC_UI_TEMPLATES[lang.split("-")[0]];
+  if (!templates) return null;
+
+  let match = core.match(/^(\d+)\s+offline device\(s\)$/i);
+  if (match) return templates.offlineDevices(match[1]);
+  match = core.match(/^(\d+)\s+offline devices?$/i);
+  if (match) return templates.offlineDevices(match[1]);
+  match = core.match(/^(\d+)\s+offline$/i);
+  if (match) return templates.offline(match[1]);
+  match = core.match(/^(\d+)\s+open case\(s\)$/i);
+  if (match) return templates.openCases(match[1]);
+  match = core.match(/^(\d+)\s+open cases?$/i);
+  if (match) return templates.openCases(match[1]);
+  match = core.match(/^(\d+)\s+unread support messages?$/i);
+  if (match) return templates.unreadSupport(match[1]);
+  return null;
+}
+
 function translateValue(value: string, dictionary: RuntimeDictionary) {
   const leading = value.match(/^\s*/)?.[0] ?? "";
   const trailing = value.match(/\s*$/)?.[0] ?? "";
   const core = value.slice(leading.length, value.length - trailing.length);
   if (!core) return value;
+
+  const dynamic = translateDynamicUi(core, dictionary.lang);
+  if (dynamic) return `${leading}${dynamic}${trailing}`;
 
   const direct = dictionary.exact.get(core) ?? dictionary.normalized.get(normalized(core));
   if (direct) return `${leading}${preserveCapitalization(core, direct)}${trailing}`;

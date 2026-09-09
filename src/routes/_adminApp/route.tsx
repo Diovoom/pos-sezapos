@@ -46,7 +46,7 @@ import {
   BriefcaseBusiness,
   AlertTriangle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PLATFORM_ROLES } from "@/lib/platform-roles";
@@ -87,6 +87,23 @@ type NavItem = {
   exact?: boolean;
   permission?: string;
   founderOnly?: boolean;
+};
+
+type ActiveSupportSession = {
+  id: string;
+  store_id: string;
+  status: string;
+  started_at: string | null;
+  expires_at: string;
+  client_capability: string | null;
+  client_metadata_json: string | null;
+  channel_token: string;
+  store?: { id: string; name: string; store_code: string | null } | null;
+  accepted_by?: {
+    full_name: string | null;
+    email: string | null;
+    employee_id: string | null;
+  } | null;
 };
 const NAV: NavItem[] = [
   { to: "/admin", label: "Operations Center", icon: LayoutDashboard, exact: true },
@@ -174,25 +191,48 @@ function AdminLayout() {
     refetchInterval: 2_000,
   });
 
-  const activeSession = supportSessionQuery.data?.session as
-    | {
-        id: string;
-        store_id: string;
-        status: string;
-        started_at: string | null;
-        expires_at: string;
-        client_capability: string | null;
-        client_metadata_json: string | null;
-        channel_token: string;
-        store?: { id: string; name: string; store_code: string | null } | null;
-        accepted_by?: {
-          full_name: string | null;
-          email: string | null;
-          employee_id: string | null;
-        } | null;
-      }
+  const rawActiveSession = supportSessionQuery.data?.session as
+    | ActiveSupportSession
     | null
     | undefined;
+
+  // The support row is polled every two seconds. A transient/incomplete server
+  // snapshot must never tear down a working viewer: unmounting the viewer loses
+  // its last good JPEG frame and creates the exact "picture appears, then black"
+  // behavior seen on the physical terminal. Keep the confirmed transport fields
+  // sticky for the same active session while still accepting real status changes.
+  const stableSupportSessionRef = useRef<ActiveSupportSession | null>(null);
+  const activeSession = useMemo<ActiveSupportSession | null | undefined>(() => {
+    const raw = rawActiveSession;
+    if (!raw) {
+      if (raw === null) stableSupportSessionRef.current = null;
+      return raw;
+    }
+
+    if (raw.status !== "active") {
+      stableSupportSessionRef.current = raw;
+      return raw;
+    }
+
+    const previous = stableSupportSessionRef.current;
+    if (previous?.id !== raw.id) {
+      stableSupportSessionRef.current = raw;
+      return raw;
+    }
+
+    const merged: ActiveSupportSession = {
+      ...previous,
+      ...raw,
+      client_capability: raw.client_capability ?? previous.client_capability,
+      channel_token: raw.channel_token || previous.channel_token,
+      expires_at: raw.expires_at || previous.expires_at,
+      started_at: raw.started_at || previous.started_at,
+      store: raw.store ?? previous.store,
+      accepted_by: raw.accepted_by ?? previous.accepted_by,
+    };
+    stableSupportSessionRef.current = merged;
+    return merged;
+  }, [rawActiveSession]);
 
   const activeSessionMetadata = useMemo<Record<string, unknown> | null>(() => {
     if (!activeSession?.client_metadata_json) return null;

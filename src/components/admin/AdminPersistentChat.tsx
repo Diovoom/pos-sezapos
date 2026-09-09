@@ -21,8 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ExternalLink, MessageCircle, Minus, PhoneOff, Send, X } from "lucide-react";
+import { ExternalLink, GripVertical, MessageCircle, Minus, PhoneOff, Send, X } from "lucide-react";
 import { format } from "date-fns";
+import { useFloatingPosition } from "@/hooks/useFloatingPosition";
 import { toast } from "sonner";
 
 export const ADMIN_ACTIVE_CHAT_KEY = "seza-admin-active-chat-ticket";
@@ -58,6 +59,9 @@ export function rememberAdminChat(ticketId: string | null) {
 }
 
 export function AdminPersistentChat() {
+  const { panelRef, floatingStyle, dragHandleProps, reclamp } = useFloatingPosition(
+    "seza-admin-merchant-chat-position",
+  );
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const onFullChatPage =
     pathname === "/admin/communications" || pathname.startsWith("/admin/support/");
@@ -311,14 +315,32 @@ export function AdminPersistentChat() {
     }
   }
 
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(reclamp);
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, reclamp]);
+
   if (onFullChatPage || activeRows.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[70] max-w-[calc(100vw-2rem)]">
+    <div
+      ref={panelRef}
+      style={floatingStyle}
+      className="fixed bottom-4 right-4 z-[70] max-w-[calc(100vw-2rem)]"
+    >
       {open ? (
         <section className="flex h-[min(620px,78vh)] w-[min(410px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl">
-          <header className="flex items-start justify-between gap-3 border-b bg-primary px-4 py-3 text-primary-foreground">
-            <div className="min-w-0">
+          <header className="flex items-start justify-between gap-3 border-b bg-primary px-3 py-3 text-primary-foreground">
+            <button
+              type="button"
+              {...dragHandleProps}
+              className="mt-0.5 grid h-8 w-7 shrink-0 place-items-center rounded-md text-primary-foreground/75 hover:bg-primary-foreground/15 hover:text-primary-foreground"
+              aria-label="Move merchant chat"
+              title="Drag to move"
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 font-semibold">
                 <MessageCircle className="h-4 w-4" /> Merchant support
               </div>
@@ -486,23 +508,38 @@ export function AdminPersistentChat() {
           </footer>
         </section>
       ) : (
-        <Button
-          type="button"
-          size="lg"
-          className="h-14 rounded-full px-5 shadow-xl"
-          onClick={() => setOpen(true)}
-          aria-label="Open merchant support"
-        >
-          <MessageCircle className="mr-2 h-5 w-5" />
-          <span className="max-w-[180px] truncate" data-no-translate>
-            {selectedRow?.visitor_name ?? selectedRow?.store?.name ?? "Merchant chat"}
-          </span>
-          {unreadCount > 0 && (
-            <span className="ml-2 min-w-5 rounded-full bg-destructive px-1.5 py-0.5 text-xs text-destructive-foreground">
-              {unreadCount}
-            </span>
-          )}
-        </Button>
+        <div className="flex items-center rounded-full bg-background shadow-xl ring-1 ring-border">
+          <button
+            type="button"
+            {...dragHandleProps}
+            className="grid h-14 w-9 shrink-0 place-items-center rounded-l-full text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Move merchant chat"
+            title="Drag to move"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <Button
+            type="button"
+            size="lg"
+            className="h-14 rounded-l-none rounded-r-full px-5 shadow-none"
+            onClick={() => setOpen(true)}
+            aria-label="Open merchant support"
+          >
+            <MessageCircle className="mr-2 h-5 w-5" />
+            {selectedRow?.visitor_name || selectedRow?.store?.name ? (
+              <span className="max-w-[180px] truncate" data-no-translate>
+                {selectedRow?.visitor_name ?? selectedRow?.store?.name}
+              </span>
+            ) : (
+              <span className="max-w-[180px] truncate">Merchant chat</span>
+            )}
+            {unreadCount > 0 && (
+              <span className="ml-2 min-w-5 rounded-full bg-destructive px-1.5 py-0.5 text-xs text-destructive-foreground">
+                {unreadCount}
+              </span>
+            )}
+          </Button>
+        </div>
       )}
     </div>
   );

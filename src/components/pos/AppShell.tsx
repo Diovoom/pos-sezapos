@@ -8,6 +8,7 @@ import {
   Clock,
   CreditCard,
   DollarSign,
+  GripVertical,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
@@ -31,6 +32,7 @@ import { UserAvatar } from "@/components/brand/UserAvatar";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { CatalogPublishButton } from "@/components/CatalogPublishButton";
 import { Button } from "@/components/ui/button";
+import { useFloatingPosition } from "@/hooks/useFloatingPosition";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +55,8 @@ const MORE_NAV = [
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const { panelRef: supportBubbleRef, floatingStyle: supportBubbleStyle, dragHandleProps: supportDragHandleProps } =
+    useFloatingPosition("seza-owner-support-bubble-position");
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -337,18 +341,33 @@ export function AppShell({ children }: { children: ReactNode }) {
           </DropdownMenu>
         </nav>
 
-        <Link
-          to="/help"
-          aria-label={unreadSupportCount ? `${unreadSupportCount} unread support message${unreadSupportCount === 1 ? "" : "s"}` : "Contact Support"}
-          className="fixed bottom-[calc(5.55rem_+_env(safe-area-inset-bottom))] right-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:opacity-90 md:bottom-5"
+        <div
+          ref={supportBubbleRef}
+          style={supportBubbleStyle}
+          className="fixed bottom-[calc(5.55rem_+_env(safe-area-inset-bottom))] right-4 z-40 flex items-center rounded-full bg-background shadow-lg ring-1 ring-border md:bottom-5"
         >
-          <span className="relative">
-            <LifeBuoy className="size-4" />
-            {unreadSupportCount > 0 && <span className="absolute -right-2 -top-2 size-3 rounded-full border-2 border-primary bg-red-500" />}
-          </span>
-          <span className="hidden sm:inline">Contact Support</span>
-          {unreadSupportCount > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-red-500 px-1.5 text-[10px] text-white">{Math.min(unreadSupportCount, 99)}</span>}
-        </Link>
+          <button
+            type="button"
+            {...supportDragHandleProps}
+            className="grid min-h-11 w-8 shrink-0 place-items-center rounded-l-full text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Move support button"
+            title="Drag to move"
+          >
+            <GripVertical className="size-4" />
+          </button>
+          <Link
+            to="/help"
+            aria-label={unreadSupportCount ? `${unreadSupportCount} unread support message${unreadSupportCount === 1 ? "" : "s"}` : "Contact Support"}
+            className="inline-flex min-h-11 items-center gap-2 rounded-l-none rounded-r-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          >
+            <span className="relative">
+              <LifeBuoy className="size-4" />
+              {unreadSupportCount > 0 && <span className="absolute -right-2 -top-2 size-3 rounded-full border-2 border-primary bg-red-500" />}
+            </span>
+            <span className="hidden sm:inline">Contact Support</span>
+            {unreadSupportCount > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-red-500 px-1.5 text-[10px] text-white">{Math.min(unreadSupportCount, 99)}</span>}
+          </Link>
+        </div>
       </main>
     </div>
   );

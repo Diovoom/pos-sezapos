@@ -3,6 +3,7 @@ package com.sezapos.screen;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -124,6 +125,21 @@ public class SezaAppViewCapturePlugin extends Plugin {
                 }
 
                 if (result == PixelCopy.SUCCESS) {
+                    // On this dual-display Android-x86 POS, PixelCopy can
+                    // occasionally report SUCCESS while returning an all-black
+                    // surface. Do not publish that frame: it is what makes the
+                    // Admin viewer flash from a good picture back to black.
+                    // Try the Activity view hierarchy immediately, then let the
+                    // worker discard the frame if the fallback is still blank.
+                    if (isMostlyBlack(bitmap)) {
+                        try {
+                            bitmap.eraseColor(Color.TRANSPARENT);
+                            Canvas canvas = new Canvas(bitmap);
+                            decor.draw(canvas);
+                        } catch (Throwable ignored) {
+                            // processBitmap performs a second blank-frame guard.
+                        }
+                    }
                     processBitmap(bitmap, expectedGeneration);
                     return;
                 }
@@ -171,6 +187,11 @@ public class SezaAppViewCapturePlugin extends Plugin {
             Bitmap output = source;
             try {
                 if (!running.get() || expectedGeneration != generation) return;
+
+                // Never replace a valid Admin frame with a bogus black frame.
+                // A legitimate SEZA screen may use dark UI elements, but it is
+                // not >96% near-black across a coarse full-screen sample.
+                if (isMostlyBlack(source)) return;
 
                 int outWidth = source.getWidth();
                 int outHeight = source.getHeight();
@@ -241,6 +262,35 @@ public class SezaAppViewCapturePlugin extends Plugin {
         running.set(false);
         generation++;
         captureInFlight.set(false);
+    }
+
+    private static boolean isMostlyBlack(Bitmap bitmap) {
+        if (bitmap == null || bitmap.isRecycled() || bitmap.getWidth() < 2 || bitmap.getHeight() < 2) {
+            return true;
+        }
+        final int columns = 18;
+        final int rows = 14;
+        int sampled = 0;
+        int nearBlack = 0;
+        try {
+            for (int row = 0; row < rows; row++) {
+                int y = Math.min(bitmap.getHeight() - 1,
+                    Math.max(0, Math.round((row + 0.5f) * bitmap.getHeight() / rows)));
+                for (int col = 0; col < columns; col++) {
+                    int x = Math.min(bitmap.getWidth() - 1,
+                        Math.max(0, Math.round((col + 0.5f) * bitmap.getWidth() / columns)));
+                    int pixel = bitmap.getPixel(x, y);
+                    int r = Color.red(pixel);
+                    int g = Color.green(pixel);
+                    int b = Color.blue(pixel);
+                    sampled++;
+                    if (r <= 18 && g <= 18 && b <= 18) nearBlack++;
+                }
+            }
+        } catch (Throwable ignored) {
+            return false;
+        }
+        return sampled > 0 && ((double) nearBlack / (double) sampled) >= 0.96d;
     }
 
     private static int clamp(Integer value, int min, int max) {

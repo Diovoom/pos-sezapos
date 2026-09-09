@@ -11,9 +11,10 @@ import {
   type SignalPayload,
 } from "@/lib/support/webrtc";
 import { Button } from "@/components/ui/button";
-import { Minimize2, Maximize2, X, Wifi, WifiOff, AlertTriangle, MonitorUp } from "lucide-react";
+import { GripVertical, Minimize2, Maximize2, X, Wifi, WifiOff, AlertTriangle, MonitorUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useFloatingPosition } from "@/hooks/useFloatingPosition";
 
 type Props = {
   sessionId: string;
@@ -39,6 +40,9 @@ export function AdminScreenViewer({
   capability,
   onClosed,
 }: Props) {
+  const { panelRef, floatingStyle, dragHandleProps, reclamp } = useFloatingPosition(
+    "seza-admin-screen-viewer-position",
+  );
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [frameSrc, setFrameSrc] = useState<string | null>(null);
   const [status, setStatus] = useState<"connecting" | "connected" | "failed" | "ended">(
@@ -194,11 +198,14 @@ export function AdminScreenViewer({
         frameAssemblies.delete(message.id);
         if (!base64) return;
 
+        const firstVisualFrame = !visualReceivedRef.current;
         visualReceivedRef.current = true;
         setFrameSrc(`data:image/jpeg;base64,${base64}`);
         setStatus("connected");
         setErrorText(null);
-        setMinimized(false);
+        // Auto-open only for the first real frame. Once the admin minimizes the
+        // viewer, later frames must not keep forcing the panel back open.
+        if (firstVisualFrame) setMinimized(false);
       };
     };
 
@@ -299,7 +306,9 @@ export function AdminScreenViewer({
         setErrorText(
           "Connected to the POS, but no screen pixels arrived. Re-share from the merchant device.",
         );
-        setMinimized(false);
+        // Keep failures compact so a dead screen-share attempt never covers
+        // the Admin workspace. The status bubble can be dragged anywhere.
+        setMinimized(true);
         return;
       }
 
@@ -366,18 +375,37 @@ export function AdminScreenViewer({
 
   const compact = minimized && !expanded;
 
+  useEffect(() => {
+    if (expanded) return;
+    const frame = window.requestAnimationFrame(reclamp);
+    return () => window.cancelAnimationFrame(frame);
+  }, [compact, expanded, reclamp]);
+
   return (
     <div
+      ref={panelRef}
+      style={expanded ? undefined : floatingStyle}
       className={cn(
         "fixed z-50 overflow-hidden rounded-xl border bg-background shadow-2xl",
         expanded
           ? "inset-4"
           : compact
-            ? "bottom-4 right-4 w-[310px] max-w-[calc(100vw-2rem)]"
-            : "bottom-4 right-4 w-[440px] max-w-[calc(100vw-2rem)]",
+            ? "bottom-4 left-4 w-[310px] max-w-[calc(100vw-2rem)]"
+            : "bottom-4 left-4 w-[440px] max-w-[calc(100vw-2rem)]",
       )}
     >
-      <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2">
+      <div className="flex items-center gap-2 border-b bg-muted/40 px-2 py-2">
+        {!expanded && (
+          <button
+            type="button"
+            {...dragHandleProps}
+            className="grid h-7 w-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Move screen viewer"
+            title="Drag to move"
+          >
+            <GripVertical className="h-3.5 w-3.5" />
+          </button>
+        )}
         <span
           className={cn(
             "h-2 w-2 shrink-0 rounded-full",
