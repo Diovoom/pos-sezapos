@@ -19,7 +19,7 @@ export type CustomerDisplayPayload = {
   idleImageUrl?: string | null;
   idleTextScale?: number | null;
   currency: string;
-  phase: "idle" | "sale" | "processing" | "complete" | "declined" | "cancelled";
+  phase: "idle" | "sale" | "awaiting_card" | "processing" | "complete" | "declined" | "cancelled";
   statusMessage?: string | null;
   lines: CustomerDisplayLine[];
   subtotal: number;

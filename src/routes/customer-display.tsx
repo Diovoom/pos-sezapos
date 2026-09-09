@@ -128,6 +128,7 @@ export function CustomerDisplayPage() {
     };
   }, [storeId]);
 
+  const awaitingCard = sale.phase === "awaiting_card";
   const completed = sale.phase === "complete";
   const processing = sale.phase === "processing";
   const declined = sale.phase === "declined";
@@ -137,6 +138,36 @@ export function CustomerDisplayPage() {
     return Number.isFinite(updated) && Date.now() - updated < 15_000;
   }, [sale.updatedAt, remoteConnected]);
   const connected = remoteConnected || isFresh;
+
+  if (awaitingCard) {
+    return (
+      <main className="min-h-screen overflow-hidden bg-white text-slate-950 grid place-items-center">
+        <div
+          className="relative w-full"
+          style={{
+            width: "min(100vw, calc(100vh * 4 / 3))",
+            aspectRatio: "4 / 3",
+          }}
+        >
+          <img
+            src="/images/seza-card-reader-payment-guide.png"
+            alt="Tap, insert, or swipe your card on the card reader"
+            className="absolute inset-0 size-full object-contain"
+          />
+          <div
+            className="absolute left-1/2 top-[72%] -translate-x-1/2 text-center whitespace-nowrap"
+            aria-live="polite"
+          >
+            <p className="text-lg md:text-2xl font-semibold text-slate-500">Total</p>
+            <p className="mt-1 text-5xl md:text-7xl font-black tracking-tight text-slate-950">
+              {fmtCurrency(sale.total, sale.currency)}
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 text-white flex flex-col p-8 md:p-12">
       <header className="flex items-center justify-between border-b border-white/15 pb-6">

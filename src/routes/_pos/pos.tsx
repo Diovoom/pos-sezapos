@@ -1081,6 +1081,8 @@ export function PosPage() {
     const activeStatus = finalize.isPending
       ? { phase: "processing" as const, message: "Please wait while payment is confirmed." }
       : displayStatus;
+    const showCardReaderPrompt =
+      payOpen && ["card", "tap", "apple_pay", "google_pay"].includes(tender);
     const customerDisplayPrefs = resolveCustomerDisplaySettings(store?.customer_display_settings);
     const payload: CustomerDisplayPayload = {
       type: "seza-pos-display",
@@ -1093,8 +1095,11 @@ export function PosPage() {
       idleImageUrl: customerDisplayPrefs.imageUrl,
       idleTextScale: customerDisplayPrefs.textScale,
       currency,
-      phase: activeStatus?.phase ?? (cart.length ? "sale" : "idle"),
+      phase:
+        activeStatus?.phase ??
+        (showCardReaderPrompt ? "awaiting_card" : cart.length ? "sale" : "idle"),
       statusMessage: activeStatus?.message ?? null,
+      paymentMethod: showCardReaderPrompt ? tender : null,
       lines: cart.map((line) => ({
         id: line.product.id,
         name: line.product.name,
@@ -1124,6 +1129,8 @@ export function PosPage() {
     displayCompletion,
     displayStatus,
     finalize.isPending,
+    payOpen,
+    tender,
   ]);
 
   const cartPanel = (
