@@ -151,6 +151,7 @@ function BusinessWorkspace() {
   const [contactReason, setContactReason] = useState("");
   const [ticketOpen, setTicketOpen] = useState(false);
   const [ticket, setTicket] = useState({ subject: "", body: "", priority: "normal" });
+  const [activeTab, setActiveTab] = useState("overview");
   const refresh = async () => {
     await qc.invalidateQueries({ queryKey: ["admin_workspace", storeId] });
   };
@@ -328,7 +329,12 @@ function BusinessWorkspace() {
           value={String(counts.devices ?? 0)}
           note={`${offline_devices ?? 0} offline`}
         />
-        <Metric icon={LifeBuoy} label="Open support cases" value={String(counts.open_cases ?? 0)} />
+        <Metric
+          icon={LifeBuoy}
+          label="Open support cases"
+          value={String(counts.open_cases ?? 0)}
+          onClick={() => setActiveTab("support")}
+        />
         <Metric
           icon={Activity}
           label="Last platform activity"
@@ -337,7 +343,7 @@ function BusinessWorkspace() {
         />
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="flex h-auto flex-wrap justify-start">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
@@ -711,10 +717,9 @@ function BusinessWorkspace() {
             <CardContent className="space-y-2">
               {(tickets ?? []).length ? (
                 tickets.map((item: any) => (
-                  <Link
+                  <a
                     key={item.id}
-                    to="/admin/support/$ticketId"
-                    params={{ ticketId: item.id }}
+                    href={`/admin/support/${encodeURIComponent(item.id)}`}
                     className="flex items-center justify-between gap-3 rounded-lg border p-3 hover:bg-muted/40"
                   >
                     <div>
@@ -731,7 +736,7 @@ function BusinessWorkspace() {
                       </Badge>
                       <Badge variant="outline">{item.status}</Badge>
                     </div>
-                  </Link>
+                  </a>
                 ))
               ) : (
                 <div className="text-sm text-muted-foreground">No support cases.</div>
@@ -923,15 +928,32 @@ function Metric({
   value,
   note,
   small,
+  onClick,
 }: {
   icon: any;
   label: string;
   value: string;
   note?: string;
   small?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <Card>
+    <Card
+      className={onClick ? "cursor-pointer transition-colors hover:bg-muted/40" : undefined}
+      onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <CardContent className="flex items-start gap-3 p-4">
         <div className="rounded-lg bg-muted p-2">
           <Icon className="h-4 w-4" />

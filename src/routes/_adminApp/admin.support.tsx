@@ -9,7 +9,11 @@ import {
   adminTicketCounts,
   adminListSupportAgents,
 } from "@/lib/admin/admin.functions";
-import { adminClaimSupportCase } from "@/lib/admin/company-admin.functions";
+import {
+  adminClaimSupportCase,
+  adminTransitionSupportCase,
+  adminDeleteSupportCase,
+} from "@/lib/admin/company-admin.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +46,8 @@ import {
   ExternalLink,
   PhoneIncoming,
   VolumeX,
+  X,
+  Trash2,
 } from "lucide-react";
 
 const searchSchema = z.object({
@@ -95,6 +101,8 @@ function SupportPage() {
   const agents = useServerFn(adminListSupportAgents);
   const create = useServerFn(adminCreateTicket);
   const claim = useServerFn(adminClaimSupportCase);
+  const transition = useServerFn(adminTransitionSupportCase);
+  const deleteCase = useServerFn(adminDeleteSupportCase);
   const qc = useQueryClient();
 
   const [qLocal, setQLocal] = useState(search.q);
@@ -170,15 +178,64 @@ function SupportPage() {
     }
   }
 
+  function openWorkspace(id: string) {
+    // Use a normal document navigation for support workspaces. This avoids a
+    // stale client-router chunk after a Cloudflare deployment leaving desktop
+    // "Open workspace" buttons looking clickable but doing nothing.
+    window.location.assign(`/admin/support/${encodeURIComponent(id)}`);
+  }
+
   async function claimOne(id: string) {
     try {
       await claim({ data: { ticketId: id } });
       toast.success("Assigned to you");
-      qc.invalidateQueries({ queryKey: ["admin_tickets"] });
-      qc.invalidateQueries({ queryKey: ["admin_ticket_counts"] });
-      navigate({ to: "/admin/support/$ticketId", params: { ticketId: id } });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin_tickets"] }),
+        qc.invalidateQueries({ queryKey: ["admin_ticket_counts"] }),
+      ]);
+      openWorkspace(id);
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
+    }
+  }
+
+  async function closeOne(ticket: any) {
+    const summary = window.prompt(
+      `Close case #${ticket.ticket_number}? Add a short note describing what was fixed:`,
+      ticket.resolution_summary || "Issue handled by SEZA Support.",
+    );
+    if (summary === null) return;
+    if (summary.trim().length < 5) {
+      toast.error("Add a short resolution note before closing the case");
+      return;
+    }
+    try {
+      await transition({
+        data: {
+          ticketId: ticket.id,
+          status: "closed",
+          resolutionSummary: summary.trim(),
+          resolutionCode: "fixed",
+          reason: "Closed from the support queue",
+        },
+      });
+      toast.success("Case closed");
+      qc.invalidateQueries({ queryKey: ["admin_tickets"] });
+      qc.invalidateQueries({ queryKey: ["admin_ticket_counts"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not close case");
+    }
+  }
+
+  async function deleteOne(ticket: any) {
+    if (!window.confirm(`Permanently delete closed case #${ticket.ticket_number}?`)) return;
+    try {
+      await deleteCase({ data: { ticketId: ticket.id } });
+      toast.success("Closed case deleted");
+      qc.invalidateQueries({ queryKey: ["admin_tickets"] });
+      qc.invalidateQueries({ queryKey: ["admin_ticket_counts"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not delete case");
     }
   }
 
@@ -480,13 +537,11 @@ function SupportPage() {
                 className="overflow-hidden cursor-pointer transition-colors hover:border-primary/40 hover:bg-muted/10"
                 role="button"
                 tabIndex={0}
-                onClick={() =>
-                  navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } })
-                }
+                onClick={() => openWorkspace(ticket.id)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    navigate({ to: "/admin/support/$ticketId", params: { ticketId: ticket.id } });
+                    openWorkspace(ticket.id);
                   }
                 }}
               >
@@ -535,15 +590,42 @@ function SupportPage() {
                         event.stopPropagation();
                         if (!ticket.assigned_admin_id && !finalStatus) void claimOne(ticket.id);
                         else
-                          navigate({
-                            to: "/admin/support/$ticketId",
-                            params: { ticketId: ticket.id },
-                          });
+                          openWorkspace(ticket.id);
                       }}
                     >
                       {!ticket.assigned_admin_id && !finalStatus ? "Claim & open" : "Open workspace"}
                       <ExternalLink className="ml-2 h-4 w-4" />
                     </Button>
+                    {!finalStatus && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        title="Close case"
+                        aria-label="Close case"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void closeOne(ticket);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {ticket.status === "closed" && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        title="Delete conversation"
+                        aria-label="Delete conversation"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void deleteOne(ticket);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -598,18 +680,12 @@ function SupportPage() {
                       className="border-t hover:bg-muted/20 cursor-pointer"
                       tabIndex={0}
                       onClick={() =>
-                        navigate({
-                          to: "/admin/support/$ticketId",
-                          params: { ticketId: ticket.id },
-                        })
+                        openWorkspace(ticket.id)
                       }
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          navigate({
-                            to: "/admin/support/$ticketId",
-                            params: { ticketId: ticket.id },
-                          });
+                          openWorkspace(ticket.id);
                         }
                       }}
                     >
@@ -619,10 +695,7 @@ function SupportPage() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            navigate({
-                              to: "/admin/support/$ticketId",
-                              params: { ticketId: ticket.id },
-                            });
+                            openWorkspace(ticket.id);
                           }}
                           className="font-medium text-primary hover:underline"
                           data-no-translate
@@ -688,14 +761,41 @@ function SupportPage() {
                               event.stopPropagation();
                               if (!ticket.assigned_admin_id && !finalStatus) void claimOne(ticket.id);
                               else
-                                navigate({
-                                  to: "/admin/support/$ticketId",
-                                  params: { ticketId: ticket.id },
-                                });
+                                openWorkspace(ticket.id);
                             }}
                           >
                             {!ticket.assigned_admin_id && !finalStatus ? "Claim & open" : "Open workspace"}
                           </Button>
+                          {!finalStatus && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="outline"
+                              title="Close case"
+                              aria-label="Close case"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void closeOne(ticket);
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {ticket.status === "closed" && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="destructive"
+                              title="Delete conversation"
+                              aria-label="Delete conversation"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void deleteOne(ticket);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>

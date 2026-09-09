@@ -1515,6 +1515,50 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adminDeleteSupportCase = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
+  .inputValidator((data: { ticketId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const identity = await ensureSupportStaff(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: ticket, error } = await (supabaseAdmin.from as any)("support_tickets")
+      .select("id,ticket_number,subject,status,store_id")
+      .eq("id", data.ticketId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!ticket) return { ok: true };
+    if (String(ticket.status) !== "closed") {
+      throw new Error("Close this support case before deleting it.");
+    }
+
+    await auditSupportBestEffort(supabaseAdmin, context, identity, {
+      action: "admin.ticket.delete",
+      entity: "ticket",
+      entityId: data.ticketId,
+      storeId: ticket.store_id,
+      details: {
+        ticket_number: ticket.ticket_number,
+        subject: ticket.subject,
+      },
+    });
+
+    // Some installations have the optional lifecycle table while others do not.
+    // Delete it first when present; support_ticket_notes cascade with support_tickets.
+    try {
+      await (supabaseAdmin.from as any)("support_ticket_events")
+        .delete()
+        .eq("ticket_id", data.ticketId);
+    } catch {
+      // Optional table.
+    }
+
+    const { error: deleteError } = await (supabaseAdmin.from as any)("support_tickets")
+      .delete()
+      .eq("id", data.ticketId);
+    if (deleteError) throw new Error(deleteError.message);
+    return { ok: true };
+  });
+
 export const adminSendSupportMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { ticketId: string; body: string; internal?: boolean }) => data)

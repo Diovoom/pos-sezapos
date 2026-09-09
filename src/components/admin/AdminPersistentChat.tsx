@@ -181,10 +181,7 @@ export function AdminPersistentChat() {
             action: {
               label: "Open case",
               onClick: () =>
-                navigate({
-                  to: "/admin/support/$ticketId",
-                  params: { ticketId: note.ticket_id! },
-                }),
+                window.location.assign(`/admin/support/${encodeURIComponent(note.ticket_id!)}`),
             },
           });
         },
@@ -232,10 +229,7 @@ export function AdminPersistentChat() {
       action: {
         label: "Open case",
         onClick: () =>
-          navigate({
-            to: "/admin/support/$ticketId",
-            params: { ticketId: next.id },
-          }),
+          window.location.assign(`/admin/support/${encodeURIComponent(next.id)}`),
       },
     });
   }, [navigate, pathname, unreadRows]);
@@ -432,10 +426,7 @@ export function AdminPersistentChat() {
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      navigate({
-                        to: "/admin/support/$ticketId",
-                        params: { ticketId: selectedId },
-                      })
+                      window.location.assign(`/admin/support/${encodeURIComponent(selectedId)}`)
                     }
                   >
                     Open case <ExternalLink className="ml-1 h-3 w-3" />

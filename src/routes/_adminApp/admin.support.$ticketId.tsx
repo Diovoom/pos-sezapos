@@ -8,6 +8,7 @@ import {
   adminClaimSupportCase,
   adminReleaseSupportCase,
   adminTransitionSupportCase,
+  adminDeleteSupportCase,
   adminSendSupportMessage,
 } from "@/lib/admin/company-admin.functions";
 import { adminStartSupportSession } from "@/lib/admin/admin.functions";
@@ -60,6 +61,7 @@ import {
   ReceiptText,
   CircleAlert,
   PlugZap,
+  Trash2,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -98,6 +100,7 @@ function SupportCasePage() {
   const getCase = useServerFn(adminGetSupportCase);
   const claimCase = useServerFn(adminClaimSupportCase);
   const transition = useServerFn(adminTransitionSupportCase);
+  const deleteCase = useServerFn(adminDeleteSupportCase);
   const releaseCase = useServerFn(adminReleaseSupportCase);
   const sendMessage = useServerFn(adminSendSupportMessage);
   const endSupportChat = useServerFn(adminEndSupportChat);
@@ -287,6 +290,36 @@ function SupportCasePage() {
   const assignedToMe = Boolean(adminUserId && ticket.assigned_admin_id === adminUserId);
   const assignedToOther = Boolean(ticket.assigned_admin_id && !assignedToMe);
 
+  async function closeCaseNow() {
+    const summary = window.prompt(
+      `Close case #${ticket.ticket_number}? Add a short note describing what was fixed:`,
+      ticket.resolution_summary || ticket.resolution || "Issue handled by SEZA Support.",
+    );
+    if (summary === null) return;
+    if (summary.trim().length < 5) {
+      toast.error("Add a short resolution note before closing the case");
+      return;
+    }
+    await changeStatus("closed", {
+      resolutionSummary: summary.trim(),
+      resolutionCode: "fixed",
+      reason: "Closed from support workspace",
+    });
+  }
+
+  async function deleteClosedCase() {
+    if (!window.confirm(`Permanently delete closed case #${ticket.ticket_number}?`)) return;
+    setBusy(true);
+    try {
+      await deleteCase({ data: { ticketId } });
+      toast.success("Closed case deleted");
+      window.location.assign("/admin/support?status=closed");
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not delete case");
+      setBusy(false);
+    }
+  }
+
   async function requestScreen() {
     if (!store?.id) return;
     setBusy(true);
@@ -345,17 +378,32 @@ function SupportCasePage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            asChild
-            variant="ghost"
-            size="icon"
-            aria-label="Close case workspace"
-            title="Close case workspace"
-          >
-            <Link to="/admin/support">
+          {!isFinal && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              aria-label="Close case"
+              title="Close case"
+              onClick={() => void closeCaseNow()}
+              disabled={busy}
+            >
               <X className="h-5 w-5" />
-            </Link>
-          </Button>
+            </Button>
+          )}
+          {ticket.status === "closed" && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              aria-label="Delete conversation"
+              title="Delete conversation"
+              onClick={() => void deleteClosedCase()}
+              disabled={busy}
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          )}
           {!ticket.assigned_admin_id && (
             <Button onClick={claim} disabled={busy}>
               <UserCheck className="mr-2 h-4 w-4" /> Claim case

@@ -381,7 +381,7 @@ function AdminLayout() {
                     className="w-full text-left px-3 py-2 hover:bg-accent border-b last:border-b-0 block"
                     onClick={() => {
                       if (r.kind === "support") {
-                        navigate({ to: "/admin/support/$ticketId", params: { ticketId: r.id } });
+                        window.location.assign(`/admin/support/${encodeURIComponent(r.id)}`);
                       } else {
                         const storeId = r.store_id ?? (r.kind === "business" ? r.id : null);
                         if (!storeId) return;
