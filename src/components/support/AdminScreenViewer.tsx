@@ -63,7 +63,15 @@ export function AdminScreenViewer({
 
   useEffect(() => {
     streamRef.current = remoteStream;
-    if (videoRef.current && remoteStream) videoRef.current.srcObject = remoteStream;
+    const video = videoRef.current;
+    if (!video || !remoteStream) return;
+    if (video.srcObject !== remoteStream) video.srcObject = remoteStream;
+    // Muted inline playback should be autoplay-safe, but explicitly call play()
+    // because some admin browsers attach the remote track without starting the
+    // element. A connected peer with a paused <video> looks like a black feed.
+    void video.play().catch((error) => {
+      console.warn("[admin-rtc] video autoplay", error);
+    });
   }, [remoteStream]);
 
   useEffect(() => {
@@ -95,8 +103,9 @@ export function AdminScreenViewer({
     }
 
     try {
+      // Screen sharing is intentionally video-only. Keeping an unused audio
+      // m-line adds negotiation complexity on older Android Chromium builds.
       pc.addTransceiver("video", { direction: "recvonly" });
-      pc.addTransceiver("audio", { direction: "recvonly" });
     } catch {
       /* older WebRTC engine */
     }
@@ -342,6 +351,9 @@ export function AdminScreenViewer({
               autoPlay
               playsInline
               muted
+              onLoadedData={(event) => {
+                void event.currentTarget.play().catch(() => {});
+              }}
               className={cn(
                 "block w-full bg-black object-contain",
                 expanded ? "h-[calc(100vh-7rem)]" : "aspect-video",

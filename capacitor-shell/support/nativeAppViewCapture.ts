@@ -104,19 +104,66 @@ export function createAppViewCaptureBridge(): {
 } | null {
   if (!isNativeAppViewCaptureAvailable() || !canPipeAppViewToMediaStream()) return null;
 
+  type CanvasCaptureTrack = MediaStreamTrack & { requestFrame?: () => void };
+
   const canvas = document.createElement("canvas") as HTMLCanvasElement & {
     captureStream: (fps?: number) => MediaStream;
   };
   canvas.width = 720;
   canvas.height = 540;
+
+  // Android WebView builds on embedded POS hardware can throttle an unattached
+  // canvas even while canvas.captureStream() reports a live video track. Keep a
+  // tiny, non-interactive copy in the document so Chromium continues composing
+  // frames while SEZA is in the foreground. CSS size does not affect the actual
+  // captured canvas resolution.
+  canvas.setAttribute("aria-hidden", "true");
+  canvas.style.position = "fixed";
+  canvas.style.left = "-10000px";
+  canvas.style.top = "0";
+  canvas.style.width = "2px";
+  canvas.style.height = "2px";
+  canvas.style.opacity = "0.001";
+  canvas.style.pointerEvents = "none";
+  canvas.style.zIndex = "-1";
+  document.body?.appendChild(canvas);
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true } as any);
   if (!ctx) return null;
   ctx.fillStyle = "#111827";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const stream = canvas.captureStream(4);
-  const listenerHandles: PluginListenerHandle[] = [];
+  // Prefer explicit frame publication. Some Android WebViews establish WebRTC
+  // successfully but never sample an off-screen canvas on the requested FPS,
+  // which produces the exact symptom "Connected" + black/no video. A
+  // CanvasCaptureMediaStreamTrack created with frameRate=0 exposes requestFrame()
+  // so every native JPEG can be pushed into WebRTC immediately.
+  let stream = canvas.captureStream(0);
+  let captureTrack = stream.getVideoTracks()[0] as CanvasCaptureTrack | undefined;
+  const manualFramePump = !!captureTrack && typeof captureTrack.requestFrame === "function";
+
+  if (!manualFramePump) {
+    stream.getTracks().forEach((track) => track.stop());
+    stream = canvas.captureStream(4);
+    captureTrack = stream.getVideoTracks()[0] as CanvasCaptureTrack | undefined;
+  }
+
+  if (!captureTrack) {
+    try { canvas.remove(); } catch { /* noop */ }
+    return null;
+  }
+
+  try { captureTrack.contentHint = "detail"; } catch { /* older WebView */ }
+
   let closed = false;
+
+  const publishCurrentFrame = () => {
+    if (closed || captureTrack?.readyState !== "live") return;
+    if (manualFramePump) {
+      try { captureTrack.requestFrame?.(); } catch { /* older/custom Chromium */ }
+    }
+  };
+
+  const listenerHandles: PluginListenerHandle[] = [];
   let decoding = false;
   let firstFrameResolve: (() => void) | null = null;
   let firstFrameReject: ((error: Error) => void) | null = null;
@@ -138,6 +185,7 @@ export function createAppViewCaptureBridge(): {
           void drawJpeg(canvas, ctx, frame)
             .then(() => {
               if (closed) return;
+              publishCurrentFrame();
               if (!firstFrameSeen) {
                 firstFrameSeen = true;
                 firstFrameResolve?.();
@@ -185,6 +233,7 @@ export function createAppViewCaptureBridge(): {
         try { await handle.remove(); } catch { /* noop */ }
       }
       stream.getTracks().forEach((track) => track.stop());
+      try { canvas.remove(); } catch { /* noop */ }
     },
     getLastError() {
       return lastError;
