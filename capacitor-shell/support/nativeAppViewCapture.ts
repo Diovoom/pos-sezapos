@@ -110,8 +110,8 @@ export function createAppViewCaptureBridge(): {
   const canvas = document.createElement("canvas") as HTMLCanvasElement & {
     captureStream: (fps?: number) => MediaStream;
   };
-  canvas.width = 720;
-  canvas.height = 540;
+  canvas.width = 1024;
+  canvas.height = 768;
 
   // Android WebView builds on embedded POS hardware can throttle an unattached
   // canvas even while canvas.captureStream() reports a live video track. Keep a
@@ -222,7 +222,7 @@ export function createAppViewCaptureBridge(): {
         }),
       );
 
-      await impl.start({ maxWidth: 720, maxFps: 4, jpegQuality: 48 });
+      await impl.start({ maxWidth: 1024, maxFps: 4, jpegQuality: 68 });
 
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       const timeout = new Promise<never>((_, reject) => {

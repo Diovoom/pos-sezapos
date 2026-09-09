@@ -34,8 +34,8 @@ type Props = {
 };
 
 const SCREEN_FRAME_CHANNEL = "seza-screen-frames";
-const SCREEN_FRAME_CHUNK_CHARS = 12_000;
-const SCREEN_FRAME_MAX_BUFFERED_BYTES = 500_000;
+const SCREEN_FRAME_CHUNK_CHARS = 14_000;
+const SCREEN_FRAME_MAX_BUFFERED_BYTES = 1_000_000;
 
 
 export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEnded }: Props) {
@@ -94,7 +94,7 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
     // still publishing only a black canvas. Send the original captured JPEG
     // frames over a dedicated WebRTC DataChannel as the primary Android
     // transport. The video track remains as a fallback for normal browsers.
-    const frameChannel = pc.createDataChannel(SCREEN_FRAME_CHANNEL, { ordered: true });
+    const frameChannel = pc.createDataChannel(SCREEN_FRAME_CHANNEL, { ordered: false, maxRetransmits: 0 });
     frameChannel.binaryType = "arraybuffer";
     frameChannel.bufferedAmountLowThreshold = 128_000;
     let frameSequence = 0;
@@ -112,19 +112,18 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
       const frameId = `${Date.now().toString(36)}-${(frameSequence++).toString(36)}`;
 
       try {
-        frameChannel.send(JSON.stringify({
-          t: "meta",
-          id: frameId,
-          n: totalChunks,
-          w: frame.width,
-          h: frame.height,
-          at: frame.capturedAt,
-        }));
+        // Each chunk is self-describing so the live channel can be unordered
+        // and non-retransmitting. A lost chunk only drops one frame instead of
+        // blocking every newer frame behind stale data (head-of-line blocking).
         for (let index = 0; index < totalChunks; index++) {
           frameChannel.send(JSON.stringify({
             t: "chunk",
             id: frameId,
             i: index,
+            n: totalChunks,
+            w: frame.width,
+            h: frame.height,
+            at: frame.capturedAt,
             d: data.slice(
               index * SCREEN_FRAME_CHUNK_CHARS,
               (index + 1) * SCREEN_FRAME_CHUNK_CHARS,

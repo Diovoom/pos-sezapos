@@ -1158,6 +1158,121 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
     const problemMessage =
       publicMessages.find((note: any) => !note.author_is_platform) ?? publicMessages[0] ?? null;
 
+    let resolvedDevice: any = device ?? null;
+    let diagnostics: any = null;
+    if (ticket.store_id) {
+      const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const [
+        devicesRes,
+        recentSalesRes,
+        sales24hRes,
+        offline24hRes,
+        attemptsRes,
+        terminalsRes,
+        registerSessionsRes,
+        supportSessionsRes,
+        subscriptionsRes,
+        auditRes,
+      ] = await Promise.all([
+        supabaseAdmin
+          .from("device_registrations")
+          .select("id,label,status,platform,last_seen_at,status_snapshot,app_version,last_sync_at,updated_at")
+          .eq("store_id", ticket.store_id)
+          .order("last_seen_at", { ascending: false, nullsFirst: false })
+          .limit(8),
+        supabaseAdmin
+          .from("sales")
+          .select("id,receipt_number,total,payment_method,status,synced_from_offline,offline_created_at,created_at")
+          .eq("store_id", ticket.store_id)
+          .order("created_at", { ascending: false })
+          .limit(12),
+        supabaseAdmin
+          .from("sales")
+          .select("id", { count: "exact", head: true })
+          .eq("store_id", ticket.store_id)
+          .gte("created_at", since24h),
+        supabaseAdmin
+          .from("sales")
+          .select("id", { count: "exact", head: true })
+          .eq("store_id", ticket.store_id)
+          .eq("synced_from_offline", true)
+          .gte("created_at", since24h),
+        supabaseAdmin
+          .from("payment_attempts")
+          .select("id,provider,method,amount,currency,status,message,reference,created_at")
+          .eq("store_id", ticket.store_id)
+          .order("created_at", { ascending: false })
+          .limit(12),
+        supabaseAdmin
+          .from("payment_terminals")
+          .select("id,label,provider,status,setup_status,last_seen_at,location,stripe_reader_id,updated_at")
+          .eq("store_id", ticket.store_id)
+          .order("updated_at", { ascending: false })
+          .limit(8),
+        supabaseAdmin
+          .from("register_sessions")
+          .select("id,status,opened_at,closed_at,terminal_id,updated_at")
+          .eq("store_id", ticket.store_id)
+          .order("updated_at", { ascending: false })
+          .limit(6),
+        (supabaseAdmin.from as any)("admin_support_sessions")
+          .select("id,status,client_capability,requested_at,started_at,ended_at,expires_at,decision_note")
+          .eq("store_id", ticket.store_id)
+          .order("requested_at", { ascending: false })
+          .limit(8),
+        supabaseAdmin
+          .from("subscriptions")
+          .select("id,status,price_id,environment,current_period_end,cancel_at_period_end,updated_at")
+          .eq("store_id", ticket.store_id)
+          .order("updated_at", { ascending: false })
+          .limit(6),
+        supabaseAdmin
+          .from("audit_log")
+          .select("id,action,entity,entity_id,details,created_at")
+          .eq("store_id", ticket.store_id)
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
+
+      const devices = devicesRes.data ?? [];
+      if (!resolvedDevice) resolvedDevice = devices[0] ?? null;
+      const latestDevice = resolvedDevice ?? devices[0] ?? null;
+      const snapshot = latestDevice?.status_snapshot && typeof latestDevice.status_snapshot === "object"
+        ? latestDevice.status_snapshot
+        : {};
+      const attempts = attemptsRes.data ?? [];
+      const failedAttempts = attempts.filter((row: any) =>
+        !["succeeded", "success", "completed", "paid"].includes(String(row.status || "").toLowerCase()),
+      );
+      const lastSeenMs = latestDevice?.last_seen_at ? new Date(latestDevice.last_seen_at).getTime() : 0;
+
+      diagnostics = {
+        generated_at: new Date().toISOString(),
+        device_online: Boolean(lastSeenMs && Date.now() - lastSeenMs < 2 * 60 * 1000),
+        latest_device: latestDevice,
+        devices,
+        snapshot: {
+          route: snapshot.route ?? null,
+          online: snapshot.online ?? null,
+          captured_at: snapshot.captured_at ?? null,
+          printer: snapshot.printer ?? null,
+          drawer: snapshot.drawer ?? null,
+          scanner: snapshot.scanner ?? null,
+          terminal: snapshot.terminal ?? null,
+        },
+        recent_sales: recentSalesRes.data ?? [],
+        sales_24h: sales24hRes.count ?? 0,
+        offline_sales_24h: offline24hRes.count ?? 0,
+        payment_attempts: attempts,
+        failed_payment_attempts: failedAttempts,
+        payment_terminals: terminalsRes.data ?? [],
+        register_sessions: registerSessionsRes.data ?? [],
+        support_sessions: supportSessionsRes.data ?? [],
+        subscriptions: subscriptionsRes.data ?? [],
+        audit: auditRes.data ?? [],
+      };
+    }
+
     const compatibleTicket = {
       ...ticket,
       chat_status:
@@ -1176,7 +1291,8 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
       store: store ?? null,
       assignee: assignee ?? null,
       requester: requester ?? null,
-      device: device ?? null,
+      device: resolvedDevice ?? null,
+      diagnostics,
     };
   });
 

@@ -23,6 +23,16 @@ async function merchantIdentity(userId: string) {
   return { admin, profile };
 }
 
+async function canManageSupportCase(admin: any, userId: string, requesterId: string | null | undefined) {
+  if (requesterId && requesterId === userId) return true;
+  const { data: roles } = await admin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["owner", "manager"]);
+  return Boolean(roles?.length);
+}
+
 async function notifySupport(input: {
   ticketId: string;
   ticketNumber?: number | null;
@@ -188,4 +198,173 @@ export const merchantReplySupportCase = createServerFn({ method: "POST" })
     });
 
     return { ok: true, reopened: shouldReopen };
+  });
+
+export const merchantListSupportCases = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { admin, profile } = await merchantIdentity(context.userId);
+    const { data, error } = await admin
+      .from("support_tickets")
+      .select(
+        "id,ticket_number,subject,status,priority,category,chat_status,created_at,updated_at,last_message_at,resolution_summary,resolution",
+      )
+      .eq("store_id", profile.store_id)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    return (data ?? []) as any[];
+  });
+
+export const merchantGetSupportCase = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { ticketId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const ticketId = clean(data.ticketId, 80);
+    if (!ticketId) throw new Error("Support case not found.");
+
+    const { admin, profile } = await merchantIdentity(context.userId);
+    const [{ data: ticket, error: ticketError }, { data: notes, error: notesError }] =
+      await Promise.all([
+        admin
+          .from("support_tickets")
+          .select(
+            "id,ticket_number,subject,status,priority,category,requester_id,requester_email,assigned_admin_id,chat_status,chat_ended_at,resolution_summary,resolution,created_at,updated_at,last_message_at",
+          )
+          .eq("id", ticketId)
+          .eq("store_id", profile.store_id)
+          .maybeSingle(),
+        admin
+          .from("support_ticket_notes")
+          .select("id,ticket_id,author_id,author_email,body,internal,sender_kind,created_at")
+          .eq("ticket_id", ticketId)
+          .eq("internal", false)
+          .order("created_at", { ascending: true }),
+      ]);
+    if (ticketError) throw ticketError;
+    if (notesError) throw notesError;
+    if (!ticket) throw new Error("Support case not found.");
+
+    await admin
+      .from("support_tickets")
+      .update({ last_merchant_read_at: new Date().toISOString() })
+      .eq("id", ticketId)
+      .eq("store_id", profile.store_id);
+
+    return {
+      ticket,
+      messages: notes ?? [],
+      currentUserId: context.userId,
+      currentUserEmail: profile.email ?? null,
+    };
+  });
+
+export const merchantCloseSupportCase = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
+  .inputValidator((data: { ticketId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const ticketId = clean(data.ticketId, 80);
+    if (!ticketId) throw new Error("Support case not found.");
+
+    const { admin, profile } = await merchantIdentity(context.userId);
+    const { data: ticket, error: readError } = await admin
+      .from("support_tickets")
+      .select("id,ticket_number,subject,status,store_id,requester_id")
+      .eq("id", ticketId)
+      .eq("store_id", profile.store_id)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!ticket) throw new Error("Support case not found.");
+    if (!(await canManageSupportCase(admin, context.userId, ticket.requester_id))) {
+      throw new Error("Only the case requester, owner, or manager can close this conversation.");
+    }
+    if (ticket.status === "closed") return { ok: true };
+
+    const now = new Date().toISOString();
+    const { error } = await admin
+      .from("support_tickets")
+      .update({
+        status: "closed",
+        chat_status: "ended",
+        chat_ended_at: now,
+        chat_ended_by: context.userId,
+        closed_at: now,
+        updated_at: now,
+        last_message_at: now,
+        last_merchant_read_at: now,
+      })
+      .eq("id", ticketId)
+      .eq("store_id", profile.store_id);
+    if (error) throw error;
+
+    try {
+      await admin.from("audit_log").insert({
+        actor_id: context.userId,
+        actor_email: profile.email ?? null,
+        store_id: profile.store_id,
+        action: "merchant.support.close",
+        entity: "support_ticket",
+        entity_id: ticketId,
+        details: { ticket_number: ticket.ticket_number, previous_status: ticket.status },
+      });
+    } catch {
+      // Closing support must not fail because optional audit logging is unavailable.
+    }
+
+    return { ok: true };
+  });
+
+export const merchantDeleteSupportCase = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
+  .inputValidator((data: { ticketId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const ticketId = clean(data.ticketId, 80);
+    if (!ticketId) throw new Error("Support case not found.");
+
+    const { admin, profile } = await merchantIdentity(context.userId);
+    const { data: ticket, error: readError } = await admin
+      .from("support_tickets")
+      .select("id,ticket_number,subject,status,store_id,requester_id")
+      .eq("id", ticketId)
+      .eq("store_id", profile.store_id)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!ticket) return { ok: true };
+    if (!(await canManageSupportCase(admin, context.userId, ticket.requester_id))) {
+      throw new Error("Only the case requester, owner, or manager can delete this conversation.");
+    }
+    if (ticket.status !== "closed") {
+      throw new Error("Close this support case before deleting the conversation.");
+    }
+
+    // Keep a minimal audit marker with no conversation text, then permanently
+    // remove the case. support_ticket_notes cascade with the ticket.
+    try {
+      await admin.from("audit_log").insert({
+        actor_id: context.userId,
+        actor_email: profile.email ?? null,
+        store_id: profile.store_id,
+        action: "merchant.support.delete",
+        entity: "support_ticket",
+        entity_id: ticketId,
+        details: { ticket_number: ticket.ticket_number, subject: ticket.subject },
+      });
+    } catch {
+      // Deletion is still allowed if the optional audit insert is unavailable.
+    }
+
+    try {
+      await (admin.from as any)("support_ticket_events").delete().eq("ticket_id", ticketId);
+    } catch {
+      // Some deployments may not have this optional lifecycle table.
+    }
+
+    const { error } = await admin
+      .from("support_tickets")
+      .delete()
+      .eq("id", ticketId)
+      .eq("store_id", profile.store_id);
+    if (error) throw error;
+    return { ok: true };
   });

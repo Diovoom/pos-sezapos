@@ -45,6 +45,7 @@ export function AdminScreenViewer({
   );
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [frameSrc, setFrameSrc] = useState<string | null>(null);
+  const [frameInfo, setFrameInfo] = useState<{ width: number; height: number; capturedAt: number } | null>(null);
   const [status, setStatus] = useState<"connecting" | "connected" | "failed" | "ended">(
     "connecting",
   );
@@ -97,6 +98,7 @@ export function AdminScreenViewer({
     let disposed = false;
     visualReceivedRef.current = false;
     setFrameSrc(null);
+    setFrameInfo(null);
     const pc = new RTCPeerConnection(RTC_CONFIG);
     pcRef.current = pc;
     const pendingMerchantIce: RTCIceCandidateInit[] = [];
@@ -186,8 +188,21 @@ export function AdminScreenViewer({
           return;
         }
 
-        const assembly = frameAssemblies.get(message.id);
-        if (!assembly) return;
+        let assembly = frameAssemblies.get(message.id);
+        if (!assembly) {
+          const total = Number(message.n);
+          if (!Number.isFinite(total) || total < 1 || total > 128) return;
+          assembly = {
+            n: total,
+            w: Number(message.w) || 0,
+            h: Number(message.h) || 0,
+            at: Number(message.at) || Date.now(),
+            parts: new Array(total),
+            createdAt: Date.now(),
+          };
+          frameAssemblies.set(message.id, assembly);
+          pruneFrameAssemblies();
+        }
         const index = Number(message.i);
         if (!Number.isInteger(index) || index < 0 || index >= assembly.n) return;
         assembly.parts[index] = message.d;
@@ -201,6 +216,7 @@ export function AdminScreenViewer({
         const firstVisualFrame = !visualReceivedRef.current;
         visualReceivedRef.current = true;
         setFrameSrc(`data:image/jpeg;base64,${base64}`);
+        setFrameInfo({ width: assembly.w, height: assembly.h, capturedAt: assembly.at });
         setStatus("connected");
         setErrorText(null);
         // Auto-open only for the first real frame. Once the admin minimizes the
@@ -425,6 +441,11 @@ export function AdminScreenViewer({
                 Android
               </span>
             )}
+            {frameInfo?.width && frameInfo?.height ? (
+              <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-emerald-700 dark:text-emerald-300">
+                {frameInfo.width}×{frameInfo.height}
+              </span>
+            ) : null}
           </div>
           <div className="truncate text-[10px] text-muted-foreground">
             {businessName ?? "Merchant"} · {employeeName ?? storeCode ?? "Register"} · {duration}
@@ -480,7 +501,7 @@ export function AdminScreenViewer({
               draggable={false}
               className={cn(
                 "block w-full bg-black object-contain select-none",
-                expanded ? "h-[calc(100vh-7rem)]" : "aspect-video",
+                expanded ? "h-[calc(100vh-7rem)]" : "aspect-[4/3] max-h-[70vh]",
               )}
               style={{ pointerEvents: "none" }}
             />
@@ -499,7 +520,7 @@ export function AdminScreenViewer({
               }}
               className={cn(
                 "block w-full bg-black object-contain",
-                expanded ? "h-[calc(100vh-7rem)]" : "aspect-video",
+                expanded ? "h-[calc(100vh-7rem)]" : "aspect-[4/3] max-h-[70vh]",
               )}
               style={{ pointerEvents: "none" }}
             />
@@ -529,6 +550,12 @@ export function AdminScreenViewer({
               </div>
             </div>
           )}
+        </div>
+      )}
+      {!compact && frameInfo && (
+        <div className="flex items-center justify-between gap-3 border-t bg-muted/30 px-3 py-1.5 text-[10px] text-muted-foreground">
+          <span>{frameInfo.width}×{frameInfo.height} · 4 fps</span>
+          <span>{Math.max(0, Math.round((Date.now() - frameInfo.capturedAt) / 1000))}s frame age</span>
         </div>
       )}
     </div>

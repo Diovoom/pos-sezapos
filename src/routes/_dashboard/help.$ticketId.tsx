@@ -1,16 +1,23 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Send, Loader2, MessageSquare, CheckCircle2, Archive } from "lucide-react";
+import { ArrowLeft, Send, Loader2, MessageSquare, CheckCircle2, Archive, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
+import {
+  merchantCloseSupportCase,
+  merchantDeleteSupportCase,
+  merchantGetSupportCase,
+  merchantReplySupportCase,
+} from "@/lib/support.functions";
 
 export const Route = createFileRoute("/_dashboard/help/$ticketId")({
   head: () => ({
@@ -25,41 +32,17 @@ export const Route = createFileRoute("/_dashboard/help/$ticketId")({
 function MerchantSupportChat() {
   const { ticketId } = Route.useParams();
   const qc = useQueryClient();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const getCase = useServerFn(merchantGetSupportCase);
+  const replyCase = useServerFn(merchantReplySupportCase);
+  const closeSupportCase = useServerFn(merchantCloseSupportCase);
+  const deleteSupportCase = useServerFn(merchantDeleteSupportCase);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   const query = useQuery({
     queryKey: ["merchant-support-chat", ticketId],
-    queryFn: async () => {
-      const { data: userRes } = await supabase.auth.getUser();
-      if (!userRes.user) throw new Error("Not signed in");
-      const [{ data: ticket, error: ticketError }, { data: notes, error: notesError }] =
-        await Promise.all([
-          (supabase.from as any)("support_tickets")
-            .select(
-              "id,ticket_number,subject,status,priority,requester_id,requester_email,assigned_admin_id,chat_status,chat_ended_at,resolution_summary,resolution,created_at,updated_at,last_message_at",
-            )
-            .eq("id", ticketId)
-            .maybeSingle(),
-          (supabase.from as any)("support_ticket_notes")
-            .select("id,ticket_id,author_id,author_email,body,internal,sender_kind,created_at")
-            .eq("ticket_id", ticketId)
-            .eq("internal", false)
-            .order("created_at", { ascending: true }),
-        ]);
-      if (ticketError) throw ticketError;
-      if (notesError) throw notesError;
-      if (!ticket) throw new Error("Support case not found");
-      await (supabase.rpc as any)("merchant_mark_support_read", { _ticket_id: ticketId }).catch(
-        () => undefined,
-      );
-      return {
-        ticket,
-        messages: notes ?? [],
-        currentUserId: userRes.user.id,
-        currentUserEmail: userRes.user.email ?? null,
-      };
-    },
+    queryFn: () => getCase({ data: { ticketId } }),
     refetchInterval: 30_000,
   });
 
@@ -101,21 +84,11 @@ function MerchantSupportChat() {
 
   async function sendMessage() {
     if (!message.trim() || !query.data) return;
-    if (query.data.ticket.status === "closed") {
-      toast.error("This case is closed. Open a new ticket for a new problem.");
-      return;
-    }
     setBusy(true);
     try {
-      const { error } = await supabase.from("support_ticket_notes").insert({
-        ticket_id: ticketId,
-        author_id: query.data.currentUserId,
-        author_email: query.data.currentUserEmail,
-        body: message.trim(),
-        internal: false,
-      });
-      if (error) throw error;
+      const result = await replyCase({ data: { ticketId, body: message.trim() } });
       setMessage("");
+      if (result.reopened) toast.success("Conversation reopened");
       refresh();
     } catch (error) {
       toast.error(
@@ -135,14 +108,31 @@ function MerchantSupportChat() {
     if (!confirmed) return;
     setBusy(true);
     try {
-      const { error } = await (supabase.rpc as any)("merchant_close_support_case", {
-        _ticket_id: ticketId,
-      });
-      if (error) throw error;
+      await closeSupportCase({ data: { ticketId } });
       toast.success("Support case closed");
       refresh();
+      await qc.invalidateQueries({ queryKey: ["my-support-tickets"] });
     } catch (error) {
       toast.error(userFacingError(error, "This support case could not be closed. Try again."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteConversation() {
+    if (!query.data || query.data.ticket.status !== "closed") return;
+    const confirmed = window.confirm(
+      "Permanently delete this closed support conversation and all of its messages?",
+    );
+    if (!confirmed) return;
+    setBusy(true);
+    try {
+      await deleteSupportCase({ data: { ticketId } });
+      toast.success("Conversation deleted");
+      await qc.invalidateQueries({ queryKey: ["my-support-tickets"] });
+      navigate({ to: "/help" });
+    } catch (error) {
+      toast.error(userFacingError(error, "This conversation could not be deleted."));
     } finally {
       setBusy(false);
     }
@@ -186,9 +176,13 @@ function MerchantSupportChat() {
         <Badge variant={ended ? "secondary" : "default"}>
           {ended ? "Chat ended" : "Live chat"}
         </Badge>
-        {!closed && (
+        {!closed ? (
           <Button className="ml-auto" size="sm" variant="outline" onClick={() => void closeCase()} disabled={busy}>
             <Archive className="mr-2 h-4 w-4" /> Mark solved & close
+          </Button>
+        ) : (
+          <Button className="ml-auto" size="sm" variant="destructive" onClick={() => void deleteConversation()} disabled={busy}>
+            <Trash2 className="mr-2 h-4 w-4" /> Delete conversation
           </Button>
         )}
       </div>

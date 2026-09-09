@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   adminEndSupportChat,
   adminGetSupportCase,
@@ -51,6 +51,15 @@ import {
   PhoneOff,
   UserMinus,
   X,
+  RefreshCw,
+  Wifi,
+  WifiOff,
+  Printer,
+  CreditCard,
+  Database,
+  ReceiptText,
+  CircleAlert,
+  PlugZap,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -272,7 +281,7 @@ function SupportCasePage() {
   if (query.isError || !data)
     return <div className="text-sm text-destructive">Could not load this support case.</div>;
 
-  const { ticket, messages, internal_notes, events, store, requester, assignee, device } = data;
+  const { ticket, messages, internal_notes, events, store, requester, assignee, device, diagnostics } = data;
   const isFinal = ticket.status === "resolved" || ticket.status === "closed";
   const chatEnded = ticket.chat_status === "ended" || isFinal;
   const assignedToMe = Boolean(adminUserId && ticket.assigned_admin_id === adminUserId);
@@ -436,6 +445,164 @@ function SupportCasePage() {
               ticket.requester_email ||
               "merchant user"}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-blue-500/30">
+        <CardHeader className="flex flex-row items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Database className="h-4 w-4 text-blue-600" /> POS diagnostics & repair workspace
+            </CardTitle>
+            <CardDescription>
+              Live backend evidence for this merchant: register heartbeat, sync, printer, reader, sales, payment failures, shifts, subscription, and recent support sessions.
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void query.refetch()}
+            disabled={query.isFetching}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} />
+            Refresh diagnostics
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!diagnostics ? (
+            <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
+              No diagnostic snapshot is available for this merchant yet. Open Manage merchant & POS or ask the merchant to bring the register online.
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <DiagnosticMetric
+                  icon={diagnostics.device_online ? Wifi : WifiOff}
+                  label="Register connection"
+                  value={diagnostics.device_online ? "Online now" : "Offline / stale"}
+                  note={
+                    diagnostics.latest_device?.last_seen_at
+                      ? `Last seen ${formatDistanceToNow(new Date(diagnostics.latest_device.last_seen_at), { addSuffix: true })}`
+                      : "No heartbeat recorded"
+                  }
+                  tone={diagnostics.device_online ? "ok" : "bad"}
+                />
+                <DiagnosticMetric
+                  icon={PlugZap}
+                  label="App / sync"
+                  value={diagnostics.latest_device?.app_version || "Unknown version"}
+                  note={
+                    diagnostics.latest_device?.last_sync_at
+                      ? `Last sync ${formatDistanceToNow(new Date(diagnostics.latest_device.last_sync_at), { addSuffix: true })}`
+                      : "No sync timestamp"
+                  }
+                />
+                <DiagnosticMetric
+                  icon={ReceiptText}
+                  label="Sales last 24h"
+                  value={String(diagnostics.sales_24h ?? 0)}
+                  note={`${diagnostics.offline_sales_24h ?? 0} synced from offline`}
+                />
+                <DiagnosticMetric
+                  icon={CreditCard}
+                  label="Payment failures"
+                  value={String(diagnostics.failed_payment_attempts?.length ?? 0)}
+                  note={diagnostics.payment_attempts?.[0]?.created_at ? `Last attempt ${formatDistanceToNow(new Date(diagnostics.payment_attempts[0].created_at), { addSuffix: true })}` : "No payment attempts"}
+                  tone={(diagnostics.failed_payment_attempts?.length ?? 0) > 0 ? "warn" : "ok"}
+                />
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-2">
+                <DiagnosticPanel title="Register hardware" icon={Printer}>
+                  <DiagnosticLine label="Current route" value={diagnostics.snapshot?.route || "Unknown"} />
+                  <DiagnosticLine
+                    label="Printer"
+                    value={diagnostics.snapshot?.printer?.connected || diagnostics.snapshot?.printer?.paired ? "Connected" : diagnostics.snapshot?.printer?.configured ? "Configured, not connected" : "Not configured"}
+                    note={diagnostics.snapshot?.printer?.last_error || diagnostics.snapshot?.printer?.driver_label || diagnostics.snapshot?.printer?.driver}
+                  />
+                  <DiagnosticLine
+                    label="Cash drawer"
+                    value={diagnostics.snapshot?.drawer?.enabled ? "Enabled" : "Not enabled"}
+                    note={diagnostics.snapshot?.drawer?.last_error || (diagnostics.snapshot?.drawer?.last_ok ? `Last OK ${formatDistanceToNow(new Date(diagnostics.snapshot.drawer.last_ok), { addSuffix: true })}` : undefined)}
+                  />
+                  <DiagnosticLine
+                    label="Card reader"
+                    value={diagnostics.snapshot?.terminal?.connected_reader || diagnostics.snapshot?.terminal?.configured_reader || diagnostics.snapshot?.terminal?.label || "Not connected"}
+                    note={diagnostics.snapshot?.terminal?.last_error || diagnostics.snapshot?.terminal?.connect_status || undefined}
+                    alert={Boolean(diagnostics.snapshot?.terminal?.last_error)}
+                  />
+                </DiagnosticPanel>
+
+                <DiagnosticPanel title="Backend state" icon={Database}>
+                  <DiagnosticLine
+                    label="Latest sale"
+                    value={diagnostics.recent_sales?.[0] ? `Receipt #${diagnostics.recent_sales[0].receipt_number ?? "—"} · $${Number(diagnostics.recent_sales[0].total ?? 0).toFixed(2)}` : "No recent sale"}
+                    note={diagnostics.recent_sales?.[0]?.created_at ? formatDistanceToNow(new Date(diagnostics.recent_sales[0].created_at), { addSuffix: true }) : undefined}
+                  />
+                  <DiagnosticLine
+                    label="Register session"
+                    value={diagnostics.register_sessions?.find((row: any) => row.status === "open") ? "Open" : "No open shift"}
+                    note={diagnostics.register_sessions?.[0]?.updated_at ? `Updated ${formatDistanceToNow(new Date(diagnostics.register_sessions[0].updated_at), { addSuffix: true })}` : undefined}
+                  />
+                  <DiagnosticLine
+                    label="Subscription"
+                    value={diagnostics.subscriptions?.[0] ? `${diagnostics.subscriptions[0].status} · ${diagnostics.subscriptions[0].price_id || "plan unknown"}` : "No subscription record"}
+                    note={diagnostics.subscriptions?.[0]?.environment ? `Environment: ${diagnostics.subscriptions[0].environment}` : undefined}
+                  />
+                  <DiagnosticLine
+                    label="Last screen-share session"
+                    value={diagnostics.support_sessions?.[0]?.status || "None"}
+                    note={diagnostics.support_sessions?.[0]?.requested_at ? formatDistanceToNow(new Date(diagnostics.support_sessions[0].requested_at), { addSuffix: true }) : undefined}
+                  />
+                </DiagnosticPanel>
+              </div>
+
+              {(diagnostics.snapshot?.terminal?.last_error || diagnostics.snapshot?.printer?.last_error || diagnostics.failed_payment_attempts?.length) ? (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                  <div className="flex items-center gap-2 font-semibold text-amber-800 dark:text-amber-300">
+                    <CircleAlert className="h-4 w-4" /> Problems detected
+                  </div>
+                  <div className="mt-2 space-y-1 text-sm">
+                    {diagnostics.snapshot?.terminal?.last_error && <div>Card reader: {diagnostics.snapshot.terminal.last_error}</div>}
+                    {diagnostics.snapshot?.printer?.last_error && <div>Printer: {diagnostics.snapshot.printer.last_error}</div>}
+                    {(diagnostics.failed_payment_attempts ?? []).slice(0, 3).map((attempt: any) => (
+                      <div key={attempt.id}>Payment {attempt.status}: {attempt.message || attempt.reference || "No provider message"}</div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap gap-2">
+                {store?.id && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/admin/businesses/$storeId" params={{ storeId: store.id }}>Manage merchant & POS</Link>
+                  </Button>
+                )}
+                <Button asChild variant="outline" size="sm"><Link to="/admin/devices">POS devices</Link></Button>
+                <Button asChild variant="outline" size="sm"><Link to="/admin/offline-sync">Offline sync</Link></Button>
+                <Button asChild variant="outline" size="sm"><Link to="/admin/payments">Merchant payments</Link></Button>
+                <Button asChild variant="outline" size="sm"><Link to="/admin/audit-logs">Audit logs</Link></Button>
+                {!isFinal && !assignedToOther && store?.id && (
+                  <Button size="sm" onClick={() => void requestScreen()} disabled={busy}>
+                    <MonitorUp className="mr-2 h-4 w-4" /> Share merchant screen
+                  </Button>
+                )}
+              </div>
+
+              <details className="rounded-xl border p-3">
+                <summary className="cursor-pointer text-sm font-semibold">Technical snapshot</summary>
+                <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted p-3 text-[11px]">
+                  {JSON.stringify({
+                    latest_device: diagnostics.latest_device,
+                    snapshot: diagnostics.snapshot,
+                    recent_payment_attempts: diagnostics.payment_attempts?.slice(0, 5),
+                    recent_support_sessions: diagnostics.support_sessions?.slice(0, 5),
+                    recent_audit: diagnostics.audit?.slice(0, 10),
+                  }, null, 2)}
+                </pre>
+              </details>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -737,6 +904,52 @@ function SupportCasePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function DiagnosticMetric({
+  icon: Icon,
+  label,
+  value,
+  note,
+  tone = "normal",
+}: {
+  icon: any;
+  label: string;
+  value: string;
+  note?: string;
+  tone?: "normal" | "ok" | "warn" | "bad";
+}) {
+  const toneClass =
+    tone === "ok" ? "border-emerald-500/30 bg-emerald-500/5"
+      : tone === "warn" ? "border-amber-500/30 bg-amber-500/5"
+        : tone === "bad" ? "border-red-500/30 bg-red-500/5"
+          : "";
+  return (
+    <div className={`rounded-xl border p-3 ${toneClass}`}>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground"><Icon className="h-4 w-4" /> {label}</div>
+      <div className="mt-1 font-semibold">{value}</div>
+      {note && <div className="mt-1 text-xs text-muted-foreground">{note}</div>}
+    </div>
+  );
+}
+
+function DiagnosticPanel({ title, icon: Icon, children }: { title: string; icon: any; children: ReactNode }) {
+  return (
+    <div className="rounded-xl border p-4">
+      <div className="mb-3 flex items-center gap-2 font-semibold"><Icon className="h-4 w-4" /> {title}</div>
+      <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
+
+function DiagnosticLine({ label, value, note, alert = false }: { label: string; value: string; note?: string; alert?: boolean }) {
+  return (
+    <div className={`rounded-lg border p-3 ${alert ? "border-amber-500/30 bg-amber-500/5" : ""}`}>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="font-medium">{value}</div>
+      {note && <div className={`mt-0.5 text-xs ${alert ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>{note}</div>}
     </div>
   );
 }

@@ -38,9 +38,9 @@ public class SezaAppViewCapturePlugin extends Plugin {
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean captureInFlight = new AtomicBoolean(false);
     private volatile int generation = 0;
-    private int maxWidth = 720;
+    private int maxWidth = 1024;
     private int maxFps = 4;
-    private int jpegQuality = 48;
+    private int jpegQuality = 68;
 
     @PluginMethod
     public void start(PluginCall call) {
@@ -50,9 +50,9 @@ public class SezaAppViewCapturePlugin extends Plugin {
             return;
         }
 
-        maxWidth = clamp(call.getInt("maxWidth", 720), 320, 1280);
+        maxWidth = clamp(call.getInt("maxWidth", 1024), 320, 1280);
         maxFps = clamp(call.getInt("maxFps", 4), 1, 8);
-        jpegQuality = clamp(call.getInt("jpegQuality", 48), 25, 75);
+        jpegQuality = clamp(call.getInt("jpegQuality", 68), 30, 85);
 
         ensureWorker();
         int currentGeneration = ++generation;
@@ -240,7 +240,7 @@ public class SezaAppViewCapturePlugin extends Plugin {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             if (!bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)) continue;
             best = out.toByteArray();
-            if (best.length <= 180_000) break;
+            if (best.length <= 320_000) break;
         }
         return best;
     }

@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
 import {
   Card,
@@ -32,14 +31,18 @@ import {
   Mail,
   MessageSquareText,
   Phone,
-  ChevronDown,
   Send,
+  Trash2,
 } from "lucide-react";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { marketingUrl } from "@/lib/host";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { useServerFn } from "@tanstack/react-start";
-import { createMerchantSupportCase } from "@/lib/support.functions";
+import {
+  createMerchantSupportCase,
+  merchantDeleteSupportCase,
+  merchantListSupportCases,
+} from "@/lib/support.functions";
 
 export const Route = createFileRoute("/_dashboard/help")({
   head: () => ({
@@ -66,23 +69,17 @@ export function HelpPage() {
   const qc = useQueryClient();
   const navigate = useNavigate({ from: "/help" });
   const createCase = useServerFn(createMerchantSupportCase);
+  const listCases = useServerFn(merchantListSupportCases);
+  const deleteCase = useServerFn(merchantDeleteSupportCase);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState<SupportCategory>("other");
   const [priority, setPriority] = useState<"low" | "normal" | "high" | "urgent">("normal");
-  const [historyOpen, setHistoryOpen] = useState(false);
 
   const ticketsQuery = useQuery({
     queryKey: ["my-support-tickets"],
-    queryFn: async (): Promise<Ticket[]> => {
-      const { data, error } = await supabase
-        .from("support_tickets")
-        .select("id, ticket_number, subject, status, priority, created_at")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data ?? []) as Ticket[];
-    },
+    queryFn: async (): Promise<Ticket[]> => (await listCases()) as Ticket[],
+    refetchInterval: 30_000,
   });
 
   const create = useMutation({
@@ -115,6 +112,16 @@ export function HelpPage() {
           "Your support request could not be sent. Please try again or call SEZA Support.",
         ),
       ),
+  });
+
+  const removeConversation = useMutation({
+    mutationFn: async (ticketId: string) => deleteCase({ data: { ticketId } }),
+    onSuccess: async () => {
+      toast.success("Conversation deleted");
+      await qc.invalidateQueries({ queryKey: ["my-support-tickets"] });
+    },
+    onError: (error) =>
+      toast.error(userFacingError(error, "This conversation could not be deleted.")),
   });
 
   const tickets = ticketsQuery.data ?? [];
@@ -152,9 +159,9 @@ export function HelpPage() {
         <SupportOption
           icon={MessageSquareText}
           title="Your conversations"
-          description="Open a saved support case and reply to SEZA."
-          action="View tickets"
-          href="#support-tickets"
+          description="Read messages, reply to SEZA, close solved cases, and delete completed conversations."
+          action="Open conversations"
+          href="#support-conversations"
         />
       </section>
 
@@ -258,58 +265,70 @@ export function HelpPage() {
         </CardContent>
       </Card>
 
-      <Card id="support-tickets" className="scroll-mt-6">
-        <button
-          type="button"
-          className="flex w-full items-center justify-between gap-3 p-6 text-left"
-          onClick={() => setHistoryOpen((value) => !value)}
-          aria-expanded={historyOpen}
-        >
-          <div>
-            <div className="font-semibold">Your support history</div>
-            <div className="mt-1 text-sm text-muted-foreground">
-              {tickets.length ? `${tickets.length} saved case${tickets.length === 1 ? "" : "s"}` : "Past conversations stay saved here."}
+      <Card id="support-conversations" className="scroll-mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquareText className="size-5 text-primary" /> Your conversations
+          </CardTitle>
+          <CardDescription>
+            Open a conversation to read and reply. Close a solved case, then delete it when you no longer need the transcript.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {ticketsQuery.isLoading ? (
+            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" /> Loading your conversations…
             </div>
-          </div>
-          <ChevronDown className={`size-5 shrink-0 transition-transform ${historyOpen ? "rotate-180" : ""}`} />
-        </button>
-        {historyOpen && (
-          <CardContent className="border-t pt-5">
-            {ticketsQuery.isLoading ? (
-              <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" /> Loading your support requests…
-              </div>
-            ) : ticketsQuery.isError ? (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
-                Your support history could not be loaded. Refresh the page or contact SEZA directly.
-              </div>
-            ) : tickets.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-8 text-center">
-                <LifeBuoy className="mx-auto size-8 text-muted-foreground" />
-                <div className="mt-3 font-semibold">No support requests yet</div>
-                <p className="mt-1 text-sm text-muted-foreground">New requests and SEZA replies will appear here.</p>
-              </div>
-            ) : (
-              <ul className="divide-y">
-                {tickets.map((ticket) => (
-                  <li key={ticket.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="break-words font-medium">Case #{ticket.ticket_number ?? "Pending"} · {ticket.subject}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">Opened {new Date(ticket.created_at).toLocaleString()}</div>
+          ) : ticketsQuery.isError ? (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+              Your conversations could not be loaded. Refresh the page or contact SEZA directly.
+            </div>
+          ) : tickets.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-8 text-center">
+              <LifeBuoy className="mx-auto size-8 text-muted-foreground" />
+              <div className="mt-3 font-semibold">No conversations yet</div>
+              <p className="mt-1 text-sm text-muted-foreground">New requests and SEZA replies will appear here.</p>
+            </div>
+          ) : (
+            <ul className="divide-y">
+              {tickets.map((ticket) => (
+                <li key={ticket.id} className="flex flex-col gap-3 py-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="break-words font-medium">
+                      Case #{ticket.ticket_number ?? "Pending"} · {ticket.subject}
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>Opened {new Date(ticket.created_at).toLocaleString()}</span>
                       {ticket.priority && <Badge variant="outline">{ticket.priority}</Badge>}
-                      <Badge>{ticket.status}</Badge>
-                      <Button asChild size="sm">
-                        <Link to="/help/$ticketId" params={{ ticketId: ticket.id }}>Open conversation</Link>
-                      </Button>
+                      <Badge variant={ticket.status === "closed" ? "secondary" : "default"}>{ticket.status}</Badge>
                     </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+                    <Button asChild size="sm">
+                      <Link to="/help/$ticketId" params={{ ticketId: ticket.id }}>
+                        <MessageSquareText className="mr-2 size-4" /> Open conversation
+                      </Link>
+                    </Button>
+                    {ticket.status === "closed" && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        disabled={removeConversation.isPending}
+                        onClick={() => {
+                          if (!window.confirm("Permanently delete this closed support conversation and its messages?")) return;
+                          removeConversation.mutate(ticket.id);
+                        }}
+                      >
+                        <Trash2 className="mr-2 size-4" /> Delete
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
       </Card>
     </div>
   );

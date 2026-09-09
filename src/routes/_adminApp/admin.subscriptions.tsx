@@ -32,7 +32,6 @@ import {
 import { useState } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { getStripeEnvironment } from "@/lib/stripe";
 import { AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_adminApp/admin/subscriptions")({
@@ -51,10 +50,9 @@ export const Route = createFileRoute("/_adminApp/admin/subscriptions")({
 type ActionKind = "cancel_end" | "cancel_now" | "restore";
 
 function SubscriptionsPage() {
-  const env = getStripeEnvironment();
   const routeSearch = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const allowedStatuses = ["all", "active", "trialing", "past_due", "canceled", "unpaid"];
+  const allowedStatuses = ["all", "active", "trialing", "past_due", "canceled", "incomplete", "unpaid"];
   const filter = allowedStatuses.includes(routeSearch.status) ? routeSearch.status : "all";
   const [page, setPage] = useState(1);
   const list = useServerFn(adminListSubscriptions);
@@ -64,7 +62,7 @@ function SubscriptionsPage() {
   const restore = useServerFn(adminRestoreSubscription);
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["admin_subscriptions", filter, page],
     queryFn: () => list({ data: { filter, page, pageSize: 50 } }),
   });
@@ -81,9 +79,9 @@ function SubscriptionsPage() {
     qc.invalidateQueries({ queryKey: ["admin_subscription_stats"] });
   };
 
-  async function doRefresh(id: string) {
+  async function doRefresh(id: string, environment: "sandbox" | "live") {
     try {
-      const r = await refresh({ data: { subscriptionId: id, environment: env } });
+      const r = await refresh({ data: { subscriptionId: id, environment } });
       if ("error" in r) toast.error(r.error);
       else {
         toast.success("Refreshed from Stripe");
@@ -103,11 +101,11 @@ function SubscriptionsPage() {
     try {
       const r =
         dialog.kind === "restore"
-          ? await restore({ data: { subscriptionId: dialog.sub.id, environment: env, reason } })
+          ? await restore({ data: { subscriptionId: dialog.sub.id, environment: dialog.sub.environment === "live" ? "live" : "sandbox", reason } })
           : await cancel({
               data: {
                 subscriptionId: dialog.sub.id,
-                environment: env,
+                environment: dialog.sub.environment === "live" ? "live" : "sandbox",
                 reason,
                 atPeriodEnd: dialog.kind === "cancel_end",
               },
@@ -218,6 +216,17 @@ function SubscriptionsPage() {
         <div className="text-xs text-muted-foreground ml-auto">{data?.count ?? 0} match</div>
       </div>
 
+      {isError && (
+        <Card className="border-destructive/40">
+          <CardContent className="p-4 text-sm">
+            <div className="font-semibold text-destructive">Subscriptions could not be loaded</div>
+            <div className="mt-1 text-muted-foreground">
+              {error instanceof Error ? error.message : "The Admin subscription query failed."}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
@@ -283,7 +292,7 @@ function SubscriptionsPage() {
                         <td className="p-3 text-right space-x-1 whitespace-nowrap">
                           {s.stripe_subscription_id && (
                             <>
-                              <Button size="sm" variant="outline" onClick={() => doRefresh(s.id)}>
+                              <Button size="sm" variant="outline" onClick={() => doRefresh(s.id, s.environment === "live" ? "live" : "sandbox")}>
                                 Refresh
                               </Button>
                               {active && !s.cancel_at_period_end && (
