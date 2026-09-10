@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useSession } from "@/hooks/useSession";
 import { useSubscription } from "@/hooks/useSubscription";
 import { StripeCheckoutDialog } from "@/components/billing/StripeCheckoutDialog";
+import { SEZA_PLANS } from "@/lib/plans";
 
 export const Route = createFileRoute("/select-plan")({
   head: () => ({
@@ -17,33 +18,8 @@ export const Route = createFileRoute("/select-plan")({
   component: SelectPlanPage,
 });
 
-const PLANS = [
-  {
-    id: "starter" as const,
-    name: "Starter",
-    price: 29,
-    priceId: "starter_monthly",
-    tagline: "1 register, up to 2 employees",
-    features: ["Cash + card checkout", "Basic inventory", "Email receipts"],
-  },
-  {
-    id: "pro" as const,
-    name: "Pro",
-    price: 59,
-    priceId: "pro_monthly",
-    tagline: "Growing retail stores",
-    highlight: true,
-    features: ["Everything in Starter", "Up to 10 employees", "SMS receipts", "Advanced reports"],
-  },
-  {
-    id: "business" as const,
-    name: "Business",
-    price: 89,
-    priceId: "business_monthly",
-    tagline: "High-volume & multi-store",
-    features: ["Everything in Pro", "Unlimited employees", "Multi-store", "API access"],
-  },
-];
+const PLANS = SEZA_PLANS;
+
 
 function SelectPlanPage() {
   const navigate = useNavigate();
@@ -127,7 +103,7 @@ function SelectPlanPage() {
                 <CardTitle>{p.name}</CardTitle>
                 <CardDescription>{p.tagline}</CardDescription>
                 <div className="mt-2">
-                  <span className="text-3xl font-bold">${p.price}</span>
+                  <span className="text-3xl font-bold">${p.monthlyPrice}</span>
                   <span className="text-muted-foreground text-sm">/mo</span>
                 </div>
               </CardHeader>
@@ -143,7 +119,7 @@ function SelectPlanPage() {
                 <Button
                   className="w-full"
                   variant={p.highlight ? "default" : "outline"}
-                  onClick={() => setCheckout({ priceId: p.priceId, name: p.name })}
+                  onClick={() => setCheckout({ priceId: p.lookupKey, name: p.name })}
                 >
                   Subscribe to {p.name}
                 </Button>

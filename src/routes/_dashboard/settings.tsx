@@ -82,6 +82,8 @@ import { PasskeyPanel } from "@/components/settings/PasskeyPanel";
 import { AndroidDevicePanel } from "@/components/settings/AndroidDevicePanel";
 import { NativeUsbPrinterPanel } from "@/components/settings/NativeUsbPrinterPanel";
 import { CustomerDisplayPanel } from "@/components/settings/CustomerDisplayPanel";
+import { PlanFeatureGate } from "@/components/PlanFeatureGate";
+import { usePlanGate } from "@/hooks/useSubscription";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   head: () => ({
@@ -168,6 +170,8 @@ export function SettingsPage() {
     }
   }, [search.section, search.checkout]);
   const { has, isSuper } = usePermissions();
+  const planGate = usePlanGate();
+  const lowStockAlertsEnabled = planGate.canFeature("low_stock_alerts");
   const me = useMe();
   const roles = me.data?.roles ?? [];
   const isManagerLike =
@@ -272,7 +276,9 @@ export function SettingsPage() {
             </TabsContent>
             {isManagerLike && (
               <TabsContent value="roles" className="mt-0">
-                <RolePermissionsPanel canEdit={canEditRoles} />
+                <PlanFeatureGate feature="team_permissions" label="Custom roles and permissions">
+                  <RolePermissionsPanel canEdit={canEditRoles} />
+                </PlanFeatureGate>
               </TabsContent>
             )}
             <TabsContent value="terminal" className="mt-0">
@@ -319,7 +325,7 @@ export function SettingsPage() {
               <PrefPanel
                 prefKey="inventory"
                 title="Menu & Inventory"
-                desc="Low stock alerts, auto-reorder, expiration, and tracking preferences."
+                desc="Inventory thresholds, auto-reorder, expiration, and tracking preferences."
                 fields={[
                   {
                     k: "low_stock_threshold",
@@ -421,7 +427,9 @@ export function SettingsPage() {
                 title="Notifications"
                 desc="Toggle which events trigger notifications."
                 fields={[
-                  { k: "low_stock", label: "Low stock", type: "switch", default: "true" },
+                  ...(lowStockAlertsEnabled
+                    ? [{ k: "low_stock", label: "Low stock", type: "switch" as const, default: "true" }]
+                    : []),
                   { k: "refund_alerts", label: "Refund alerts", type: "switch", default: "true" },
                   {
                     k: "failed_payments",
@@ -490,7 +498,9 @@ export function SettingsPage() {
               <AgeVerificationPanel />
             </TabsContent>
             <TabsContent value="audit" className="mt-0">
-              <AuditLogPanel />
+              <PlanFeatureGate feature="audit_history" label="Merchant audit log access">
+                <AuditLogPanel />
+              </PlanFeatureGate>
             </TabsContent>
             <TabsContent value="backup" className="mt-0">
               <BackupPanel />
@@ -1106,15 +1116,17 @@ function UnifiedReceiptPanel() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>SMS receipts</CardTitle>
-          <CardDescription>Text a receipt link to the customer's phone.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SmsSettingsPanel />
-        </CardContent>
-      </Card>
+      <PlanFeatureGate feature="sms_receipts" label="SMS receipts">
+        <Card>
+          <CardHeader>
+            <CardTitle>SMS receipts</CardTitle>
+            <CardDescription>Text a receipt link to the customer's phone.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SmsSettingsPanel />
+          </CardContent>
+        </Card>
+      </PlanFeatureGate>
     </div>
   );
 }
@@ -1200,6 +1212,8 @@ function UnifiedHardwarePanel() {
 /* ================= Receipt / Scanner / Camera / Display ================= */
 
 function ReceiptPreferences() {
+  const planGate = usePlanGate();
+  const smsIncluded = planGate.canFeature("sms_receipts");
   return (
     <PrefPanel
       prefKey="receipt"
@@ -1223,7 +1237,9 @@ function ReceiptPreferences() {
         },
         { k: "qr_code", label: "Include QR code", type: "switch", default: "false" },
         { k: "email_receipt", label: "Offer email receipt", type: "switch", default: "true" },
-        { k: "sms_receipt", label: "Offer SMS receipt", type: "switch", default: "false" },
+        ...(smsIncluded
+          ? [{ k: "sms_receipt", label: "Offer SMS receipt", type: "switch" as const, default: "false" }]
+          : []),
       ]}
     />
   );

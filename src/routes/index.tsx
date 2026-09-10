@@ -42,6 +42,7 @@ import {
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { Reveal } from "@/components/marketing/Reveal";
 import { dashboardUrl } from "@/lib/host";
+import { SEZA_PLANS } from "@/lib/plans";
 const HOME_SELL_SRC = "/images/home-sell-960.webp";
 const HOME_SELL_SRCSET =
   "/images/home-sell-640.webp 640w, /images/home-sell-960.webp 960w, /images/home-sell-1280.webp 1280w, /images/home-sell-1536.webp 1536w";
@@ -686,48 +687,24 @@ function LandingPage() {
           </Reveal>
 
           <div className="mx-auto mt-12 grid max-w-5xl gap-5 lg:grid-cols-3">
-            {[
-              {
-                name: "Starter",
-                price: "$29",
-                note: "For owner-operated stores",
-                points: ["Core POS checkout", "Inventory tools", "Basic reports"],
-              },
-              {
-                name: "Pro",
-                price: "$59",
-                note: "For growing teams",
-                points: [
-                  "Everything in Starter",
-                  "More employee tools",
-                  "SMS receipts & advanced reports",
-                ],
-                featured: true,
-              },
-              {
-                name: "Business",
-                price: "$89",
-                note: "For advanced operations",
-                points: ["Everything in Pro", "Expanded controls", "High-volume operations"],
-              },
-            ].map((plan) => (
+            {SEZA_PLANS.map((plan) => (
               <div
                 key={plan.name}
-                className={`relative rounded-[28px] border p-7 ${plan.featured ? "border-primary bg-white shadow-[0_30px_80px_-35px_rgba(37,99,235,0.5)] dark:bg-slate-900" : "border-slate-200 bg-white/75 dark:border-white/10 dark:bg-slate-900/50"}`}
+                className={`relative rounded-[28px] border p-7 ${plan.highlight ? "border-primary bg-white shadow-[0_30px_80px_-35px_rgba(37,99,235,0.5)] dark:bg-slate-900" : "border-slate-200 bg-white/75 dark:border-white/10 dark:bg-slate-900/50"}`}
               >
-                {plan.featured && (
+                {plan.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white">
                     Most popular
                   </div>
                 )}
                 <div className="text-sm font-bold text-primary">{plan.name}</div>
                 <div className="mt-3 flex items-end gap-1">
-                  <span className="text-4xl font-black tracking-tight">{plan.price}</span>
+                  <span className="text-4xl font-black tracking-tight">${plan.monthlyPrice}</span>
                   <span className="pb-1 text-sm text-muted-foreground">/month</span>
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">{plan.note}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{plan.tagline}</p>
                 <ul className="mt-6 space-y-3">
-                  {plan.points.map((point) => (
+                  {plan.features.slice(0, 3).map((point) => (
                     <li key={point} className="flex items-center gap-2 text-sm">
                       <Check className="size-4 text-emerald-600" />
                       {point}

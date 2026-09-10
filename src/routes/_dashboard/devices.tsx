@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -38,6 +38,8 @@ import {
 } from "@/lib/pos/device-pairing.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
+import { usePlanGate } from "@/hooks/useSubscription";
+import { formatPlanLimit } from "@/lib/plans";
 
 export const Route = createFileRoute("/_dashboard/devices")({
   head: () => ({
@@ -130,6 +132,7 @@ function DevicesPage() {
   const qc = useQueryClient();
   const me = useMe();
   const storeId = me.data?.store?.id as string | undefined;
+  const planGate = usePlanGate();
   const list = useServerFn(listPosDevices);
   const create = useServerFn(createPairingCode);
   const revoke = useServerFn(revokePosDevice);
@@ -206,6 +209,10 @@ function DevicesPage() {
   });
 
   const devices = (devicesQ.data?.devices ?? []) as Device[];
+  const activeDeviceCount = devices.filter((device) => device.status === "active").length;
+  const registerLimit = planGate.limit("registers");
+  const registerLimitReached = registerLimit != null && activeDeviceCount >= registerLimit;
+  const canPairRegister = !planGate.isReadOnly && !registerLimitReached;
 
   return (
     <>
@@ -243,11 +250,29 @@ function DevicesPage() {
             </div>
             <Button
               onClick={() => createMut.mutate()}
-              disabled={createMut.isPending || !label.trim()}
+              disabled={
+                createMut.isPending ||
+                devicesQ.isLoading ||
+                planGate.isLoading ||
+                !label.trim() ||
+                !canPairRegister
+              }
             >
               {createMut.isPending && <Loader2 className="size-4 animate-spin mr-2" />}Generate
               pairing code
             </Button>
+            <div className="w-full flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-3 py-2 text-sm">
+              <span>
+                {planGate.definition?.name ?? "SEZA"}: {activeDeviceCount} / {formatPlanLimit(registerLimit)} POS registers in use
+              </span>
+              {(registerLimitReached || planGate.isReadOnly) && (
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/settings" search={{ section: "billing" } as any}>
+                    {planGate.isReadOnly ? "Choose a plan" : "Upgrade plan"}
+                  </Link>
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
 

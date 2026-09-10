@@ -49,6 +49,8 @@ import {
   type CachedEmployee,
 } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
+import { usePlanGate } from "@/hooks/useSubscription";
+import { formatPlanLimit } from "@/lib/plans";
 
 export const Route = createFileRoute("/_dashboard/employees")({
   head: () => ({
@@ -83,7 +85,36 @@ function EmployeesPage() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isOwner = me.data?.roles.includes("owner");
+  const storeId = (me.data?.profile?.store_id ?? me.data?.store?.id) as string | undefined;
+  const planGate = usePlanGate();
   const [createOpen, setCreateOpen] = useState(false);
+
+  const staffUsageQ = useQuery({
+    queryKey: ["employee-plan-usage", storeId],
+    enabled: Boolean(storeId),
+    queryFn: async () => {
+      const [profilesRes, ownersRes] = await Promise.all([
+        (supabase.from as any)("profiles")
+          .select("id")
+          .eq("store_id", storeId!)
+          .eq("status", "active"),
+        (supabase.from as any)("user_roles")
+          .select("user_id")
+          .eq("store_id", storeId!)
+          .eq("role", "owner"),
+      ]);
+      if (profilesRes.error) throw profilesRes.error;
+      if (ownersRes.error) throw ownersRes.error;
+      const ownerIds = new Set((ownersRes.data ?? []).map((row: { user_id: string }) => row.user_id));
+      return (profilesRes.data ?? []).filter((row: { id: string }) => !ownerIds.has(row.id)).length;
+    },
+    staleTime: 15_000,
+  });
+
+  const staffCount = staffUsageQ.data ?? 0;
+  const employeeLimit = planGate.limit("employees");
+  const employeeLimitReached = employeeLimit != null && staffCount >= employeeLimit;
+  const canAddEmployee = !planGate.isReadOnly && !employeeLimitReached;
 
   const { data: employees = [], isLoading } = useQuery<EmployeeRow[]>({
     queryKey: ["employees"],
@@ -123,6 +154,8 @@ function EmployeesPage() {
     onSuccess: () => {
       toast.success("Employee status updated");
       qc.invalidateQueries({ queryKey: ["employees"] });
+      qc.invalidateQueries({ queryKey: ["employee-plan-usage"] });
+      qc.invalidateQueries({ queryKey: ["billing-plan-usage"] });
     },
     onError: (e) => toast.error(userFacingError(e, "Failed")),
   });
@@ -153,14 +186,37 @@ function EmployeesPage() {
         subtitle="Manage employee contact details, roles, pay, status, and Android register PINs."
         actions={
           isOwner ? (
-            <Button onClick={() => setCreateOpen(true)}>
+            <Button
+              onClick={() => setCreateOpen(true)}
+              disabled={planGate.isLoading || !canAddEmployee}
+              title={
+                employeeLimitReached
+                  ? `${planGate.definition?.name ?? "Current plan"} employee limit reached`
+                  : undefined
+              }
+            >
               <Plus className="size-4 mr-2" /> New employee
             </Button>
           ) : null
         }
       />
 
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+        {isOwner && !planGate.isLoading && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 px-4 py-3 text-sm">
+            <div>
+              <span className="font-medium">{planGate.definition?.name ?? "SEZA"} staff allowance:</span>{" "}
+              {staffCount} / {formatPlanLimit(employeeLimit)} employees in use
+            </div>
+            {(employeeLimitReached || planGate.isReadOnly) && (
+              <Button asChild size="sm" variant="outline">
+                <Link to="/settings" search={{ section: "billing" } as any}>
+                  {planGate.isReadOnly ? "Choose a plan" : "Upgrade plan"}
+                </Link>
+              </Button>
+            )}
+          </div>
+        )}
         <Card>
           <CardContent className="p-0">
             {isLoading ? (
@@ -438,6 +494,8 @@ function CreateEmployeeDialog({
           pending_sync: false,
         }).catch(() => {});
         qc.invalidateQueries({ queryKey: ["employees"] });
+        qc.invalidateQueries({ queryKey: ["employee-plan-usage"] });
+        qc.invalidateQueries({ queryKey: ["billing-plan-usage"] });
       }
       setForm({
         first_name: "",

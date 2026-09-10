@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { fmtCurrency } from "@/lib/format";
+import { usePlanGate } from "@/hooks/useSubscription";
 
 export const Route = createFileRoute("/_dashboard/customers")({
   head: () => ({
@@ -37,7 +38,7 @@ export const Route = createFileRoute("/_dashboard/customers")({
       {
         name: "description",
         content:
-          "Customer CRM with purchase history, loyalty points, communication consent, and rewards.",
+          "Customer CRM with purchase history, communication consent, and optional loyalty rewards.",
       },
     ],
   }),
@@ -67,6 +68,8 @@ function CustomersPage() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
+  const planGate = usePlanGate();
+  const loyaltyEnabled = planGate.canFeature("customer_loyalty");
 
   const { data: store } = useQuery({
     queryKey: ["store"],
@@ -131,7 +134,11 @@ function CustomersPage() {
     <>
       <PageHeader
         title="Customers"
-        subtitle="Profiles, loyalty, communication consent and purchase activity"
+        subtitle={
+          loyaltyEnabled
+            ? "Profiles, loyalty, communication consent and purchase activity"
+            : "Profiles, communication consent and purchase activity"
+        }
         actions={
           <Button onClick={startNew}>
             <Plus className="mr-1 size-4" /> New customer
@@ -146,7 +153,9 @@ function CustomersPage() {
             label="Lifetime sales"
             value={fmtCurrency(stats.totalSpent, store?.currency ?? "USD")}
           />
-          <Metric icon={Star} label="Loyalty points issued" value={stats.points.toLocaleString()} />
+          {loyaltyEnabled && (
+            <Metric icon={Star} label="Loyalty points issued" value={stats.points.toLocaleString()} />
+          )}
         </div>
 
         <div className="relative max-w-md">
@@ -168,20 +177,20 @@ function CustomersPage() {
                 <TableHead>Consent</TableHead>
                 <TableHead className="text-right">Visits</TableHead>
                 <TableHead className="text-right">Spent</TableHead>
-                <TableHead className="text-right">Points</TableHead>
+                {loyaltyEnabled && <TableHead className="text-right">Points</TableHead>}
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-12 text-center">
+                  <TableCell colSpan={loyaltyEnabled ? 7 : 6} className="py-12 text-center">
                     <Loader2 className="inline size-5 animate-spin" />
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                  <TableCell colSpan={loyaltyEnabled ? 7 : 6} className="py-12 text-center text-muted-foreground">
                     No customers yet. Add one or attach a customer during checkout.
                   </TableCell>
                 </TableRow>
@@ -221,9 +230,11 @@ function CustomersPage() {
                     <TableCell className="text-right font-mono">
                       {fmtCurrency(Number(customer.total_spent), store?.currency ?? "USD")}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {customer.loyalty_points}
-                    </TableCell>
+                    {loyaltyEnabled && (
+                      <TableCell className="text-right font-mono">
+                        {customer.loyalty_points}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" onClick={() => startEdit(customer)}>
                         Edit
@@ -241,6 +252,7 @@ function CustomersPage() {
         <CustomerDialog
           customer={editing}
           storeId={store?.id}
+          loyaltyEnabled={loyaltyEnabled}
           onSaved={() => {
             setOpen(false);
             qc.invalidateQueries({ queryKey: ["customers"] });
@@ -288,11 +300,13 @@ function Metric({
 function CustomerDialog({
   customer,
   storeId,
+  loyaltyEnabled,
   onSaved,
   onDelete,
 }: {
   customer: Customer | null;
   storeId?: string;
+  loyaltyEnabled: boolean;
   onSaved: () => void;
   onDelete?: () => void;
 }) {
@@ -312,16 +326,18 @@ function CustomerDialog({
     if (!storeId) return toast.error("No store is linked to this account");
     setSaving(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         store_id: storeId,
         name: form.name.trim(),
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         notes: form.notes.trim() || null,
-        loyalty_points: Math.max(0, Number(form.loyalty_points) || 0),
         marketing_email: form.marketing_email,
         marketing_sms: form.marketing_sms,
       };
+      if (loyaltyEnabled) {
+        payload.loyalty_points = Math.max(0, Number(form.loyalty_points) || 0);
+      }
       const query = customer
         ? db.from("customers").update(payload).eq("id", customer.id)
         : db.from("customers").insert(payload);
@@ -355,14 +371,16 @@ function CustomerDialog({
             onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
         </Field>
-        <Field label="Loyalty points">
-          <Input
-            type="number"
-            min="0"
-            value={form.loyalty_points}
-            onChange={(e) => setForm({ ...form, loyalty_points: e.target.value })}
-          />
-        </Field>
+        {loyaltyEnabled && (
+          <Field label="Loyalty points">
+            <Input
+              type="number"
+              min="0"
+              value={form.loyalty_points}
+              onChange={(e) => setForm({ ...form, loyalty_points: e.target.value })}
+            />
+          </Field>
+        )}
         <div className="sm:col-span-2">
           <Field label="Notes">
             <Input

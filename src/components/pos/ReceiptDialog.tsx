@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { CountryCode } from "libphonenumber-js";
 import { isNativeMode } from "@/lib/native";
 import { userFacingError } from "@/lib/user-error";
+import { usePlanGate } from "@/hooks/useSubscription";
 import {
   autoPrintOnComplete,
   reprintReceipt,
@@ -39,10 +40,13 @@ export function ReceiptDialog({
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [deliveryStatus, setDeliveryStatus] = useState<"sent" | "queued" | null>(null);
+  const planGate = usePlanGate();
+  const smsIncluded = planGate.canFeature("sms_receipts");
 
   // Fetch SMS default country for the store when needed (owner/manager can read).
   const { data: smsSettings } = useQuery({
     queryKey: ["sms-settings-default-country"],
+    enabled: smsIncluded,
     queryFn: async () => {
       const { data } = await supabase
         .from("sms_settings")
@@ -64,6 +68,10 @@ export function ReceiptDialog({
       setDeliveryStatus(null);
     }
   }, [open, data?.transactionId]);
+
+  useEffect(() => {
+    if (!smsIncluded) setSmsOpen(false);
+  }, [smsIncluded]);
 
   // Native APK only: auto-print and (cash) auto-open drawer once per sale.
   // Never throws  -  hardware failure must never fail a completed sale.
@@ -275,13 +283,16 @@ export function ReceiptDialog({
           </div>
         )}
 
-        {smsOpen && data && (
+        {smsIncluded && smsOpen && data && (
           <div className="p-4 border-t bg-background">
             <SmsReceiptPanel data={data} defaultCountry={defaultCountry} />
           </div>
         )}
 
-        <div className="p-4 border-t bg-surface/40 grid grid-cols-3 gap-2">
+        <div
+          className="p-4 border-t bg-surface/40 grid gap-2"
+          style={{ gridTemplateColumns: `repeat(${smsIncluded ? 3 : 2}, minmax(0, 1fr))` }}
+        >
           <Button
             variant={emailOpen ? "default" : "outline"}
             onClick={() => {
@@ -292,15 +303,17 @@ export function ReceiptDialog({
           >
             <Mail className="size-4" /> Email
           </Button>
-          <Button
-            variant={smsOpen ? "default" : "outline"}
-            onClick={() => {
-              setSmsOpen((v) => !v);
-              setEmailOpen(false);
-            }}
-          >
-            <MessageSquare className="size-4" /> SMS
-          </Button>
+          {smsIncluded && (
+            <Button
+              variant={smsOpen ? "default" : "outline"}
+              onClick={() => {
+                setSmsOpen((v) => !v);
+                setEmailOpen(false);
+              }}
+            >
+              <MessageSquare className="size-4" /> SMS
+            </Button>
+          )}
           <Button
             onClick={async () => {
               if (!isNativeMode()) return handlePrint();

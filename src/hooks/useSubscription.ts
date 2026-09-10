@@ -2,6 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useSession";
 import { useMe } from "@/hooks/useMe";
+import {
+  planForTier,
+  planLimit,
+  tierIncludesFeature,
+  type SezaFeatureKey,
+  type SezaPlanLimits,
+} from "@/lib/plans";
 
 export type PlanTier = "expired" | "starter" | "pro" | "trial_pro" | "business";
 export type PlanStatus = "trialing" | "active" | "past_due" | "paused" | "canceled" | "expired";
@@ -46,13 +53,14 @@ export function useSubscription() {
         .maybeSingle();
       if (error) throw error;
       if (!store) return null;
-      const tier = (store.plan_tier ?? "expired") as PlanTier;
+      const storedTier = (store.plan_tier ?? "expired") as PlanTier;
       const status = (store.plan_status ?? "expired") as PlanStatus;
       const periodEnd = store.plan_period_end ? new Date(store.plan_period_end) : null;
       const now = new Date();
       const active =
         (status === "active" || status === "trialing" || status === "past_due") &&
         (!periodEnd || periodEnd > now);
+      const tier: PlanTier = active ? storedTier : "expired";
       const daysLeft = periodEnd
         ? Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / 86_400_000))
         : null;
@@ -70,13 +78,20 @@ export function useSubscription() {
 }
 
 export function usePlanGate() {
-  const { data: plan } = useSubscription();
+  const query = useSubscription();
+  const plan = query.data;
   const tier = plan?.tier ?? "expired";
   return {
+    ...query,
     plan,
     tier,
+    definition: planForTier(tier),
     isReadOnly: plan?.isReadOnly ?? false,
     can: (minTier: PlanTier) => tierMeetsMin(tier, minTier) && !plan?.isReadOnly,
     meets: (minTier: PlanTier) => tierMeetsMin(tier, minTier),
+    canFeature: (feature: SezaFeatureKey) =>
+      tierIncludesFeature(tier, feature) && !plan?.isReadOnly,
+    includesFeature: (feature: SezaFeatureKey) => tierIncludesFeature(tier, feature),
+    limit: (key: keyof SezaPlanLimits) => planLimit(tier, key),
   };
 }

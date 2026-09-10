@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { format } from "date-fns";
@@ -8,9 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSubscription, type PlanTier } from "@/hooks/useSubscription";
 import { StripeCheckoutDialog } from "@/components/billing/StripeCheckoutDialog";
-import { createBillingPortalSession } from "@/lib/billing/checkout.functions";
+import {
+  changeStoreSubscriptionPlan,
+  createBillingPortalSession,
+} from "@/lib/billing/checkout.functions";
 import { getStripeEnvironment, isPaymentsConfigured } from "@/lib/stripe";
-import { SEZA_PLANS } from "@/lib/plans";
+import { SEZA_PLANS, formatPlanLimit, planForTier } from "@/lib/plans";
+import { useMe } from "@/hooks/useMe";
+import { supabase } from "@/integrations/supabase/client";
 
 const TIER_LABEL: Record<PlanTier, string> = {
   expired: "Expired",
@@ -21,10 +27,43 @@ const TIER_LABEL: Record<PlanTier, string> = {
 };
 
 export function BillingPanel() {
+  const qc = useQueryClient();
   const { data: plan, isLoading } = useSubscription();
+  const me = useMe();
+  const storeId = (me.data?.profile?.store_id ?? me.data?.store?.id) as string | undefined;
   const [checkout, setCheckout] = useState<{ priceId: string; name: string } | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const paymentsOn = isPaymentsConfigured();
+
+  const usageQ = useQuery({
+    queryKey: ["billing-plan-usage", storeId],
+    enabled: Boolean(storeId),
+    queryFn: async () => {
+      const [profilesRes, ownersRes, devicesRes] = await Promise.all([
+        (supabase.from as any)("profiles")
+          .select("id")
+          .eq("store_id", storeId!)
+          .eq("status", "active"),
+        (supabase.from as any)("user_roles")
+          .select("user_id")
+          .eq("store_id", storeId!)
+          .eq("role", "owner"),
+        (supabase.from as any)("device_registrations")
+          .select("id")
+          .eq("store_id", storeId!)
+          .eq("status", "active"),
+      ]);
+      if (profilesRes.error) throw profilesRes.error;
+      if (ownersRes.error) throw ownersRes.error;
+      if (devicesRes.error) throw devicesRes.error;
+      const ownerIds = new Set((ownersRes.data ?? []).map((row: any) => row.user_id));
+      return {
+        employees: (profilesRes.data ?? []).filter((row: any) => !ownerIds.has(row.id)).length,
+        registers: (devicesRes.data ?? []).length,
+      };
+    },
+    staleTime: 15_000,
+  });
 
   const openCheckout = (priceId: string, name: string) => {
     if (!paymentsOn) {
@@ -56,6 +95,31 @@ export function BillingPanel() {
     }
   };
 
+  const planChange = useMutation({
+    mutationFn: async (target: { priceId: string; name: string; monthlyPrice: number }) => {
+      if (!paymentsOn) throw new Error("Payments are not configured for this build.");
+      const approved = window.confirm(
+        `Switch this store to ${target.name} for $${target.monthlyPrice}/month? Stripe will apply the plan change and any applicable proration.`,
+      );
+      if (!approved) return { cancelled: true } as const;
+      const result = await changeStoreSubscriptionPlan({
+        data: { priceId: target.priceId, environment: getStripeEnvironment() },
+      });
+      if ("error" in result) throw new Error(result.error);
+      return { cancelled: false, result } as const;
+    },
+    onSuccess: async (result, target) => {
+      if (result.cancelled) return;
+      toast.success(`Plan changed to ${target.name}`);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["subscription"] }),
+        qc.invalidateQueries({ queryKey: ["billing-plan-usage"] }),
+        qc.invalidateQueries({ queryKey: ["me"] }),
+      ]);
+    },
+    onError: (error) => toast.error(userFacingError(error, "Could not change plan")),
+  });
+
   if (isLoading)
     return (
       <div className="p-6">
@@ -65,7 +129,9 @@ export function BillingPanel() {
 
   const isTrialing = plan?.isTrialing;
   const isReadOnly = plan?.isReadOnly;
-  const hasPaidPlan = plan?.tier && plan.tier !== "trial_pro" && plan.tier !== "expired";
+  const hasPaidPlan = Boolean(
+    plan?.tier && plan.tier !== "trial_pro" && plan.tier !== "expired",
+  );
 
   return (
     <div className="space-y-6">
@@ -80,7 +146,7 @@ export function BillingPanel() {
             </div>
             <div className="flex flex-col items-end gap-2">
               <Badge variant={isReadOnly ? "destructive" : isTrialing ? "secondary" : "default"}>
-                {TIER_LABEL[plan?.tier ?? "expired"]}
+                {TIER_LABEL[(plan?.tier ?? "expired") as PlanTier]}
               </Badge>
               {isReadOnly && (
                 <span className="text-xs text-destructive flex items-center gap-1">
@@ -118,12 +184,60 @@ export function BillingPanel() {
         </CardContent>
       </Card>
 
+      {planForTier(plan?.tier) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>What your plan includes</CardTitle>
+            <CardDescription>
+              SEZA enforces these limits automatically so the product matches the plan you pay for.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {(() => {
+              const definition = planForTier(plan?.tier)!;
+              const usage = usageQ.data ?? { employees: 0, registers: 0 };
+              return (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Employees</div>
+                      <div className="mt-1 text-2xl font-bold">
+                        {usage.employees} / {formatPlanLimit(definition.limits.employees)}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">POS registers</div>
+                      <div className="mt-1 text-2xl font-bold">
+                        {usage.registers} / {formatPlanLimit(definition.limits.registers)}
+                      </div>
+                    </div>
+                  </div>
+                  <ul className="grid gap-2 text-sm md:grid-cols-2">
+                    {definition.features.map((feature) => (
+                      <li key={feature} className="flex gap-2">
+                        <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {plan?.tier === "trial_pro" && (
+                    <p className="text-xs text-muted-foreground">
+                      Your 14-day trial uses Pro features and Pro limits. Choose a paid plan before the trial ends to keep access.
+                    </p>
+                  )}
+                </>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>{hasPaidPlan ? "Change plan" : "Choose a plan"}</CardTitle>
           <CardDescription>
             {hasPaidPlan
-              ? "Upgrade or downgrade at any time  -  changes take effect immediately."
+              ? "Switch plans here. Stripe keeps the existing subscription and applies any applicable proration; payment method, invoices, and cancellation remain in the secure billing portal."
               : "Subscribe to keep using SEZA POS after your trial ends."}
           </CardDescription>
         </CardHeader>
@@ -147,10 +261,24 @@ export function BillingPanel() {
                   className="mt-4 w-full"
                   size="sm"
                   variant={isCurrent ? "outline" : "default"}
-                  disabled={isCurrent}
-                  onClick={() => openCheckout(p.lookupKey, p.name)}
+                  disabled={isCurrent || planChange.isPending}
+                  onClick={() =>
+                    hasPaidPlan
+                      ? planChange.mutate({
+                          priceId: p.lookupKey,
+                          name: p.name,
+                          monthlyPrice: p.monthlyPrice,
+                        })
+                      : openCheckout(p.lookupKey, p.name)
+                  }
                 >
-                  {isCurrent ? "Current plan" : hasPaidPlan ? "Switch" : "Subscribe"}
+                  {isCurrent
+                    ? "Current plan"
+                    : planChange.isPending
+                      ? "Changing…"
+                      : hasPaidPlan
+                        ? "Switch plan"
+                        : "Subscribe"}
                 </Button>
               </div>
             );

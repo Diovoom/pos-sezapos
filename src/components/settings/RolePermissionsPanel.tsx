@@ -1,19 +1,17 @@
 import { useMemo, Fragment } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { ALL_PERMISSIONS, ROLES, useRolePermissions, type Role } from "@/hooks/usePermissions";
-import { useMe } from "@/hooks/useMe";
-import { logAudit } from "@/lib/audit-log";
+import { updatePlanRolePermission } from "@/lib/billing/role-permissions.functions";
 
 export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
   const qc = useQueryClient();
-  const me = useMe();
-  const storeId = me.data?.profile?.store_id as string | undefined;
+  const updatePermission = useServerFn(updatePlanRolePermission);
   const { data: rows = [], isLoading } = useRolePermissions();
 
   const map = useMemo(() => {
@@ -32,30 +30,10 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
       role: Role;
       permission: string;
       enabled: boolean;
-    }) => {
-      if (!storeId) throw new Error("No store context");
-      if (enabled) {
-        const { error } = await (supabase.from as any)("role_permissions").insert({
-          role,
-          permission,
-          store_id: storeId,
-        });
-        if (error && !String(error.message).includes("duplicate")) throw error;
-      } else {
-        const { error } = await (supabase.from as any)("role_permissions")
-          .delete()
-          .eq("role", role)
-          .eq("permission", permission)
-          .eq("store_id", storeId);
-        if (error) throw error;
-      }
-      void logAudit({
-        action: "role_permissions.update",
-        entity: "role",
-        entity_id: role,
-        details: { permission, enabled },
-      });
-    },
+    }) =>
+      updatePermission({
+        data: { role, permission, enabled },
+      }),
     onSuccess: (_data, vars) => {
       toast.success(`${vars.role} permission ${vars.enabled ? "enabled" : "removed"}`);
       void qc.invalidateQueries({ queryKey: ["role_permissions"] });

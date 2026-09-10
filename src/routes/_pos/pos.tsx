@@ -56,6 +56,7 @@ import {
 import type { ReceiptData } from "@/components/pos/Receipt";
 import { useMe } from "@/hooks/useMe";
 import { usePermissions } from "@/hooks/usePermissions";
+import { usePlanGate } from "@/hooks/useSubscription";
 import {
   Dialog,
   DialogContent,
@@ -249,6 +250,8 @@ export function PosPage() {
   const cartDraftReadyRef = useRef(false);
   const me = useMe();
   const perms = usePermissions();
+  const planGate = usePlanGate();
+  const loyaltyEnabled = planGate.canFeature("customer_loyalty");
   // Trusted permission system only  -  no role-name fallback. Owners and
   // admins remain super-users via perms.isSuper (also computed from roles).
   const canCreateSale = perms.has("sales.create") || perms.isSuper;
@@ -258,6 +261,14 @@ export function PosPage() {
   const canOpenItem =
     perms.isSuper || perms.isManager || perms.has("products.create") || perms.has("products.quick_add");
   const canQuickAdd = perms.has("products.quick_add") || perms.isSuper;
+
+  useEffect(() => {
+    if (loyaltyEnabled) return;
+    setLoyaltyOpen(false);
+    setLoyalty(null);
+    setLoyaltyRedemption(0);
+  }, [loyaltyEnabled]);
+
   const isMobile = useIsMobile();
   const online = useOnline();
   const { data: openTimeEntry, isLoading: clockStatusLoading } = useQuery<{ id: string } | null>({
@@ -678,10 +689,9 @@ export function PosPage() {
     : discount.mode === "percent"
       ? Math.min(subtotal, Math.round(subtotal * discount.value) / 100)
       : Math.min(subtotal, Math.round(discount.value * 100) / 100);
-  const effectiveLoyaltyRedemption = Math.min(
-    Math.max(0, subtotal - manualDiscount),
-    loyaltyRedemption,
-  );
+  const effectiveLoyaltyRedemption = loyaltyEnabled
+    ? Math.min(Math.max(0, subtotal - manualDiscount), loyaltyRedemption)
+    : 0;
   const discountAmount = Math.round((manualDiscount + effectiveLoyaltyRedemption) * 100) / 100;
   const discountRatio = subtotal > 0 ? discountAmount / subtotal : 0;
   const taxableBase = cart.reduce(
@@ -691,7 +701,9 @@ export function PosPage() {
   const taxableAfterDiscount = Math.max(0, taxableBase * (1 - discountRatio));
   const tax = Math.round(taxableAfterDiscount * taxRate * 100) / 100;
   const total = Math.max(0, Math.round((subtotal - discountAmount + tax) * 100) / 100);
-  const loyaltyEarn = loyalty ? Math.floor(Math.max(0, subtotal - discountAmount)) : 0;
+  const loyaltyEarn = loyaltyEnabled && loyalty
+    ? Math.floor(Math.max(0, subtotal - discountAmount))
+    : 0;
 
   const queueOfflineCashSale = async (payment: CompletedPayment) => {
     // Cash checkout is local-first even while the network is available. The
@@ -984,7 +996,7 @@ export function PosPage() {
             ? `Sale completed · ${fmtCurrency(total, currency)}. Syncing securely.`
             : `Sale completed · ${fmtCurrency(total, currency)}`,
       );
-      if (loyalty) {
+      if (loyaltyEnabled && loyalty) {
         if (effectiveLoyaltyRedemption > 0) {
           spendLoyaltyPoints(loyalty.identifier, Math.round(effectiveLoyaltyRedemption * 100));
         }
@@ -1227,7 +1239,7 @@ export function PosPage() {
               <span className="font-mono">− {fmtCurrency(manualDiscount, currency)}</span>
             </div>
           )}
-          {effectiveLoyaltyRedemption > 0 && (
+          {loyaltyEnabled && effectiveLoyaltyRedemption > 0 && (
             <div className="flex justify-between text-sm text-success">
               <button className="underline underline-offset-2" onClick={() => setLoyaltyOpen(true)}>
                 Loyalty redeem
@@ -1245,7 +1257,7 @@ export function PosPage() {
             <span>{t("pos.total")}</span>
             <span className="font-mono">{fmtCurrency(total, currency)}</span>
           </div>
-          {loyalty && loyaltyEarn > 0 && (
+          {loyaltyEnabled && loyalty && loyaltyEarn > 0 && (
             <div className="flex justify-between text-[11px] text-muted-foreground">
               <span>Loyalty · {loyalty.identifier}</span>
               <span>+{loyaltyEarn} pts</span>
@@ -1436,14 +1448,16 @@ export function PosPage() {
                 {discount ? "Edit discount" : "Discount"}
               </Button>
 
-              <Button
-                variant="outline"
-                className="h-11 shrink-0 px-3 text-xs"
-                onClick={() => setLoyaltyOpen(true)}
-              >
-                <Heart className="mr-1.5 size-4" />
-                {loyalty ? "Loyalty ✓" : "Loyalty"}
-              </Button>
+              {loyaltyEnabled && (
+                <Button
+                  variant="outline"
+                  className="h-11 shrink-0 px-3 text-xs"
+                  onClick={() => setLoyaltyOpen(true)}
+                >
+                  <Heart className="mr-1.5 size-4" />
+                  {loyalty ? "Loyalty ✓" : "Loyalty"}
+                </Button>
+              )}
             </div>
 
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
@@ -1623,18 +1637,20 @@ export function PosPage() {
         onApply={setDiscount}
       />
 
-      <LoyaltyDialog
-        open={loyaltyOpen}
-        onOpenChange={setLoyaltyOpen}
-        subtotal={Math.max(0, subtotal - manualDiscount)}
-        currency={currency}
-        current={loyalty}
-        redemption={loyaltyRedemption}
-        onApply={(cust, amt) => {
-          setLoyalty(cust);
-          setLoyaltyRedemption(amt);
-        }}
-      />
+      {loyaltyEnabled && (
+        <LoyaltyDialog
+          open={loyaltyOpen}
+          onOpenChange={setLoyaltyOpen}
+          subtotal={Math.max(0, subtotal - manualDiscount)}
+          currency={currency}
+          current={loyalty}
+          redemption={loyaltyRedemption}
+          onApply={(cust, amt) => {
+            setLoyalty(cust);
+            setLoyaltyRedemption(amt);
+          }}
+        />
+      )}
 
       <Dialog
         open={!!voidLine}

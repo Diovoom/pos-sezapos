@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
 import { cacheMeta, readMeta } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
+import { tierIncludesFeature, type SezaEffectiveTier } from "@/lib/plans";
 
 export const ALL_PERMISSIONS: { key: string; label: string; group: string }[] = [
   { key: "sales.create", label: "Create sales", group: "Sales" },
@@ -118,14 +119,31 @@ export function usePermissions() {
   const perms = useRolePermissions();
   const myRoles = (me.data?.roles ?? []) as Role[];
   const rows = perms.data ?? [];
-  const mine = new Set(rows.filter((r) => myRoles.includes(r.role)).map((r) => r.permission));
+  const store = me.data?.store as
+    | { plan_tier?: string | null; plan_status?: string | null; plan_period_end?: string | null }
+    | null
+    | undefined;
+  const planStatus = String(store?.plan_status ?? "expired");
+  const planPeriodEnd = store?.plan_period_end ? new Date(store.plan_period_end).getTime() : null;
+  const activePlan =
+    ["active", "trialing", "past_due"].includes(planStatus) &&
+    (planPeriodEnd == null || planPeriodEnd > Date.now());
+  const customPermissionsEnabled =
+    activePlan &&
+    tierIncludesFeature((store?.plan_tier ?? "expired") as SezaEffectiveTier, "team_permissions");
+  const mine = new Set(
+    customPermissionsEnabled
+      ? rows.filter((r) => myRoles.includes(r.role)).map((r) => r.permission)
+      : [],
+  );
 
   // Owners/admins are permanently full-access and cannot be accidentally
   // locked out by the role matrix.
   const isSuper =
     myRoles.includes("owner") ||
     myRoles.includes("admin") ||
-    rows.some((r) => myRoles.includes(r.role) && r.permission === "*");
+    (customPermissionsEnabled &&
+      rows.some((r) => myRoles.includes(r.role) && r.permission === "*"));
 
   const managerDefaults = new Set([
     "sales.create", "sales.void", "sales.discount", "sales.price_override",

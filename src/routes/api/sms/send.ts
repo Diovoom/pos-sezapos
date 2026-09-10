@@ -111,6 +111,18 @@ export const Route = createFileRoute("/api/sms/send")({
         }
         const storeId = profile.store_id as string;
 
+        // SMS receipts are a Pro+ entitlement. Keep this check server-side so
+        // a Starter merchant cannot bypass the UI and call the endpoint directly.
+        try {
+          const { assertStoreFeature } = await import("@/lib/billing/plan-entitlements.server");
+          await assertStoreFeature({ supabase: admin, storeId, feature: "sms_receipts" });
+        } catch (error) {
+          return jsonResponse(
+            { error: error instanceof Error ? error.message : "Pro or higher is required for SMS receipts." },
+            { status: 403 },
+          );
+        }
+
         // Idempotency short-circuit
         if (payload.idempotencyKey) {
           const { data: existing } = await admin

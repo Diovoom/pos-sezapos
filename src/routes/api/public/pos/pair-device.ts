@@ -69,6 +69,40 @@ export const Route = createFileRoute("/api/public/pos/pair-device")({
           return json({ error: "Pairing code has expired" }, 410);
         }
 
+        // Enforce the register allowance again at code consumption time. A
+        // merchant can generate more than one short-lived code before either
+        // is used, so the dashboard-side check alone is not enough.
+        const { count: activeRegisters, error: registerCountError } = await admin
+          .from("device_registrations")
+          .select("id", { count: "exact", head: true })
+          .eq("store_id", pc.store_id)
+          .eq("status", "active");
+        if (registerCountError) {
+          return json({ error: "Could not verify this store's register allowance" }, 503);
+        }
+        try {
+          const { assertStoreResourceLimit } = await import(
+            "@/lib/billing/plan-entitlements.server"
+          );
+          await assertStoreResourceLimit({
+            supabase: admin,
+            storeId: pc.store_id,
+            resource: "registers",
+            currentCount: activeRegisters ?? 0,
+          });
+        } catch (error) {
+          return json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "This store has reached its POS register allowance",
+              code: "PLAN_REGISTER_LIMIT",
+            },
+            403,
+          );
+        }
+
         const secret = generateDeviceSecret();
         const { data: dev, error: devErr } = await admin
           .from("device_registrations")

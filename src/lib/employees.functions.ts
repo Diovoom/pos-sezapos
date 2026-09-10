@@ -242,8 +242,32 @@ export const createEmployee = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertOwner(context as unknown as { supabase: SupabaseCtx; userId: string });
+    if (data.role !== "manager" && data.role !== "cashier") {
+      throw new Error("Employees can only be created as manager or cashier.");
+    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Resolve the merchant before creating an auth user so plan limits are
+    // enforced atomically and a rejected create never leaves an orphan user.
+    const { data: ownerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("store_id")
+      .eq("id", (context as { userId: string }).userId)
+      .maybeSingle();
+    if (!ownerProfile?.store_id) throw new Error("You are not assigned to a store");
+
+    const admin: any = supabaseAdmin;
+    const { assertStoreResourceLimit, getStorePlanUsage } = await import(
+      "@/lib/billing/plan-entitlements.server"
+    );
+    const usage = await getStorePlanUsage(admin, ownerProfile.store_id);
+    await assertStoreResourceLimit({
+      supabase: admin,
+      storeId: ownerProfile.store_id,
+      resource: "employees",
+      currentCount: usage.employees,
+    });
 
     const tempPassword = generateTempPassword();
     const email = data.email.trim().toLowerCase();
@@ -263,18 +287,9 @@ export const createEmployee = createServerFn({ method: "POST" })
       throw new Error(createErr?.message || "Failed to create user");
     }
 
-    // Fetch this owner's store so we assign the employee to the same store.
-    const { data: ownerProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("store_id")
-      .eq("id", (context as { userId: string }).userId)
-      .maybeSingle();
-
     // handle_new_user() trigger already created a profile + a `cashier`
     // user_role. Update the profile with the extra fields and, if the
     // caller wanted `manager`, overwrite the role.
-
-    const admin: any = supabaseAdmin;
 
     const { error: profileErr } = await admin
       .from("profiles")
@@ -291,8 +306,16 @@ export const createEmployee = createServerFn({ method: "POST" })
       .eq("id", created.user.id);
     if (profileErr) throw new Error(profileErr.message);
 
-    if (data.role === "manager") {
-      await admin.from("user_roles").update({ role: "manager" }).eq("user_id", created.user.id);
+    // The auth trigger may provision a non-merchant user against a fallback
+    // store before this server function finishes. Always repair both the role
+    // and tenant id so the employee belongs to the owner's actual store.
+    const { error: roleErr } = await admin
+      .from("user_roles")
+      .update({ role: data.role, store_id: ownerProfile.store_id })
+      .eq("user_id", created.user.id);
+    if (roleErr) {
+      await supabaseAdmin.auth.admin.deleteUser(created.user.id).catch(() => undefined);
+      throw new Error(roleErr.message);
     }
 
     const { data: profile } = await admin
@@ -330,6 +353,40 @@ export const setEmployeeStatus = createServerFn({ method: "POST" })
 
     const admin: any = supabaseAdmin;
     const dbStatus = data.status === "suspended" ? "disabled" : data.status;
+
+    // Re-enabling an employee consumes a plan seat just like creating one.
+    // Enforce the limit here too so disabling/re-enabling cannot bypass it.
+    if (dbStatus === "active") {
+      const { data: targetProfile, error: targetProfileError } = await admin
+        .from("profiles")
+        .select("store_id,status")
+        .eq("id", data.user_id)
+        .maybeSingle();
+      if (targetProfileError) throw new Error(targetProfileError.message);
+      if (targetProfile?.store_id && targetProfile.status !== "active") {
+        const { data: targetRoles, error: targetRolesError } = await admin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", data.user_id)
+          .eq("store_id", targetProfile.store_id);
+        if (targetRolesError) throw new Error(targetRolesError.message);
+        const consumesSeat = (targetRoles ?? []).some((row: { role: string }) =>
+          ["manager", "cashier"].includes(row.role),
+        );
+        if (consumesSeat) {
+          const { assertStoreResourceLimit, getStorePlanUsage } = await import(
+            "@/lib/billing/plan-entitlements.server"
+          );
+          const usage = await getStorePlanUsage(admin, targetProfile.store_id);
+          await assertStoreResourceLimit({
+            supabase: admin,
+            storeId: targetProfile.store_id,
+            resource: "employees",
+            currentCount: usage.employees,
+          });
+        }
+      }
+    }
     const { error } = await admin
       .from("profiles")
       .update({ status: dbStatus })
@@ -875,12 +932,12 @@ export const adminResetPin = createServerFn({ method: "POST" })
 
     let conflict = false;
     if (fp) {
-      const { data } = await admin.rpc("pos_pin_conflict_check", {
+      const { data: hasConflict } = await admin.rpc("pos_pin_conflict_check", {
         _store_id: prof.store_id,
         _fingerprint: fp,
         _exclude_user: data.user_id,
       });
-      conflict = !!data;
+      conflict = !!hasConflict;
     } else {
       const { data: activeProfiles, error: readError } = await admin
         .from("profiles")

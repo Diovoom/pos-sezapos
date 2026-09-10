@@ -49,11 +49,24 @@ export const createPairingCode = createServerFn({ method: "POST" })
     if (!prof?.store_id) throw new Error("You are not assigned to a store");
 
     const { generatePairingCode, hashPairingCode } = await import("@/lib/pos/device.server");
-    const code = generatePairingCode();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const admin: any = supabaseAdmin;
+    const { count: activeRegisters, error: countError } = await admin
+      .from("device_registrations")
+      .select("id", { count: "exact", head: true })
+      .eq("store_id", prof.store_id)
+      .eq("status", "active");
+    if (countError) throw new Error(countError.message);
+    const { assertStoreResourceLimit } = await import("@/lib/billing/plan-entitlements.server");
+    await assertStoreResourceLimit({
+      supabase: admin,
+      storeId: prof.store_id,
+      resource: "registers",
+      currentCount: activeRegisters ?? 0,
+    });
 
+    const code = generatePairingCode();
     const expiresAt = new Date(Date.now() + ttl * 60_000).toISOString();
     const { error } = await admin.from("device_pairing_codes").insert({
       code_hash: hashPairingCode(code),

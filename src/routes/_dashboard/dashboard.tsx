@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
+import { PlanFeatureGate } from "@/components/PlanFeatureGate";
 import { OwnerDashboardFooter } from "@/components/OwnerDashboardFooter";
 import { TrialCountdown } from "@/components/TrialCountdown";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -340,14 +341,16 @@ function DashboardPage() {
               </Card>
             </div>
 
-            <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="size-4 text-warning" /> Low stock</CardTitle></CardHeader>
-              <CardContent>
-                {(data?.lowStock?.length ?? 0) === 0 ? <p className="text-sm text-muted-foreground">All products are well stocked.</p> : (
-                  <div className="divide-y">{data!.lowStock.map((product: any) => <div key={product.id} className="flex items-center justify-between py-3 text-sm"><span className="font-medium">{product.name}</span><span className="font-mono text-warning">{Number(product.stock)} left</span></div>)}</div>
-                )}
-              </CardContent>
-            </Card>
+            <PlanFeatureGate feature="low_stock_alerts" label="Low-stock alerts">
+              <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="size-4 text-warning" /> Low stock</CardTitle></CardHeader>
+                <CardContent>
+                  {(data?.lowStock?.length ?? 0) === 0 ? <p className="text-sm text-muted-foreground">All products are well stocked.</p> : (
+                    <div className="divide-y">{data!.lowStock.map((product: any) => <div key={product.id} className="flex items-center justify-between py-3 text-sm"><span className="font-medium">{product.name}</span><span className="font-mono text-warning">{Number(product.stock)} left</span></div>)}</div>
+                  )}
+                </CardContent>
+              </Card>
+            </PlanFeatureGate>
           </>
         )}
         <OwnerDashboardFooter />

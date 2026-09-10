@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createStripeClient, type StripeEnv, verifyWebhook } from "@/lib/stripe.server";
+import { SEZA_PLAN_LOOKUP_PRICE_CENTS } from "@/lib/plans";
 
 // Lazy service-role client so env vars are read at request time.
 async function getAdmin() {
@@ -52,7 +53,11 @@ async function handleSubscriptionUpsert(subscription: any, env: StripeEnv) {
     console.error("Stripe webhook: no userId in subscription metadata", subscription.id);
     return;
   }
-  const storeId = await storeIdForUser(userId);
+  const metadataStoreId =
+    typeof subscription.metadata?.storeId === "string" && subscription.metadata.storeId.trim()
+      ? subscription.metadata.storeId.trim()
+      : null;
+  const storeId = metadataStoreId ?? (await storeIdForUser(userId));
   if (!storeId) {
     console.error("Stripe webhook: no store found for user", userId);
     return;
@@ -60,6 +65,10 @@ async function handleSubscriptionUpsert(subscription: any, env: StripeEnv) {
 
   const item = subscription.items?.data?.[0];
   const priceId = resolvePriceLookupKey(item);
+  if (!priceId || !(priceId in SEZA_PLAN_LOOKUP_PRICE_CENTS)) {
+    console.error("Stripe webhook: unrecognized SEZA subscription price", priceId, subscription.id);
+    return;
+  }
   const productId = resolveProductId(item);
   const periodStart = item?.current_period_start ?? subscription.current_period_start;
   const periodEnd = item?.current_period_end ?? subscription.current_period_end;

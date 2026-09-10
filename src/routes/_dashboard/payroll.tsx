@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
+import { PlanFeatureGate } from "@/components/PlanFeatureGate";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,8 +38,16 @@ export const Route = createFileRoute("/_dashboard/payroll")({
       throw redirect({ to: "/dashboard" });
     }
   },
-  component: PayrollPage,
+  component: PayrollRoute,
 });
+
+function PayrollRoute() {
+  return (
+    <PlanFeatureGate feature="payroll" label="Payroll and labor reporting">
+      <PayrollPage />
+    </PlanFeatureGate>
+  );
+}
 
 type Profile = {
   id: string;
