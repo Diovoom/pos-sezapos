@@ -175,7 +175,7 @@ export function CustomerDisplayPanel() {
           <div className="space-y-1">
             <Label htmlFor="customer-display-message">Welcome message</Label>
             <p className="text-xs text-muted-foreground">
-              Example: Welcome to EV&apos;s Shop. This is shown when Message is selected.
+              Example: Welcome to our store. This is shown when Message is selected.
             </p>
           </div>
           <Input

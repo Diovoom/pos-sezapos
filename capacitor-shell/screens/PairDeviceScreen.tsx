@@ -43,6 +43,12 @@ export function PairDeviceScreen() {
         label: data.label ?? label.trim() ?? "POS Register",
       });
 
+      // Every newly paired physical register gets one on-device hardware setup
+      // pass after the first manager/owner PIN login. Customer display is
+      // automatic on supported dual-screen hardware.
+      localStorage.setItem("seza.device_setup_completed_v1", "0");
+      localStorage.setItem("pos.customerDisplay.autoStart", "1");
+
       const bootstrap = data.bootstrap ?? {};
       await Promise.all([
         cacheMeta("store_id", data.store_id),

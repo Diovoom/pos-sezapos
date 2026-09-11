@@ -88,7 +88,19 @@ export const Route = createFileRoute("/api/public/pos/device-heartbeat")({
           .eq("id", deviceId);
         if (error) return json({ error: error.message }, 500);
 
-        return json({ ok: true, server_time: now });
+        // Return the small operating configuration on every acknowledged
+        // heartbeat. This keeps an already-open Android register aligned with
+        // Owner Dashboard changes (store name, tax, plan, receipt/display
+        // settings) without forcing the cashier to close/reopen the APK.
+        const { data: storeConfig } = await admin
+          .from("stores")
+          .select(
+            "id,name,tax_rate,currency,plan_tier,plan_status,plan_period_end,plan_cancel_at_period_end,logo_url,receipt_logo_url,receipt_header,receipt_footer,return_policy,thank_you_message,customer_display_settings,language,time_zone,date_format,updated_at",
+          )
+          .eq("id", storeId)
+          .maybeSingle();
+
+        return json({ ok: true, server_time: now, store_config: storeConfig ?? null });
       },
     },
   },

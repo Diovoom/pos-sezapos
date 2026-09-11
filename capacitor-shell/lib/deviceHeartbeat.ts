@@ -9,9 +9,10 @@ import * as escposUsb from "@/lib/hardware/escpos-usb";
 import * as stripeTerminal from "@/lib/hardware/terminal-stripe";
 import { refreshDeviceBootstrap } from "./deviceBootstrap";
 import { isNetworkConnectedNow } from "@/lib/offline/useOnline";
+import { cacheMeta, readMeta } from "@/lib/offline/db";
 
-const FOREGROUND_INTERVAL_MS = 5 * 60_000;
-const MAX_SILENCE_MS = 15 * 60_000;
+const FOREGROUND_INTERVAL_MS = 15_000;
+const MAX_SILENCE_MS = 15_000;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let sending = false;
 let stopped = false;
@@ -174,10 +175,32 @@ export async function sendDeviceHeartbeat(force = false) {
       }),
     });
     if (response.ok) {
+      const result = (await response.json().catch(() => ({}))) as { store_config?: any };
       lastSnapshotKey = key;
       lastSentAt = now;
-      // Successful heartbeat proves the backend path is healthy. Drain queued
-      // register work now instead of waiting for another cashier action.
+
+      if (result.store_config && result.store_config.id === pairing.storeId) {
+        const cacheKey = `store:${pairing.storeId}`;
+        const previousStore = await readMeta<any>(cacheKey).catch(() => undefined);
+        const nextStore = { ...(previousStore ?? {}), ...result.store_config };
+        await Promise.all([
+          cacheMeta(cacheKey, nextStore),
+          cacheMeta("store", nextStore),
+        ]).catch(() => undefined);
+
+        const currentUserId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+        if (currentUserId) {
+          const meKey = `authenticated_me:${currentUserId}`;
+          const cachedMe = await readMeta<any>(meKey).catch(() => undefined);
+          if (cachedMe?.store?.id === pairing.storeId) {
+            await cacheMeta(meKey, { ...cachedMe, store: nextStore }).catch(() => undefined);
+          }
+        }
+        window.dispatchEvent(new Event("seza:bootstrap-updated"));
+      }
+
+      // Catalog/employee refresh remains throttled separately; lightweight
+      // operating settings above update every foreground heartbeat.
       void refreshDeviceBootstrap().catch(() => undefined);
       void import("@/lib/offline/sync").then(({ syncNow }) =>
         syncNow().catch(() => undefined),

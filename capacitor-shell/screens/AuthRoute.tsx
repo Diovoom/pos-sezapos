@@ -24,7 +24,12 @@ export function AuthRoute() {
       if (!cachedUser) return;
       const cachedMe = await readMeta<any>(`authenticated_me:${cachedUser}`).catch(() => undefined);
       if (cachedMe?.profile && cachedMe?.store) {
-        navigate({ to: "/pos", replace: true });
+        navigate({
+          to: (localStorage.getItem("seza.device_setup_completed_v1") === "1"
+            ? "/pos"
+            : "/device-setup") as any,
+          replace: true,
+        });
         return;
       }
       await deleteMeta("authenticated_me_current_user").catch(() => {});

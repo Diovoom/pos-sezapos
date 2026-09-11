@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -157,9 +156,9 @@ const STEPS = [
   { id: 4, label: "Receipt", icon: Receipt },
   { id: 5, label: "Employee", icon: Users },
   { id: 6, label: "Products", icon: Package },
-  { id: 7, label: "Hardware", icon: Printer },
+  { id: 7, label: "Register setup", icon: Printer },
   { id: 8, label: "Payments", icon: CreditCard },
-  { id: 9, label: "Test Sale", icon: ShoppingCart },
+  { id: 9, label: "POS Preview", icon: ShoppingCart },
   { id: 10, label: "Review", icon: ClipboardCheck },
   { id: 11, label: "Finish", icon: PartyPopper },
 ];
@@ -225,11 +224,17 @@ function SetupWizardPage() {
   const [saving, setSaving] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
-  const store = me.data?.store as {
+  const store = me.data?.store as ({
     id?: string;
+    name?: string | null;
+    tax_rate?: number | string | null;
+    currency?: string | null;
+    time_zone?: string | null;
+    date_format?: string | null;
+    language?: string | null;
     setup_state?: WizardState | null;
     setup_completed_at?: string | null;
-  } | null;
+  } | null);
   const isOwner = (me.data?.roles ?? []).includes("owner");
 
   useEffect(() => {
@@ -257,8 +262,21 @@ function SetupWizardPage() {
       store: {
         ...s.store,
         ...(saved.store ?? {}),
-        name:
-          saved.store?.name ?? (store?.["name" as keyof typeof store] as string) ?? s.store.name,
+        name: saved.store?.name ?? store?.name ?? s.store.name,
+      },
+      tax: {
+        ...s.tax,
+        ...(saved.tax ?? {}),
+        rate:
+          saved.tax?.rate ??
+          (store?.tax_rate != null ? Number(store.tax_rate) * 100 : s.tax.rate),
+        currency: saved.tax?.currency ?? store?.currency ?? s.tax.currency,
+        time_zone: saved.tax?.time_zone ?? store?.time_zone ?? s.tax.time_zone,
+        date_format: saved.tax?.date_format ?? store?.date_format ?? s.tax.date_format,
+        language: saved.tax?.language ?? store?.language ?? s.tax.language,
+      },
+      payments: {
+        provider: saved.payments?.provider === "stripe" ? "stripe" : "cash_only",
       },
       step: saved.step ?? 0,
     }));
@@ -296,7 +314,7 @@ function SetupWizardPage() {
         tax_id: next.store.tax_id || null,
         business_type: next.store.business_type || null,
         logo_url: next.store.logo_url || null,
-        tax_rate: next.tax.rate,
+        tax_rate: next.tax.rate / 100,
         tax_inclusive: next.tax.inclusive,
         currency: next.tax.currency,
         currency_symbol: next.tax.currency_symbol,
@@ -503,7 +521,7 @@ function SetupWizardPage() {
         <Card>
           <CardContent className="pt-6">
             {state.step === 0 && (
-              <StepWelcome onStart={() => goTo(1)} onExit={() => navigate({ to: "/pos" })} />
+              <StepWelcome onStart={() => goTo(1)} onExit={() => navigate({ to: "/dashboard" })} />
             )}
             {state.step === 1 && <StepOwner state={state} patch={patchOwner} />}
             {state.step === 2 && (
@@ -1127,73 +1145,40 @@ function StepProducts({
   );
 }
 
-function StepHardware({
-  state,
-  patch,
-}: {
+function StepHardware({ state: _state, patch: _patch }: {
   state: WizardState;
   patch: (p: Partial<WizardState["hardware"]>) => void;
 }) {
-  const items: { key: keyof WizardState["hardware"]; label: string; desc: string }[] = [
-    { key: "printer", label: "Receipt Printer", desc: "USB, network, or Bluetooth printer" },
-    {
-      key: "scanner",
-      label: "Barcode Scanner",
-      desc: "USB HID or Bluetooth HID keyboard-emulation",
-    },
-    { key: "drawer", label: "Cash Drawer", desc: "Triggered via receipt printer kick-out" },
-    { key: "display", label: "Customer Display", desc: "Second monitor or tablet" },
-    {
-      key: "terminal",
-      label: "Payment Terminal (optional)",
-      desc: "Configured separately in Settings",
-    },
-  ];
-  const detect = async (key: keyof WizardState["hardware"]) => {
-    try {
-      // Best-effort browser device discovery
-      const nav = navigator as unknown as {
-        usb?: { requestDevice: (o: unknown) => Promise<unknown> };
-        bluetooth?: { requestDevice: (o: unknown) => Promise<unknown> };
-      };
-      if (key === "scanner" || key === "printer" || key === "drawer") {
-        if (nav.usb) await nav.usb.requestDevice({ filters: [] });
-      } else if (nav.bluetooth) {
-        await nav.bluetooth.requestDevice({ acceptAllDevices: true });
-      }
-      patch({ [key]: true } as Partial<WizardState["hardware"]>);
-      toast.success("Device connected");
-    } catch {
-      toast.info("No device selected  -  you can configure this later.");
-    }
-  };
   return (
-    <div className="space-y-3">
-      {items.map((h) => (
-        <div key={h.key} className="flex items-center gap-3 rounded-md border p-3">
-          <div className="flex-1">
-            <div className="text-sm font-medium flex items-center gap-2">
-              {h.label}
-              {state.hardware[h.key] && (
-                <Badge variant="secondary" className="text-xs">
-                  <Check className="size-3 mr-1" /> Connected
-                </Badge>
-              )}
-            </div>
-            <div className="text-xs text-muted-foreground">{h.desc}</div>
+    <div className="space-y-4">
+      <div className="rounded-xl border bg-primary/5 p-4">
+        <div className="font-semibold">Physical hardware is configured on the Android register</div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          After you pair a POS with its 10-character code and sign in with a manager or owner PIN,
+          SEZA opens the register hardware setup on that device. This website does not try to connect
+          USB or Bluetooth hardware from your phone or laptop.
+        </p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {[
+          ["Receipt printer", "Connect and test it on the paired Android POS."],
+          ["Barcode scanner", "Configure USB HID or supported scanner input on the POS."],
+          ["Cash drawer", "Configure the printer kick-out on the POS."],
+          ["Payment terminal", "Pair and test the certified reader on the POS."],
+        ].map(([label, desc]) => (
+          <div key={label} className="rounded-lg border p-4">
+            <div className="text-sm font-semibold">{label}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{desc}</div>
           </div>
-          <Button size="sm" variant="outline" onClick={() => detect(h.key)}>
-            Detect & Connect
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => patch({ [h.key]: false } as Partial<WizardState["hardware"]>)}
-          >
-            Skip
-          </Button>
+        ))}
+      </div>
+      <div className="rounded-lg border p-4">
+        <div className="text-sm font-semibold">Customer display</div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          No manual connection step is required. On supported dual-screen SEZA hardware, the customer
+          display starts automatically. You can customize its idle message and text size later from the POS.
         </div>
-      ))}
+      </div>
     </div>
   );
 }
@@ -1209,80 +1194,93 @@ function StepPayments({
     {
       id: "cash_only",
       label: "Cash only (for now)",
-      desc: "Card payments disabled until a terminal is configured.",
+      desc: "You can enable card payments later without re-running store setup.",
     },
-    { id: "stripe", label: "Stripe Terminal", desc: "In-person card payments via Stripe" },
-    { id: "square", label: "Square", desc: "Square terminals and readers" },
-    { id: "clover", label: "Clover", desc: "Clover POS terminals" },
+    {
+      id: "stripe",
+      label: "Stripe Terminal",
+      desc: "Use Stripe for SEZA card payments. The physical reader is paired on the Android POS.",
+    },
   ];
   return (
     <div className="space-y-3">
-      {providers.map((p) => (
+      {providers.map((provider) => (
         <button
-          key={p.id}
-          onClick={() => patch({ provider: p.id })}
+          key={provider.id}
+          type="button"
+          onClick={() => patch({ provider: provider.id })}
           className={cn(
             "w-full text-left flex items-start gap-3 rounded-lg border p-4 transition-colors",
-            state.payments.provider === p.id ? "border-primary bg-primary/5" : "hover:bg-accent",
+            state.payments.provider === provider.id ? "border-primary bg-primary/5" : "hover:bg-accent",
           )}
         >
           <div
             className={cn(
               "size-5 rounded-full border grid place-items-center shrink-0 mt-0.5",
-              state.payments.provider === p.id &&
+              state.payments.provider === provider.id &&
                 "bg-primary border-primary text-primary-foreground",
             )}
           >
-            {state.payments.provider === p.id && <Check className="size-3" />}
+            {state.payments.provider === provider.id && <Check className="size-3" />}
           </div>
           <div>
-            <div className="font-medium text-sm">{p.label}</div>
-            <div className="text-xs text-muted-foreground">{p.desc}</div>
+            <div className="font-medium text-sm">{provider.label}</div>
+            <div className="text-xs text-muted-foreground">{provider.desc}</div>
           </div>
         </button>
       ))}
-      {state.payments.provider === "cash_only" && (
-        <div className="text-xs rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 p-3">
-          Reminder: Card payments will remain disabled until a payment terminal is configured in
-          Settings.
-        </div>
-      )}
+      <div className="text-xs rounded-md border bg-muted/30 p-3 text-muted-foreground">
+        Merchant verification and payout information stay in the Owner Dashboard. Reader discovery,
+        pairing, reconnecting, and testing happen only on the physical Android register.
+      </div>
     </div>
   );
 }
 
-function StepTestSale({
-  state,
-  patch,
-}: {
+function StepTestSale({ state, patch: _patch }: {
   state: WizardState;
   patch: (p: Partial<WizardState["test_sale"]>) => void;
 }) {
-  const t = state.test_sale;
-  const steps: { key: keyof WizardState["test_sale"]; label: string }[] = [
-    { key: "added", label: "Added a sample product" },
-    { key: "scanned", label: "Scanned or searched for the product" },
-    { key: "paid", label: "Completed a cash transaction" },
-    { key: "printed", label: "Printed a test receipt (or emailed it)" },
-  ];
+  const sampleSubtotal = state.products.items[0]?.price || 10;
+  const sampleTax = Math.round(sampleSubtotal * (state.tax.rate / 100) * 100) / 100;
+  const sampleTotal = sampleSubtotal + sampleTax;
+  const itemName = state.products.items[0]?.name || "Sample item";
+  const money = (value: number) => `${state.tax.currency_symbol || "$"}${value.toFixed(2)}`;
+
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Walk through a sample sale in the POS to confirm everything works. Check each item off as
-        you go.
-      </p>
-      {steps.map((s) => (
-        <label key={s.key} className="flex items-center gap-3 rounded-md border p-3 cursor-pointer">
-          <Checkbox
-            checked={t[s.key]}
-            onCheckedChange={(v) => patch({ [s.key]: !!v } as Partial<WizardState["test_sale"]>)}
-          />
-          <span className="text-sm flex-1">{s.label}</span>
-        </label>
-      ))}
-      <Button variant="outline" onClick={() => window.open("/pos", "_blank")}>
-        <ExternalLink className="size-4" /> Open POS in new tab
-      </Button>
+    <div className="space-y-4">
+      <div>
+        <div className="text-sm font-semibold">Read-only POS preview</div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          This preview shows how the core store settings will appear. Real checkout and hardware testing
+          happen on the paired Android POS.
+        </p>
+      </div>
+      <div className="overflow-hidden rounded-xl border bg-background">
+        <div className="border-b px-4 py-3">
+          <div className="font-bold">{state.store.name || "Your store"}</div>
+          <div className="text-xs text-muted-foreground">SEZA POS preview</div>
+        </div>
+        <div className="grid gap-3 p-4 md:grid-cols-[1fr_260px]">
+          <div className="rounded-lg border p-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Catalog</div>
+            <div className="mt-3 flex items-center justify-between rounded-md bg-muted/40 p-3">
+              <span className="font-medium">{itemName}</span>
+              <span>{money(sampleSubtotal)}</span>
+            </div>
+          </div>
+          <div className="rounded-lg border p-4 text-sm">
+            <div className="flex justify-between"><span>Subtotal</span><span>{money(sampleSubtotal)}</span></div>
+            <div className="mt-2 flex justify-between text-muted-foreground">
+              <span>Tax ({state.tax.rate.toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}%)</span>
+              <span>{money(sampleTax)}</span>
+            </div>
+            <div className="mt-3 flex justify-between border-t pt-3 text-lg font-bold">
+              <span>Total</span><span>{money(sampleTotal)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1328,12 +1326,8 @@ function StepReview({ state, goTo }: { state: WizardState; goTo: (n: number) => 
     },
     {
       step: 7,
-      label: "Hardware",
-      value:
-        Object.entries(state.hardware)
-          .filter(([, v]) => v)
-          .map(([k]) => k)
-          .join(", ") || "None connected",
+      label: "Register hardware",
+      value: "Configured on each Android POS after pairing",
     },
     { step: 8, label: "Payments", value: state.payments.provider.replace("_", " ") },
   ];
@@ -1368,7 +1362,7 @@ function StepFinish({ onDone, onSettings }: { onDone: () => void; onSettings: ()
       <div>
         <h2 className="text-3xl font-bold">Congratulations!</h2>
         <p className="text-muted-foreground mt-2">
-          Your POS has been successfully configured and is ready to use.
+          Your store setup is saved. Pair an Android register to finish physical hardware setup and start selling.
         </p>
       </div>
       <div className="flex items-center justify-center gap-2 flex-wrap">

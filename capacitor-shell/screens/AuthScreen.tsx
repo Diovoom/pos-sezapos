@@ -153,6 +153,9 @@ export function AuthScreen() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [busy, value]);
 
+  const signedInDestination = () =>
+    localStorage.getItem("seza.device_setup_completed_v1") === "1" ? "/pos" : "/device-setup";
+
   async function submit() {
     setBusy(true);
     setError(null);
@@ -165,7 +168,7 @@ export function AuthScreen() {
             await cacheMeta("authenticated_me_current_user", offlineEmployee.userId).catch(() => {});
             queryClient.clear();
             queryClient.setQueryData(["me"], cachedMe);
-            navigate({ to: "/pos", replace: true });
+            navigate({ to: signedInDestination() as any, replace: true });
             return;
           }
         }
@@ -388,7 +391,7 @@ export function AuthScreen() {
       }
 
       setError(null);
-      navigate({ to: "/pos", replace: true });
+      navigate({ to: signedInDestination() as any, replace: true });
     } catch (err) {
       if (pairing) {
         const offlineEmployee = await findOfflineEmployee(pin, pairing.deviceSecret, pairing.storeId);
@@ -399,7 +402,7 @@ export function AuthScreen() {
             queryClient.clear();
             queryClient.setQueryData(["me"], cachedMe);
             setError(null);
-            navigate({ to: "/pos", replace: true });
+            navigate({ to: signedInDestination() as any, replace: true });
             return;
           }
         }

@@ -307,7 +307,7 @@ export function RegisterAppSettingsPage() {
                 </SettingRow>
                 <SettingRow
                   title="Welcome message"
-                  description="For example: Welcome to EV's Shop. Up to 48 characters."
+                  description="For example: Welcome to our store. Up to 48 characters."
                 >
                   <Input
                     className="w-64"
@@ -395,7 +395,7 @@ export function RegisterAppSettingsPage() {
                 <LinkRow
                   icon={<MonitorCog className="size-4" />}
                   title="Peripheral hardware"
-                  description="Printer, scanner, cash drawer, and customer display."
+                  description="Printer, scanner, and cash drawer. Customer display starts automatically on supported dual-screen hardware."
                   onClick={() => navigate({ to: "/manager-tools" as any })}
                 />
                 <LinkRow

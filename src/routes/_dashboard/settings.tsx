@@ -848,42 +848,60 @@ function SupportPanel({ kind }: { kind: "contact" | "website" | "status" | "rele
 
 function GeneralPanel({ canEdit }: { canEdit: boolean }) {
   const qc = useQueryClient();
+  const { data: me } = useMe();
+  const storeId = (me?.profile?.store_id ?? me?.store?.id) as string | undefined;
+
   const { data: store } = useQuery({
-    queryKey: ["store"],
-    queryFn: async () => (await supabase.from("stores").select("*").limit(1).maybeSingle()).data,
+    queryKey: ["store", storeId],
+    enabled: Boolean(storeId),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      if (!storeId) return null;
+      const { data, error } = await supabase.from("stores").select("*").eq("id", storeId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
   });
 
   const [form, setForm] = useState<Record<string, string>>({});
   useEffect(() => {
-    if (store) {
-      const s = store as any;
-      setForm({
-        name: s.name ?? "",
-        business_type: s.business_type ?? "",
-        address: s.address ?? "",
-        city: s.city ?? "",
-        state: s.state ?? "",
-        zip: s.zip ?? "",
-        country: s.country ?? "US",
-        phone: s.phone ?? "",
-        email: s.email ?? "",
-        website: s.website ?? "",
-        tax_id: s.tax_id ?? "",
-        tax_rate: String(s.tax_rate ?? "0.0825"),
-        currency: s.currency ?? "USD",
-        language: s.language ?? "en",
-        time_zone: s.time_zone ?? "America/New_York",
-        date_format: s.date_format ?? "MM/DD/YYYY",
-        logo_url: s.logo_url ?? "",
-      });
-    }
+    if (!store) return;
+    const s = store as any;
+    setForm({
+      name: s.name ?? "",
+      business_type: s.business_type ?? "",
+      address: s.address ?? "",
+      city: s.city ?? "",
+      state: s.state ?? "",
+      zip: s.zip ?? "",
+      country: s.country ?? "US",
+      phone: s.phone ?? "",
+      email: s.email ?? "",
+      website: s.website ?? "",
+      tax_id: s.tax_id ?? "",
+      tax_rate: String(Math.round(Number(s.tax_rate ?? 0.0825) * 10000) / 100),
+      currency: s.currency ?? "USD",
+      language: s.language ?? "en",
+      time_zone: s.time_zone ?? "America/New_York",
+      date_format: s.date_format ?? "MM/DD/YYYY",
+      logo_url: s.logo_url ?? "",
+    });
   }, [store]);
 
   const save = useMutation({
     mutationFn: async () => {
-      if (!store) return;
+      if (!storeId) return;
+      const name = (form.name ?? "").trim();
+      if (!name) throw new Error("Store name is required.");
+
+      const taxPercent = Number(form.tax_rate);
+      if (!Number.isFinite(taxPercent) || taxPercent < 0 || taxPercent > 100) {
+        throw new Error("Tax rate must be between 0 and 100 percent.");
+      }
+
       const patch: Record<string, unknown> = {
-        name: form.name,
+        name,
         business_type: form.business_type || null,
         address: form.address || null,
         city: form.city || null,
@@ -894,7 +912,7 @@ function GeneralPanel({ canEdit }: { canEdit: boolean }) {
         email: form.email || null,
         website: form.website || null,
         tax_id: form.tax_id || null,
-        tax_rate: Number(form.tax_rate),
+        tax_rate: taxPercent / 100,
         currency: form.currency,
         language: form.language,
         time_zone: form.time_zone,
@@ -902,41 +920,57 @@ function GeneralPanel({ canEdit }: { canEdit: boolean }) {
         logo_url: form.logo_url || null,
       };
 
-      const { error } = await (supabase.from as any)("stores")
+      const { data: updated, error } = await (supabase.from as any)("stores")
         .update(patch)
-        .eq("id", (store as any).id);
+        .eq("id", storeId)
+        .select("*")
+        .single();
       if (error) throw error;
       void logAudit({
         action: "settings.update",
         entity: "store",
         details: { section: "general" },
       });
+      return updated as any;
     },
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      if (!updated || !storeId) return;
       toast.success("Store settings saved");
-      qc.invalidateQueries({ queryKey: ["store"] });
+      qc.setQueryData(["store", storeId], updated);
+      qc.setQueryData(["store"], updated);
+      qc.setQueryData(["me"], (current: any) =>
+        current ? { ...current, store: { ...(current.store ?? {}), ...updated } } : current,
+      );
+      void Promise.all([
+        qc.invalidateQueries({ queryKey: ["me"] }),
+        qc.invalidateQueries({ queryKey: ["store-branding", storeId] }),
+        qc.invalidateQueries({ queryKey: ["owner-store-locations"] }),
+        qc.invalidateQueries({ queryKey: ["subscription", storeId] }),
+      ]);
     },
     onError: (e) => toast.error(userFacingError(e, "Save failed")),
   });
 
-  const F = ({
-    k,
-    label,
-    type = "text",
-    cols = 1,
-  }: {
-    k: string;
-    label: string;
-    type?: string;
-    cols?: number;
-  }) => (
-    <div className={`space-y-2 ${cols === 2 ? "col-span-2" : ""}`}>
-      <Label>{label}</Label>
+  const field = (
+    k: string,
+    label: string,
+    options: {
+      type?: string;
+      cols?: number;
+      inputMode?: "none" | "text" | "tel" | "url" | "email" | "numeric" | "decimal" | "search";
+      step?: string;
+    } = {},
+  ) => (
+    <div key={k} className={`space-y-2 ${options.cols === 2 ? "col-span-2" : ""}`}>
+      <Label htmlFor={`store-${k}`}>{label}</Label>
       <Input
-        type={type}
+        id={`store-${k}`}
+        type={options.type ?? "text"}
+        inputMode={options.inputMode}
+        step={options.step}
         disabled={!canEdit}
         value={form[k] ?? ""}
-        onChange={(e) => setForm({ ...form, [k]: e.target.value })}
+        onChange={(e) => setForm((current) => ({ ...current, [k]: e.target.value }))}
       />
     </div>
   );
@@ -946,38 +980,41 @@ function GeneralPanel({ canEdit }: { canEdit: boolean }) {
       <CardHeader>
         <CardTitle>General</CardTitle>
         <CardDescription>
-          Business identity, contact, and locale. Shown on receipts and reports.
+          Business identity, contact, and locale. Shown on receipts, reports, and every paired POS.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <F k="name" label="Store name" />
-          <F k="business_type" label="Business type" />
-          <F k="address" label="Street address" cols={2} />
-          <F k="city" label="City" />
-          <F k="state" label="State / Region" />
-          <F k="zip" label="ZIP / Postal code" />
-          <F k="country" label="Country" />
-          <F k="phone" label="Phone" />
-          <F k="email" label="Email" type="email" />
-          <F k="website" label="Website" />
-          <F k="tax_id" label="Tax ID / EIN" />
-          <F k="tax_rate" label="Tax rate (decimal, e.g. 0.0825)" type="number" />
-          <F k="currency" label="Currency" />
-          <F k="language" label="Language" />
-          <F k="time_zone" label="Time zone" />
-          <F k="date_format" label="Date format" />
-          <F k="logo_url" label="Store logo URL" cols={2} />
+          {field("name", "Store name")}
+          {field("business_type", "Business type")}
+          {field("address", "Street address", { cols: 2 })}
+          {field("city", "City")}
+          {field("state", "State / Region")}
+          {field("zip", "ZIP / Postal code")}
+          {field("country", "Country")}
+          {field("phone", "Phone", { inputMode: "tel" })}
+          {field("email", "Email", { type: "email", inputMode: "email" })}
+          {field("website", "Website", { inputMode: "url" })}
+          {field("tax_id", "Tax ID / EIN")}
+          {field("tax_rate", "Tax rate (%)", { type: "number", inputMode: "decimal", step: "0.001" })}
+          {field("currency", "Currency")}
+          {field("language", "Language")}
+          {field("time_zone", "Time zone")}
+          {field("date_format", "Date format")}
+          {field("logo_url", "Store logo URL", { cols: 2, inputMode: "url" })}
         </div>
         <div className="flex items-center gap-2 pt-2 border-t">
           <Button onClick={() => save.mutate()} disabled={!canEdit || save.isPending}>
-            {save.isPending && <Loader2 className="size-4 animate-spin mr-2" />}Save general
-            settings
+            {save.isPending && <Loader2 className="size-4 animate-spin mr-2" />}
+            Save general settings
           </Button>
           <Button variant="outline" asChild disabled={!canEdit}>
             <a href="/setup">Run Setup Wizard Again</a>
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Changes are pushed to active Android registers automatically. You should not need to close or reopen the POS.
+        </p>
       </CardContent>
     </Card>
   );

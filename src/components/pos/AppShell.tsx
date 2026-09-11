@@ -66,6 +66,31 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: me } = useMe();
   const role = me?.roles?.[0];
   const storeId = me?.store?.id as string | undefined;
+
+  useEffect(() => {
+    if (!storeId) return;
+    const channel = supabase
+      .channel(`owner-store-live:${storeId}:${Math.random().toString(36).slice(2)}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "stores", filter: `id=eq.${storeId}` },
+        () => {
+          void Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["me"] }),
+            queryClient.invalidateQueries({ queryKey: ["store", storeId] }),
+            queryClient.invalidateQueries({ queryKey: ["store"] }),
+            queryClient.invalidateQueries({ queryKey: ["owner-store-locations"] }),
+            queryClient.invalidateQueries({ queryKey: ["store-branding", storeId] }),
+            queryClient.invalidateQueries({ queryKey: ["subscription", storeId] }),
+          ]);
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [queryClient, storeId]);
+
   const unreadSupport = useQuery({
     queryKey: ["owner-support-unread", storeId],
     enabled: Boolean(storeId),

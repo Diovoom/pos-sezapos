@@ -175,7 +175,7 @@ export function BusinessBrandingPanel() {
           <div>
             <Label htmlFor="pos-display-text">Text shown when no logo is uploaded</Label>
             <p className="text-xs text-muted-foreground">
-              Use 1–4 short characters, for example EVS, DM, or S.
+              Use 1–4 short characters, for example ABC or SHOP.
             </p>
           </div>
           <div className="flex gap-2 max-w-sm">
@@ -186,7 +186,7 @@ export function BusinessBrandingPanel() {
               onChange={(e) =>
                 setDisplayText(e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase())
               }
-              placeholder="EVS"
+              placeholder="ABC"
             />
             <Button
               onClick={() => save("pos_display_name", displayText.trim() || null)}

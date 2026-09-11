@@ -69,6 +69,10 @@ const OnboardingScreen = lazyNamed<ComponentType>(
   () => import("./screens/OnboardingScreen"),
   "OnboardingScreen",
 );
+const DeviceSetupScreen = lazyNamed<ComponentType>(
+  () => import("./screens/DeviceSetupScreen"),
+  "DeviceSetupScreen",
+);
 const SettingsScreen = lazyNamed<ComponentType>(
   () => import("@/components/pos/RegisterAppSettingsPage"),
   "RegisterAppSettingsPage",
@@ -126,7 +130,12 @@ const indexRoute = createRoute({
     if (typeof window !== "undefined" && localStorage.getItem("seza.employee_select_required") === "1") {
       throw redirect({ to: "/auth", replace: true });
     }
-    if (await hasLocalRegisterIdentity()) throw redirect({ to: "/pos", replace: true });
+    if (await hasLocalRegisterIdentity()) {
+      if (typeof window !== "undefined" && localStorage.getItem("seza.device_setup_completed_v1") !== "1") {
+        throw redirect({ to: "/device-setup", replace: true });
+      }
+      throw redirect({ to: "/pos", replace: true });
+    }
     throw redirect({ to: "/auth", replace: true });
   },
   component: () => null,
@@ -161,6 +170,17 @@ const requireAuth = async () => {
   throw redirect({ to: "/auth", replace: true });
 };
 
+const deviceSetupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/device-setup",
+  beforeLoad: requireAuth,
+  component: () => (
+    <LazyScreen>
+      <DeviceSetupScreen />
+    </LazyScreen>
+  ),
+});
+
 const shellRoute = (
   path: string,
   Component: ComponentType,
@@ -182,6 +202,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   authRoute,
   pairRoute,
+  deviceSetupRoute,
   shellRoute("/pos", PosPage),
   shellRoute("/register", RegisterPage),
   shellRoute("/refunds", RefundsPage),
