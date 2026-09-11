@@ -1,21 +1,38 @@
 package com.sezapos.device;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.content.pm.PackageManager;
+import android.net.wifi.WifiManager;
 import android.provider.Settings;
 import android.view.View;
 import android.view.WindowManager;
 
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
-@CapacitorPlugin(name = "SezaDeviceControl")
+@CapacitorPlugin(
+    name = "SezaDeviceControl",
+    permissions = {
+        @Permission(alias = "terminalLocation", strings = { Manifest.permission.ACCESS_FINE_LOCATION }),
+        @Permission(alias = "terminalBluetooth", strings = {
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_CONNECT
+        })
+    }
+)
 public class SezaDeviceControlPlugin extends Plugin {
     public static final String PREFS = "seza_device_control";
     public static final String BOOT = "launch_on_boot";
@@ -115,6 +132,105 @@ public class SezaDeviceControlPlugin extends Plugin {
             call.resolve();
         } catch (Exception e) {
             call.reject("Unable to open Android display settings", e);
+        }
+    }
+
+
+    @PluginMethod
+    public void requestTerminalPermissions(PluginCall call) {
+        String method = call.getString("method", "usb");
+        boolean needsBluetooth = "bluetooth".equalsIgnoreCase(method) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
+        boolean locationGranted = getPermissionState("terminalLocation") == PermissionState.GRANTED;
+        boolean bluetoothGranted = !needsBluetooth || getPermissionState("terminalBluetooth") == PermissionState.GRANTED;
+
+        if (locationGranted && bluetoothGranted) {
+            resolveTerminalPermissions(call, method);
+            return;
+        }
+
+        if (needsBluetooth) {
+            requestPermissionForAliases(
+                new String[] { "terminalLocation", "terminalBluetooth" },
+                call,
+                "terminalPermissionsCallback"
+            );
+        } else {
+            requestPermissionForAlias("terminalLocation", call, "terminalPermissionsCallback");
+        }
+    }
+
+    @PermissionCallback
+    private void terminalPermissionsCallback(PluginCall call) {
+        resolveTerminalPermissions(call, call.getString("method", "usb"));
+    }
+
+    private void resolveTerminalPermissions(PluginCall call, String method) {
+        boolean needsBluetooth = "bluetooth".equalsIgnoreCase(method) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
+        boolean locationGranted = getPermissionState("terminalLocation") == PermissionState.GRANTED;
+        boolean bluetoothGranted = !needsBluetooth || getPermissionState("terminalBluetooth") == PermissionState.GRANTED;
+
+        JSObject result = new JSObject();
+        result.put("granted", locationGranted && bluetoothGranted);
+        result.put("locationGranted", locationGranted);
+        result.put("bluetoothGranted", bluetoothGranted);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void getConnectivityState(PluginCall call) {
+        JSObject result = new JSObject();
+        PackageManager pm = getContext().getPackageManager();
+
+        boolean wifiSupported = pm.hasSystemFeature(PackageManager.FEATURE_WIFI);
+        boolean wifiEnabled = false;
+        if (wifiSupported) {
+            try {
+                WifiManager wifi = (WifiManager) getContext().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                wifiEnabled = wifi != null && wifi.isWifiEnabled();
+            } catch (Exception ignored) {}
+        }
+
+        boolean bluetoothSupported = pm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
+            || pm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE);
+        Boolean bluetoothEnabled = null;
+        if (bluetoothSupported) {
+            try {
+                BluetoothManager manager = (BluetoothManager) getContext().getSystemService(Context.BLUETOOTH_SERVICE);
+                BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
+                if (adapter != null) bluetoothEnabled = adapter.isEnabled();
+            } catch (SecurityException ignored) {
+                bluetoothEnabled = null;
+            } catch (Exception ignored) {
+                bluetoothEnabled = null;
+            }
+        }
+
+        result.put("wifiSupported", wifiSupported);
+        result.put("wifiEnabled", wifiEnabled);
+        result.put("bluetoothSupported", bluetoothSupported);
+        result.put("bluetoothEnabled", bluetoothEnabled);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void openWifiSettings(PluginCall call) {
+        try {
+            android.content.Intent intent = new android.content.Intent(Settings.ACTION_WIFI_SETTINGS);
+            getActivity().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Unable to open Android Wi-Fi settings", e);
+        }
+    }
+
+    @PluginMethod
+    public void openBluetoothSettings(PluginCall call) {
+        try {
+            android.content.Intent intent = new android.content.Intent(Settings.ACTION_BLUETOOTH_SETTINGS);
+            getActivity().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Unable to open Android Bluetooth settings", e);
         }
     }
 

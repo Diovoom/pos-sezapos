@@ -13,6 +13,7 @@ import {
   type StripeTerminalRecord,
 } from "@/lib/hardware/terminal-stripe";
 import { setActivePaymentProvider } from "@/lib/pos/payment-terminal";
+import { deviceControl } from "@/lib/device-control";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -20,7 +21,7 @@ const SEZA_PAYMENT_SETUP_URL = "https://dashboard.sezapos.com/settings?section=t
 const READER_DRIVER = "stripe-m2" as const;
 
 function connectionMethod(terminal: StripeTerminalRecord): "usb" | "bluetooth" {
-  return String(terminal.config?.connection_method || "usb").toLowerCase() === "bluetooth"
+  return String(terminal.config?.connection_method || "bluetooth").toLowerCase() === "bluetooth"
     ? "bluetooth"
     : "usb";
 }
@@ -32,6 +33,13 @@ function readerLabel(terminal: StripeTerminalRecord) {
 
 export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
   const qc = useQueryClient();
+
+  const connectivity = useQuery({
+    queryKey: ["android-connectivity"],
+    queryFn: () => deviceControl.getConnectivityState(),
+    retry: false,
+    staleTime: 5_000,
+  });
 
   const context = useQuery({
     queryKey: ["stripe-terminal-context"],
@@ -63,6 +71,16 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
   };
 
   const connectExisting = async (reader: StripeTerminalRecord) => {
+    const method = connectionMethod(reader);
+    const permission = await deviceControl.requestTerminalPermissions(method);
+    if (!permission.granted) {
+      throw new Error(
+        method === "bluetooth"
+          ? "Allow Location and Nearby devices for SEZA POS, then try Bluetooth again."
+          : "Allow Location for SEZA POS, then try the USB reader again.",
+      );
+    }
+
     await updateStripeTerminal("activate", reader.id);
     setActiveTerminal(READER_DRIVER);
     setActivePaymentProvider("stripe-terminal");
@@ -105,13 +123,21 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     },
   });
 
-  const reconnect = useMutation({
-    mutationFn: async (reader: StripeTerminalRecord) => connectExisting(reader),
+  const switchConnection = useMutation({
+    mutationFn: async ({ reader, method }: { reader: StripeTerminalRecord; method: "usb" | "bluetooth" }) => {
+      await disconnect().catch(() => undefined);
+      await updateStripeTerminal("connection_method", reader.id, { connectionMethod: method });
+      return connectExisting({
+        ...reader,
+        status: "configured",
+        config: { ...(reader.config || {}), connection_method: method },
+      });
+    },
     onSuccess: async (reader) => {
       await refresh();
       toast.success(`${reader.label || reader.serialNumber} is connected.`);
     },
-    onError: (error) => toast.error(userFacingError(error, "Could not connect the card reader.")),
+    onError: (error) => toast.error(userFacingError(error, "Could not change the reader connection.")),
   });
 
   const test = useMutation({
@@ -225,14 +251,24 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
               <div className="rounded-lg border border-dashed p-5 text-sm">
                 Turn on the Reader M2 and connect it to this register.
               </div>
+              {connectivity.data?.bluetoothSupported === false ? (
+                <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+                  This Android register does not have a Bluetooth radio. Reader M2 must use a USB data connection on this device.
+                </div>
+              ) : null}
               {canEdit && (
-                <div className="flex flex-wrap gap-2">
+                <div className="grid gap-2 sm:grid-cols-2">
                   <Button onClick={() => connectNew.mutate("usb")} disabled={connectNew.isPending}>
-                    {connectNew.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wifi className="mr-2 size-4" />}
-                    Connect reader
+                    {connectNew.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Unplug className="mr-2 size-4" />}
+                    Connect with USB
                   </Button>
-                  <Button variant="outline" onClick={() => connectNew.mutate("bluetooth")} disabled={connectNew.isPending}>
-                    Use Bluetooth instead
+                  <Button
+                    variant="outline"
+                    onClick={() => connectNew.mutate("bluetooth")}
+                    disabled={connectNew.isPending || connectivity.data?.bluetoothSupported === false}
+                  >
+                    <Wifi className="mr-2 size-4" />
+                    {connectivity.data?.bluetoothSupported === false ? "Bluetooth unavailable" : "Connect with Bluetooth"}
                   </Button>
                 </div>
               )}
@@ -241,31 +277,62 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
             <div className="space-y-4">
               <div className="flex items-start justify-between gap-3 rounded-lg border p-4">
                 <div>
-                  <div className="font-medium">{readerLabel(terminal)}</div>
+                  <div className="font-medium">
+                    {physicallyConnected ? readerLabel(terminal) : "No card reader connected"}
+                  </div>
                   <div className="mt-1 text-sm text-muted-foreground">
                     {physicallyConnected
-                      ? "Connected"
-                      : terminal.status === "active"
-                        ? "Configured · reader not detected"
-                        : "Not connected"} · {connectionMethod(terminal) === "usb" ? "USB" : "Bluetooth"}
+                      ? `Connected · ${connectionMethod(terminal) === "usb" ? "USB" : "Bluetooth"}`
+                      : `Reader setup saved · ${connectionMethod(terminal) === "usb" ? "USB" : "Bluetooth"}`}
                   </div>
                 </div>
                 {physicallyConnected && <CheckCircle2 className="size-5 text-emerald-600" />}
               </div>
 
-              {canEdit && (
-                <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => reconnect.mutate(terminal)} disabled={reconnect.isPending}>
-                    {reconnect.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wifi className="mr-2 size-4" />}
-                    {physicallyConnected ? "Reconnect" : "Connect reader"}
-                  </Button>
-                  <Button variant="outline" onClick={() => test.mutate(terminal)} disabled={test.isPending}>Test reader</Button>
-                  {terminal.status === "active" && (
-                    <Button variant="outline" onClick={() => disconnectReader.mutate(terminal)} disabled={disconnectReader.isPending}>
-                      <Unplug className="mr-2 size-4" /> Disconnect
+              {canEdit && !physicallyConnected && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Choose how to connect Reader M2</div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Button
+                      onClick={() => switchConnection.mutate({ reader: terminal, method: "usb" })}
+                      disabled={switchConnection.isPending}
+                    >
+                      {switchConnection.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Unplug className="mr-2 size-4" />}
+                      Connect with USB
                     </Button>
-                  )}
-                  <Button variant="ghost" onClick={() => forgetReader.mutate(terminal)} disabled={forgetReader.isPending}>Forget reader</Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => switchConnection.mutate({ reader: terminal, method: "bluetooth" })}
+                      disabled={switchConnection.isPending || connectivity.data?.bluetoothSupported === false}
+                    >
+                      <Wifi className="mr-2 size-4" />
+                      {connectivity.data?.bluetoothSupported === false ? "Bluetooth unavailable" : "Connect with Bluetooth"}
+                    </Button>
+                  </div>
+                  <Button
+                    className="px-0"
+                    variant="ghost"
+                    onClick={() => forgetReader.mutate(terminal)}
+                    disabled={forgetReader.isPending}
+                  >
+                    Forget saved reader setup
+                  </Button>
+                </div>
+              )}
+
+              {canEdit && physicallyConnected && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button onClick={() => test.mutate(terminal)} disabled={test.isPending}>
+                    {test.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                    Test reader
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => disconnectReader.mutate(terminal)}
+                    disabled={disconnectReader.isPending}
+                  >
+                    <Unplug className="mr-2 size-4" /> Disconnect
+                  </Button>
                 </div>
               )}
             </div>

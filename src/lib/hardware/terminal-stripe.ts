@@ -252,6 +252,9 @@ function friendlyTerminalError(error: unknown, fallback: string): Error {
       "Stripe Reader M2 was not returned by Android. Reconnect the USB cable, allow USB access if prompted, then try again.",
     );
   }
+  if (/access_fine_location|location.*permission|permission.*location/i.test(raw)) {
+    return new Error("Location permission is required by Stripe Terminal. Allow Location for SEZA POS, then try connecting the reader again.");
+  }
   if (/usb.*permission|permission.*usb|permission (?:was )?denied/i.test(raw)) {
     return new Error("USB access is required for Reader M2. Connect the M2 with a USB data cable and allow USB access, or switch this reader to Bluetooth.");
   }
@@ -349,7 +352,10 @@ async function discoverReaderList(
     // Discovery must be stopped before connectReader is called. This is also
     // important when the event branch wins while the plugin's Promise is still
     // waiting for native discovery to finish.
-    await mod.StripeTerminal.cancelDiscoverReaders().catch(() => undefined);
+    await Promise.race([
+      mod.StripeTerminal.cancelDiscoverReaders().catch(() => undefined),
+      new Promise<void>((resolve) => window.setTimeout(resolve, 1_200)),
+    ]);
     if (listener) await listener.remove().catch(() => undefined);
   }
 }
@@ -386,7 +392,9 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
   const current = await mod.StripeTerminal.getConnectedReader().catch(() => ({ reader: null }));
   if (current.reader && connected?.terminalId === configuration.terminalId) return { mod, reader: current.reader };
 
-  onStatus?.("Discovering Stripe reader…");
+  onStatus?.(
+    `Discovering Stripe reader over ${configuration.connectionMethod === "usb" ? "USB" : "Bluetooth"}…`,
+  );
   const readers = await discoverReaderList(mod, configuration);
   const reader = configuration.serial
     ? readers.find((item) => item?.serialNumber === configuration.serial) ?? readers[0]
