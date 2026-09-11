@@ -19,6 +19,14 @@ import { getMerchantPlatformNotice } from "@/lib/platform-settings.functions";
 import { AlertTriangle, Info } from "lucide-react";
 import { installAutoSync } from "@/lib/offline/sync";
 import { syncCompletedSubscriptionCheckout } from "@/lib/billing/checkout.functions";
+import {
+  clearOwnerLoginIntent,
+  clearOwnerSessionIdentity,
+  getOwnerLoginIntent,
+  hasOwnerSessionIdentity,
+  ownerSessionIdentityMatches,
+  rememberOwnerSessionIdentity,
+} from "@/lib/owner-session-lock";
 
 // Browser management surface for store owners only.
 // Employees use the paired Android POS app instead of the website.
@@ -29,26 +37,65 @@ export const Route = createFileRoute("/_dashboard")({
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
 
+    const normalizedEmail = (data.user.email ?? "").trim().toLowerCase();
+    const loginIntent = getOwnerLoginIntent();
+    const intentMismatch = Boolean(loginIntent && normalizedEmail !== loginIntent);
+    const lockedIdentityMismatch =
+      hasOwnerSessionIdentity() && !ownerSessionIdentityMatches(data.user);
+
+    // Never render an owner dashboard under an identity different from the
+    // one that was just authenticated/locked on this browser. This turns a
+    // stale Safari/Supabase session into a forced sign-out instead of showing
+    // another merchant's store for even one render.
+    if (intentMismatch || lockedIdentityMismatch) {
+      await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
+      clearOwnerSessionIdentity();
+      clearOwnerLoginIntent();
+      throw redirect({ to: "/auth" });
+    }
+    if (!hasOwnerSessionIdentity()) rememberOwnerSessionIdentity(data.user);
+    clearOwnerLoginIntent();
+
     try {
-      const { data: roleRows, error: roleError } = await (supabase as any)
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.user.id);
+      const [{ data: profile, error: profileError }, { data: roleRows, error: roleError }] =
+        await Promise.all([
+          (supabase as any)
+            .from("profiles")
+            .select("store_id")
+            .eq("id", data.user.id)
+            .maybeSingle(),
+          (supabase as any)
+            .from("user_roles")
+            .select("role,store_id")
+            .eq("user_id", data.user.id),
+        ]);
+      if (profileError) throw profileError;
       if (roleError) throw roleError;
 
-      const roles = ((roleRows ?? []) as { role: string }[]).map((row) => row.role);
+      const roles = ((roleRows ?? []) as { role: string; store_id?: string | null }[]).map(
+        (row) => row.role,
+      );
 
       if (hasAnyPlatformRole(roles)) {
         throw redirect({ to: "/admin" as string as "/" });
       }
 
-      if (!roles.includes("owner")) {
+      const profileStoreId = profile?.store_id ?? null;
+      const ownsProfileStore = Boolean(
+        profileStoreId &&
+          ((roleRows ?? []) as { role: string; store_id?: string | null }[]).some(
+            (row) => row.role === "owner" && row.store_id === profileStoreId,
+          ),
+      );
+      if (!ownsProfileStore) {
         await supabase.auth.signOut();
+        clearOwnerSessionIdentity();
         throw redirect({ to: "/auth" });
       }
     } catch (routeError) {
       if ((routeError as any)?.isRedirect) throw routeError;
       await supabase.auth.signOut();
+      clearOwnerSessionIdentity();
       throw redirect({ to: "/auth" });
     }
 

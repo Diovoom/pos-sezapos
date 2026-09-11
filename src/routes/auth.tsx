@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -23,17 +24,55 @@ import { secureOwnerPasswordSignIn, securePasswordReset } from "@/lib/auth/auth.
 import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/auth";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { beginPasskeyLogin, finishPasskeyLogin } from "@/lib/auth/passkeys.functions";
+import { deleteMeta, readMeta } from "@/lib/offline/db";
+import { clearOwnerQueryCache } from "@/lib/owner-query-cache";
+import {
+  clearOwnerLoginIntent,
+  clearOwnerSessionIdentity,
+  rememberOwnerSessionIdentity,
+  setOwnerLoginIntent,
+} from "@/lib/owner-session-lock";
 
 const PLATFORM_STAFF_MSG = "Platform administrators cannot sign in here. Use admin.sezapos.com.";
 const OWNER_ONLY_MSG =
   "The SEZA website is for store owners. Employees use the paired SEZA POS Android app.";
 
+async function clearOwnerBrowserIdentity(
+  queryClient: QueryClient,
+  explicitUserId?: string | null,
+) {
+  await queryClient.cancelQueries().catch(() => undefined);
+  queryClient.clear();
+
+  const cachedUserId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+  const userIds = [...new Set([cachedUserId, explicitUserId].filter(Boolean) as string[])];
+
+  await Promise.all([
+    deleteMeta("authenticated_me_current_user").catch(() => undefined),
+    deleteMeta("authenticated_me").catch(() => undefined),
+    deleteMeta("profile").catch(() => undefined),
+    ...userIds.flatMap((userId) => [
+      deleteMeta(`authenticated_me:${userId}`).catch(() => undefined),
+      deleteMeta(`profile:${userId}`).catch(() => undefined),
+    ]),
+  ]);
+
+  clearOwnerQueryCache();
+  clearOwnerSessionIdentity();
+}
+
 async function ensureOwnerWebsiteAccess(userId: string): Promise<boolean> {
   try {
-    const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
-    if (error) throw error;
+    const [{ data: profile, error: profileError }, { data: roleRows, error: roleError }] =
+      await Promise.all([
+        supabase.from("profiles").select("store_id").eq("id", userId).maybeSingle(),
+        supabase.from("user_roles").select("role,store_id").eq("user_id", userId),
+      ]);
+    if (profileError) throw profileError;
+    if (roleError) throw roleError;
 
-    const roles = (data ?? []).map((row) => row.role as string);
+    const roles = (roleRows ?? []).map((row) => row.role as string);
+    const profileStoreId = profile?.store_id ?? null;
 
     if (hasAnyPlatformRole(roles)) {
       await supabase.auth.signOut();
@@ -41,7 +80,13 @@ async function ensureOwnerWebsiteAccess(userId: string): Promise<boolean> {
       return false;
     }
 
-    if (!roles.includes("owner")) {
+    const ownsProfileStore = Boolean(
+      profileStoreId &&
+        (roleRows ?? []).some(
+          (row) => row.role === "owner" && row.store_id === profileStoreId,
+        ),
+    );
+    if (!ownsProfileStore) {
       await supabase.auth.signOut();
       toast.error(OWNER_ONLY_MSG);
       return false;
@@ -79,8 +124,23 @@ export const Route = createFileRoute("/auth")({
 
 function OwnerAuthPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauthReturn =
+      params.get("oauth") === "1" ||
+      params.has("code") ||
+      window.location.hash.includes("access_token=") ||
+      window.location.hash.includes("error_description=");
+
+    // A normal visit to /auth must stay on the sign-in page even if Safari
+    // restored an older Supabase session from localStorage. Otherwise an old
+    // owner can "win" the race and reopen before the newly-entered account is
+    // submitted. OAuth is the only flow that intentionally restores a session
+    // from the callback URL.
+    if (!oauthReturn) return;
+
     let cancelled = false;
     let navigating = false;
 
@@ -88,7 +148,16 @@ function OwnerAuthPage() {
       if (!userId || cancelled || navigating) return;
       navigating = true;
 
+      await clearOwnerBrowserIdentity(queryClient);
       if (await ensureOwnerWebsiteAccess(userId)) {
+        const { data: verified } = await supabase.auth.getUser();
+        if (!verified.user || verified.user.id !== userId) {
+          await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
+          clearOwnerSessionIdentity();
+          return;
+        }
+        rememberOwnerSessionIdentity(verified.user);
+        clearOwnerLoginIntent();
         navigate({ to: "/dashboard", replace: true });
         return;
       }
@@ -96,13 +165,9 @@ function OwnerAuthPage() {
       navigating = false;
     };
 
-    const oauthError = new URLSearchParams(window.location.search).get("error_description");
-    if (oauthError) {
-      toast.error(oauthError);
-    }
+    const oauthError = params.get("error_description");
+    if (oauthError) toast.error(oauthError);
 
-    // OAuth session restoration can complete after the route mounts.
-    // Listen for the real auth event instead of relying on one early getSession() call.
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
         void finishOAuthSession(session?.user?.id);
@@ -117,7 +182,7 @@ function OwnerAuthPage() {
       cancelled = true;
       authListener.subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, queryClient]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface p-4">
@@ -153,6 +218,7 @@ function OwnerAuthPage() {
 
 function OwnerEmailLogin() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -177,20 +243,54 @@ function OwnerEmailLogin() {
     if (cooldown.active) return;
     setBusy(true);
 
+    const normalizedEmail = email.trim().toLowerCase();
+    setOwnerLoginIntent(normalizedEmail);
+
     try {
-      const result = await signIn({ data: { email, password, captchaToken } });
+      const result = await signIn({
+        data: { email: normalizedEmail, password, captchaToken },
+      });
       if (!result.ok || !result.session || !result.user_id) {
+        clearOwnerLoginIntent();
         cooldown.start(result.ok ? 0 : result.retry_after_seconds);
         toast.error(result.ok ? "Sign in failed" : result.error);
         return;
       }
-      const { error } = await supabase.auth.setSession({
+
+      // Never layer a new owner session on top of an older one. Safari can
+      // keep dashboard.sezapos.com localStorage alive across account switches.
+      const { data: previous } = await supabase.auth.getSession();
+      const previousUserId = previous.session?.user?.id ?? null;
+      if (previousUserId) {
+        await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
+      }
+      await clearOwnerBrowserIdentity(queryClient, previousUserId);
+
+      const { data: activated, error } = await supabase.auth.setSession({
         access_token: result.session.access_token,
         refresh_token: result.session.refresh_token,
       });
       if (error) throw error;
-      navigate({ to: "/dashboard", replace: true });
-    } catch {
+
+      const activeUser = activated.user ?? activated.session?.user;
+      if (
+        !activeUser ||
+        activeUser.id !== result.user_id ||
+        (activeUser.email ?? "").trim().toLowerCase() !== normalizedEmail
+      ) {
+        await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
+        await clearOwnerBrowserIdentity(queryClient, activeUser?.id ?? result.user_id);
+        throw new Error("The active account did not match the email that was submitted.");
+      }
+
+      rememberOwnerSessionIdentity(activeUser);
+      clearOwnerLoginIntent();
+      await finishSignIn(activeUser.id);
+    } catch (error) {
+      await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
+      await clearOwnerBrowserIdentity(queryClient).catch(() => undefined);
+      clearOwnerLoginIntent();
+      console.error("[Owner password sign-in]", error);
       toast.error("Sign in is temporarily unavailable. Please try again.");
     } finally {
       setBusy(false);
@@ -199,33 +299,62 @@ function OwnerEmailLogin() {
   };
 
   const handlePasskey = async () => {
-    if (!email.trim()) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
       toast.error("Enter your owner email first.");
       return;
     }
+    setOwnerLoginIntent(normalizedEmail);
     setBusy(true);
     try {
-      const started = await beginPasskey({ data: { email: email.trim().toLowerCase() } });
+      const started = await beginPasskey({ data: { email: normalizedEmail } });
       const response = await startAuthentication({ optionsJSON: started.options as any });
-      const completed = await finishPasskey({ data: { challengeId: started.challengeId, response } });
+      const completed = await finishPasskey({
+        data: { challengeId: started.challengeId, response },
+      });
+
+      const { data: previous } = await supabase.auth.getSession();
+      const previousUserId = previous.session?.user?.id ?? null;
+      if (previousUserId) {
+        await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
+      }
+      await clearOwnerBrowserIdentity(queryClient, previousUserId);
+
       const { data, error } = await supabase.auth.verifyOtp({
         type: "magiclink",
         token_hash: completed.tokenHash,
       });
       if (error || !data.user) throw error ?? new Error("Could not create session");
+      if ((data.user.email ?? "").trim().toLowerCase() !== normalizedEmail) {
+        await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
+        throw new Error("Passkey account did not match the email entered.");
+      }
       if (!(await ensureOwnerWebsiteAccess(data.user.id))) return;
+      rememberOwnerSessionIdentity(data.user);
+      clearOwnerLoginIntent();
       navigate({ to: "/dashboard", replace: true });
     } catch (error: any) {
+      await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
+      await clearOwnerBrowserIdentity(queryClient).catch(() => undefined);
+      clearOwnerLoginIntent();
       toast.error(error?.message || "Passkey sign-in failed.");
     } finally {
       setBusy(false);
     }
   };
 
-  const oauthRedirect = () => `${window.location.origin}/auth`;
+  const oauthRedirect = () => `${window.location.origin}/auth?oauth=1`;
 
   const handleOAuth = async (provider: "google" | "apple") => {
     setBusy(true);
+    clearOwnerLoginIntent();
+
+    const { data: previous } = await supabase.auth.getSession();
+    const previousUserId = previous.session?.user?.id ?? null;
+    if (previousUserId) {
+      await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
+    }
+    await clearOwnerBrowserIdentity(queryClient, previousUserId);
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -292,9 +421,14 @@ function OwnerEmailLogin() {
           <Input
             id="email"
             type="email"
-            autoComplete="email"
+            name="username"
+            autoComplete="username"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              const nextEmail = event.target.value;
+              if (nextEmail !== email && password) setPassword("");
+              setEmail(nextEmail);
+            }}
             required
           />
         </div>
@@ -306,6 +440,7 @@ function OwnerEmailLogin() {
           <Label htmlFor="password">Password</Label>
           <Input
             id="password"
+            name="password"
             type="password"
             autoComplete="current-password"
             value={password}

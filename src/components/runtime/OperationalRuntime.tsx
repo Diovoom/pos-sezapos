@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,7 @@ import {
   persistOwnerQueryCache,
   restoreOwnerQueryCache,
 } from "@/lib/owner-query-cache";
+import { clearOwnerLoginIntent, clearOwnerSessionIdentity } from "@/lib/owner-session-lock";
 import { detectAndPersistNative, isPathAllowedInNative } from "@/lib/native";
 import { currentApp, dashboardUrl, marketingUrl } from "@/lib/host";
 import { applyLanguage } from "@/i18n";
@@ -34,6 +35,8 @@ export function OperationalRuntime({
   queryClient: QueryClient;
   router: any;
 }) {
+  const ownerSessionUserRef = useRef<string | null>(null);
+
   useEffect(() => {
     const saved = window.localStorage.getItem("i18nextLng");
     if (saved) applyLanguage(saved);
@@ -64,27 +67,52 @@ export function OperationalRuntime({
     if (app !== "dashboard" && !(app === "unknown" && ownerPath)) return;
 
     let stopPersistence: (() => void) | undefined;
+
+    const attachOwnerCache = (userId: string) => {
+      stopPersistence?.();
+      restoreOwnerQueryCache(queryClient, userId);
+      stopPersistence = persistOwnerQueryCache(queryClient, userId);
+      ownerSessionUserRef.current = userId;
+    };
+
     void supabase.auth.getSession().then(({ data }) => {
       const userId = data.session?.user.id;
       if (!userId) return;
-      restoreOwnerQueryCache(queryClient, userId);
-      stopPersistence = persistOwnerQueryCache(queryClient, userId);
+      attachOwnerCache(userId);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      router.invalidate();
+
+      const nextUserId = session?.user.id ?? null;
+      const previousUserId = ownerSessionUserRef.current;
+
       if (event === "SIGNED_OUT") {
         stopPersistence?.();
+        stopPersistence = undefined;
+        ownerSessionUserRef.current = null;
+        queryClient.clear();
         clearOwnerQueryCache();
+        clearOwnerSessionIdentity();
+        clearOwnerLoginIntent();
+        router.invalidate();
         return;
       }
-      const userId = session?.user.id;
-      if (userId) {
+
+      // Switching owners on the same browser must start from an empty in-memory
+      // query cache. Otherwise queries such as ["me"] can briefly retain the
+      // previous merchant and then be persisted under the new user's cache.
+      if (nextUserId && previousUserId !== nextUserId) {
         stopPersistence?.();
-        restoreOwnerQueryCache(queryClient, userId);
-        stopPersistence = persistOwnerQueryCache(queryClient, userId);
+        stopPersistence = undefined;
+        queryClient.clear();
+        if (previousUserId) clearOwnerQueryCache(previousUserId);
+        attachOwnerCache(nextUserId);
+      } else if (nextUserId && !stopPersistence) {
+        attachOwnerCache(nextUserId);
       }
+
+      router.invalidate();
       queryClient.invalidateQueries();
     });
 
@@ -93,6 +121,7 @@ export function OperationalRuntime({
       sub.subscription.unsubscribe();
     };
   }, [queryClient, router]);
+
 
   useEffect(() => {
     const app = currentApp();

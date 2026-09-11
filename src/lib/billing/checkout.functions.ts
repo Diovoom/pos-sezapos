@@ -22,6 +22,8 @@ type PlanChangeResult =
   | { error: string };
 
 const VALID_PRICES = new Set(["starter_monthly", "pro_monthly", "business_monthly"]);
+const STORED_CURRENT_STATUSES = ["active", "trialing", "past_due", "paused", "unpaid", "incomplete"] as const;
+const STRIPE_TERMINAL_STATUSES = new Set(["canceled", "incomplete_expired"]);
 
 const SAFE_BILLING_ERROR_PREFIXES = [
   "No store is assigned",
@@ -43,6 +45,61 @@ function billingErrorMessage(error: unknown) {
     return error.message;
   }
   return getStripeErrorMessage(error);
+}
+
+function isStripeResourceMissing(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as {
+    code?: string;
+    raw?: { code?: string; type?: string };
+    type?: string;
+    statusCode?: number;
+  };
+  const code = String(value.raw?.code ?? value.code ?? "").toLowerCase();
+  const type = String(value.raw?.type ?? value.type ?? "").toLowerCase();
+  return code === "resource_missing" || (value.statusCode === 404 && type.includes("invalid_request"));
+}
+
+async function recomputeStorePlanForEnvironment(
+  admin: any,
+  storeId: string,
+  environment: "sandbox" | "live",
+) {
+  const { error } = await admin.rpc("recompute_store_plan_for_environment", {
+    _store_id: storeId,
+    _environment: environment,
+  });
+  if (!error) return;
+
+  const missingFunction =
+    String(error.code ?? "") === "PGRST202" ||
+    String(error.message ?? "").toLowerCase().includes("recompute_store_plan_for_environment");
+  if (!missingFunction) throw new Error(error.message);
+
+  const fallback = await admin.rpc("recompute_store_plan", { _store_id: storeId });
+  if (fallback.error) throw new Error(fallback.error.message);
+}
+
+async function expireStaleStoredSubscription(options: {
+  admin: any;
+  rowId: string;
+  storeId: string;
+  environment: "sandbox" | "live";
+}) {
+  const { admin, rowId, storeId, environment } = options;
+  const { error } = await admin
+    .from("subscriptions")
+    .update({
+      status: "expired",
+      current_period_end: new Date().toISOString(),
+      cancel_at_period_end: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", rowId)
+    .eq("store_id", storeId)
+    .eq("environment", environment);
+  if (error) throw new Error(error.message);
+  await recomputeStorePlanForEnvironment(admin, storeId, environment);
 }
 
 async function requireBillingOwner(supabase: any, userId: string) {
@@ -146,15 +203,100 @@ async function persistStripeSubscription(
   );
   if (upsertError) throw new Error(upsertError.message);
 
-  const { error: recomputeError } = await admin.rpc("recompute_store_plan", {
-    _store_id: expected.storeId,
-  });
-  if (recomputeError) throw new Error(recomputeError.message);
+  await recomputeStorePlanForEnvironment(admin, expected.storeId, environment);
 
   return {
     plan: lookupKey,
     status: String(subscription.status ?? "active"),
   };
+}
+
+async function reconcileStoreStripeSubscription(options: {
+  stripe: ReturnType<typeof createStripeClient>;
+  environment: "sandbox" | "live";
+  userId: string;
+  storeId: string;
+}) {
+  const { stripe, environment, userId, storeId } = options;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const admin: any = supabaseAdmin;
+
+  const { data: storedRows, error: storedError } = await admin
+    .from("subscriptions")
+    .select("id,stripe_subscription_id,price_id,status,updated_at,created_at")
+    .eq("store_id", storeId)
+    .eq("environment", environment)
+    .not("stripe_subscription_id", "is", null)
+    .in("status", [...STORED_CURRENT_STATUSES])
+    .order("updated_at", { ascending: false })
+    .limit(10);
+  if (storedError) throw new Error(storedError.message);
+
+  for (const row of storedRows ?? []) {
+    const subscriptionId = String(row.stripe_subscription_id ?? "").trim();
+    if (!subscriptionId) continue;
+    try {
+      const remote: any = await stripe.subscriptions.retrieve(subscriptionId);
+      const remoteStoreId = String(remote?.metadata?.storeId ?? "").trim();
+
+      if (!remoteStoreId || remoteStoreId !== storeId) {
+        await expireStaleStoredSubscription({
+          admin,
+          rowId: row.id,
+          storeId,
+          environment,
+        });
+        continue;
+      }
+
+      if (STRIPE_TERMINAL_STATUSES.has(String(remote.status ?? ""))) {
+        await persistStripeSubscription(remote, environment, { userId, storeId });
+        continue;
+      }
+
+      await persistStripeSubscription(remote, environment, { userId, storeId });
+      return remote;
+    } catch (error) {
+      if (!isStripeResourceMissing(error)) throw error;
+      await expireStaleStoredSubscription({
+        admin,
+        rowId: row.id,
+        storeId,
+        environment,
+      });
+    }
+  }
+
+  const escapedStoreId = storeId.replace(/'/g, "\\'");
+  const customers = await stripe.customers.search({
+    query: `metadata['storeId']:'${escapedStoreId}'`,
+    limit: 10,
+  });
+
+  for (const customer of customers.data) {
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customer.id,
+      status: "all",
+      limit: 20,
+    });
+    const candidates = subscriptions.data
+      .filter((subscription: any) => {
+        const remoteStoreId = String(subscription?.metadata?.storeId ?? "").trim();
+        return (
+          remoteStoreId === storeId &&
+          !STRIPE_TERMINAL_STATUSES.has(String(subscription?.status ?? ""))
+        );
+      })
+      .sort((a: any, b: any) => Number(b.created ?? 0) - Number(a.created ?? 0));
+
+    for (const subscription of candidates) {
+      await persistStripeSubscription(subscription, environment, { userId, storeId });
+      return subscription;
+    }
+  }
+
+  await recomputeStorePlanForEnvironment(admin, storeId, environment);
+  return null;
 }
 
 
@@ -200,7 +342,7 @@ async function switchExistingStripeSubscription(options: {
 
   const current = await stripe.subscriptions.retrieve(stripeSubscriptionId);
   const metadataStoreId = String(current.metadata?.storeId ?? "").trim();
-  if (metadataStoreId && metadataStoreId !== storeId) {
+  if (!metadataStoreId || metadataStoreId !== storeId) {
     throw new Error("Stripe subscription does not belong to this store.");
   }
   const item = current.items.data[0];
@@ -233,15 +375,17 @@ export const getCurrentStoreSubscriptionState = createServerFn({ method: "GET" }
   .handler(async ({ context }) => {
     const { userId, supabase } = context;
     const storeId = await requireBillingOwner(supabase, userId);
+    const environment = getStripeBillingMode();
+    const stripe = createStripeClient(environment);
+
+    // Stripe is authoritative for paid-plan existence. The reconciler repairs
+    // missed webhooks and expires database rows that point to subscriptions
+    // from an old Stripe account/environment.
+    await reconcileStoreStripeSubscription({ stripe, environment, userId, storeId });
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin: any = supabaseAdmin;
-
-    // Reconcile the denormalized store entitlement fields from the latest
-    // subscription row before the dashboard decides whether features are read-only.
-    const { error: recomputeError } = await admin.rpc("recompute_store_plan", {
-      _store_id: storeId,
-    });
-    if (recomputeError) throw new Error(recomputeError.message);
+    await recomputeStorePlanForEnvironment(admin, storeId, environment);
 
     const { data: store, error } = await admin
       .from("stores")
@@ -325,29 +469,24 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
 
       const storeId = await requireBillingOwner(supabase, userId);
       const environment = getStripeBillingMode();
-
-      // One plan-selection path for both first-time subscriptions and upgrades/downgrades.
-      // If Stripe is already attached to this store, update that subscription in place instead
-      // of sending the merchant into a second Checkout session. This intentionally does not
-      // trust the client-side plan badge, which can be stale for a moment after billing changes.
-      const { data: existingSubscription, error: existingSubscriptionError } = await supabase
-        .from("subscriptions")
-        .select("id,status,price_id,stripe_subscription_id")
-        .eq("store_id", storeId)
-        .eq("environment", environment)
-        .not("stripe_subscription_id", "is", null)
-        .in("status", ["active", "trialing", "past_due", "paused"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (existingSubscriptionError) throw existingSubscriptionError;
-
       const stripe = createStripeClient(environment);
-      if (existingSubscription?.stripe_subscription_id) {
+
+      // Do not trust a database row merely because it contains a Stripe ID.
+      // Verify the subscription against the currently configured Stripe account
+      // and this exact store before deciding whether this is an upgrade or a new
+      // checkout. Missing legacy IDs are expired automatically.
+      const existingSubscription = await reconcileStoreStripeSubscription({
+        stripe,
+        environment,
+        userId,
+        storeId,
+      });
+      if (existingSubscription?.id) {
+        const item = existingSubscription.items?.data?.[0];
         return {
           existing: true,
           environment,
-          currentPlan: String(existingSubscription.price_id ?? ""),
+          currentPlan: String(item?.price?.lookup_key ?? ""),
         };
       }
 
@@ -366,6 +505,25 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
         userId,
         storeId,
       });
+
+      // Reuse an already-open Checkout for the same store/plan. This prevents
+      // repeated taps or a slow browser redirect from creating several payment
+      // sessions for the same intended subscription.
+      const openSessions = await stripe.checkout.sessions.list({
+        customer: customerId,
+        status: "open",
+        limit: 10,
+      });
+      const reusable = openSessions.data.find(
+        (candidate: any) =>
+          candidate.mode === "subscription" &&
+          candidate.url &&
+          String(candidate.metadata?.storeId ?? "") === storeId &&
+          String(candidate.metadata?.userId ?? "") === userId &&
+          String(candidate.metadata?.planLookupKey ?? "") === data.priceId &&
+          String(candidate.metadata?.environment ?? "") === environment,
+      );
+      if (reusable?.url) return { url: reusable.url, environment };
 
       const session = await stripe.checkout.sessions.create({
         line_items: [{ price: stripePrice.id, quantity: 1 }],
@@ -398,27 +556,23 @@ export const changeStoreSubscriptionPlan = createServerFn({ method: "POST" })
       const { userId, supabase } = context;
       const storeId = await requireBillingOwner(supabase, userId);
       const environment = getStripeBillingMode();
-
-      const { data: row, error: rowError } = await supabase
-        .from("subscriptions")
-        .select("id,stripe_subscription_id,price_id,status")
-        .eq("store_id", storeId)
-        .eq("environment", environment)
-        .not("stripe_subscription_id", "is", null)
-        .in("status", ["active", "trialing", "past_due", "paused"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (rowError) throw rowError;
-      if (!row?.stripe_subscription_id) throw new Error("No active Stripe subscription was found for this store");
-
       const stripe = createStripeClient(environment);
+      const current = await reconcileStoreStripeSubscription({
+        stripe,
+        environment,
+        userId,
+        storeId,
+      });
+      if (!current?.id) {
+        throw new Error("No active Stripe subscription was found for this store");
+      }
+
       const changed = await switchExistingStripeSubscription({
         stripe,
         environment,
         userId,
         storeId,
-        stripeSubscriptionId: row.stripe_subscription_id,
+        stripeSubscriptionId: current.id,
         targetLookupKey: data.priceId,
       });
 
@@ -451,22 +605,19 @@ export const createBillingPortalSession = createServerFn({ method: "POST" })
       return { error: error instanceof Error ? error.message : "Billing access denied." };
     }
 
-    const { data: sub, error: subError } = await supabase
-      .from("subscriptions")
-      .select("stripe_customer_id")
-      .eq("user_id", userId)
-      .eq("store_id", storeId)
-      .eq("environment", environment)
-      .not("stripe_customer_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (subError || !sub?.stripe_customer_id) {
-      return { error: "No subscription found for this account." };
-    }
-
     try {
       const stripe = createStripeClient(environment);
+      const current = await reconcileStoreStripeSubscription({
+        stripe,
+        environment,
+        userId,
+        storeId,
+      });
+      const customerId =
+        typeof current?.customer === "string" ? current.customer : current?.customer?.id ?? null;
+      if (!current?.id || !customerId) {
+        return { error: "No subscription found for this account." };
+      }
       const configs = await stripe.billingPortal.configurations.list({ active: true, limit: 1 });
       const configuration = configs.data[0] ??
         (await stripe.billingPortal.configurations.create({
@@ -479,7 +630,7 @@ export const createBillingPortalSession = createServerFn({ method: "POST" })
           },
         } as any));
       const portal = await stripe.billingPortal.sessions.create({
-        customer: sub.stripe_customer_id,
+        customer: customerId,
         configuration: configuration.id,
         ...(data.returnUrl && { return_url: data.returnUrl }),
       });

@@ -8,6 +8,21 @@ async function getAdmin() {
   return supabaseAdmin;
 }
 
+async function recomputePlan(storeId: string, env: StripeEnv) {
+  const admin = await getAdmin();
+  const { error } = await (admin as any).rpc("recompute_store_plan_for_environment", {
+    _store_id: storeId,
+    _environment: env,
+  });
+  if (!error) return;
+  const missing =
+    String(error.code ?? "") === "PGRST202" ||
+    String(error.message ?? "").toLowerCase().includes("recompute_store_plan_for_environment");
+  if (!missing) throw error;
+  const fallback = await (admin as any).rpc("recompute_store_plan", { _store_id: storeId });
+  if (fallback.error) throw fallback.error;
+}
+
 function resolvePriceLookupKey(item: any): string | null {
   return (
     item?.price?.lookup_key ?? item?.price?.id ?? null
@@ -74,7 +89,7 @@ async function handleSubscriptionUpsert(subscription: any, env: StripeEnv) {
   const periodEnd = item?.current_period_end ?? subscription.current_period_end;
 
   const admin = await getAdmin();
-  await admin.from("subscriptions").upsert(
+  const { error } = await admin.from("subscriptions").upsert(
     {
       user_id: userId,
       store_id: storeId,
@@ -91,11 +106,21 @@ async function handleSubscriptionUpsert(subscription: any, env: StripeEnv) {
     },
     { onConflict: "stripe_subscription_id" },
   );
+  if (error) throw error;
+  await recomputePlan(storeId, env);
 }
 
 async function handleSubscriptionDeleted(subscription: any, env: StripeEnv) {
   const admin = await getAdmin();
-  await admin
+  const { data: existing, error: lookupError } = await admin
+    .from("subscriptions")
+    .select("store_id")
+    .eq("stripe_subscription_id", subscription.id)
+    .eq("environment", env)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+
+  const { error } = await admin
     .from("subscriptions")
     .update({
       status: "canceled",
@@ -104,6 +129,8 @@ async function handleSubscriptionDeleted(subscription: any, env: StripeEnv) {
     })
     .eq("stripe_subscription_id", subscription.id)
     .eq("environment", env);
+  if (error) throw error;
+  if (existing?.store_id) await recomputePlan(existing.store_id, env);
 }
 
 async function subscriptionContext(
@@ -239,11 +266,19 @@ async function handleWebhook(req: Request, env: StripeEnv) {
     case "invoice.payment_succeeded":
       await handleInvoice(event.data.object, env, event);
       break;
-    case "checkout.session.completed":
-      // Subscription and invoice events are the source of truth. Checkout is
-      // intentionally not counted as revenue until Stripe confirms payment.
-      console.log("Stripe checkout completed", event.data.object?.id);
+    case "checkout.session.completed": {
+      // Hydrate immediately as a second activation path. The authenticated
+      // checkout-return callback also syncs the plan, while this webhook keeps
+      // renewals and out-of-band Checkout completion resilient.
+      const session: any = event.data.object;
+      const subscriptionId = objectId(session?.subscription);
+      if (subscriptionId) {
+        const stripe = createStripeClient(env);
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        await handleSubscriptionUpsert(subscription, env);
+      }
       break;
+    }
     default:
       console.log("Stripe webhook: unhandled event", event.type);
   }

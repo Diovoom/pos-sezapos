@@ -123,9 +123,11 @@ export function BillingPanel() {
             <div className="text-sm text-muted-foreground">
               {isTrialing
                 ? `Trial ends ${format(plan.periodEnd, "PPP")}`
-                : plan.cancelAtPeriodEnd
-                  ? `Access ends ${format(plan.periodEnd, "PPP")} (cancellation scheduled)`
-                  : `Renews ${format(plan.periodEnd, "PPP")}`}
+                : isReadOnly
+                  ? `Access ended ${format(plan.periodEnd, "PPP")}`
+                  : plan.cancelAtPeriodEnd
+                    ? `Access ends ${format(plan.periodEnd, "PPP")} (cancellation scheduled)`
+                    : `Renews ${format(plan.periodEnd, "PPP")}`}
               {plan.daysLeft != null &&
                 `  -  ${plan.daysLeft} day${plan.daysLeft === 1 ? "" : "s"} left`}
             </div>

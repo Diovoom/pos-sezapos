@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cacheMeta, readMeta } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import { isNativeMode } from "@/lib/native";
+import { hasOwnerSessionIdentity, ownerSessionIdentityMatches } from "@/lib/owner-session-lock";
 
 export type MeData = {
   user: { id: string; email?: string };
@@ -22,12 +23,18 @@ export function useMe() {
     staleTime: 15_000,
     retry: (count) => isOnlineNow() && count < 1,
     queryFn: async () => {
-      const cachedUserId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+      const nativeMode = isNativeMode();
+      const cachedUserId = await readMeta<string>("authenticated_me_current_user").catch(
+        () => undefined,
+      );
       const selectedCached = cachedUserId
         ? (await readMeta<MeData>(cacheKeyForUser(cachedUserId)).catch(() => undefined)) ?? null
         : null;
 
-      if (isNativeMode() && selectedCached?.profile && selectedCached?.store) {
+      // The Android POS intentionally boots from its local paired identity.
+      // The owner website must never do this because Safari can retain a
+      // previous owner's IndexedDB/localStorage after an account switch.
+      if (nativeMode && selectedCached?.profile && selectedCached?.store) {
         return selectedCached;
       }
 
@@ -36,28 +43,46 @@ export function useMe() {
         const { data: sessionData } = await supabase.auth.getSession();
         sessionUser = sessionData.session?.user as typeof sessionUser;
       } catch {
-        return selectedCached;
+        return nativeMode ? selectedCached : null;
       }
 
-      if (!sessionUser) return selectedCached;
+      if (!sessionUser) return nativeMode ? selectedCached : null;
 
-      if (cachedUserId && sessionUser.id !== cachedUserId) return selectedCached;
+      if (!nativeMode && hasOwnerSessionIdentity() && !ownerSessionIdentityMatches(sessionUser)) {
+        await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
+        return null;
+      }
 
       const scopedKey = cacheKeyForUser(sessionUser.id);
       const cached = await readMeta<MeData>(scopedKey).catch(() => undefined);
 
+      // A cache that belongs to a different user is never a valid fallback.
+      // If this device just switched owners, fetch the active session user's
+      // profile/store and replace authenticated_me_current_user below.
       if (!isOnlineNow()) return cached ?? null;
 
       try {
         const [{ data: profile, error: profileError }, { data: roles, error: rolesError }] =
           await Promise.all([
             supabase.from("profiles").select("*").eq("id", sessionUser.id).maybeSingle(),
-            supabase.from("user_roles").select("role").eq("user_id", sessionUser.id),
+            supabase.from("user_roles").select("role,store_id").eq("user_id", sessionUser.id),
           ]);
         if (profileError) throw profileError;
         if (rolesError) throw rolesError;
 
         const profileStoreId = (profile as { store_id?: string | null } | null)?.store_id ?? null;
+        if (!nativeMode) {
+          const ownsProfileStore = Boolean(
+            profileStoreId &&
+              (roles ?? []).some(
+                (row: any) => row.role === "owner" && row.store_id === profileStoreId,
+              ),
+          );
+          if (!ownsProfileStore) {
+            await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
+            return null;
+          }
+        }
         const storeResult = profileStoreId
           ? await supabase.from("stores").select("*").eq("id", profileStoreId).maybeSingle()
           : { data: null, error: null };
@@ -88,3 +113,4 @@ export function useMe() {
     },
   });
 }
+

@@ -25,6 +25,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
 import { cn } from "@/lib/utils";
 import { initializeUiPreferences } from "@/lib/ui-preferences";
+import { deleteMeta } from "@/lib/offline/db";
+import { clearOwnerQueryCache } from "@/lib/owner-query-cache";
+import { clearOwnerLoginIntent, clearOwnerSessionIdentity } from "@/lib/owner-session-lock";
 import { roleDotClass, roleTextClass } from "@/lib/role-visual";
 import { Logo } from "@/components/brand/Logo";
 import { OwnerStoreSwitcher } from "@/components/OwnerStoreSwitcher";
@@ -122,9 +125,25 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   async function signOut() {
-    await queryClient.cancelQueries();
+    const userId = me?.user?.id as string | undefined;
+
+    await queryClient.cancelQueries().catch(() => undefined);
     queryClient.clear();
-    await supabase.auth.signOut();
+    clearOwnerQueryCache();
+
+    await Promise.all([
+      deleteMeta("authenticated_me_current_user").catch(() => undefined),
+      deleteMeta("authenticated_me").catch(() => undefined),
+      deleteMeta("profile").catch(() => undefined),
+      userId ? deleteMeta(`authenticated_me:${userId}`).catch(() => undefined) : Promise.resolve(),
+      userId ? deleteMeta(`profile:${userId}`).catch(() => undefined) : Promise.resolve(),
+    ]);
+
+    clearOwnerSessionIdentity();
+    clearOwnerLoginIntent();
+    await supabase.auth
+      .signOut({ scope: "local" } as any)
+      .catch(() => supabase.auth.signOut());
     navigate({ to: "/auth", replace: true });
   }
 
