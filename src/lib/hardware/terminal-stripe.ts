@@ -126,7 +126,7 @@ export async function saveStripeTerminal(input: {
 }
 
 export async function updateStripeTerminal(
-  action: "activate" | "connected" | "disconnected" | "remove",
+  action: "activate" | "connected" | "disconnected" | "remove" | "connection_method",
   terminalId: string,
   extra: Record<string, unknown> = {},
 ) {
@@ -198,9 +198,13 @@ async function activeConfiguration(preferred?: TerminalDriverId): Promise<Termin
     terminalId: terminal.id,
     driver,
     locationId: context.locationId,
-    testMode: context.environment === "sandbox",
+    // IMPORTANT: @capacitor-community/stripe-terminal uses isTest to enable
+    // simulated readers. A Stripe sandbox account can still use a physical M2
+    // with a physical Stripe test card, so do not turn simulator mode on just
+    // because the backend environment is sandbox.
+    testMode: driver === "stripe-simulated",
     connectionMethod:
-      String(terminal.config?.connection_method || "usb").toLowerCase() === "bluetooth"
+      String(terminal.config?.connection_method || "bluetooth").toLowerCase() === "bluetooth"
         ? "bluetooth"
         : "usb",
     serial: terminal.serial,
@@ -249,7 +253,10 @@ function friendlyTerminalError(error: unknown, fallback: string): Error {
     );
   }
   if (/usb.*permission|permission.*usb|permission (?:was )?denied/i.test(raw)) {
-    return new Error("USB access is required for Reader M2. Reconnect the reader and allow USB access.");
+    return new Error("USB access is required for Reader M2. Connect the M2 with a USB data cable and allow USB access, or switch this reader to Bluetooth.");
+  }
+  if (/bluetooth.*permission|nearby.*permission|permission.*bluetooth|bluetooth.*denied/i.test(raw)) {
+    return new Error("Bluetooth access is required for Reader M2. Allow Nearby devices/Bluetooth for SEZA POS, then reconnect the reader.");
   }
 
   return new Error(userFacingError(error, fallback));
@@ -290,6 +297,29 @@ async function discoverReaderList(
       await new Promise((resolve) => setTimeout(resolve, 1200));
     }
     if (!readers.length) readers = eventReaders;
+
+    // Never let a physical reader configuration silently fall back to Stripe's
+    // built-in simulator. The simulator commonly reports labels/serials such as
+    // CHB20SIMULATOR, which is not a physical Stripe Reader M2.
+    if (configuration.driver !== "stripe-simulated") {
+      readers = readers.filter((reader) => {
+        const identity = `${String(reader?.label || "")} ${String(reader?.serialNumber || "")} ${String(
+          reader?.deviceType || "",
+        )}`;
+        return !/simulator/i.test(identity);
+      });
+    }
+
+    // When Reader M2 is selected, prefer an actual M2 if the bridge reports a
+    // device type. Keep readers with no deviceType because some plugin versions
+    // omit that field for USB discovery.
+    if (configuration.driver === "stripe-m2") {
+      const m2Readers = readers.filter((reader) => {
+        const deviceType = String(reader?.deviceType || "").toLowerCase();
+        return !deviceType || deviceType === "stripem2" || deviceType.includes("m2");
+      });
+      if (m2Readers.length) readers = m2Readers;
+    }
 
     if (!readers.length) {
       await mod.StripeTerminal.cancelDiscoverReaders().catch(() => undefined);
