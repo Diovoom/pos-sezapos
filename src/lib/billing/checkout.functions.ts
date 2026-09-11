@@ -12,7 +12,10 @@ import {
   type SezaPlanId,
 } from "@/lib/plans";
 
-type CheckoutSessionResult = { url: string; environment: "sandbox" | "live" } | { error: string };
+type CheckoutSessionResult =
+  | { url: string; environment: "sandbox" | "live" }
+  | { existing: true; environment: "sandbox" | "live"; currentPlan: string }
+  | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
 type PlanChangeResult =
   | { ok: true; plan: string; status: string; cancelAtPeriodEnd: boolean }
@@ -154,6 +157,101 @@ async function persistStripeSubscription(
   };
 }
 
+
+async function switchExistingStripeSubscription(options: {
+  stripe: ReturnType<typeof createStripeClient>;
+  environment: "sandbox" | "live";
+  userId: string;
+  storeId: string;
+  stripeSubscriptionId: string;
+  targetLookupKey: string;
+}) {
+  const { stripe, environment, userId, storeId, stripeSubscriptionId, targetLookupKey } = options;
+  const targetPlanId = targetLookupKey.replace(/_monthly$/, "") as SezaPlanId;
+  const targetPlan = SEZA_PLAN_BY_ID[targetPlanId];
+  if (!targetPlan) throw new Error("Unknown SEZA plan");
+
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const admin: any = supabaseAdmin;
+  const { getStorePlanUsage } = await import("@/lib/billing/plan-entitlements.server");
+  const usage = await getStorePlanUsage(admin, storeId);
+  const blockers: string[] = [];
+  if (targetPlan.limits.employees != null && usage.employees > targetPlan.limits.employees) {
+    blockers.push(`${usage.employees} active employees (limit ${targetPlan.limits.employees})`);
+  }
+  if (targetPlan.limits.registers != null && usage.registers > targetPlan.limits.registers) {
+    blockers.push(`${usage.registers} active POS registers (limit ${targetPlan.limits.registers})`);
+  }
+  if (blockers.length) {
+    throw new Error(
+      `Before switching to ${targetPlan.name}, reduce usage: ${blockers.join("; ")}. SEZA will never delete employees or revoke registers automatically.`,
+    );
+  }
+
+  const prices = await stripe.prices.list({ lookup_keys: [targetLookupKey] });
+  if (!prices.data.length) throw new Error("Price not found");
+  const targetPrice = prices.data[0];
+  const expectedAmount = SEZA_PLAN_LOOKUP_PRICE_CENTS[targetLookupKey];
+  if (targetPrice.unit_amount !== expectedAmount || targetPrice.recurring?.interval !== "month") {
+    throw new Error(
+      `Stripe price ${targetLookupKey} does not match SEZA pricing. Expected $${(expectedAmount / 100).toFixed(2)}/month.`,
+    );
+  }
+
+  const current = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  const metadataStoreId = String(current.metadata?.storeId ?? "").trim();
+  if (metadataStoreId && metadataStoreId !== storeId) {
+    throw new Error("Stripe subscription does not belong to this store.");
+  }
+  const item = current.items.data[0];
+  if (!item) throw new Error("The Stripe subscription has no billable plan item");
+
+  if (item.price.lookup_key === targetLookupKey) {
+    const synced = await persistStripeSubscription(current, environment, { userId, storeId });
+    return { updated: true as const, ...synced };
+  }
+
+  const updated = await stripe.subscriptions.update(stripeSubscriptionId, {
+    items: [{ id: item.id, price: targetPrice.id, quantity: 1 }],
+    proration_behavior: "create_prorations",
+    metadata: {
+      ...current.metadata,
+      userId,
+      storeId,
+      planLookupKey: targetLookupKey,
+      environment,
+    },
+  });
+
+  const synced = await persistStripeSubscription(updated, environment, { userId, storeId });
+  return { updated: true as const, ...synced };
+}
+
+
+export const getCurrentStoreSubscriptionState = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { userId, supabase } = context;
+    const storeId = await requireBillingOwner(supabase, userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin: any = supabaseAdmin;
+
+    // Reconcile the denormalized store entitlement fields from the latest
+    // subscription row before the dashboard decides whether features are read-only.
+    const { error: recomputeError } = await admin.rpc("recompute_store_plan", {
+      _store_id: storeId,
+    });
+    if (recomputeError) throw new Error(recomputeError.message);
+
+    const { data: store, error } = await admin
+      .from("stores")
+      .select("plan_tier, plan_status, plan_period_end, plan_cancel_at_period_end, trial_ends_at")
+      .eq("id", storeId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return store ?? null;
+  });
+
 /**
  * Verify a completed Stripe Checkout session and immediately synchronize the
  * paid subscription into SEZA. This makes checkout completion independent from
@@ -228,22 +326,30 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
       const storeId = await requireBillingOwner(supabase, userId);
       const environment = getStripeBillingMode();
 
-      // Existing paid stores change plans through the plan-change endpoint below.
-      // Prevent Checkout from creating duplicate active subscriptions.
+      // One plan-selection path for both first-time subscriptions and upgrades/downgrades.
+      // If Stripe is already attached to this store, update that subscription in place instead
+      // of sending the merchant into a second Checkout session. This intentionally does not
+      // trust the client-side plan badge, which can be stale for a moment after billing changes.
       const { data: existingSubscription, error: existingSubscriptionError } = await supabase
         .from("subscriptions")
-        .select("id,status")
+        .select("id,status,price_id,stripe_subscription_id")
         .eq("store_id", storeId)
         .eq("environment", environment)
+        .not("stripe_subscription_id", "is", null)
         .in("status", ["active", "trialing", "past_due", "paused"])
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (existingSubscriptionError) throw existingSubscriptionError;
-      if (existingSubscription) {
-        throw new Error("This store already has a subscription. Use Manage subscription to change plans.");
-      }
 
       const stripe = createStripeClient(environment);
+      if (existingSubscription?.stripe_subscription_id) {
+        return {
+          existing: true,
+          environment,
+          currentPlan: String(existingSubscription.price_id ?? ""),
+        };
+      }
 
       const prices = await stripe.prices.list({ lookup_keys: [data.priceId] });
       if (!prices.data.length) throw new Error("Price not found");
@@ -296,7 +402,6 @@ export const changeStoreSubscriptionPlan = createServerFn({ method: "POST" })
       const { data: row, error: rowError } = await supabase
         .from("subscriptions")
         .select("id,stripe_subscription_id,price_id,status")
-        .eq("user_id", userId)
         .eq("store_id", storeId)
         .eq("environment", environment)
         .not("stripe_subscription_id", "is", null)
@@ -306,75 +411,22 @@ export const changeStoreSubscriptionPlan = createServerFn({ method: "POST" })
         .maybeSingle();
       if (rowError) throw rowError;
       if (!row?.stripe_subscription_id) throw new Error("No active Stripe subscription was found for this store");
-      if (row.price_id === data.priceId) {
-        return { ok: true, plan: data.priceId, status: row.status, cancelAtPeriodEnd: false };
-      }
-
-      const targetPlanId = data.priceId.replace(/_monthly$/, "") as SezaPlanId;
-      const targetPlan = SEZA_PLAN_BY_ID[targetPlanId];
-      if (!targetPlan) throw new Error("Unknown SEZA plan");
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const admin: any = supabaseAdmin;
-      const { getStorePlanUsage } = await import("@/lib/billing/plan-entitlements.server");
-      const usage = await getStorePlanUsage(admin, storeId);
-      const blockers: string[] = [];
-      if (targetPlan.limits.employees != null && usage.employees > targetPlan.limits.employees) {
-        blockers.push(`${usage.employees} active employees (limit ${targetPlan.limits.employees})`);
-      }
-      if (targetPlan.limits.registers != null && usage.registers > targetPlan.limits.registers) {
-        blockers.push(`${usage.registers} active POS registers (limit ${targetPlan.limits.registers})`);
-      }
-      if (blockers.length) {
-        throw new Error(
-          `Before switching to ${targetPlan.name}, reduce usage: ${blockers.join("; ")}. SEZA will never delete employees or revoke registers automatically.`,
-        );
-      }
 
       const stripe = createStripeClient(environment);
-      const prices = await stripe.prices.list({ lookup_keys: [data.priceId] });
-      if (!prices.data.length) throw new Error("Price not found");
-      const targetPrice = prices.data[0];
-      const expectedAmount = SEZA_PLAN_LOOKUP_PRICE_CENTS[data.priceId];
-      if (targetPrice.unit_amount !== expectedAmount || targetPrice.recurring?.interval !== "month") {
-        throw new Error(
-          `Stripe price ${data.priceId} does not match SEZA pricing. Expected $${(expectedAmount / 100).toFixed(2)}/month.`,
-        );
-      }
-
-      const current = await stripe.subscriptions.retrieve(row.stripe_subscription_id);
-      const item = current.items.data[0];
-      if (!item) throw new Error("The Stripe subscription has no billable plan item");
-      const updated = await stripe.subscriptions.update(row.stripe_subscription_id, {
-        items: [{ id: item.id, price: targetPrice.id, quantity: 1 }],
-        proration_behavior: "create_prorations",
-        metadata: {
-          ...current.metadata,
-          userId,
-          storeId: storeId,
-          planLookupKey: data.priceId,
-        },
+      const changed = await switchExistingStripeSubscription({
+        stripe,
+        environment,
+        userId,
+        storeId,
+        stripeSubscriptionId: row.stripe_subscription_id,
+        targetLookupKey: data.priceId,
       });
-
-      // Make the dashboard reflect the successful Stripe change immediately;
-      // the signed webhook remains the long-term source of truth.
-      const { error: updateError } = await admin
-        .from("subscriptions")
-        .update({
-          price_id: data.priceId,
-          status: updated.status,
-          cancel_at_period_end: updated.cancel_at_period_end ?? false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", row.id)
-        .eq("store_id", storeId);
-      if (updateError) throw new Error(updateError.message);
-      await admin.rpc("recompute_store_plan", { _store_id: storeId });
 
       return {
         ok: true,
-        plan: data.priceId,
-        status: updated.status,
-        cancelAtPeriodEnd: updated.cancel_at_period_end ?? false,
+        plan: changed.plan,
+        status: changed.status,
+        cancelAtPeriodEnd: false,
       };
     } catch (error) {
       return { error: billingErrorMessage(error) };

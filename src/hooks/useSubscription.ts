@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/useSession";
 import { useMe } from "@/hooks/useMe";
+import { getCurrentStoreSubscriptionState } from "@/lib/billing/checkout.functions";
 import {
   planForTier,
   planLimit,
@@ -46,13 +46,14 @@ export function useSubscription() {
     refetchOnWindowFocus: true,
     queryFn: async () => {
       if (!storeId) return null;
-      const { data: store, error } = await supabase
-        .from("stores")
-        .select("plan_tier, plan_status, plan_period_end, plan_cancel_at_period_end, trial_ends_at")
-        .eq("id", storeId)
-        .maybeSingle();
-      if (error) throw error;
+
+      // Read the entitlement through the authenticated server so the store plan
+      // is reconciled from the subscription table before UI gates are evaluated.
+      // This prevents a stale "Expired" badge from disagreeing with Stripe and
+      // blocking upgrades or POS-register pairing.
+      const store = await getCurrentStoreSubscriptionState();
       if (!store) return null;
+
       const storedTier = (store.plan_tier ?? "expired") as PlanTier;
       const status = (store.plan_status ?? "expired") as PlanStatus;
       const periodEnd = store.plan_period_end ? new Date(store.plan_period_end) : null;

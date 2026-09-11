@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { format } from "date-fns";
@@ -9,10 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSubscription, type PlanTier } from "@/hooks/useSubscription";
 import { StripeCheckoutDialog } from "@/components/billing/StripeCheckoutDialog";
-import {
-  changeStoreSubscriptionPlan,
-  createBillingPortalSession,
-} from "@/lib/billing/checkout.functions";
+import { createBillingPortalSession } from "@/lib/billing/checkout.functions";
 import { SEZA_PLANS, formatPlanLimit, planForTier } from "@/lib/plans";
 import { useMe } from "@/hooks/useMe";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,7 +23,6 @@ const TIER_LABEL: Record<PlanTier, string> = {
 };
 
 export function BillingPanel() {
-  const qc = useQueryClient();
   const { data: plan, isLoading } = useSubscription();
   const me = useMe();
   const storeId = (me.data?.profile?.store_id ?? me.data?.store?.id) as string | undefined;
@@ -84,29 +80,7 @@ export function BillingPanel() {
     }
   };
 
-  const planChange = useMutation({
-    mutationFn: async (target: { priceId: string; name: string; monthlyPrice: number }) => {
-      const approved = window.confirm(
-        `Switch this store to ${target.name} for $${target.monthlyPrice}/month? Stripe will apply the plan change and any applicable proration.`,
-      );
-      if (!approved) return { cancelled: true } as const;
-      const result = await changeStoreSubscriptionPlan({
-        data: { priceId: target.priceId },
-      });
-      if ("error" in result) throw new Error(result.error);
-      return { cancelled: false, result } as const;
-    },
-    onSuccess: async (result, target) => {
-      if (result.cancelled) return;
-      toast.success(`Plan changed to ${target.name}`);
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["subscription"] }),
-        qc.invalidateQueries({ queryKey: ["billing-plan-usage"] }),
-        qc.invalidateQueries({ queryKey: ["me"] }),
-      ]);
-    },
-    onError: (error) => toast.error(userFacingError(error, "Could not change plan")),
-  });
+
 
   if (isLoading)
     return (
@@ -249,24 +223,10 @@ export function BillingPanel() {
                   className="mt-4 w-full"
                   size="sm"
                   variant={isCurrent ? "outline" : "default"}
-                  disabled={isCurrent || planChange.isPending}
-                  onClick={() =>
-                    hasPaidPlan
-                      ? planChange.mutate({
-                          priceId: p.lookupKey,
-                          name: p.name,
-                          monthlyPrice: p.monthlyPrice,
-                        })
-                      : openCheckout(p.lookupKey, p.name)
-                  }
+                  disabled={isCurrent}
+                  onClick={() => openCheckout(p.lookupKey, p.name)}
                 >
-                  {isCurrent
-                    ? "Current plan"
-                    : planChange.isPending
-                      ? "Changing…"
-                      : hasPaidPlan
-                        ? "Switch plan"
-                        : "Subscribe"}
+                  {isCurrent ? "Current plan" : hasPaidPlan ? "Switch plan" : "Choose plan"}
                 </Button>
               </div>
             );
