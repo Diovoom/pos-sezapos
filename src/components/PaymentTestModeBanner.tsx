@@ -1,19 +1,10 @@
-const clientToken = import.meta.env.VITE_PAYMENTS_CLIENT_TOKEN as string | undefined;
+import { getStripeEnvironment } from "@/lib/stripe";
 
 export function PaymentTestModeBanner() {
-  if (!clientToken) {
+  if (getStripeEnvironment() === "sandbox") {
     return (
-      <div className="w-full bg-red-100 border-b border-red-300 px-4 py-2 text-center text-sm text-red-800">
-        Production checkout is not configured yet. Real payments will not be processed until setup
-        is complete.
-      </div>
-    );
-  }
-  if (clientToken.startsWith("pk_test_")) {
-    return (
-      <div className="w-full bg-orange-100 border-b border-orange-300 px-4 py-2 text-center text-sm text-orange-800">
-        All payments in this preview are in test mode. Use card 4242 4242 4242 4242 with any future
-        expiry and CVC.
+      <div className="w-full border-b border-orange-300 bg-orange-100 px-4 py-2 text-center text-sm text-orange-800">
+        SEZA billing is in Stripe test mode. No real card will be charged. Use Stripe test cards only.
       </div>
     );
   }

@@ -13,6 +13,15 @@ export function getStripeMode(): StripeEnv {
   return process.env.STRIPE_CONNECT_MODE === "live" ? "live" : "sandbox";
 }
 
+/**
+ * Software subscription billing is intentionally independent from Stripe
+ * Connect/Terminal mode. It defaults to sandbox and only enters live mode when
+ * STRIPE_BILLING_MODE is explicitly set to "live" on the server.
+ */
+export function getStripeBillingMode(): StripeEnv {
+  return process.env.STRIPE_BILLING_MODE === "live" ? "live" : "sandbox";
+}
+
 export function getStripeSecretKey(env: StripeEnv): string {
   return env === "sandbox" ? getEnv("STRIPE_SANDBOX_SECRET_KEY") : getEnv("STRIPE_LIVE_SECRET_KEY");
 }

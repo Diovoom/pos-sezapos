@@ -1,14 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { expensiveActionRateLimit } from "@/lib/security/rate-limit";
-import { type StripeEnv, createStripeClient, getStripeErrorMessage } from "@/lib/stripe.server";
+import {
+  createStripeClient,
+  getStripeBillingMode,
+  getStripeErrorMessage,
+} from "@/lib/stripe.server";
 import {
   SEZA_PLAN_BY_ID,
   SEZA_PLAN_LOOKUP_PRICE_CENTS,
   type SezaPlanId,
 } from "@/lib/plans";
 
-type CheckoutSessionResult = { clientSecret: string } | { error: string };
+type CheckoutSessionResult = { url: string; environment: "sandbox" | "live" } | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
 type PlanChangeResult =
   | { ok: true; plan: string; status: string; cancelAtPeriodEnd: boolean }
@@ -85,12 +89,16 @@ async function resolveOrCreateCustomer(
 
 /**
  * Start a Stripe Checkout session for a SEZA POS subscription plan.
- * Uses embedded UI mode; server returns clientSecret.
+ * Uses Stripe-hosted Checkout; the server returns a redirect URL.
  */
 export const createSubscriptionCheckout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, expensiveActionRateLimit])
-  .inputValidator((data: { priceId: string; returnUrl: string; environment: StripeEnv }) => {
+  .inputValidator((data: { priceId: string; successUrl: string; cancelUrl: string }) => {
     if (!VALID_PRICES.has(data.priceId)) throw new Error("Invalid priceId");
+    for (const value of [data.successUrl, data.cancelUrl]) {
+      const url = new URL(value);
+      if (!/^https?:$/.test(url.protocol)) throw new Error("Invalid checkout return URL");
+    }
     return data;
   })
   .handler(async ({ data, context }): Promise<CheckoutSessionResult> => {
@@ -101,6 +109,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
       } = await supabase.auth.getUser();
 
       const storeId = await requireBillingOwner(supabase, userId);
+      const environment = getStripeBillingMode();
 
       // Existing paid stores change plans through the plan-change endpoint below.
       // Prevent Checkout from creating duplicate active subscriptions.
@@ -108,7 +117,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
         .from("subscriptions")
         .select("id,status")
         .eq("store_id", storeId)
-        .eq("environment", data.environment)
+        .eq("environment", environment)
         .in("status", ["active", "trialing", "past_due", "paused"])
         .limit(1)
         .maybeSingle();
@@ -117,7 +126,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
         throw new Error("This store already has a subscription. Use Manage subscription to change plans.");
       }
 
-      const stripe = createStripeClient(data.environment);
+      const stripe = createStripeClient(environment);
 
       const prices = await stripe.prices.list({ lookup_keys: [data.priceId] });
       if (!prices.data.length) throw new Error("Price not found");
@@ -138,15 +147,17 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
       const session = await stripe.checkout.sessions.create({
         line_items: [{ price: stripePrice.id, quantity: 1 }],
         mode: "subscription",
-        ui_mode: "embedded_page",
-        return_url: data.returnUrl,
+        success_url: data.successUrl,
+        cancel_url: data.cancelUrl,
         customer: customerId,
-        metadata: { userId, storeId, planLookupKey: data.priceId },
-        subscription_data: { metadata: { userId, storeId, planLookupKey: data.priceId } },
-        managed_payments: { enabled: true },
-      } as any);
+        metadata: { userId, storeId, planLookupKey: data.priceId, environment },
+        subscription_data: {
+          metadata: { userId, storeId, planLookupKey: data.priceId, environment },
+        },
+      });
 
-      return { clientSecret: session.client_secret ?? "" };
+      if (!session.url) throw new Error("Stripe did not return a checkout URL");
+      return { url: session.url, environment };
     } catch (error) {
       return { error: billingErrorMessage(error) };
     }
@@ -155,7 +166,7 @@ export const createSubscriptionCheckout = createServerFn({ method: "POST" })
 /** Change an existing store subscription without creating a second one. */
 export const changeStoreSubscriptionPlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, expensiveActionRateLimit])
-  .inputValidator((data: { priceId: string; environment: StripeEnv }) => {
+  .inputValidator((data: { priceId: string }) => {
     if (!VALID_PRICES.has(data.priceId)) throw new Error("Invalid priceId");
     return data;
   })
@@ -163,13 +174,14 @@ export const changeStoreSubscriptionPlan = createServerFn({ method: "POST" })
     try {
       const { userId, supabase } = context;
       const storeId = await requireBillingOwner(supabase, userId);
+      const environment = getStripeBillingMode();
 
       const { data: row, error: rowError } = await supabase
         .from("subscriptions")
         .select("id,stripe_subscription_id,price_id,status")
         .eq("user_id", userId)
         .eq("store_id", storeId)
-        .eq("environment", data.environment)
+        .eq("environment", environment)
         .not("stripe_subscription_id", "is", null)
         .in("status", ["active", "trialing", "past_due", "paused"])
         .order("created_at", { ascending: false })
@@ -201,7 +213,7 @@ export const changeStoreSubscriptionPlan = createServerFn({ method: "POST" })
         );
       }
 
-      const stripe = createStripeClient(data.environment);
+      const stripe = createStripeClient(environment);
       const prices = await stripe.prices.list({ lookup_keys: [data.priceId] });
       if (!prices.data.length) throw new Error("Price not found");
       const targetPrice = prices.data[0];
@@ -258,9 +270,10 @@ export const changeStoreSubscriptionPlan = createServerFn({ method: "POST" })
  */
 export const createBillingPortalSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, expensiveActionRateLimit])
-  .inputValidator((data: { returnUrl?: string; environment: StripeEnv }) => data)
+  .inputValidator((data: { returnUrl?: string }) => data)
   .handler(async ({ data, context }): Promise<PortalSessionResult> => {
     const { supabase, userId } = context;
+    const environment = getStripeBillingMode();
 
     let storeId: string;
     try {
@@ -274,7 +287,7 @@ export const createBillingPortalSession = createServerFn({ method: "POST" })
       .select("stripe_customer_id")
       .eq("user_id", userId)
       .eq("store_id", storeId)
-      .eq("environment", data.environment)
+      .eq("environment", environment)
       .not("stripe_customer_id", "is", null)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -284,7 +297,7 @@ export const createBillingPortalSession = createServerFn({ method: "POST" })
     }
 
     try {
-      const stripe = createStripeClient(data.environment);
+      const stripe = createStripeClient(environment);
       const configs = await stripe.billingPortal.configurations.list({ active: true, limit: 1 });
       const configuration = configs.data[0] ??
         (await stripe.billingPortal.configurations.create({

@@ -1,35 +1,20 @@
-import type { Stripe } from "@stripe/stripe-js";
-
-type StripeEnv = "sandbox" | "live";
-
-const clientToken = import.meta.env.VITE_PAYMENTS_CLIENT_TOKEN as string | undefined;
+export type StripeEnv = "sandbox" | "live";
 
 function paymentsEnvironment(): StripeEnv {
-  if (clientToken?.startsWith("pk_test_")) return "sandbox";
-  if (clientToken?.startsWith("pk_live_")) return "live";
-  throw new Error(
-    "Stripe payments are not configured for this build. Complete the SEZA Stripe production configuration to enable checkout.",
-  );
+  const raw = String(
+    import.meta.env.VITE_STRIPE_BILLING_MODE ?? import.meta.env.VITE_STRIPE_MODE ?? "sandbox",
+  )
+    .trim()
+    .toLowerCase();
+  return raw === "live" ? "live" : "sandbox";
 }
 
-let stripePromise: Promise<Stripe | null> | null = null;
-
-export function getStripe(): Promise<Stripe | null> {
-  if (!stripePromise) {
-    paymentsEnvironment();
-    stripePromise = import("@stripe/stripe-js/pure").then(({ loadStripe }) =>
-      loadStripe(clientToken as string),
-    );
-  }
-  return stripePromise;
-}
-
+/**
+ * Browser-visible billing mode only. Billing secrets and the final environment
+ * decision are enforced again on the server. The default remains sandbox so a
+ * missing client build variable can never silently enable real charges.
+ */
 export function getStripeEnvironment(): StripeEnv {
   return paymentsEnvironment();
 }
 
-export function isPaymentsConfigured(): boolean {
-  return (
-    !!clientToken && (clientToken.startsWith("pk_test_") || clientToken.startsWith("pk_live_"))
-  );
-}

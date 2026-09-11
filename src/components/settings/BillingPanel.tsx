@@ -13,7 +13,6 @@ import {
   changeStoreSubscriptionPlan,
   createBillingPortalSession,
 } from "@/lib/billing/checkout.functions";
-import { getStripeEnvironment, isPaymentsConfigured } from "@/lib/stripe";
 import { SEZA_PLANS, formatPlanLimit, planForTier } from "@/lib/plans";
 import { useMe } from "@/hooks/useMe";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,7 +32,6 @@ export function BillingPanel() {
   const storeId = (me.data?.profile?.store_id ?? me.data?.store?.id) as string | undefined;
   const [checkout, setCheckout] = useState<{ priceId: string; name: string } | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
-  const paymentsOn = isPaymentsConfigured();
 
   const usageQ = useQuery({
     queryKey: ["billing-plan-usage", storeId],
@@ -66,23 +64,14 @@ export function BillingPanel() {
   });
 
   const openCheckout = (priceId: string, name: string) => {
-    if (!paymentsOn) {
-      toast.error("Payments are not configured for this build.");
-      return;
-    }
     setCheckout({ priceId, name });
   };
 
   const openPortal = async () => {
-    if (!paymentsOn) {
-      toast.error("Payments are not configured for this build.");
-      return;
-    }
     try {
       setPortalLoading(true);
       const result = await createBillingPortalSession({
         data: {
-          environment: getStripeEnvironment(),
           returnUrl: `${window.location.origin}/settings`,
         },
       });
@@ -97,13 +86,12 @@ export function BillingPanel() {
 
   const planChange = useMutation({
     mutationFn: async (target: { priceId: string; name: string; monthlyPrice: number }) => {
-      if (!paymentsOn) throw new Error("Payments are not configured for this build.");
       const approved = window.confirm(
         `Switch this store to ${target.name} for $${target.monthlyPrice}/month? Stripe will apply the plan change and any applicable proration.`,
       );
       if (!approved) return { cancelled: true } as const;
       const result = await changeStoreSubscriptionPlan({
-        data: { priceId: target.priceId, environment: getStripeEnvironment() },
+        data: { priceId: target.priceId },
       });
       if ("error" in result) throw new Error(result.error);
       return { cancelled: false, result } as const;
