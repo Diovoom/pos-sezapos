@@ -6,7 +6,7 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,7 @@ import { hasAnyPlatformRole } from "@/lib/platform-roles";
 import { getMerchantPlatformNotice } from "@/lib/platform-settings.functions";
 import { AlertTriangle, Info } from "lucide-react";
 import { installAutoSync } from "@/lib/offline/sync";
+import { syncCompletedSubscriptionCheckout } from "@/lib/billing/checkout.functions";
 
 // Browser management surface for store owners only.
 // Employees use the paired Android POS app instead of the website.
@@ -86,7 +87,10 @@ function DashboardLayout() {
   const { data: plan } = useSubscription();
   const location = useLocation();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const toastedRef = useRef(false);
+  const checkoutSyncRef = useRef<string | null>(null);
+  const syncCheckout = useServerFn(syncCompletedSubscriptionCheckout);
   const loadPlatformNotice = useServerFn(getMerchantPlatformNotice);
   const platformNotice = useQuery({
     queryKey: ["merchant_platform_notice"],
@@ -95,6 +99,53 @@ function DashboardLayout() {
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") !== "success") return;
+    const sessionId = params.get("session_id");
+    if (!sessionId || checkoutSyncRef.current === sessionId) return;
+
+    checkoutSyncRef.current = sessionId;
+    const toastId = toast.loading("Confirming your SEZA subscription…");
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const result = await syncCheckout({ data: { sessionId } });
+        if (cancelled) return;
+        if ("error" in result) throw new Error(result.error);
+
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ["subscription"] }),
+          qc.invalidateQueries({ queryKey: ["billing-plan-usage"] }),
+          qc.invalidateQueries({ queryKey: ["me"] }),
+        ]);
+        toast.success("Subscription activated", { id: toastId });
+        navigate({
+          to: "/settings",
+          search: { section: "billing" } as any,
+          replace: true,
+        });
+      } catch (error) {
+        checkoutSyncRef.current = null;
+        toast.error(
+          error instanceof Error ? error.message : "Could not confirm the subscription",
+          { id: toastId },
+        );
+        navigate({
+          to: "/settings",
+          search: { section: "billing" } as any,
+          replace: true,
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, qc, syncCheckout]);
 
   useEffect(() => {
     if (!me.data) return;

@@ -30,6 +30,9 @@ const SAFE_BILLING_ERROR_PREFIXES = [
   "Unknown SEZA plan",
   "Before switching to ",
   "The Stripe subscription has no billable plan item",
+  "Invalid Stripe checkout",
+  "Stripe checkout",
+  "Stripe subscription",
 ] as const;
 
 function billingErrorMessage(error: unknown) {
@@ -86,6 +89,120 @@ async function resolveOrCreateCustomer(
   });
   return created.id;
 }
+
+async function persistStripeSubscription(
+  subscription: any,
+  environment: "sandbox" | "live",
+  expected: { userId: string; storeId: string },
+) {
+  const metadataStoreId = String(subscription?.metadata?.storeId ?? "").trim();
+  const metadataUserId = String(subscription?.metadata?.userId ?? "").trim();
+  if (!metadataStoreId || metadataStoreId !== expected.storeId) {
+    throw new Error("Stripe subscription does not belong to this store.");
+  }
+  if (metadataUserId && metadataUserId !== expected.userId) {
+    throw new Error("Stripe subscription does not belong to this owner.");
+  }
+
+  const item = subscription?.items?.data?.[0];
+  const lookupKey = String(item?.price?.lookup_key ?? "").trim();
+  if (!VALID_PRICES.has(lookupKey)) {
+    throw new Error("Stripe subscription uses an unknown SEZA plan.");
+  }
+  const expectedAmount = SEZA_PLAN_LOOKUP_PRICE_CENTS[lookupKey];
+  if (item?.price?.unit_amount !== expectedAmount || item?.price?.recurring?.interval !== "month") {
+    throw new Error("Stripe subscription price does not match SEZA pricing.");
+  }
+
+  const product = item?.price?.product;
+  const productId = typeof product === "string" ? product : product?.id ?? "unknown";
+  const periodStart = item?.current_period_start ?? subscription?.current_period_start;
+  const periodEnd = item?.current_period_end ?? subscription?.current_period_end;
+
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const admin: any = supabaseAdmin;
+  const { error: upsertError } = await admin.from("subscriptions").upsert(
+    {
+      user_id: expected.userId,
+      store_id: expected.storeId,
+      stripe_subscription_id: subscription.id,
+      stripe_customer_id:
+        typeof subscription?.customer === "string"
+          ? subscription.customer
+          : subscription?.customer?.id ?? null,
+      product_id: productId,
+      price_id: lookupKey,
+      status: subscription.status,
+      current_period_start: periodStart ? new Date(periodStart * 1000).toISOString() : null,
+      current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+      cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+      environment,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "stripe_subscription_id" },
+  );
+  if (upsertError) throw new Error(upsertError.message);
+
+  const { error: recomputeError } = await admin.rpc("recompute_store_plan", {
+    _store_id: expected.storeId,
+  });
+  if (recomputeError) throw new Error(recomputeError.message);
+
+  return {
+    plan: lookupKey,
+    status: String(subscription.status ?? "active"),
+  };
+}
+
+/**
+ * Verify a completed Stripe Checkout session and immediately synchronize the
+ * paid subscription into SEZA. This makes checkout completion independent from
+ * webhook delivery latency and prevents a paid store from remaining Expired.
+ */
+export const syncCompletedSubscriptionCheckout = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth, expensiveActionRateLimit])
+  .inputValidator((data: { sessionId: string }) => {
+    const sessionId = String(data.sessionId ?? "").trim();
+    if (!/^cs_(test_)?[A-Za-z0-9_]+$/.test(sessionId) || sessionId.length > 255) {
+      throw new Error("Invalid Stripe checkout session.");
+    }
+    return { sessionId };
+  })
+  .handler(async ({ data, context }) => {
+    try {
+      const { userId, supabase } = context;
+      const storeId = await requireBillingOwner(supabase, userId);
+      const environment = getStripeBillingMode();
+      const stripe = createStripeClient(environment);
+      const session: any = await stripe.checkout.sessions.retrieve(data.sessionId, {
+        expand: ["subscription"],
+      });
+
+      if (session.mode !== "subscription" || session.status !== "complete") {
+        throw new Error("Stripe checkout session is not complete.");
+      }
+      if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") {
+        throw new Error("Stripe checkout payment is not complete.");
+      }
+      if (String(session.metadata?.storeId ?? "") !== storeId) {
+        throw new Error("Stripe checkout session does not belong to this store.");
+      }
+      if (String(session.metadata?.userId ?? "") !== userId) {
+        throw new Error("Stripe checkout session does not belong to this owner.");
+      }
+
+      const subscription =
+        typeof session.subscription === "string"
+          ? await stripe.subscriptions.retrieve(session.subscription)
+          : session.subscription;
+      if (!subscription?.id) throw new Error("Stripe checkout did not create a subscription.");
+
+      const synced = await persistStripeSubscription(subscription, environment, { userId, storeId });
+      return { ok: true as const, environment, ...synced };
+    } catch (error) {
+      return { error: billingErrorMessage(error) };
+    }
+  });
 
 /**
  * Start a Stripe Checkout session for a SEZA POS subscription plan.
