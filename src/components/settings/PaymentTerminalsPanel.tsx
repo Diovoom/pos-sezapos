@@ -567,14 +567,18 @@ export function PaymentTerminalsPanel({
             </div>
           ) : isOwner ? (
             <div className="flex flex-wrap gap-2">
-              {!stripeReady && !stripeNeedsAddress && (
+              {!stripeNeedsAddress && (
                 <Button onClick={() => connectStripe.mutate()} disabled={connectStripe.isPending}>
                   {connectStripe.isPending ? (
                     <Loader2 className="mr-2 size-4 animate-spin" />
                   ) : (
                     <CreditCard className="mr-2 size-4" />
                   )}
-                  {stripeStore.data?.stripe_connected_account_id ? "Continue Stripe setup" : "Connect Stripe"}
+                  {stripeReady
+                    ? "Manage payout account"
+                    : stripeStore.data?.stripe_connected_account_id
+                      ? "Continue Stripe setup"
+                      : "Connect Stripe"}
                 </Button>
               )}
               {stripeNeedsAddress && (
@@ -619,15 +623,20 @@ export function PaymentTerminalsPanel({
           </div>
           <div className="rounded-lg border p-4">
             <div className="text-xs text-muted-foreground">Payout account</div>
-            <div className="mt-1 font-semibold">Complete in Owner Dashboard</div>
+            <div className="mt-1 font-semibold">
+              {stripeReady ? "Connected through Stripe" : "Setup required"}
+            </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Bank information is handled by the selected processor.
+              {stripeReady
+                ? "Use Manage payout account above to review or update the merchant bank account securely in Stripe."
+                : "The store owner must complete Stripe payout setup before live card processing."}
             </div>
           </div>
           <div className="rounded-lg border p-4">
             <div className="text-xs text-muted-foreground">Security</div>
             <div className="mt-1 flex items-center gap-2 font-semibold">
-              <ShieldCheck className="size-4" /> Owner verification required
+              <ShieldCheck className="size-4" />
+              {stripeReady ? "Stripe verification complete" : "Owner verification required"}
             </div>
           </div>
         </CardContent>

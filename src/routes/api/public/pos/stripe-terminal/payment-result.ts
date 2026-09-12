@@ -45,8 +45,49 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-re
         const auth = request.headers.get("authorization") ?? "";
         const bearerToken = auth.startsWith("Bearer ") ? auth.slice(7) : "";
         try {
-          const { resolveStripeTerminalCaller } = await import("@/lib/stripe-terminal.server");
+          const {
+            resolveStripeTerminalCaller,
+            resolveStripeTerminalMerchant,
+            createTerminalStripeClient,
+          } = await import("@/lib/stripe-terminal.server");
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+          if (body.action === "status") {
+            const merchant = await resolveStripeTerminalMerchant({
+              bearerToken,
+              nativeAuth: body.nativeAuth,
+              requireActiveTerminal: false,
+            });
+            const stripe = createTerminalStripeClient(merchant.environment);
+            const intent = await stripe.paymentIntents.retrieve(reference, {
+              stripeAccount: merchant.stripeAccountId,
+            });
+            if (String(intent.metadata?.seza_store_id || "") !== merchant.storeId) {
+              return json({ error: "Payment does not belong to this store." }, 403);
+            }
+            const lastError = intent.last_payment_error?.message || null;
+            const auditStatus =
+              intent.status === "succeeded" || intent.status === "requires_capture"
+                ? "completed"
+                : intent.status === "canceled" || intent.status === "requires_payment_method"
+                  ? "failed"
+                  : null;
+            if (auditStatus) {
+              await (supabaseAdmin.from as any)("payment_attempts")
+                .update({
+                  status: auditStatus,
+                  message:
+                    auditStatus === "completed"
+                      ? "Stripe Terminal payment approved"
+                      : lastError || `Stripe PaymentIntent ${intent.status}`,
+                })
+                .eq("store_id", merchant.storeId)
+                .eq("reference", reference)
+                .eq("provider", "stripe_terminal");
+            }
+            return json({ ok: true, status: intent.status, last_payment_error: lastError });
+          }
+
           const caller = await resolveStripeTerminalCaller({ bearerToken, nativeAuth: body.nativeAuth });
           const { error } = await (supabaseAdmin.from as any)("payment_attempts")
             .update({ status, message })

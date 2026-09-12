@@ -55,6 +55,7 @@ type StripeTerminalRuntimeState = {
   tokenListenerPromise: Promise<void> | null;
   tokenDeliveryQueue: Promise<void>;
   connected: { terminalId: string; driver: TerminalDriverId; serial: string } | null;
+  paymentInFlight: boolean;
 };
 
 const STRIPE_RUNTIME_KEY = "__sezaStripeTerminalRuntime";
@@ -71,6 +72,7 @@ function stripeRuntime(): StripeTerminalRuntimeState {
     tokenListenerPromise: null,
     tokenDeliveryQueue: Promise.resolve(),
     connected: null,
+    paymentInFlight: false,
   };
 
   return root[STRIPE_RUNTIME_KEY]!;
@@ -202,6 +204,75 @@ async function fetchConnectionToken() {
 
 async function recordPaymentResult(reference: string, status: "completed" | "failed", message: string) {
   await callApi("/api/public/pos/stripe-terminal/payment-result", { reference, status, message }).catch(() => undefined);
+}
+
+type StripeIntentStatus =
+  | "requires_payment_method"
+  | "requires_confirmation"
+  | "requires_action"
+  | "processing"
+  | "requires_capture"
+  | "canceled"
+  | "succeeded"
+  | string;
+
+async function readPaymentIntentStatus(reference: string) {
+  return callApi<{ ok: true; status: StripeIntentStatus; last_payment_error?: string | null }>(
+    "/api/public/pos/stripe-terminal/payment-result",
+    { action: "status", reference },
+  );
+}
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function reconcilePaymentIntent(reference: string) {
+  let latest: Awaited<ReturnType<typeof readPaymentIntentStatus>> | null = null;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    latest = await readPaymentIntentStatus(reference).catch(() => null);
+    if (latest?.status === "succeeded" || latest?.status === "requires_capture") return latest;
+    if (latest?.status === "canceled" || latest?.status === "requires_payment_method") return latest;
+    await delay(750);
+  }
+  return latest;
+}
+
+async function confirmCollectedPayment(mod: StripeModule, reference: string) {
+  let confirmedListener: { remove: () => Promise<void> } | null = null;
+  let failedListener: { remove: () => Promise<void> } | null = null;
+
+  const eventResult = new Promise<void>(async (resolve, reject) => {
+    try {
+      confirmedListener = await mod.StripeTerminal.addListener(
+        mod.TerminalEventsEnum.ConfirmedPaymentIntent,
+        () => resolve(),
+      );
+      failedListener = await mod.StripeTerminal.addListener(
+        mod.TerminalEventsEnum.Failed,
+        (info) => reject(new Error(info?.message || "Stripe Terminal could not process the card.")),
+      );
+    } catch {
+      // The native promise below remains the primary completion signal.
+    }
+  });
+
+  const timeout = new Promise<never>((_, reject) => {
+    window.setTimeout(() => reject(new Error("Stripe Terminal confirmation timed out.")), 12_000);
+  });
+
+  try {
+    await Promise.race([mod.StripeTerminal.confirmPaymentIntent(), eventResult, timeout]);
+    return;
+  } catch (error) {
+    const status = await reconcilePaymentIntent(reference);
+    if (status?.status === "succeeded" || status?.status === "requires_capture") return;
+    if (status?.last_payment_error) throw new Error(status.last_payment_error);
+    throw error;
+  } finally {
+    await confirmedListener?.remove().catch(() => undefined);
+    await failedListener?.remove().catch(() => undefined);
+  }
 }
 
 async function createPaymentIntent(
@@ -652,8 +723,18 @@ export async function charge(
   input: { amountCents: number; currency: string; description?: string; idempotencyId?: string },
   onStatus?: (message: string) => void,
 ): Promise<{ ok: true; ref: string } | { ok: false; error: string }> {
+  const runtime = stripeRuntime();
+  if (runtime.paymentInFlight) {
+    return { ok: false, error: "A card payment is already in progress. Wait for it to finish or cancel it." };
+  }
+
+  runtime.paymentInFlight = true;
   let paymentIntentId = "";
   try {
+    if (input.amountCents < 50) {
+      return { ok: false, error: "Card payments must be at least $0.50." };
+    }
+
     const configuration = await activeConfiguration(driver);
     const { mod } = await ensureReader(configuration, onStatus);
     onStatus?.("Creating secure card-present payment…");
@@ -662,16 +743,29 @@ export async function charge(
     onStatus?.("Ask the customer to tap, insert, or swipe…");
     await mod.StripeTerminal.collectPaymentMethod({ paymentIntent: intent.client_secret });
     onStatus?.("Processing payment…");
-    await mod.StripeTerminal.confirmPaymentIntent();
+    await confirmCollectedPayment(mod, intent.id);
+
+    const finalStatus = await reconcilePaymentIntent(intent.id);
+    if (finalStatus && finalStatus.status !== "succeeded" && finalStatus.status !== "requires_capture") {
+      throw new Error(finalStatus.last_payment_error || `Payment did not complete (${finalStatus.status}).`);
+    }
+
     await recordPaymentResult(intent.id, "completed", "Stripe Terminal payment approved");
     onStatus?.("Payment approved");
     return { ok: true, ref: intent.id };
   } catch (error) {
-    const message = rawTerminalError(error, "PAYMENT_FLOW").message;
+    const rawMessage = error instanceof Error ? error.message : "Card payment failed.";
+    const message = rawMessage.includes("most recently collected")
+      ? "The reader lost the active payment session. Cancel the payment and try the card once more."
+      : rawMessage.includes("timed out")
+        ? "The card was read, but Stripe did not finish the payment in time. Check the payment status before retrying."
+        : userFacingError(error, "Card payment failed. Please try again.");
     if (paymentIntentId) await recordPaymentResult(paymentIntentId, "failed", message);
     if (typeof localStorage !== "undefined") localStorage.setItem("pos.terminal.lastError", message);
     if (typeof window !== "undefined") window.dispatchEvent(new Event("seza:device-config-changed"));
     return { ok: false, error: message };
+  } finally {
+    runtime.paymentInFlight = false;
   }
 }
 
