@@ -490,18 +490,6 @@ async function initialize(testMode: boolean) {
   }
 
   runtime.initializePromise = (async () => {
-    // A Capacitor/WebView reload can recreate this JS module while Stripe's
-    // native Terminal singleton is still alive. If the native plugin already
-    // answers getConnectedReader(), do not call initialize() again and replace
-    // the TokenProvider underneath the existing native Terminal instance.
-    try {
-      await mod.StripeTerminal.getConnectedReader();
-      runtime.initializedMode = testMode;
-      return mod;
-    } catch {
-      // Native Terminal is not initialized yet. Continue with first init.
-    }
-
     await mod.StripeTerminal.initialize({ isTest: testMode });
     runtime.initializedMode = testMode;
     return mod;
@@ -647,6 +635,9 @@ export function connectedReader() {
 }
 
 export async function isReady(_driver: TerminalDriverId) {
+  const runtime = stripeRuntime();
+  if (runtime.initializedMode === null) return Boolean(runtime.connected);
+
   try {
     const mod = await loadModule();
     const result = await mod.StripeTerminal.getConnectedReader();
