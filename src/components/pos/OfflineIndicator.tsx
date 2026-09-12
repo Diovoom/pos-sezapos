@@ -6,12 +6,9 @@ import { cn } from "@/lib/utils";
 import { useOnline, useSyncEvents } from "@/lib/offline/useOnline";
 import { pendingCounts, syncNow, installAutoSync } from "@/lib/offline/sync";
 import { getAllOfflineSales, type OfflineSale } from "@/lib/offline/db";
-import { sendPosHeartbeat, readPosConnectionState } from "@/lib/pos/heartbeat";
-import { useMe } from "@/hooks/useMe";
 
 export function OfflineIndicator() {
   const online = useOnline();
-  const { data: me } = useMe();
   const evt = useSyncEvents();
   const [counts, setCounts] = useState<{
     pendingSales: number;
@@ -46,38 +43,32 @@ export function OfflineIndicator() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const checkCloud = async () => {
+    const readHeartbeat = () => {
       if (!online) {
-        if (!cancelled) setCloudReachable(false);
+        setCloudReachable(false);
         return;
       }
       try {
-        const state = await sendPosHeartbeat({
-          storeId: me?.store?.id,
-          employeeId: me?.user?.id ?? null,
-          employeeName: me?.profile?.full_name ?? me?.user?.email ?? null,
-          pendingSync: counts.pendingSales + counts.pendingCash,
-        });
-        if (!cancelled) {
-          setCloudReachable(state.cloudReachable);
-          setLastCloudCheck(state.lastCheckedAt);
+        const cached = JSON.parse(localStorage.getItem("seza.device.heartbeatState") ?? "null") as
+          | { cloudReachable?: boolean; lastCheckedAt?: string }
+          | null;
+        if (cached) {
+          setCloudReachable(Boolean(cached.cloudReachable));
+          setLastCloudCheck(cached.lastCheckedAt ?? null);
         }
       } catch {
-        const cached = readPosConnectionState();
-        if (!cancelled) {
-          setCloudReachable(cached?.cloudReachable ?? false);
-          setLastCloudCheck(cached?.lastCheckedAt ?? new Date().toISOString());
-        }
+        // Heartbeat state is best-effort UI state only.
       }
     };
-    void checkCloud();
-    const timer = window.setInterval(checkCloud, 15_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
+    const onHeartbeat = (event: Event) => {
+      const detail = (event as CustomEvent<{ cloudReachable: boolean; lastCheckedAt: string }>).detail;
+      setCloudReachable(Boolean(detail?.cloudReachable));
+      setLastCloudCheck(detail?.lastCheckedAt ?? new Date().toISOString());
     };
-  }, [online, me?.store?.id, me?.user?.id, counts.pendingSales, counts.pendingCash]);
+    readHeartbeat();
+    window.addEventListener("seza:device-heartbeat-state", onHeartbeat as EventListener);
+    return () => window.removeEventListener("seza:device-heartbeat-state", onHeartbeat as EventListener);
+  }, [online]);
   useEffect(() => {
     void refresh();
   }, [evt, online]);

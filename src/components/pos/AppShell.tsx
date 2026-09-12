@@ -46,7 +46,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const MORE_NAV = [
-  { to: "/pos", label: "POS checkout (temporary)", icon: CreditCard },
   { to: "/sales", label: "Sales", icon: Receipt },
   { to: "/inventory", label: "Inventory", icon: Boxes },
   { to: "/customers", label: "Customers", icon: Users },

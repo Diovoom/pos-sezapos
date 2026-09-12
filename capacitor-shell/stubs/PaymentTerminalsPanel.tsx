@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, CreditCard, ExternalLink, Loader2, RefreshCw, Unplug, Wifi } from "lucide-react";
 import { toast } from "sonner";
@@ -39,37 +38,8 @@ function readerLabel(terminal: StripeTerminalRecord) {
 }
 
 
-function rawErrorText(error: unknown): string {
-  if (error instanceof Error) return error.message || `${error.name}: (empty message)`;
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object") {
-    try {
-      return JSON.stringify(error, null, 2);
-    } catch {
-      return String(error);
-    }
-  }
-  return String(error);
-}
-
 export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
   const qc = useQueryClient();
-  const [rawReaderError, setRawReaderError] = useState<string | null>(() =>
-    typeof localStorage !== "undefined" ? localStorage.getItem("pos.terminal.rawError") : null,
-  );
-
-  const showRawError = (error: unknown, stage: string) => {
-    const raw = `[SEZA-RAW-UI] stage=${stage} | ${rawErrorText(error)}`;
-    setRawReaderError(raw);
-    if (typeof localStorage !== "undefined") localStorage.setItem("pos.terminal.rawError", raw);
-    console.error(raw, error);
-    toast.error(raw, { duration: 30000 });
-  };
-
-  const clearRawError = () => {
-    setRawReaderError(null);
-    if (typeof localStorage !== "undefined") localStorage.removeItem("pos.terminal.rawError");
-  };
 
   const connectivity = useQuery({
     queryKey: ["android-connectivity"],
@@ -114,11 +84,13 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     const method = requestedMethod ?? connectionMethod(reader);
     setStripeReaderConnectionMethod(reader.id, method);
 
-    clearRawError();
     const permission = await deviceControl.requestTerminalPermissions(method);
     if (!permission.granted) {
+      console.error("[SEZA Stripe M2] Android reader permission state", permission);
       throw new Error(
-        `[SEZA-RAW-PERMISSION] method=${method} state=${JSON.stringify(permission)}`,
+        method === "usb"
+          ? "Android did not grant SEZA access to the connected USB reader."
+          : "Android did not grant SEZA the required Bluetooth/location access.",
       );
     }
 
@@ -156,13 +128,12 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       return connectExisting(created, method);
     },
     onSuccess: async (reader) => {
-      clearRawError();
       await refresh();
       toast.success(`${reader.label || reader.serialNumber} is connected.`);
     },
     onError: async (error) => {
       await refresh();
-      showRawError(error, "CONNECT_NEW");
+      toast.error(userFacingError(error, "Could not connect the card reader."));
     },
   });
 
@@ -185,11 +156,10 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       );
     },
     onSuccess: async (reader) => {
-      clearRawError();
       await refresh();
       toast.success(`${reader.label || reader.serialNumber} is connected.`);
     },
-    onError: (error) => showRawError(error, "SWITCH_CONNECTION"),
+    onError: (error) => toast.error(userFacingError(error, "Could not change the reader connection.")),
   });
 
   const test = useMutation({
@@ -209,7 +179,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     },
     onError: (error) => {
       toast.dismiss("seza-reader-test");
-      showRawError(error, "TEST_READER");
+      toast.error(userFacingError(error, "Card reader test failed."));
     },
   });
 
@@ -299,22 +269,6 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
           <CardDescription>Connect the Reader M2 used by this register.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {rawReaderError ? (
-            <div className="rounded-lg border border-red-500/60 bg-red-500/5 p-3">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-red-700">
-                  TEMP RAW STRIPE ERROR
-                </div>
-                <Button type="button" variant="outline" size="sm" onClick={clearRawError}>
-                  Clear
-                </Button>
-              </div>
-              <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all text-xs leading-5">
-                {rawReaderError}
-              </pre>
-            </div>
-          ) : null}
-
           {!terminal ? (
             <div className="space-y-3">
               <div className="rounded-lg border border-dashed p-5 text-sm">

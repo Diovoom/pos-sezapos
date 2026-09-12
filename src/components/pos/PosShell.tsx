@@ -61,8 +61,6 @@ import { Settings as SettingsIcon } from "lucide-react";
 import { useStoreLanguageSync } from "@/hooks/useStoreLanguageSync";
 import { useTranslation } from "react-i18next";
 import { usePermissions } from "@/hooks/usePermissions";
-import { sendPosHeartbeat } from "@/lib/pos/heartbeat";
-import { pendingCounts } from "@/lib/offline/sync";
 import { cacheMeta, deleteMeta, readMeta } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import { PosManagerDashboardDialog } from "@/components/pos/PosManagerDashboardDialog";
@@ -280,25 +278,6 @@ export function PosShell({ children }: { children: ReactNode }) {
   const shiftStatus = openShift.data
     ? `On shift · opened ${new Date(openShift.data.opened_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
     : "No open shift";
-
-  useEffect(() => {
-    if (!isNativeShell || !storeId) return;
-    let cancelled = false;
-    const beat = async () => {
-      const counts = await pendingCounts().catch(() => ({ pendingSales: 0, pendingCash: 0 } as any));
-      if (cancelled) return;
-      await sendPosHeartbeat({
-        storeId,
-        employeeId: me?.user?.id ?? null,
-        employeeName: compactEmployeeName(me?.profile?.full_name ?? me?.user?.email),
-        shiftId: openShift.data?.id ?? null,
-        pendingSync: Number(counts.pendingSales ?? 0) + Number(counts.pendingCash ?? 0),
-      }).catch(() => {});
-    };
-    void beat();
-    const timer = window.setInterval(beat, 20_000);
-    return () => { cancelled = true; window.clearInterval(timer); };
-  }, [isNativeShell, storeId, me?.user?.id, me?.profile?.full_name, openShift.data?.id]);
 
   useEffect(() => {
     if (!isNativeShell || !storeId || !storeName) return;
