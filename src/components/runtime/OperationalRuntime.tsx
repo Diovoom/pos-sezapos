@@ -150,6 +150,11 @@ export function OperationalRuntime({
       "/setup",
       "/onboarding",
       "/customer-display",
+      "/pos",
+      "/register",
+      "/refunds",
+      "/timeclock",
+      "/manager-tools",
     ];
 
     const isDashboardPath = dashboardPrefixes.some(

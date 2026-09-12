@@ -2,14 +2,12 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { PosShell } from "@/components/pos/PosShell";
 import { hasAnyPlatformRole } from "@/lib/platform-roles";
-import { isNativeMode } from "@/lib/native";
 
-// Android-only register shell. The merchant website never exposes the live checkout register.
+// TEMPORARY: browser POS access enabled for merchant diagnostics. Remove after M2 debugging.
 export const Route = createFileRoute("/_pos")({
   ssr: false,
   head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   beforeLoad: async () => {
-    if (!isNativeMode()) throw redirect({ to: "/dashboard" });
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
 
