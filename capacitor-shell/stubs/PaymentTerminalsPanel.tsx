@@ -4,11 +4,14 @@ import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { setActiveTerminal } from "@/lib/hardware";
 import {
+  clearStripeReaderConnectionMethod,
   connectReader,
   disconnect,
+  getStripeReaderConnectionMethod,
   getStripeTerminalContext,
   isReady,
   saveStripeTerminal,
+  setStripeReaderConnectionMethod,
   updateStripeTerminal,
   type StripeTerminalRecord,
 } from "@/lib/hardware/terminal-stripe";
@@ -21,9 +24,12 @@ const SEZA_PAYMENT_SETUP_URL = "https://dashboard.sezapos.com/settings?section=t
 const READER_DRIVER = "stripe-m2" as const;
 
 function connectionMethod(terminal: StripeTerminalRecord): "usb" | "bluetooth" {
-  return String(terminal.config?.connection_method || "bluetooth").toLowerCase() === "bluetooth"
-    ? "bluetooth"
-    : "usb";
+  return (
+    getStripeReaderConnectionMethod(terminal.id) ??
+    (String(terminal.config?.connection_method || "bluetooth").toLowerCase() === "bluetooth"
+      ? "bluetooth"
+      : "usb")
+  );
 }
 
 function readerLabel(terminal: StripeTerminalRecord) {
@@ -70,15 +76,25 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     ]);
   };
 
-  const connectExisting = async (reader: StripeTerminalRecord) => {
-    const method = connectionMethod(reader);
+  const connectExisting = async (
+    reader: StripeTerminalRecord,
+    requestedMethod?: "usb" | "bluetooth",
+  ) => {
+    const method = requestedMethod ?? connectionMethod(reader);
+    setStripeReaderConnectionMethod(reader.id, method);
+
     const permission = await deviceControl.requestTerminalPermissions(method);
     if (!permission.granted) {
-      throw new Error(
-        method === "bluetooth"
-          ? "Allow Location and Nearby devices for SEZA POS, then try Bluetooth again."
-          : "Allow Location for SEZA POS, then try the USB reader again.",
-      );
+      if (method === "usb") {
+        if (permission.usbDeviceFound === false) {
+          throw new Error("Reader M2 is not connected to this Android register over USB.");
+        }
+        if (permission.usbGranted === false) {
+          throw new Error("USB access was not granted for Reader M2. Approve the Android USB prompt, then try again.");
+        }
+        throw new Error("Allow Location and USB access for SEZA POS, then try the reader again.");
+      }
+      throw new Error("Allow Location and Nearby devices for SEZA POS, then try Bluetooth again.");
     }
 
     await updateStripeTerminal("activate", reader.id);
@@ -111,7 +127,8 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       });
       const created = saved.terminals[saved.terminals.length - 1];
       if (!created) throw new Error("The card reader could not be prepared.");
-      return connectExisting(created);
+      setStripeReaderConnectionMethod(created.id, method);
+      return connectExisting(created, method);
     },
     onSuccess: async (reader) => {
       await refresh();
@@ -126,12 +143,20 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
   const switchConnection = useMutation({
     mutationFn: async ({ reader, method }: { reader: StripeTerminalRecord; method: "usb" | "bluetooth" }) => {
       await disconnect().catch(() => undefined);
-      await updateStripeTerminal("connection_method", reader.id, { connectionMethod: method });
-      return connectExisting({
-        ...reader,
-        status: "configured",
-        config: { ...(reader.config || {}), connection_method: method },
-      });
+
+      // Connection transport belongs to this physical Android register.
+      // Keep it locally so older deployed SEZA APIs don't need a
+      // "connection_method" reader action just to switch USB/Bluetooth.
+      setStripeReaderConnectionMethod(reader.id, method);
+
+      return connectExisting(
+        {
+          ...reader,
+          status: "configured",
+          config: { ...(reader.config || {}), connection_method: method },
+        },
+        method,
+      );
     },
     onSuccess: async (reader) => {
       await refresh();
@@ -180,6 +205,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     mutationFn: async (reader: StripeTerminalRecord) => {
       if (reader.status === "active") await disconnect().catch(() => undefined);
       await updateStripeTerminal("remove", reader.id);
+      clearStripeReaderConnectionMethod(reader.id);
       setActiveTerminal("none");
       setActivePaymentProvider(null);
       window.dispatchEvent(new Event("seza:device-config-changed"));

@@ -12,6 +12,8 @@ export type TerminalPermissionState = {
   granted: boolean;
   locationGranted: boolean;
   bluetoothGranted: boolean;
+  usbDeviceFound?: boolean;
+  usbGranted?: boolean;
 };
 
 export type DeviceControlState = {

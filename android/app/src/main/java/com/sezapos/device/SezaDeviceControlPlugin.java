@@ -2,17 +2,26 @@ package com.sezapos.device;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.PendingIntent;
 import android.app.admin.DevicePolicyManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.content.pm.PackageManager;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbManager;
 import android.net.wifi.WifiManager;
 import android.provider.Settings;
 import android.view.View;
 import android.view.WindowManager;
+
+import java.util.Locale;
+import java.util.Map;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
@@ -169,11 +178,161 @@ public class SezaDeviceControlPlugin extends Plugin {
         boolean locationGranted = getPermissionState("terminalLocation") == PermissionState.GRANTED;
         boolean bluetoothGranted = !needsBluetooth || getPermissionState("terminalBluetooth") == PermissionState.GRANTED;
 
+        if (!locationGranted || !bluetoothGranted) {
+            resolveTerminalPermissionResult(call, locationGranted, bluetoothGranted, false, false, false);
+            return;
+        }
+
+        if ("usb".equalsIgnoreCase(method)) {
+            requestStripeUsbPermission(call, locationGranted, bluetoothGranted);
+            return;
+        }
+
+        resolveTerminalPermissionResult(call, locationGranted, bluetoothGranted, false, true, true);
+    }
+
+    private void resolveTerminalPermissionResult(
+        PluginCall call,
+        boolean locationGranted,
+        boolean bluetoothGranted,
+        boolean usbDeviceFound,
+        boolean usbGranted,
+        boolean granted
+    ) {
         JSObject result = new JSObject();
-        result.put("granted", locationGranted && bluetoothGranted);
+        result.put("granted", granted);
         result.put("locationGranted", locationGranted);
         result.put("bluetoothGranted", bluetoothGranted);
+        result.put("usbDeviceFound", usbDeviceFound);
+        result.put("usbGranted", usbGranted);
         call.resolve(result);
+    }
+
+    private UsbDevice findStripeUsbReader(UsbManager usbManager) {
+        if (usbManager == null) return null;
+
+        UsbDevice fallback = null;
+        for (Map.Entry<String, UsbDevice> entry : usbManager.getDeviceList().entrySet()) {
+            UsbDevice device = entry.getValue();
+            if (device == null) continue;
+
+            String manufacturer = "";
+            String product = "";
+            try {
+                manufacturer = device.getManufacturerName() == null
+                    ? ""
+                    : device.getManufacturerName().toUpperCase(Locale.US);
+            } catch (Exception ignored) {}
+            try {
+                product = device.getProductName() == null
+                    ? ""
+                    : device.getProductName().toUpperCase(Locale.US);
+            } catch (Exception ignored) {}
+
+            if (
+                manufacturer.contains("BBPOS") ||
+                manufacturer.contains("STRIPE") ||
+                product.contains("STRIPE") ||
+                product.contains("STRM2") ||
+                product.contains("READER M2")
+            ) {
+                return device;
+            }
+
+            if (fallback == null && device.getDeviceClass() == 0) {
+                fallback = device;
+            }
+        }
+        return fallback;
+    }
+
+    private void requestStripeUsbPermission(
+        PluginCall call,
+        boolean locationGranted,
+        boolean bluetoothGranted
+    ) {
+        UsbManager usbManager = (UsbManager) getContext().getSystemService(Context.USB_SERVICE);
+        UsbDevice reader = findStripeUsbReader(usbManager);
+
+        if (usbManager == null || reader == null) {
+            resolveTerminalPermissionResult(
+                call,
+                locationGranted,
+                bluetoothGranted,
+                false,
+                false,
+                false
+            );
+            return;
+        }
+
+        if (usbManager.hasPermission(reader)) {
+            resolveTerminalPermissionResult(
+                call,
+                locationGranted,
+                bluetoothGranted,
+                true,
+                true,
+                true
+            );
+            return;
+        }
+
+        final String action = getContext().getPackageName() + ".SEZA_STRIPE_USB_PERMISSION";
+        Intent permissionIntent = new Intent(action).setPackage(getContext().getPackageName());
+
+        int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            pendingFlags |= PendingIntent.FLAG_MUTABLE;
+        }
+
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+            getContext(),
+            reader.getDeviceId(),
+            permissionIntent,
+            pendingFlags
+        );
+
+        BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (!action.equals(intent.getAction())) return;
+
+                boolean granted = intent.getBooleanExtra(
+                    UsbManager.EXTRA_PERMISSION_GRANTED,
+                    false
+                );
+
+                try {
+                    context.unregisterReceiver(this);
+                } catch (Exception ignored) {}
+
+                resolveTerminalPermissionResult(
+                    call,
+                    locationGranted,
+                    bluetoothGranted,
+                    true,
+                    granted,
+                    granted
+                );
+            }
+        };
+
+        IntentFilter filter = new IntentFilter(action);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getContext().registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            getContext().registerReceiver(receiver, filter);
+        }
+
+        try {
+            usbManager.requestPermission(reader, pendingIntent);
+        } catch (Exception error) {
+            try {
+                getContext().unregisterReceiver(receiver);
+            } catch (Exception ignored) {}
+            call.reject("Unable to request USB access for Reader M2", error);
+        }
     }
 
     @PluginMethod

@@ -53,6 +53,29 @@ let initializedMode: boolean | null = null;
 let tokenListenerInstalled = false;
 let connected: { terminalId: string; driver: TerminalDriverId; serial: string } | null = null;
 
+const CONNECTION_METHOD_PREFIX = "pos.stripe.connectionMethod.";
+
+export function setStripeReaderConnectionMethod(
+  terminalId: string,
+  method: "usb" | "bluetooth",
+) {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(`${CONNECTION_METHOD_PREFIX}${terminalId}`, method);
+}
+
+export function getStripeReaderConnectionMethod(
+  terminalId: string,
+): "usb" | "bluetooth" | null {
+  if (typeof localStorage === "undefined") return null;
+  const value = localStorage.getItem(`${CONNECTION_METHOD_PREFIX}${terminalId}`);
+  return value === "usb" || value === "bluetooth" ? value : null;
+}
+
+export function clearStripeReaderConnectionMethod(terminalId: string) {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(`${CONNECTION_METHOD_PREFIX}${terminalId}`);
+}
+
 function apiBase() {
   if (typeof window === "undefined") return REMOTE_API;
   return isNativeMode() ? REMOTE_API : window.location.origin;
@@ -204,9 +227,10 @@ async function activeConfiguration(preferred?: TerminalDriverId): Promise<Termin
     // because the backend environment is sandbox.
     testMode: driver === "stripe-simulated",
     connectionMethod:
-      String(terminal.config?.connection_method || "bluetooth").toLowerCase() === "bluetooth"
+      getStripeReaderConnectionMethod(terminal.id) ??
+      (String(terminal.config?.connection_method || "bluetooth").toLowerCase() === "bluetooth"
         ? "bluetooth"
-        : "usb",
+        : "usb"),
     serial: terminal.serial,
   };
 }
@@ -268,20 +292,21 @@ function friendlyTerminalError(error: unknown, fallback: string): Error {
 async function discoverReaderList(
   mod: StripeModule,
   configuration: TerminalConfiguration,
-): Promise<any[]> {
+): Promise<{ readers: any[]; stop: () => Promise<void> }> {
   let listener: { remove: () => Promise<void> } | null = null;
   let resolveEventReaders: ((readers: any[]) => void) | null = null;
+  let settled = false;
 
   const eventReadersPromise = new Promise<any[]>((resolve) => {
-    resolveEventReaders = resolve;
+    resolveEventReaders = (readers) => {
+      if (settled) return;
+      resolve(readers);
+    };
   });
 
   const filterReaders = (value: unknown) => {
     let readers = readerList(value);
 
-    // Never let a physical reader configuration silently fall back to Stripe's
-    // built-in simulator. The simulator commonly reports labels/serials such as
-    // CHB20SIMULATOR, which is not a physical Stripe Reader M2.
     if (configuration.driver !== "stripe-simulated") {
       readers = readers.filter((reader) => {
         const identity = `${String(reader?.label || "")} ${String(reader?.serialNumber || "")} ${String(
@@ -291,9 +316,6 @@ async function discoverReaderList(
       });
     }
 
-    // When Reader M2 is selected, prefer an actual M2 if the bridge reports a
-    // device type. Keep readers with no deviceType because some plugin versions
-    // omit that field for USB discovery.
     if (configuration.driver === "stripe-m2") {
       const m2Readers = readers.filter((reader) => {
         const deviceType = String(reader?.deviceType || "").toLowerCase();
@@ -317,46 +339,44 @@ async function discoverReaderList(
     listener = null;
   }
 
-  try {
-    // Stripe's native Android USB discovery is listener-driven. With the normal
-    // USB discovery configuration the native scan can stay active until it is
-    // explicitly cancelled. Awaiting only the Capacitor method can therefore
-    // leave the cashier UI on "Discovering reader" even after Android has
-    // already reported the physical M2. Race the native method with the
-    // DiscoveredReaders event and stop discovery as soon as a physical reader
-    // is reported.
-    const nativeDiscoveryPromise = mod.StripeTerminal
-      .discoverReaders({
-        type: connectionType(mod, configuration.driver, configuration.connectionMethod),
-        locationId: configuration.locationId,
-      })
-      .then((result) => {
-        const readers = filterReaders(result);
-        // An empty immediate result isn't final for listener-driven USB/BLE
-        // discovery, so leave this branch pending and allow the event/timeout
-        // branch to decide.
-        if (readers.length) return readers;
-        return new Promise<any[]>(() => undefined);
-      })
-      .catch((error) => {
-        throw friendlyTerminalError(error, "Could not search for the Stripe card reader.");
-      });
-
-    const timeoutMs = configuration.connectionMethod === "usb" ? 10_000 : 20_000;
-    const timeoutPromise = new Promise<any[]>((resolve) => {
-      window.setTimeout(() => resolve([]), timeoutMs);
+  const nativeDiscoveryPromise = mod.StripeTerminal
+    .discoverReaders({
+      type: connectionType(mod, configuration.driver, configuration.connectionMethod),
+      locationId: configuration.locationId,
+    })
+    .then((result) => {
+      const readers = filterReaders(result);
+      if (readers.length) return readers;
+      return new Promise<any[]>(() => undefined);
+    })
+    .catch((error) => {
+      throw friendlyTerminalError(error, "Could not search for the Stripe card reader.");
     });
 
-    return await Promise.race([nativeDiscoveryPromise, eventReadersPromise, timeoutPromise]);
-  } finally {
-    // Discovery must be stopped before connectReader is called. This is also
-    // important when the event branch wins while the plugin's Promise is still
-    // waiting for native discovery to finish.
+  const timeoutMs = configuration.connectionMethod === "usb" ? 10_000 : 20_000;
+  const timeoutPromise = new Promise<any[]>((resolve) => {
+    window.setTimeout(() => resolve([]), timeoutMs);
+  });
+
+  const stop = async () => {
+    settled = true;
     await Promise.race([
       mod.StripeTerminal.cancelDiscoverReaders().catch(() => undefined),
       new Promise<void>((resolve) => window.setTimeout(resolve, 1_200)),
     ]);
     if (listener) await listener.remove().catch(() => undefined);
+  };
+
+  try {
+    const readers = await Promise.race([
+      nativeDiscoveryPromise,
+      eventReadersPromise,
+      timeoutPromise,
+    ]);
+    return { readers, stop };
+  } catch (error) {
+    await stop();
+    throw error;
   }
 }
 
@@ -395,11 +415,14 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
   onStatus?.(
     `Discovering Stripe reader over ${configuration.connectionMethod === "usb" ? "USB" : "Bluetooth"}…`,
   );
-  const readers = await discoverReaderList(mod, configuration);
+  const discovery = await discoverReaderList(mod, configuration);
+  const readers = discovery.readers;
   const reader = configuration.serial
     ? readers.find((item) => item?.serialNumber === configuration.serial) ?? readers[0]
     : readers[0];
+
   if (!reader) {
+    await discovery.stop();
     throw new Error(
       configuration.driver === "stripe-m2" && configuration.connectionMethod === "usb"
         ? "No Stripe Reader M2 was found over USB. Check power, the data cable, and Android USB permission."
@@ -409,9 +432,18 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
 
   onStatus?.(`Connecting ${reader.label || reader.serialNumber}…`);
   try {
-    await mod.StripeTerminal.connectReader({ reader, autoReconnectOnUnexpectedDisconnect: true });
+    // Keep Stripe discovery alive until connectReader receives the selected
+    // Reader object. Cancelling discovery first can invalidate a mobile reader
+    // connection attempt on some Android/USB stacks.
+    await mod.StripeTerminal.connectReader({
+      reader,
+      locationId: configuration.locationId,
+      autoReconnectOnUnexpectedDisconnect: true,
+    });
   } catch (error) {
     throw friendlyTerminalError(error, "Could not connect to the Stripe card reader.");
+  } finally {
+    await discovery.stop();
   }
   connected = {
     terminalId: configuration.terminalId,
