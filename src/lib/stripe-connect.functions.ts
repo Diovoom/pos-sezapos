@@ -57,6 +57,66 @@ function isPlatformManaged(account: any) {
   return String(account?.dashboard || "").toLowerCase() === "none";
 }
 
+function isStripeResourceMissing(error: any) {
+  const status = Number(error?.statusCode || error?.status || error?.raw?.statusCode || 0);
+  const code = String(error?.code || error?.raw?.code || "").toLowerCase();
+  return status === 404 || code === "resource_missing";
+}
+
+function accountMatchesEnvironment(account: any, env: StripeEnv) {
+  if (typeof account?.livemode !== "boolean") return true;
+  return env === "live" ? account.livemode === true : account.livemode === false;
+}
+
+async function markLiveSetupRequired(admin: any, store: any) {
+  const { error: storeError } = await admin
+    .from("stores")
+    .update({
+      stripe_connect_status: "live_setup_required",
+      stripe_card_payments_status: null,
+      stripe_terminal_location_id: null,
+      stripe_onboarding_completed_at: null,
+    })
+    .eq("id", store.id);
+  if (storeError) throw storeError;
+
+  const { error: terminalError } = await admin
+    .from("payment_terminals")
+    .update({ stripe_terminal_location_id: null })
+    .eq("store_id", store.id)
+    .eq("provider", "stripe");
+  if (terminalError) throw terminalError;
+}
+
+async function saveReplacementAccount(admin: any, store: any, account: any) {
+  const accountId = String(account.id || "").trim();
+  if (!accountId) throw new Error("Stripe did not return a connected account ID.");
+
+  const { error: storeError } = await admin
+    .from("stores")
+    .update({
+      stripe_connected_account_id: accountId,
+      stripe_connect_status: "onboarding",
+      stripe_card_payments_status: cardStatus(account),
+      stripe_terminal_location_id: null,
+      stripe_onboarding_completed_at: null,
+    })
+    .eq("id", store.id);
+  if (storeError) throw storeError;
+
+  const { error: terminalError } = await admin
+    .from("payment_terminals")
+    .update({
+      stripe_connected_account_id: accountId,
+      stripe_terminal_location_id: null,
+    })
+    .eq("store_id", store.id)
+    .eq("provider", "stripe");
+  if (terminalError) throw terminalError;
+
+  return accountId;
+}
+
 async function createPlatformManagedAccount(stripe: any, store: any, profile: any, migratedFrom?: string) {
   return stripe.v2.core.accounts.create({
     contact_email: store.email || profile.email || undefined,
@@ -144,7 +204,40 @@ async function refreshConnectedAccount(userId: string) {
   }
 
   const stripe: any = connectStripeClient(env);
-  const account = await retrieveConnectedAccount(stripe, accountId);
+  let account: any;
+  try {
+    account = await retrieveConnectedAccount(stripe, accountId);
+  } catch (error) {
+    if (env === "live" && isStripeResourceMissing(error)) {
+      await markLiveSetupRequired(admin, store);
+      return {
+        environment: env,
+        status: "live_setup_required",
+        cardPaymentsStatus: null,
+        terminalLocationReady: false,
+        needsStoreAddress: !hasTerminalAddress(store),
+        accountConnected: false,
+        migrationRequired: true,
+      };
+    }
+    throw error;
+  }
+
+  if (!accountMatchesEnvironment(account, env)) {
+    if (env === "live") {
+      await markLiveSetupRequired(admin, store);
+      return {
+        environment: env,
+        status: "live_setup_required",
+        cardPaymentsStatus: null,
+        terminalLocationReady: false,
+        needsStoreAddress: !hasTerminalAddress(store),
+        accountConnected: false,
+        migrationRequired: true,
+      };
+    }
+    throw new Error("Stripe connected account environment does not match SEZA payment mode.");
+  }
 
   if (!isPlatformManaged(account)) {
     const migrationRequired = true;
@@ -231,43 +324,32 @@ export const startStripeConnectOnboarding = createServerFn({ method: "POST" })
 
     try {
       if (accountId) {
-        const existing = await retrieveConnectedAccount(stripe, accountId);
-        if (!isPlatformManaged(existing)) {
+        let existing: any = null;
+        try {
+          existing = await retrieveConnectedAccount(stripe, accountId);
+        } catch (error) {
+          if (!(env === "live" && isStripeResourceMissing(error))) throw error;
+        }
+
+        const needsEnvironmentReplacement = !existing || !accountMatchesEnvironment(existing, env);
+        if (needsEnvironmentReplacement) {
+          const previousAccountId = accountId;
+          const replacement = await createPlatformManagedAccount(stripe, store, profile, previousAccountId);
+          accountId = await saveReplacementAccount(admin, store, replacement);
+        } else if (!isPlatformManaged(existing)) {
           if (env !== "sandbox") {
             throw new Error("This payment account needs a SEZA Support migration before setup can continue.");
           }
 
           const previousAccountId = accountId;
           const replacement = await createPlatformManagedAccount(stripe, store, profile, previousAccountId);
-          accountId = replacement.id;
-          const { error: replaceError } = await admin
-            .from("stores")
-            .update({
-              stripe_connected_account_id: accountId,
-              stripe_connect_status: "onboarding",
-              stripe_card_payments_status: cardStatus(replacement),
-              stripe_terminal_location_id: null,
-              stripe_onboarding_completed_at: null,
-            })
-            .eq("id", store.id);
-          if (replaceError) throw replaceError;
+          accountId = await saveReplacementAccount(admin, store, replacement);
         }
       }
 
       if (!accountId) {
         const account = await createPlatformManagedAccount(stripe, store, profile);
-        accountId = account.id;
-        const { error: saveError } = await admin
-          .from("stores")
-          .update({
-            stripe_connected_account_id: accountId,
-            stripe_connect_status: "onboarding",
-            stripe_card_payments_status: cardStatus(account),
-            stripe_terminal_location_id: null,
-            stripe_onboarding_completed_at: null,
-          })
-          .eq("id", store.id);
-        if (saveError) throw saveError;
+        accountId = await saveReplacementAccount(admin, store, account);
       }
 
       const accountLink = await stripe.v2.core.accountLinks.create({

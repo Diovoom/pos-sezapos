@@ -271,8 +271,11 @@ export function PaymentTerminalsPanel({
     onError: (error) => toast.error(userFacingError(error, "Could not start Stripe setup.")),
   });
 
+  const stripeEnvironment = stripeStatus.data?.environment === "sandbox" ? "sandbox" : "live";
+  const liveSetupRequired = stripeStatus.data?.status === "live_setup_required";
   const stripeReady =
-    stripeStatus.data?.status === "ready" || stripeStore.data?.stripe_connect_status === "ready";
+    stripeEnvironment === "live" &&
+    (stripeStatus.data?.status === "ready" || stripeStore.data?.stripe_connect_status === "ready");
   const stripeNeedsAddress = Boolean(
     stripeStatus.data?.needsStoreAddress ||
       (stripeStore.data?.stripe_connect_status === "payments_ready" &&
@@ -506,8 +509,8 @@ export function PaymentTerminalsPanel({
             <Smartphone className="size-5 text-primary" /> Stripe payment setup
           </CardTitle>
           <CardDescription>
-            SEZA handles the Stripe account and Terminal Location IDs behind the scenes. Store staff
-            should never have to copy Stripe IDs or secret keys into the POS.
+            Merchant card sales and payouts run in Stripe live mode. SEZA software subscription billing
+            is separate and can remain in test mode. Store staff never copy Stripe IDs or secret keys into the POS.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -533,19 +536,23 @@ export function PaymentTerminalsPanel({
               <div>
                 <div className="font-semibold">
                   {stripeReady
-                    ? "Stripe ready for card payments"
-                    : stripeNeedsAddress
-                      ? "Stripe verified — store address required"
-                      : stripeStore.data?.stripe_connected_account_id
-                        ? "Stripe verification in progress"
-                        : "Stripe is not connected yet"}
+                    ? "Stripe live payments ready"
+                    : liveSetupRequired
+                      ? "Live payout setup required"
+                      : stripeNeedsAddress
+                        ? "Stripe verified — store address required"
+                        : stripeStore.data?.stripe_connected_account_id
+                          ? "Stripe verification in progress"
+                          : "Stripe is not connected yet"}
                 </div>
                 <p className="mt-1 text-muted-foreground">
                   {stripeReady
-                    ? "SEZA has the connected merchant and Terminal Location. You can prepare and pair the reader."
-                    : stripeNeedsAddress
-                      ? "Complete Street address, City, State, ZIP and Country in General Settings. SEZA will then create the Terminal Location automatically."
-                      : "The store owner must finish Stripe onboarding before this register can accept card payments."}
+                    ? "Live merchant payouts and card processing are connected. SEZA software subscriptions remain separate."
+                    : liveSetupRequired
+                      ? "The saved merchant account belongs to Stripe test mode. Set up live payouts once; SEZA will replace the test merchant for card sales without changing subscription billing."
+                      : stripeNeedsAddress
+                        ? "Complete Street address, City, State, ZIP and Country in General Settings. SEZA will then create the live Terminal Location automatically."
+                        : "The store owner must finish Stripe onboarding before this register can accept live card payments."}
                 </p>
               </div>
               {stripeReady && <CheckCircle2 className="size-6 text-emerald-600" />}
@@ -576,9 +583,11 @@ export function PaymentTerminalsPanel({
                   )}
                   {stripeReady
                     ? "Manage payout account"
-                    : stripeStore.data?.stripe_connected_account_id
-                      ? "Continue Stripe setup"
-                      : "Connect Stripe"}
+                    : liveSetupRequired
+                      ? "Set up live payouts"
+                      : stripeStore.data?.stripe_connected_account_id
+                        ? "Continue Stripe setup"
+                        : "Connect Stripe"}
                 </Button>
               )}
               {stripeNeedsAddress && (
@@ -624,19 +633,25 @@ export function PaymentTerminalsPanel({
           <div className="rounded-lg border p-4">
             <div className="text-xs text-muted-foreground">Payout account</div>
             <div className="mt-1 font-semibold">
-              {stripeReady ? "Connected through Stripe" : "Setup required"}
+              {stripeReady ? "Live account connected" : liveSetupRequired ? "Live setup required" : "Setup required"}
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
               {stripeReady
                 ? "Use Manage payout account above to review or update the merchant bank account securely in Stripe."
-                : "The store owner must complete Stripe payout setup before live card processing."}
+                : liveSetupRequired
+                  ? "Your previous Stripe merchant was test data. Set up the live payout account before charging real cards."
+                  : "The store owner must complete Stripe payout setup before live card processing."}
             </div>
           </div>
           <div className="rounded-lg border p-4">
             <div className="text-xs text-muted-foreground">Security</div>
             <div className="mt-1 flex items-center gap-2 font-semibold">
               <ShieldCheck className="size-4" />
-              {stripeReady ? "Stripe verification complete" : "Owner verification required"}
+              {stripeReady
+                ? "Live Stripe verification complete"
+                : liveSetupRequired
+                  ? "Live verification required"
+                  : "Owner verification required"}
             </div>
           </div>
         </CardContent>

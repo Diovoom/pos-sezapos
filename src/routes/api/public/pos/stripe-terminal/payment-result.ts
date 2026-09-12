@@ -65,6 +65,9 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-re
             if (String(intent.metadata?.seza_store_id || "") !== merchant.storeId) {
               return json({ error: "Payment does not belong to this store." }, 403);
             }
+            if (Boolean(intent.livemode) !== (merchant.environment === "live")) {
+              return json({ error: "Stripe payment environment mismatch." }, 409);
+            }
             const lastError = intent.last_payment_error?.message || null;
             const auditStatus =
               intent.status === "succeeded" || intent.status === "requires_capture"
@@ -85,7 +88,13 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-re
                 .eq("reference", reference)
                 .eq("provider", "stripe_terminal");
             }
-            return json({ ok: true, status: intent.status, last_payment_error: lastError });
+            return json({
+              ok: true,
+              status: intent.status,
+              last_payment_error: lastError,
+              environment: merchant.environment,
+              livemode: Boolean(intent.livemode),
+            });
           }
 
           const caller = await resolveStripeTerminalCaller({ bearerToken, nativeAuth: body.nativeAuth });

@@ -90,6 +90,10 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
           });
 
           const intent = await Promise.race([intentRequest, intentTimeout]);
+          const expectedLiveMode = merchant.environment === "live";
+          if (Boolean(intent.livemode) !== expectedLiveMode) {
+            throw new Error("Stripe card processing environment mismatch. Refresh Stripe setup before retrying.");
+          }
 
           const auditWrite = (supabaseAdmin.from as any)("payment_attempts").insert({
             store_id: merchant.storeId,
@@ -99,7 +103,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
             amount: amount / 100,
             currency,
             status: "created",
-            message: "Stripe Terminal PaymentIntent created",
+            message: `Stripe Terminal PaymentIntent created (${merchant.environment})`,
             reference: intent.id,
           });
 
@@ -109,7 +113,12 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
             new Promise((resolve) => setTimeout(resolve, 1_000)),
           ]);
 
-          return json({ id: intent.id, client_secret: intent.client_secret });
+          return json({
+            id: intent.id,
+            client_secret: intent.client_secret,
+            environment: merchant.environment,
+            livemode: Boolean(intent.livemode),
+          });
         } catch (error) {
           return json({ error: error instanceof Error ? error.message : "Stripe payment failed" }, 400);
         }

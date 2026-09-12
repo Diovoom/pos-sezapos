@@ -10,7 +10,13 @@ const getEnv = (key: string): string => {
 export type StripeEnv = "sandbox" | "live";
 
 export function getStripeMode(): StripeEnv {
-  return process.env.STRIPE_CONNECT_MODE === "live" ? "live" : "sandbox";
+  const configured = String(process.env.STRIPE_CONNECT_MODE || "").trim().toLowerCase();
+  if (configured === "live") return "live";
+  if (configured === "sandbox") return "sandbox";
+
+  // Merchant Connect/Terminal must be live in deployed SEZA. Local development
+  // remains sandbox by default so developers cannot accidentally charge a card.
+  return process.env.NODE_ENV === "development" ? "sandbox" : "live";
 }
 
 /**
