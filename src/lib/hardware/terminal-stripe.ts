@@ -687,12 +687,20 @@ export async function cancelActivePayment() {
 export async function disconnect() {
   const runtime = stripeRuntime();
   const terminalId = runtime.connected?.terminalId;
-  try {
-    const mod = await loadModule();
-    await mod.StripeTerminal.disconnectReader();
-  } catch {
-    // Treat an already-disconnected reader as successfully disconnected.
+
+  // Stripe's native disconnectReader() calls Terminal.getInstance() and will
+  // crash the Android process if Terminal.initTerminal() has not run yet.
+  // A fresh USB connection flow may call disconnect() defensively before the
+  // first initialize(), so make that pre-init disconnect a no-op.
+  if (runtime.initializedMode !== null) {
+    try {
+      const mod = await loadModule();
+      await mod.StripeTerminal.disconnectReader();
+    } catch {
+      // Treat an already-disconnected reader as successfully disconnected.
+    }
   }
+
   runtime.connected = null;
   if (terminalId) await updateStripeTerminal("disconnected", terminalId).catch(() => undefined);
 }
