@@ -155,6 +155,18 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/webhook")(
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const { guardApiRequest } = await import("@/lib/security/api-security.server");
+        const blocked = await guardApiRequest(request, {
+          scope: "api.pos.stripe_terminal_webhook",
+          limit: 300,
+          windowSeconds: 60,
+          blockSeconds: 60,
+          maxBodyBytes: 1048576,
+          allowMissingOrigin: true,
+          skipOriginCheck: true,
+        });
+        if (blocked) return blocked;
+
         const rawEnv = new URL(request.url).searchParams.get("env");
         if (rawEnv !== "live") return json({ error: "Live environment required" }, 400);
 
