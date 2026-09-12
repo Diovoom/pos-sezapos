@@ -94,7 +94,20 @@ function hasTerminalAddress(store: any) {
 }
 
 async function ensureTerminalLocation(stripe: any, accountId: string, store: any) {
-  if (store.stripe_terminal_location_id) return store.stripe_terminal_location_id as string;
+  const existingLocationId = String(store.stripe_terminal_location_id || "").trim();
+  if (existingLocationId) {
+    try {
+      const existing = await stripe.terminal.locations.retrieve(existingLocationId, {
+        stripeAccount: accountId,
+      });
+      if (existing?.id) return existing.id as string;
+    } catch (error: any) {
+      const status = Number(error?.statusCode || error?.status || 0);
+      const code = String(error?.code || error?.raw?.code || "");
+      if (status !== 404 && code !== "resource_missing") throw error;
+    }
+  }
+
   if (!hasTerminalAddress(store)) return null;
 
   const location = await stripe.terminal.locations.create(
@@ -155,8 +168,8 @@ async function refreshConnectedAccount(userId: string) {
 
   const status = cardStatus(account);
   const cardReady = ["active", "enabled"].includes(String(status).toLowerCase());
-  let locationId = store.stripe_terminal_location_id || null;
-  if (cardReady && !locationId) {
+  let locationId: string | null = null;
+  if (cardReady) {
     locationId = await ensureTerminalLocation(stripe, accountId, store);
   }
 
@@ -172,6 +185,18 @@ async function refreshConnectedAccount(userId: string) {
     })
     .eq("id", store.id);
   if (updateError) throw updateError;
+
+  if (cardReady && locationId) {
+    const { error: terminalSyncError } = await admin
+      .from("payment_terminals")
+      .update({
+        stripe_connected_account_id: accountId,
+        stripe_terminal_location_id: locationId,
+      })
+      .eq("store_id", store.id)
+      .eq("provider", "stripe");
+    if (terminalSyncError) throw terminalSyncError;
+  }
 
   return {
     environment: env,

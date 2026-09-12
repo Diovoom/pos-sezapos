@@ -109,6 +109,7 @@ import { Route as ApiEmailTransactionalSendRouteImport } from './routes/api/emai
 import { Route as ApiEmailQueueProcessRouteImport } from './routes/api/email/queue/process'
 import { Route as AdminAppAdminSupportTicketIdRouteImport } from './routes/_adminApp/admin.support.$ticketId'
 import { Route as AdminAppAdminBusinessesStoreIdRouteImport } from './routes/_adminApp/admin.businesses.$storeId'
+import { Route as ApiPublicPosStripeTerminalWebhookRouteImport } from './routes/api/public/pos/stripe-terminal/webhook'
 import { Route as ApiPublicPosStripeTerminalRefundRouteImport } from './routes/api/public/pos/stripe-terminal/refund'
 import { Route as ApiPublicPosStripeTerminalReaderRouteImport } from './routes/api/public/pos/stripe-terminal/reader'
 import { Route as ApiPublicPosStripeTerminalPaymentResultRouteImport } from './routes/api/public/pos/stripe-terminal/payment-result'
@@ -632,6 +633,12 @@ const AdminAppAdminBusinessesStoreIdRoute =
     path: '/admin/businesses/$storeId',
     getParentRoute: () => AdminAppRouteRoute,
   } as any)
+const ApiPublicPosStripeTerminalWebhookRoute =
+  ApiPublicPosStripeTerminalWebhookRouteImport.update({
+    id: '/api/public/pos/stripe-terminal/webhook',
+    path: '/api/public/pos/stripe-terminal/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPosStripeTerminalRefundRoute =
   ApiPublicPosStripeTerminalRefundRouteImport.update({
     id: '/api/public/pos/stripe-terminal/refund',
@@ -791,6 +798,7 @@ export interface FileRoutesByFullPath {
   '/api/public/pos/stripe-terminal/payment-result': typeof ApiPublicPosStripeTerminalPaymentResultRoute
   '/api/public/pos/stripe-terminal/reader': typeof ApiPublicPosStripeTerminalReaderRoute
   '/api/public/pos/stripe-terminal/refund': typeof ApiPublicPosStripeTerminalRefundRoute
+  '/api/public/pos/stripe-terminal/webhook': typeof ApiPublicPosStripeTerminalWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -899,6 +907,7 @@ export interface FileRoutesByTo {
   '/api/public/pos/stripe-terminal/payment-result': typeof ApiPublicPosStripeTerminalPaymentResultRoute
   '/api/public/pos/stripe-terminal/reader': typeof ApiPublicPosStripeTerminalReaderRoute
   '/api/public/pos/stripe-terminal/refund': typeof ApiPublicPosStripeTerminalRefundRoute
+  '/api/public/pos/stripe-terminal/webhook': typeof ApiPublicPosStripeTerminalWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1011,6 +1020,7 @@ export interface FileRoutesById {
   '/api/public/pos/stripe-terminal/payment-result': typeof ApiPublicPosStripeTerminalPaymentResultRoute
   '/api/public/pos/stripe-terminal/reader': typeof ApiPublicPosStripeTerminalReaderRoute
   '/api/public/pos/stripe-terminal/refund': typeof ApiPublicPosStripeTerminalRefundRoute
+  '/api/public/pos/stripe-terminal/webhook': typeof ApiPublicPosStripeTerminalWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1121,6 +1131,7 @@ export interface FileRouteTypes {
     | '/api/public/pos/stripe-terminal/payment-result'
     | '/api/public/pos/stripe-terminal/reader'
     | '/api/public/pos/stripe-terminal/refund'
+    | '/api/public/pos/stripe-terminal/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1229,6 +1240,7 @@ export interface FileRouteTypes {
     | '/api/public/pos/stripe-terminal/payment-result'
     | '/api/public/pos/stripe-terminal/reader'
     | '/api/public/pos/stripe-terminal/refund'
+    | '/api/public/pos/stripe-terminal/webhook'
   id:
     | '__root__'
     | '/'
@@ -1340,6 +1352,7 @@ export interface FileRouteTypes {
     | '/api/public/pos/stripe-terminal/payment-result'
     | '/api/public/pos/stripe-terminal/reader'
     | '/api/public/pos/stripe-terminal/refund'
+    | '/api/public/pos/stripe-terminal/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1408,6 +1421,7 @@ export interface RootRouteChildren {
   ApiPublicPosStripeTerminalPaymentResultRoute: typeof ApiPublicPosStripeTerminalPaymentResultRoute
   ApiPublicPosStripeTerminalReaderRoute: typeof ApiPublicPosStripeTerminalReaderRoute
   ApiPublicPosStripeTerminalRefundRoute: typeof ApiPublicPosStripeTerminalRefundRoute
+  ApiPublicPosStripeTerminalWebhookRoute: typeof ApiPublicPosStripeTerminalWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2112,6 +2126,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAppAdminBusinessesStoreIdRouteImport
       parentRoute: typeof AdminAppRouteRoute
     }
+    '/api/public/pos/stripe-terminal/webhook': {
+      id: '/api/public/pos/stripe-terminal/webhook'
+      path: '/api/public/pos/stripe-terminal/webhook'
+      fullPath: '/api/public/pos/stripe-terminal/webhook'
+      preLoaderRoute: typeof ApiPublicPosStripeTerminalWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/pos/stripe-terminal/refund': {
       id: '/api/public/pos/stripe-terminal/refund'
       path: '/api/public/pos/stripe-terminal/refund'
@@ -2412,6 +2433,8 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicPosStripeTerminalPaymentResultRoute,
   ApiPublicPosStripeTerminalReaderRoute: ApiPublicPosStripeTerminalReaderRoute,
   ApiPublicPosStripeTerminalRefundRoute: ApiPublicPosStripeTerminalRefundRoute,
+  ApiPublicPosStripeTerminalWebhookRoute:
+    ApiPublicPosStripeTerminalWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
