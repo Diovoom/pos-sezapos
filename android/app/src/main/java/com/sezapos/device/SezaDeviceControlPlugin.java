@@ -184,7 +184,19 @@ public class SezaDeviceControlPlugin extends Plugin {
         }
 
         if ("usb".equalsIgnoreCase(method)) {
-            requestStripeUsbPermission(call, locationGranted, bluetoothGranted);
+            // Do not pre-gate Stripe USB with a second UsbManager permission check.
+            // Stripe Terminal's native SDK owns USB discovery/connection and will
+            // surface the real USB state. The previous custom check could target
+            // the wrong composite USB device and falsely report "USB access required"
+            // even when Android had already granted SEZA access to the M2.
+            resolveTerminalPermissionResult(
+                call,
+                locationGranted,
+                bluetoothGranted,
+                true,
+                true,
+                true
+            );
             return;
         }
 

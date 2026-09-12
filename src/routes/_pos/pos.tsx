@@ -1570,6 +1570,59 @@ export function PosPage() {
         total={total}
         currency={currency}
         onComplete={(p) => finalize.mutate(p)}
+        onPaymentEvent={(event) => {
+          if (
+            event.status === "payment_requested" ||
+            event.status === "connecting" ||
+            event.status === "processing" ||
+            event.status === "card_presented"
+          ) {
+            setDisplayStatus({
+              phase: "processing",
+              message:
+                event.status === "payment_requested"
+                  ? "Preparing card payment…"
+                  : event.message || "Preparing card payment…",
+            });
+            return;
+          }
+
+          if (event.status === "waiting_for_customer") {
+            setDisplayStatus({
+              phase: "processing",
+              message: "Tap, insert, or swipe your card on the Stripe Reader M2.",
+            });
+            return;
+          }
+
+          if (
+            event.status === "declined" ||
+            event.status === "error" ||
+            event.status === "network_error" ||
+            event.status === "timeout"
+          ) {
+            setDisplayStatus({
+              phase: "declined",
+              message: event.message || "Card payment could not be completed.",
+            });
+            return;
+          }
+
+          if (event.status === "cancelled") {
+            setDisplayStatus({
+              phase: "cancelled",
+              message: "Payment was cancelled at the register.",
+            });
+            return;
+          }
+
+          if (event.status === "approved") {
+            setDisplayStatus({
+              phase: "processing",
+              message: "Payment approved. Finishing sale…",
+            });
+          }
+        }}
         // Owners/managers/admins already possess payment-cancel authority.
         // Requiring a second manager PIN to back out of tender selection
         // is friction, not security  -  no payment has committed yet.

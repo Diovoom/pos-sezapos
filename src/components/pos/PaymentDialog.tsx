@@ -62,6 +62,7 @@ type Props = {
   total: number;
   currency: string;
   onComplete: (p: CompletedPayment) => void;
+  onPaymentEvent?: (event: PaymentEvent) => void;
   // When true (owner / admin / manager or holder of an equivalent
   // permission), backing out of an uncommitted tender does NOT require a
   // second manager PIN. No payment has been captured at this point, so
@@ -119,6 +120,7 @@ export function PaymentDialog({
   total,
   currency,
   onComplete,
+  onPaymentEvent,
   bypassCancelApproval = false,
 }: Props) {
   const isCash = method === "cash";
@@ -178,6 +180,7 @@ export function PaymentDialog({
               total={total}
               currency={currency}
               onComplete={onComplete}
+              onPaymentEvent={onPaymentEvent}
               onCancel={requestCancel}
               onCancelNoApproval={() => onOpenChange(false)}
             />
@@ -589,6 +592,7 @@ function TerminalPanel({
   total,
   currency,
   onComplete,
+  onPaymentEvent,
   onCancel,
   onCancelNoApproval,
 }: {
@@ -596,6 +600,7 @@ function TerminalPanel({
   total: number;
   currency: string;
   onComplete: (p: CompletedPayment) => void;
+  onPaymentEvent?: (event: PaymentEvent) => void;
   onCancel: () => void;
   // Bypass manager approval only when the flow can't actually charge
   // (e.g. no terminal connected). Approved sales and mid-charge cancels
@@ -634,6 +639,7 @@ function TerminalPanel({
         },
         (e) => {
           setEvent(e);
+          onPaymentEvent?.(e);
           void logPaymentAttempt({
             provider: provider.id,
             method: method as Exclude<PaymentMethod, "cash" | "split">,

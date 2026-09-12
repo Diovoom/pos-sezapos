@@ -62,7 +62,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
             requireActiveTerminal: true,
           });
           const stripe = createTerminalStripeClient(merchant.environment);
-          const intent = await stripe.paymentIntents.create(
+          const intentRequest = stripe.paymentIntents.create(
             {
               amount,
               currency,
@@ -82,7 +82,16 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
             },
           );
 
-          await (supabaseAdmin.from as any)("payment_attempts").insert({
+          const intentTimeout = new Promise<never>((_, reject) => {
+            setTimeout(
+              () => reject(new Error("[stripe-terminal/payment-intent] Stripe PaymentIntent creation timed out after 15 seconds")),
+              15_000,
+            );
+          });
+
+          const intent = await Promise.race([intentRequest, intentTimeout]);
+
+          const auditWrite = (supabaseAdmin.from as any)("payment_attempts").insert({
             store_id: merchant.storeId,
             attempted_by: merchant.userId,
             provider: "stripe_terminal",
@@ -93,6 +102,12 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
             message: "Stripe Terminal PaymentIntent created",
             reference: intent.id,
           });
+
+          // Audit logging is useful, but must never hold the customer's card flow.
+          await Promise.race([
+            Promise.resolve(auditWrite).catch(() => undefined),
+            new Promise((resolve) => setTimeout(resolve, 1_000)),
+          ]);
 
           return json({ id: intent.id, client_secret: intent.client_secret });
         } catch (error) {
