@@ -236,7 +236,7 @@ export function PosPage() {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [displayCompletion, setDisplayCompletion] = useState<CustomerDisplayPayload | null>(null);
   const [displayStatus, setDisplayStatus] = useState<{
-    phase: "processing" | "declined" | "cancelled";
+    phase: "processing" | "complete" | "declined" | "cancelled";
     message?: string;
   } | null>(null);
   const [ageOpen, setAgeOpen] = useState(false);
@@ -1026,7 +1026,7 @@ export function PosPage() {
       // If we came back online in the meantime, drain the queue.
       if (isOnlineNow()) void syncNow();
     },
-    onError: (e) => {
+    onError: (e, payment) => {
       // Always log the real error for developers
       console.error("[sale] finalize failed:", e);
       const friendly =
@@ -1037,8 +1037,19 @@ export function PosPage() {
             ? e.cause.message
             : e.message
           : undefined;
-      setDisplayStatus({ phase: "declined", message: friendly });
-      window.setTimeout(() => setDisplayStatus(null), 4_500);
+
+      // finalize.mutate() runs only after the card processor has returned an
+      // approval. A later database/receipt failure must not tell the customer
+      // that their card was declined when the charge already succeeded.
+      if (payment.method !== "cash") {
+        setDisplayStatus({
+          phase: "complete",
+          message: "Payment approved. Please wait for your receipt.",
+        });
+      } else {
+        setDisplayStatus({ phase: "declined", message: friendly });
+        window.setTimeout(() => setDisplayStatus(null), 4_500);
+      }
       toast.error(friendly, detail ? { description: detail } : undefined);
     },
   });
@@ -1090,9 +1101,12 @@ export function PosPage() {
       void publishCustomerDisplay(displayCompletion);
       return;
     }
-    const activeStatus = finalize.isPending
-      ? { phase: "processing" as const, message: "Please wait while payment is confirmed." }
-      : displayStatus;
+    const activeStatus =
+      displayStatus?.phase === "complete"
+        ? displayStatus
+        : finalize.isPending
+          ? { phase: "processing" as const, message: "Please wait while payment is confirmed." }
+          : displayStatus;
     const showCardReaderPrompt =
       payOpen && ["card", "tap", "apple_pay", "google_pay"].includes(tender);
     const customerDisplayPrefs = resolveCustomerDisplaySettings(store?.customer_display_settings);
@@ -1617,9 +1631,12 @@ export function PosPage() {
           }
 
           if (event.status === "approved") {
+            // The card is already authorized at this point. Do not leave the
+            // customer-facing display on a misleading Processing state while
+            // the cashier records the sale/receipt in SEZA.
             setDisplayStatus({
-              phase: "processing",
-              message: "Payment approved. Finishing sale…",
+              phase: "complete",
+              message: "Payment approved.",
             });
           }
         }}

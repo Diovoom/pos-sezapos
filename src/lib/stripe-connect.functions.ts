@@ -309,6 +309,31 @@ export const getStripeConnectStatus = createServerFn({ method: "GET" })
     try {
       return await refreshConnectedAccount(context.userId);
     } catch (error) {
+      // If live onboarding already completed and SEZA has a synced Terminal
+      // Location, a transient Stripe read failure should not replace a valid
+      // ready state with a scary generic error. Keep the last verified state
+      // visible and let a later refresh revalidate it against Stripe.
+      try {
+        const { store } = await loadStore(context.userId);
+        if (
+          store.stripe_connect_status === "ready" &&
+          store.stripe_connected_account_id &&
+          store.stripe_terminal_location_id
+        ) {
+          return {
+            environment: getStripeMode(),
+            status: "ready",
+            cardPaymentsStatus: store.stripe_card_payments_status || "active",
+            terminalLocationReady: true,
+            needsStoreAddress: false,
+            accountConnected: true,
+            migrationRequired: false,
+            cached: true,
+          };
+        }
+      } catch {
+        // Fall through to the real payment-service error below.
+      }
       throw new Error(getStripeErrorMessage(error));
     }
   });
