@@ -85,11 +85,11 @@ export function StripePayoutsManager({
     const target = mountRef.current;
     if (!open || !target || !connectInstance) return;
 
-    const payouts = connectInstance.create("payouts");
-    target.replaceChildren(payouts);
+    const accountManagement = connectInstance.create("account-management");
+    target.replaceChildren(accountManagement);
 
     return () => {
-      payouts.remove();
+      accountManagement.remove();
       target.replaceChildren();
     };
   }, [connectInstance, open]);
@@ -100,13 +100,13 @@ export function StripePayoutsManager({
         <DialogHeader className="border-b px-6 py-5">
           <DialogTitle>Manage payout account</DialogTitle>
           <DialogDescription>
-            View Stripe payouts, payout schedule, and securely review or change the bank account used for deposits.
+            Securely review or change the bank account Stripe uses for this store's deposits.
           </DialogDescription>
         </DialogHeader>
 
         {loading && !bootstrap ? (
           <div className="flex min-h-72 items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
-            <Loader2 className="size-5 animate-spin" /> Opening secure Stripe payout management…
+            <Loader2 className="size-5 animate-spin" /> Opening secure Stripe account management…
           </div>
         ) : (
           <div ref={mountRef} className="min-h-[560px] bg-background p-4 sm:p-6" />

@@ -50,6 +50,10 @@ type TerminalConfiguration = {
 
 type StripeTerminalRuntimeState = {
   modulePromise: Promise<StripeModule> | null;
+  // JS can reload while the Android Stripe Terminal singleton stays alive.
+  // Track native initialization separately so we never call initialize() twice
+  // and replace the plugin TokenProvider that owns Stripe's pending callback.
+  nativeInitialized: boolean;
   initializedMode: boolean | null;
   initializePromise: Promise<StripeModule> | null;
   tokenListenerPromise: Promise<void> | null;
@@ -67,6 +71,7 @@ function stripeRuntime(): StripeTerminalRuntimeState {
 
   root[STRIPE_RUNTIME_KEY] ??= {
     modulePromise: null,
+    nativeInitialized: false,
     initializedMode: null,
     initializePromise: null,
     tokenListenerPromise: null,
@@ -528,49 +533,81 @@ async function discoverReaderList(
   }
 }
 
+async function installConnectionTokenListener(mod: StripeModule): Promise<void> {
+  const runtime = stripeRuntime();
+  if (!runtime.tokenListenerPromise) {
+    runtime.tokenListenerPromise = mod.StripeTerminal
+      .addListener(mod.TerminalEventsEnum.RequestedConnectionToken, () => {
+        runtime.tokenDeliveryQueue = runtime.tokenDeliveryQueue
+          .catch(() => undefined)
+          .then(async () => {
+            const token = await fetchConnectionToken();
+            await mod.StripeTerminal.setConnectionToken({ token });
+          })
+          .catch((error) => {
+            console.error("[SEZA Terminal] connection token delivery failed", error);
+          });
+      })
+      .then(() => undefined)
+      .catch((error) => {
+        runtime.tokenListenerPromise = null;
+        throw error;
+      });
+  }
+  await runtime.tokenListenerPromise;
+}
+
+async function probeNativeReader(mod: StripeModule): Promise<any | null> {
+  try {
+    const result = await mod.StripeTerminal.getConnectedReader();
+    // getConnectedReader() can only succeed after the native Terminal singleton
+    // has been initialized. This is also true when JS reloaded and forgot state.
+    stripeRuntime().nativeInitialized = true;
+    return result?.reader ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function initialize(testMode: boolean) {
   const mod = await loadModule();
   const runtime = stripeRuntime();
 
-  runtime.tokenListenerPromise ??= mod.StripeTerminal
-    .addListener(mod.TerminalEventsEnum.RequestedConnectionToken, () => {
-      runtime.tokenDeliveryQueue = runtime.tokenDeliveryQueue
-        .catch(() => undefined)
-        .then(async () => {
-          try {
-            const token = await fetchConnectionToken();
-            await mod.StripeTerminal.setConnectionToken({ token });
-          } catch (error) {
-            console.error("[SEZA Terminal] connection token failed", error);
-          }
-        });
-    })
-    .then(() => undefined)
-    .catch((error) => {
-      runtime.tokenListenerPromise = null;
-      throw error;
-    });
+  // The plugin's native TokenProvider emits RequestedConnectionToken back to JS.
+  // The listener MUST exist before the first native initialize().
+  await installConnectionTokenListener(mod);
 
-  await runtime.tokenListenerPromise;
-
-  if (runtime.initializedMode === testMode) return mod;
-
-  if (runtime.initializePromise) {
-    await runtime.initializePromise;
-    if (runtime.initializedMode === testMode) return mod;
-  }
-
-  runtime.initializePromise = (async () => {
-    await mod.StripeTerminal.initialize({ isTest: testMode });
-    runtime.initializedMode = testMode;
+  if (runtime.nativeInitialized) {
+    if (runtime.initializedMode !== null && runtime.initializedMode !== testMode) {
+      throw new Error("Restart SEZA POS before switching between a simulated Stripe reader and a physical reader.");
+    }
     return mod;
-  })();
-
-  try {
-    return await runtime.initializePromise;
-  } finally {
-    runtime.initializePromise = null;
   }
+
+  if (!runtime.initializePromise) {
+    runtime.initializePromise = (async () => {
+      // Critical: a WebView/JS reload does not necessarily destroy Stripe's
+      // Android Terminal singleton. Calling plugin.initialize() a second time
+      // replaces the plugin TokenProvider field while Stripe still owns the old
+      // provider. Then setConnectionToken() is sent to the wrong provider and
+      // Android logs: "Stripe Terminal do not pending fetchConnectionToken".
+      // Probe first and preserve the existing native provider when it exists.
+      await probeNativeReader(mod);
+      if (stripeRuntime().nativeInitialized) {
+        runtime.initializedMode = testMode;
+        return mod;
+      }
+
+      await mod.StripeTerminal.initialize({ isTest: testMode });
+      runtime.nativeInitialized = true;
+      runtime.initializedMode = testMode;
+      return mod;
+    })().finally(() => {
+      runtime.initializePromise = null;
+    });
+  }
+
+  return runtime.initializePromise;
 }
 
 async function ensureReader(configuration: TerminalConfiguration, onStatus?: (message: string) => void) {
@@ -706,13 +743,21 @@ export function connectedReader() {
 }
 
 export async function isReady(_driver: TerminalDriverId) {
-  const runtime = stripeRuntime();
-  if (runtime.initializedMode === null) return Boolean(runtime.connected);
-
+  if (!isNativeMode()) return false;
   try {
     const mod = await loadModule();
-    const result = await mod.StripeTerminal.getConnectedReader();
-    return Boolean(result.reader);
+    const reader = await probeNativeReader(mod);
+    if (!reader) return false;
+
+    const runtime = stripeRuntime();
+    if (!runtime.connected) {
+      runtime.connected = {
+        terminalId: "",
+        driver: _driver,
+        serial: String(reader.serialNumber || reader.label || "Stripe Reader M2"),
+      };
+    }
+    return true;
   } catch {
     return false;
   }
@@ -786,7 +831,7 @@ export async function disconnect() {
   // crash the Android process if Terminal.initTerminal() has not run yet.
   // A fresh USB connection flow may call disconnect() defensively before the
   // first initialize(), so make that pre-init disconnect a no-op.
-  if (runtime.initializedMode !== null) {
+  if (runtime.nativeInitialized || runtime.initializedMode !== null) {
     try {
       const mod = await loadModule();
       await mod.StripeTerminal.disconnectReader();

@@ -5,7 +5,10 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
-import { isReady as isStripeReaderReady } from "@/lib/hardware/terminal-stripe";
+import {
+  getStripeTerminalContext,
+  isReady as isStripeReaderReady,
+} from "@/lib/hardware/terminal-stripe";
 
 export function PaymentTerminalPage() {
   const permissions = usePermissions();
@@ -21,6 +24,16 @@ export function PaymentTerminalPage() {
     refetchInterval: 1_000,
   });
   const readerConnected = readerReady.data === true;
+  const stripeSetup = useQuery({
+    queryKey: ["payment-terminal-stripe-setup-ready"],
+    queryFn: async () => {
+      const context = await getStripeTerminalContext();
+      return Boolean(context.ready && context.terminalLocationReady);
+    },
+    retry: false,
+    refetchInterval: 5_000,
+  });
+  const merchantSetupReady = stripeSetup.data === true;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-muted/25">
@@ -39,15 +52,26 @@ export function PaymentTerminalPage() {
         <div className="mx-auto max-w-4xl space-y-4">
           {!readerConnected && (
             <Card>
-              <CardContent className="grid gap-3 p-4 md:grid-cols-2">
+              <CardContent className={`grid gap-3 p-4 ${merchantSetupReady ? "" : "md:grid-cols-2"}`}>
                 <div className="flex gap-3">
                   <Usb className="mt-0.5 size-5 text-primary" />
-                  <div><p className="font-bold">On this Android register</p><p className="text-sm text-muted-foreground">Detect, pair, test, assign, or disconnect the physical reader. Plugging in USB only detects the device; the processor connector must still approve and pair it.</p></div>
+                  <div>
+                    <p className="font-bold">On this Android register</p>
+                    <p className="text-sm text-muted-foreground">
+                      SEZA will reconnect the saved Reader M2 automatically when this register starts or returns online. Keep the reader plugged into USB.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex gap-3">
-                  <ExternalLink className="mt-0.5 size-5 text-primary" />
-                  <div className="space-y-2"><p className="font-bold">On the Owner Dashboard</p><p className="text-sm text-muted-foreground">Connect the processor account, complete merchant verification, and securely add the settlement bank account.</p><Button asChild size="sm"><a href="https://dashboard.sezapos.com/settings?section=terminal" target="_blank" rel="noreferrer">Open owner payment setup</a></Button></div>
-                </div>
+                {!merchantSetupReady && (
+                  <div className="flex gap-3">
+                    <ExternalLink className="mt-0.5 size-5 text-primary" />
+                    <div className="space-y-2">
+                      <p className="font-bold">On the Owner Dashboard</p>
+                      <p className="text-sm text-muted-foreground">Connect the processor account, complete merchant verification, and securely add the settlement bank account.</p>
+                      <Button asChild size="sm"><a href="https://dashboard.sezapos.com/settings?section=terminal" target="_blank" rel="noreferrer">Open owner payment setup</a></Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

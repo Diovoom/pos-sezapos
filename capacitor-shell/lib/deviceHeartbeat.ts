@@ -24,7 +24,7 @@ let lastSnapshotKey = "";
 let lastLocalConnectionKey = "";
 let terminalReconnectPromise: Promise<boolean> | null = null;
 let lastTerminalReconnectAt = 0;
-const TERMINAL_RECONNECT_COOLDOWN_MS = 10_000;
+const TERMINAL_RECONNECT_COOLDOWN_MS = 5_000;
 
 function publishHeartbeatState(cloudReachable: boolean) {
   if (typeof window === "undefined") return;
@@ -39,16 +39,24 @@ async function stripeReaderConnected() {
 
 async function autoReconnectSavedTerminal(): Promise<boolean> {
   if (stopped || !isNetworkConnectedNow()) return false;
-  const now = Date.now();
   if (terminalReconnectPromise) return terminalReconnectPromise;
+
+  // The native Stripe endpoints require the signed-in register employee ID.
+  // After a power loss the heartbeat can start before the cashier enters a PIN.
+  // Do not consume the reconnect cooldown until that identity exists; the 1s
+  // local poll will reconnect almost immediately after successful PIN login.
+  const callerId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+  if (!callerId) return false;
+
+  const now = Date.now();
   if (now - lastTerminalReconnectAt < TERMINAL_RECONNECT_COOLDOWN_MS) return false;
-  lastTerminalReconnectAt = now;
 
   terminalReconnectPromise = (async () => {
     if (await stripeReaderConnected()) return true;
 
     const context = await stripeTerminal.getStripeTerminalContext().catch(() => null);
     if (!context?.ready || !context.locationId) return false;
+    lastTerminalReconnectAt = Date.now();
     const active = context.terminals.find((terminal) => terminal.status === "active");
     if (!active) return false;
 
@@ -81,7 +89,17 @@ async function autoReconnectSavedTerminal(): Promise<boolean> {
 
 async function pollLocalConnections() {
   if (stopped || typeof window === "undefined") return;
-  const terminalConnected = await stripeReaderConnected();
+  let terminalConnected = await stripeReaderConnected();
+
+  // Startup can beat the network/bootstrap by a few seconds after a power loss.
+  // Keep retrying the saved reader in the background until the native Stripe SDK
+  // confirms it is connected. The reconnect helper is cooldown-protected so this
+  // does not hammer discovery or interrupt an already-connected reader.
+  if (!terminalConnected && isNetworkConnectedNow()) {
+    await autoReconnectSavedTerminal().catch(() => false);
+    terminalConnected = await stripeReaderConnected();
+  }
+
   const detail = {
     online: isNetworkConnectedNow(),
     terminalConnected,

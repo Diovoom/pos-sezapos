@@ -364,23 +364,18 @@ export const createStripePayoutSession = createServerFn({ method: "POST" })
     }
 
     try {
-      // Accounts created with Accounts v2 can be used by v1 Account Sessions.
-      // The embedded Payouts component is the supported way for a connected
-      // account with no Stripe Dashboard access and Stripe-owned loss liability
-      // to view payouts and securely manage its payout bank account.
-      const stripe = new Stripe(getStripeSecretKey(env), {
-        apiVersion: "2026-03-25.dahlia" as any,
-      });
-
-      const account: any = await stripe.accounts.retrieve(accountId);
-      if (typeof account?.charges_enabled === "boolean" && !account.charges_enabled) {
-        throw new Error("Finish Stripe verification before managing payouts.");
-      }
-
+      // SEZA creates connected accounts with dashboard="none" while Stripe owns
+      // requirements/loss liability. Stripe requires Connect embedded components
+      // for account-holder initiated updates in this configuration.
+      //
+      // Do not preflight with accounts.retrieve() here. Account Sessions accept
+      // Accounts v2 IDs directly, and payout/bank maintenance must remain
+      // available even while card_payments is temporarily restricted.
+      const stripe = new Stripe(getStripeSecretKey(env));
       const session: any = await stripe.accountSessions.create({
         account: accountId,
         components: {
-          payouts: {
+          account_management: {
             enabled: true,
             features: {
               external_account_collection: true,
@@ -389,13 +384,36 @@ export const createStripePayoutSession = createServerFn({ method: "POST" })
         },
       } as any);
 
-      if (!session?.client_secret) throw new Error("Stripe did not return a payout session.");
+      if (!session?.client_secret) throw new Error("Stripe did not return an account-management session.");
       return {
         clientSecret: String(session.client_secret),
         publishableKey,
         environment: env,
       };
-    } catch (error) {
+    } catch (error: any) {
+      const stripeMessage = String(error?.raw?.message || error?.message || "");
+      const stripeCode = String(error?.raw?.code || error?.code || "");
+      const requestId = String(error?.requestId || error?.raw?.requestId || "");
+      console.error("[SEZA Stripe] payout/account-management session failed", {
+        code: stripeCode || undefined,
+        requestId: requestId || undefined,
+        message: stripeMessage || undefined,
+      });
+
+      const normalized = stripeMessage.toLowerCase();
+      if (
+        normalized.includes("site link") ||
+        (normalized.includes("account session") && normalized.includes("url")) ||
+        (normalized.includes("embedded") && normalized.includes("url"))
+      ) {
+        throw new Error(
+          "Stripe Connect Site links are not configured for live account management. Add the SEZA Owner Dashboard URL in Stripe Connect Site links, then try again.",
+        );
+      }
+      if (stripeCode === "resource_missing" || normalized.includes("no such account")) {
+        throw new Error("This store's Stripe payout account could not be found. Refresh Stripe status or reconnect Stripe.");
+      }
+
       throw new Error(getStripeErrorMessage(error));
     }
   });
