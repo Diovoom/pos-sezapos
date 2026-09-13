@@ -2,7 +2,7 @@ import { nativeFetch, userSafeNetworkMessage } from "./nativeHttp";
 import { API_BASE_URL } from "../supabase";
 import { getPairing } from "./pairing";
 import { hardwareSnapshot } from "@/lib/hardware/native-receipt";
-import { getActiveTerminal } from "@/lib/hardware";
+import { getActiveTerminal, type TerminalDriverId } from "@/lib/hardware";
 import { loadScannerConfig } from "./scannerConfig";
 import * as escposBle from "@/lib/hardware/escpos-ble";
 import * as escposUsb from "@/lib/hardware/escpos-usb";
@@ -10,14 +10,89 @@ import * as stripeTerminal from "@/lib/hardware/terminal-stripe";
 import { refreshDeviceBootstrap } from "./deviceBootstrap";
 import { isNetworkConnectedNow } from "@/lib/offline/useOnline";
 import { cacheMeta, readMeta } from "@/lib/offline/db";
+import { deviceControl } from "@/lib/device-control";
 
-const FOREGROUND_INTERVAL_MS = 15_000;
-const MAX_SILENCE_MS = 15_000;
+const LOCAL_CONNECTION_POLL_MS = 1_000;
+const CLOUD_KEEPALIVE_MS = 10_000;
+const MAX_SILENCE_MS = CLOUD_KEEPALIVE_MS;
 let timer: ReturnType<typeof setTimeout> | null = null;
+let localConnectionTimer: ReturnType<typeof setInterval> | null = null;
 let sending = false;
 let stopped = false;
 let lastSentAt = 0;
 let lastSnapshotKey = "";
+let lastLocalConnectionKey = "";
+let terminalReconnectPromise: Promise<boolean> | null = null;
+let lastTerminalReconnectAt = 0;
+const TERMINAL_RECONNECT_COOLDOWN_MS = 10_000;
+
+function publishHeartbeatState(cloudReachable: boolean) {
+  if (typeof window === "undefined") return;
+  const detail = { cloudReachable, lastCheckedAt: new Date().toISOString() };
+  try { window.localStorage.setItem("seza.device.heartbeatState", JSON.stringify(detail)); } catch {}
+  window.dispatchEvent(new CustomEvent("seza:device-heartbeat-state", { detail }));
+}
+
+async function stripeReaderConnected() {
+  return stripeTerminal.isReady("stripe-m2").catch(() => false);
+}
+
+async function autoReconnectSavedTerminal(): Promise<boolean> {
+  if (stopped || !isNetworkConnectedNow()) return false;
+  const now = Date.now();
+  if (terminalReconnectPromise) return terminalReconnectPromise;
+  if (now - lastTerminalReconnectAt < TERMINAL_RECONNECT_COOLDOWN_MS) return false;
+  lastTerminalReconnectAt = now;
+
+  terminalReconnectPromise = (async () => {
+    if (await stripeReaderConnected()) return true;
+
+    const context = await stripeTerminal.getStripeTerminalContext().catch(() => null);
+    if (!context?.ready || !context.locationId) return false;
+    const active = context.terminals.find((terminal) => terminal.status === "active");
+    if (!active) return false;
+
+    const configuredDriver = String(active.config?.reader_type || "");
+    const driver = (configuredDriver === "stripe" ? "stripe-m2" : configuredDriver) as TerminalDriverId;
+    if (!driver || driver === "none") return false;
+
+    const configuredMethod = String(active.config?.connection_method || "usb").toLowerCase();
+    const method =
+      stripeTerminal.getStripeReaderConnectionMethod(active.id) ??
+      (configuredMethod === "bluetooth" ? "bluetooth" : "usb");
+
+    const permission = await deviceControl
+      .requestTerminalPermissions(method)
+      .catch(() => ({ granted: false }));
+    if (!permission.granted) return false;
+
+    await stripeTerminal.restoreStripeTerminalSelection().catch(() => false);
+    await stripeTerminal.connectReader(driver).catch((error) => {
+      console.warn("[SEZA POS] saved card reader auto-reconnect deferred", error);
+      return null;
+    });
+    return stripeReaderConnected();
+  })().finally(() => {
+    terminalReconnectPromise = null;
+  });
+
+  return terminalReconnectPromise;
+}
+
+async function pollLocalConnections() {
+  if (stopped || typeof window === "undefined") return;
+  const terminalConnected = await stripeReaderConnected();
+  const detail = {
+    online: isNetworkConnectedNow(),
+    terminalConnected,
+    terminalReader: terminalConnected ? stripeTerminal.connectedReader() || "Stripe Reader M2" : null,
+  };
+  const key = JSON.stringify(detail);
+  if (key === lastLocalConnectionKey) return;
+  lastLocalConnectionKey = key;
+  window.dispatchEvent(new CustomEvent("seza:connection-state", { detail }));
+  void sendDeviceHeartbeat(true);
+}
 
 async function appVersion(): Promise<string> {
   try {
@@ -87,6 +162,8 @@ async function buildSnapshot() {
     };
   } catch {}
 
+  const terminalConnected = await stripeReaderConnected();
+
   return {
     captured_at: new Date().toISOString(),
     online: isNetworkConnectedNow(),
@@ -131,7 +208,9 @@ async function buildSnapshot() {
       connect_status: terminalSetup.connectStatus,
       location_ready: terminalSetup.locationReady,
       configured_reader: terminalSetup.configuredReader,
-      connected_reader: stripeTerminal.connectedReader(),
+      connected_reader: terminalConnected
+        ? stripeTerminal.connectedReader() || "Stripe Reader M2"
+        : null,
       last_connected_at: localStorage.getItem("pos.terminal.connectedAt"),
       last_error: localStorage.getItem("pos.terminal.lastError"),
     },
@@ -153,11 +232,6 @@ export async function sendDeviceHeartbeat(force = false) {
 
   sending = true;
   try {
-    // Restore the Stripe selection *before* taking the status snapshot. The
-    // old flow fired both operations concurrently, so the dashboard often
-    // received terminal="None" even though Stripe was already configured.
-    await stripeTerminal.restoreStripeTerminalSelection().catch(() => false);
-
     const snapshot = await buildSnapshot();
     const key = stableSnapshotKey(snapshot);
     const now = Date.now();
@@ -175,6 +249,7 @@ export async function sendDeviceHeartbeat(force = false) {
       }),
     });
     if (response.ok) {
+      publishHeartbeatState(true);
       const result = (await response.json().catch(() => ({}))) as { store_config?: any };
       lastSnapshotKey = key;
       lastSentAt = now;
@@ -207,6 +282,7 @@ export async function sendDeviceHeartbeat(force = false) {
       );
     }
   } catch {
+    publishHeartbeatState(false);
     // Diagnostic only. Never block checkout.
   } finally {
     sending = false;
@@ -219,18 +295,31 @@ function scheduleNext() {
   timer = setTimeout(async () => {
     await sendDeviceHeartbeat();
     scheduleNext();
-  }, FOREGROUND_INTERVAL_MS);
+  }, CLOUD_KEEPALIVE_MS);
 }
 
 export function startDeviceHeartbeat() {
   if (typeof window === "undefined") return () => {};
   stopped = false;
-  void sendDeviceHeartbeat(true);
-  scheduleNext();
+  void (async () => {
+    // Restore Stripe once at startup, then keep connection monitoring read-only.
+    // This prevents the heartbeat from reinitializing/replacing Stripe while
+    // USB discovery or a payment is in flight.
+    await stripeTerminal.restoreStripeTerminalSelection().catch(() => false);
+    if (stopped) return;
+    await autoReconnectSavedTerminal().catch(() => false);
+    if (stopped) return;
+    await pollLocalConnections();
+    if (stopped) return;
+    localConnectionTimer = setInterval(() => { void pollLocalConnections(); }, LOCAL_CONNECTION_POLL_MS);
+    await sendDeviceHeartbeat(true);
+    scheduleNext();
+  })();
 
   const refreshForegroundSnapshot = () => {
     // Refresh store/products whenever cashier returns to SEZA.
     void refreshDeviceBootstrap(true).catch(() => undefined);
+    void autoReconnectSavedTerminal().catch(() => false);
     void sendDeviceHeartbeat(true);
   };
 
@@ -259,6 +348,8 @@ export function startDeviceHeartbeat() {
     stopped = true;
     if (timer) clearTimeout(timer);
     timer = null;
+    if (localConnectionTimer) clearInterval(localConnectionTimer);
+    localConnectionTimer = null;
     window.removeEventListener("online", onOnline);
     window.removeEventListener("focus", onFocus);
     window.removeEventListener("seza:device-config-changed", onConfigChanged as EventListener);
