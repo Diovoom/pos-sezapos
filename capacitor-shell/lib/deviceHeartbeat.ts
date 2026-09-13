@@ -25,6 +25,8 @@ let lastLocalConnectionKey = "";
 let terminalReconnectPromise: Promise<boolean> | null = null;
 let lastTerminalReconnectAt = 0;
 const TERMINAL_RECONNECT_COOLDOWN_MS = 5_000;
+const TERMINAL_AUTORECONNECT_START_DELAY_MS = 10_000;
+let terminalAutoReconnectEnabledAt = 0;
 
 function publishHeartbeatState(cloudReachable: boolean) {
   if (typeof window === "undefined") return;
@@ -34,11 +36,17 @@ function publishHeartbeatState(cloudReachable: boolean) {
 }
 
 async function stripeReaderConnected() {
+  // Do not touch Stripe's native Terminal singleton while the Android shell is still booting.
+  // The community plugin probes Terminal.getInstance(); on a fresh process that can happen
+  // before initialize() and can terminate the app. The native patch below also makes the
+  // probe safe, and this delay keeps startup/reconnect work out of the splash path.
+  if (Date.now() < terminalAutoReconnectEnabledAt) return false;
   return stripeTerminal.isReady("stripe-m2").catch(() => false);
 }
 
 async function autoReconnectSavedTerminal(): Promise<boolean> {
   if (stopped || !isNetworkConnectedNow()) return false;
+  if (Date.now() < terminalAutoReconnectEnabledAt) return false;
   if (terminalReconnectPromise) return terminalReconnectPromise;
 
   // The native Stripe endpoints require the signed-in register employee ID.
@@ -319,6 +327,9 @@ function scheduleNext() {
 export function startDeviceHeartbeat() {
   if (typeof window === "undefined") return () => {};
   stopped = false;
+  // Let the Android shell, cached register identity, network, and USB stack finish booting
+  // before the first automatic M2 reconnect attempt. Manual connection remains available.
+  terminalAutoReconnectEnabledAt = Date.now() + TERMINAL_AUTORECONNECT_START_DELAY_MS;
   void (async () => {
     // Restore Stripe once at startup, then keep connection monitoring read-only.
     // This prevents the heartbeat from reinitializing/replacing Stripe while
