@@ -6,6 +6,72 @@ import { getStripeSecretKey, getStripeErrorMessage, getStripeMode, type StripeEn
 
 const DASHBOARD_URL = (process.env.SEZA_DASHBOARD_URL || "https://dashboard.sezapos.com").replace(/\/$/, "");
 
+
+export type StripeEmbeddedView =
+  | "account-management"
+  | "notification-banner"
+  | "payments"
+  | "payouts"
+  | "balances"
+  | "documents";
+
+const STRIPE_EMBEDDED_VIEWS = new Set<StripeEmbeddedView>([
+  "account-management",
+  "notification-banner",
+  "payments",
+  "payouts",
+  "balances",
+  "documents",
+]);
+
+function stripePublishableKey(env: StripeEnv) {
+  return String(
+    (env === "live"
+      ? process.env.STRIPE_LIVE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_LIVE_PUBLISHABLE_KEY
+      : process.env.STRIPE_SANDBOX_PUBLISHABLE_KEY ||
+        process.env.VITE_STRIPE_SANDBOX_PUBLISHABLE_KEY) ||
+      process.env.VITE_STRIPE_PUBLISHABLE_KEY ||
+      "",
+  ).trim();
+}
+
+function accountSessionComponents(view: StripeEmbeddedView): Record<string, any> {
+  switch (view) {
+    case "account-management":
+      return {
+        account_management: {
+          enabled: true,
+          features: { external_account_collection: true },
+        },
+      };
+    case "notification-banner":
+      return {
+        notification_banner: {
+          enabled: true,
+          features: { external_account_collection: true },
+        },
+      };
+    case "payments":
+      return { payments: { enabled: true } };
+    case "payouts":
+      return {
+        payouts: {
+          enabled: true,
+          features: { external_account_collection: true },
+        },
+      };
+    case "balances":
+      return {
+        balances: {
+          enabled: true,
+          features: { external_account_collection: true },
+        },
+      };
+    case "documents":
+      return { documents: { enabled: true } };
+  }
+}
+
 function connectStripeClient(env: StripeEnv): any {
   return new Stripe(getStripeSecretKey(env), { apiVersion: "2026-08-26.preview" as any }) as any;
 }
@@ -347,13 +413,7 @@ export const createStripePayoutSession = createServerFn({ method: "POST" })
     if (!accountId) throw new Error("Connect Stripe before managing payouts.");
 
     const env = getStripeMode();
-    const publishableKey = String(
-      (env === "live"
-        ? process.env.STRIPE_LIVE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_LIVE_PUBLISHABLE_KEY
-        : process.env.STRIPE_SANDBOX_PUBLISHABLE_KEY || process.env.VITE_STRIPE_SANDBOX_PUBLISHABLE_KEY) ||
-        process.env.VITE_STRIPE_PUBLISHABLE_KEY ||
-        "",
-    ).trim();
+    const publishableKey = stripePublishableKey(env);
 
     if (!publishableKey) {
       throw new Error(
@@ -414,6 +474,63 @@ export const createStripePayoutSession = createServerFn({ method: "POST" })
         throw new Error("This store's Stripe payout account could not be found. Refresh Stripe status or reconnect Stripe.");
       }
 
+      throw new Error(getStripeErrorMessage(error));
+    }
+  });
+
+export const createStripeEmbeddedSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
+  .inputValidator((data: { view: string }) => {
+    const view = String(data?.view || "").trim() as StripeEmbeddedView;
+    if (!STRIPE_EMBEDDED_VIEWS.has(view)) throw new Error("Unsupported Stripe account page.");
+    return { view };
+  })
+  .handler(async ({ data, context }) => {
+    await assertOwner(context);
+    const { store } = await loadStore(context.userId);
+    const accountId = String(store.stripe_connected_account_id || "").trim();
+    if (!accountId) throw new Error("Connect Stripe before opening this account page.");
+
+    const env = getStripeMode();
+    const publishableKey = stripePublishableKey(env);
+    if (!publishableKey) {
+      throw new Error(
+        env === "live"
+          ? "STRIPE_LIVE_PUBLISHABLE_KEY is not configured."
+          : "STRIPE_SANDBOX_PUBLISHABLE_KEY is not configured.",
+      );
+    }
+
+    try {
+      const stripe = new Stripe(getStripeSecretKey(env));
+      const session: any = await stripe.accountSessions.create({
+        account: accountId,
+        components: accountSessionComponents(data.view),
+      } as any);
+
+      if (!session?.client_secret) throw new Error("Stripe did not return an Account Session.");
+      return {
+        clientSecret: String(session.client_secret),
+        publishableKey,
+        environment: env,
+        view: data.view,
+      };
+    } catch (error: any) {
+      const stripeMessage = String(error?.raw?.message || error?.message || "");
+      const stripeCode = String(error?.raw?.code || error?.code || "");
+      const normalized = stripeMessage.toLowerCase();
+      console.error("[SEZA Stripe] embedded account session failed", {
+        view: data.view,
+        code: stripeCode || undefined,
+        requestId: String(error?.requestId || error?.raw?.requestId || "") || undefined,
+        message: stripeMessage || undefined,
+      });
+
+      if (normalized.includes("site link") || (normalized.includes("account session") && normalized.includes("url"))) {
+        throw new Error(
+          "Stripe Connect Site links are not fully configured yet. Save and validate every required SEZA Stripe account URL, then try again.",
+        );
+      }
       throw new Error(getStripeErrorMessage(error));
     }
   });
