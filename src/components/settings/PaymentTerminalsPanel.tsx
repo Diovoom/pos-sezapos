@@ -25,6 +25,7 @@ import { connectReader as connectStripeReader } from "@/lib/hardware/terminal-st
 import { setActivePaymentProvider } from "@/lib/pos/payment-terminal";
 import { checkFinixTerminal } from "@/lib/finix/terminal";
 import { getStripeConnectStatus, startStripeConnectOnboarding } from "@/lib/stripe-connect.functions";
+import { StripePayoutsManager } from "@/components/settings/StripePayoutsManager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -203,6 +204,7 @@ export function PaymentTerminalsPanel({
   const getStripeStatus = useServerFn(getStripeConnectStatus);
   const beginStripeOnboarding = useServerFn(startStripeConnectOnboarding);
   const [search, setSearch] = useState("");
+  const [payoutManagerOpen, setPayoutManagerOpen] = useState(false);
   const [form, setForm] = useState({
     label: "",
     provider: "stripe",
@@ -575,8 +577,17 @@ export function PaymentTerminalsPanel({
           ) : isOwner ? (
             <div className="flex flex-wrap gap-2">
               {!stripeNeedsAddress && (
-                <Button onClick={() => connectStripe.mutate()} disabled={connectStripe.isPending}>
-                  {connectStripe.isPending ? (
+                <Button
+                  onClick={() => {
+                    if (stripeReady) {
+                      setPayoutManagerOpen(true);
+                    } else {
+                      connectStripe.mutate();
+                    }
+                  }}
+                  disabled={!stripeReady && connectStripe.isPending}
+                >
+                  {!stripeReady && connectStripe.isPending ? (
                     <Loader2 className="mr-2 size-4 animate-spin" />
                   ) : (
                     <CreditCard className="mr-2 size-4" />
@@ -614,6 +625,10 @@ export function PaymentTerminalsPanel({
           )}
         </CardContent>
       </Card>
+
+      {isOwner && !native && (
+        <StripePayoutsManager open={payoutManagerOpen} onOpenChange={setPayoutManagerOpen} />
+      )}
 
       <Card>
         <CardHeader>

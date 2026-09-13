@@ -338,6 +338,68 @@ export const getStripeConnectStatus = createServerFn({ method: "GET" })
     }
   });
 
+export const createStripePayoutSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
+  .handler(async ({ context }) => {
+    await assertOwner(context);
+    const { store } = await loadStore(context.userId);
+    const accountId = String(store.stripe_connected_account_id || "").trim();
+    if (!accountId) throw new Error("Connect Stripe before managing payouts.");
+
+    const env = getStripeMode();
+    const publishableKey = String(
+      (env === "live"
+        ? process.env.STRIPE_LIVE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_LIVE_PUBLISHABLE_KEY
+        : process.env.STRIPE_SANDBOX_PUBLISHABLE_KEY || process.env.VITE_STRIPE_SANDBOX_PUBLISHABLE_KEY) ||
+        process.env.VITE_STRIPE_PUBLISHABLE_KEY ||
+        "",
+    ).trim();
+
+    if (!publishableKey) {
+      throw new Error(
+        env === "live"
+          ? "STRIPE_LIVE_PUBLISHABLE_KEY is not configured."
+          : "STRIPE_SANDBOX_PUBLISHABLE_KEY is not configured.",
+      );
+    }
+
+    try {
+      // Accounts created with Accounts v2 can be used by v1 Account Sessions.
+      // The embedded Payouts component is the supported way for a connected
+      // account with no Stripe Dashboard access and Stripe-owned loss liability
+      // to view payouts and securely manage its payout bank account.
+      const stripe = new Stripe(getStripeSecretKey(env), {
+        apiVersion: "2026-03-25.dahlia" as any,
+      });
+
+      const account: any = await stripe.accounts.retrieve(accountId);
+      if (typeof account?.charges_enabled === "boolean" && !account.charges_enabled) {
+        throw new Error("Finish Stripe verification before managing payouts.");
+      }
+
+      const session: any = await stripe.accountSessions.create({
+        account: accountId,
+        components: {
+          payouts: {
+            enabled: true,
+            features: {
+              external_account_collection: true,
+            },
+          },
+        },
+      } as any);
+
+      if (!session?.client_secret) throw new Error("Stripe did not return a payout session.");
+      return {
+        clientSecret: String(session.client_secret),
+        publishableKey,
+        environment: env,
+      };
+    } catch (error) {
+      throw new Error(getStripeErrorMessage(error));
+    }
+  });
+
 export const startStripeConnectOnboarding = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .handler(async ({ context }) => {
