@@ -24,8 +24,8 @@ let lastSnapshotKey = "";
 let lastLocalConnectionKey = "";
 let terminalReconnectPromise: Promise<boolean> | null = null;
 let lastTerminalReconnectAt = 0;
-const TERMINAL_RECONNECT_COOLDOWN_MS = 5_000;
-const TERMINAL_AUTORECONNECT_START_DELAY_MS = 10_000;
+const TERMINAL_RECONNECT_COOLDOWN_MS = 15_000;
+const TERMINAL_AUTORECONNECT_START_DELAY_MS = 12_000;
 let terminalAutoReconnectEnabledAt = 0;
 
 function publishHeartbeatState(cloudReachable: boolean) {

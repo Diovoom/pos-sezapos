@@ -33,41 +33,88 @@ function writeIfChanged(file, before, after) {
   return true;
 }
 
-// Fix the token-provider handoff seen in the SEZA logs. Stripe's native singleton
-// can keep the original TokenProvider while Capacitor creates a new JS/plugin-side
-// provider after a reload. Sharing the pending callback queue lets the new plugin
-// instance fulfill the callback that Stripe issued to the original provider.
+function replaceRequired(source, needle, replacement, label) {
+  if (!source.includes(needle)) {
+    throw new Error(`Stripe Terminal source changed; ${label} patch target was not found.`);
+  }
+  return source.replace(needle, replacement);
+}
+
+// Stripe can keep the original native TokenProvider across a WebView reload while
+// Capacitor creates a new plugin-side provider. A shared queue lets the current
+// JS instance deliver a token to the callback that Stripe actually requested.
 let tokenProvider = readRequired(tokenProviderPath);
 const tokenOriginal = tokenProvider;
 if (!tokenProvider.includes("SEZA_PATCH_SHARED_PENDING_CALLBACKS")) {
-  const needle = "    private var pendingCallback: ArrayList<ConnectionTokenCallback> = ArrayList()";
-  if (!tokenProvider.includes(needle)) {
-    throw new Error("Stripe Terminal TokenProvider.kt changed; pendingCallback patch target was not found.");
-  }
-  tokenProvider = tokenProvider.replace(
-    needle,
+  tokenProvider = replaceRequired(
+    tokenProvider,
+    "    private var pendingCallback: ArrayList<ConnectionTokenCallback> = ArrayList()",
     `    // SEZA_PATCH_SHARED_PENDING_CALLBACKS\n    companion object {\n        private val pendingCallback: ArrayList<ConnectionTokenCallback> = ArrayList()\n    }`,
+    "shared pending connection-token callback",
   );
 }
 const tokenChanged = writeIfChanged(tokenProviderPath, tokenOriginal, tokenProvider);
 
-// getConnectedReader() in the community plugin calls Terminal.getInstance()
-// directly. During a fresh Android boot SEZA can probe reader status before Stripe
-// has been initialized. Return reader=null instead of letting that native call crash
-// the Capacitor plugin/application process.
 let terminal = readRequired(terminalPath);
 const terminalOriginal = terminal;
-if (!terminal.includes("SEZA_PATCH_SAFE_CONNECTED_READER")) {
-  const needle =
-    "    fun getConnectedReader(call: PluginCall) {\n        val reader: Reader? = Terminal.getInstance().connectedReader";
-  if (!terminal.includes(needle)) {
-    throw new Error("Stripe Terminal StripeTerminal.kt changed; getConnectedReader patch target was not found.");
-  }
-  terminal = terminal.replace(
-    needle,
-    `    fun getConnectedReader(call: PluginCall) {\n        // SEZA_PATCH_SAFE_CONNECTED_READER\n        if (!isInitialized()) {\n            call.resolve(JSObject().put("reader", JSObject.NULL))\n            return\n        }\n        val reader: Reader? = Terminal.getInstance().connectedReader`,
+
+// Some POS hardware can report no Bluetooth adapter. The upstream plugin uses
+// bluetooth.isEnabled without a null check during initialize(), which can kill
+// the Android process before USB Reader M2 setup even starts.
+if (!terminal.includes("SEZA_PATCH_SAFE_BLUETOOTH_ADAPTER")) {
+  terminal = replaceRequired(
+    terminal,
+    `        val bluetooth = BluetoothAdapter.getDefaultAdapter()\n        if (!bluetooth.isEnabled) {`,
+    `        // SEZA_PATCH_SAFE_BLUETOOTH_ADAPTER\n        val bluetooth = BluetoothAdapter.getDefaultAdapter()\n        if (bluetooth != null && !bluetooth.isEnabled) {`,
+    "Bluetooth adapter null guard",
   );
 }
+
+// Stripe Terminal can publish an empty discovery update before the USB M2 appears.
+// The upstream plugin dereferences readers[0], which throws on that empty update
+// and closes the entire SEZA Android app. Ignore empty updates and keep discovery
+// alive until the real reader arrives or SEZA's own timeout expires.
+if (!terminal.includes("SEZA_PATCH_EMPTY_DISCOVERY_GUARD")) {
+  terminal = replaceRequired(
+    terminal,
+    `                    override fun onUpdateDiscoveredReaders(readers: List<Reader>) {\n                        Log.d(logTag, readers[0].serialNumber.toString())`,
+    `                    override fun onUpdateDiscoveredReaders(readers: List<Reader>) {\n                        // SEZA_PATCH_EMPTY_DISCOVERY_GUARD\n                        if (readers.isEmpty()) {\n                            return\n                        }\n                        Log.d(logTag, readers[0].serialNumber.toString())`,
+    "empty reader discovery guard",
+  );
+}
+
+// Never let a Capacitor call reach Terminal.getInstance() before Stripe has been
+// initialized. Capacitor wraps native exceptions as a fatal plugin-thread crash,
+// so catching the Promise in JS is not enough.
+if (!terminal.includes("SEZA_PATCH_SAFE_CONNECTED_READER")) {
+  terminal = replaceRequired(
+    terminal,
+    `    fun getConnectedReader(call: PluginCall) {\n        val reader: Reader? = Terminal.getInstance().connectedReader`,
+    `    fun getConnectedReader(call: PluginCall) {\n        // SEZA_PATCH_SAFE_CONNECTED_READER\n        if (!isInitialized()) {\n            call.resolve(JSObject().put("reader", JSObject.NULL))\n            return\n        }\n        val reader: Reader? = Terminal.getInstance().connectedReader`,
+    "safe getConnectedReader",
+  );
+}
+
+if (!terminal.includes("SEZA_PATCH_SAFE_DISCONNECT_READER")) {
+  terminal = replaceRequired(
+    terminal,
+    `    fun disconnectReader(call: PluginCall) {\n        if (Terminal.getInstance().connectedReader == null) {`,
+    `    fun disconnectReader(call: PluginCall) {\n        // SEZA_PATCH_SAFE_DISCONNECT_READER\n        if (!isInitialized()) {\n            call.resolve()\n            return\n        }\n        if (Terminal.getInstance().connectedReader == null) {`,
+    "safe disconnectReader",
+  );
+}
+
+// Defensive native guard: discovery should only run after initialize(). If a
+// lifecycle race slips through, reject the call instead of crashing the app.
+if (!terminal.includes("SEZA_PATCH_SAFE_DISCOVER_BEFORE_INIT")) {
+  terminal = replaceRequired(
+    terminal,
+    `    fun onDiscoverReaders(call: PluginCall) {\n        if (ActivityCompat.checkSelfPermission(`,
+    `    fun onDiscoverReaders(call: PluginCall) {\n        // SEZA_PATCH_SAFE_DISCOVER_BEFORE_INIT\n        if (!isInitialized()) {\n            call.reject("Stripe Terminal is not initialized yet.")\n            return\n        }\n        if (ActivityCompat.checkSelfPermission(`,
+    "safe discover before init",
+  );
+}
+
 const terminalChanged = writeIfChanged(terminalPath, terminalOriginal, terminal);
 
 console.log(

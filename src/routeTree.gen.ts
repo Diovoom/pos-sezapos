@@ -54,6 +54,7 @@ import { Route as PosRefundsRouteImport } from './routes/_pos/refunds'
 import { Route as PosPosRouteImport } from './routes/_pos/pos'
 import { Route as PosManagerToolsRouteImport } from './routes/_pos/manager-tools'
 import { Route as DashboardTrainingRouteImport } from './routes/_dashboard/training'
+import { Route as DashboardStripeConnectRouteImport } from './routes/_dashboard/stripe-connect'
 import { Route as DashboardShiftsRouteImport } from './routes/_dashboard/shifts'
 import { Route as DashboardSetupRouteImport } from './routes/_dashboard/setup'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard/settings'
@@ -340,6 +341,11 @@ const PosManagerToolsRoute = PosManagerToolsRouteImport.update({
 const DashboardTrainingRoute = DashboardTrainingRouteImport.update({
   id: '/training',
   path: '/training',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardStripeConnectRoute = DashboardStripeConnectRouteImport.update({
+  id: '/stripe-connect',
+  path: '/stripe-connect',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardShiftsRoute = DashboardShiftsRouteImport.update({
@@ -734,6 +740,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof DashboardSettingsRoute
   '/setup': typeof DashboardSetupRoute
   '/shifts': typeof DashboardShiftsRoute
+  '/stripe-connect': typeof DashboardStripeConnectRoute
   '/training': typeof DashboardTrainingRoute
   '/manager-tools': typeof PosManagerToolsRoute
   '/pos': typeof PosPosRoute
@@ -843,6 +850,7 @@ export interface FileRoutesByTo {
   '/settings': typeof DashboardSettingsRoute
   '/setup': typeof DashboardSetupRoute
   '/shifts': typeof DashboardShiftsRoute
+  '/stripe-connect': typeof DashboardStripeConnectRoute
   '/training': typeof DashboardTrainingRoute
   '/manager-tools': typeof PosManagerToolsRoute
   '/pos': typeof PosPosRoute
@@ -956,6 +964,7 @@ export interface FileRoutesById {
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/setup': typeof DashboardSetupRoute
   '/_dashboard/shifts': typeof DashboardShiftsRoute
+  '/_dashboard/stripe-connect': typeof DashboardStripeConnectRoute
   '/_dashboard/training': typeof DashboardTrainingRoute
   '/_pos/manager-tools': typeof PosManagerToolsRoute
   '/_pos/pos': typeof PosPosRoute
@@ -1067,6 +1076,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/setup'
     | '/shifts'
+    | '/stripe-connect'
     | '/training'
     | '/manager-tools'
     | '/pos'
@@ -1176,6 +1186,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/setup'
     | '/shifts'
+    | '/stripe-connect'
     | '/training'
     | '/manager-tools'
     | '/pos'
@@ -1288,6 +1299,7 @@ export interface FileRouteTypes {
     | '/_dashboard/settings'
     | '/_dashboard/setup'
     | '/_dashboard/shifts'
+    | '/_dashboard/stripe-connect'
     | '/_dashboard/training'
     | '/_pos/manager-tools'
     | '/_pos/pos'
@@ -1739,6 +1751,13 @@ declare module '@tanstack/react-router' {
       path: '/training'
       fullPath: '/training'
       preLoaderRoute: typeof DashboardTrainingRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/_dashboard/stripe-connect': {
+      id: '/_dashboard/stripe-connect'
+      path: '/stripe-connect'
+      fullPath: '/stripe-connect'
+      preLoaderRoute: typeof DashboardStripeConnectRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/_dashboard/shifts': {
@@ -2295,6 +2314,7 @@ interface DashboardRouteRouteChildren {
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardSetupRoute: typeof DashboardSetupRoute
   DashboardShiftsRoute: typeof DashboardShiftsRoute
+  DashboardStripeConnectRoute: typeof DashboardStripeConnectRoute
   DashboardTrainingRoute: typeof DashboardTrainingRoute
 }
 
@@ -2314,6 +2334,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardSetupRoute: DashboardSetupRoute,
   DashboardShiftsRoute: DashboardShiftsRoute,
+  DashboardStripeConnectRoute: DashboardStripeConnectRoute,
   DashboardTrainingRoute: DashboardTrainingRoute,
 }
 

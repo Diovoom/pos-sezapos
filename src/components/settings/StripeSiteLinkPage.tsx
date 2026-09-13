@@ -1,9 +1,74 @@
-import { loadConnectAndInitialize } from "@stripe/connect-js/pure";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { createStripeEmbeddedSession, type StripeEmbeddedView } from "@/lib/stripe-connect.functions";
 import { userFacingError } from "@/lib/errors/user-facing";
+
+const CONNECT_JS_URL = "https://connect-js.stripe.com/v1.0/connect.js";
+
+type StripeConnectInstance = {
+  create: (component: string) => HTMLElement;
+};
+
+type StripeConnectGlobal = {
+  init?: (options: {
+    publishableKey: string;
+    fetchClientSecret: () => Promise<string>;
+  }) => StripeConnectInstance;
+  onLoad?: () => void;
+};
+
+declare global {
+  interface Window {
+    StripeConnect?: StripeConnectGlobal;
+  }
+}
+
+let connectLoaderPromise: Promise<Required<Pick<StripeConnectGlobal, "init">> & StripeConnectGlobal> | null = null;
+
+function loadStripeConnect() {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Stripe account tools can only load in the browser."));
+  }
+
+  if (typeof window.StripeConnect?.init === "function") {
+    return Promise.resolve(window.StripeConnect as Required<Pick<StripeConnectGlobal, "init">> & StripeConnectGlobal);
+  }
+
+  if (connectLoaderPromise) return connectLoaderPromise;
+
+  connectLoaderPromise = new Promise<Required<Pick<StripeConnectGlobal, "init">> & StripeConnectGlobal>((resolve, reject) => {
+    const global = (window.StripeConnect ??= {});
+    const previousOnLoad = global.onLoad;
+    const finish = () => {
+      previousOnLoad?.();
+      if (typeof window.StripeConnect?.init !== "function") {
+        reject(new Error("Stripe Connect loaded without its initialization API."));
+        return;
+      }
+      resolve(window.StripeConnect as Required<Pick<StripeConnectGlobal, "init">> & StripeConnectGlobal);
+    };
+
+    global.onLoad = finish;
+
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${CONNECT_JS_URL}"]`);
+    if (existing) {
+      existing.addEventListener("error", () => reject(new Error("Could not load Stripe Connect.")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = CONNECT_JS_URL;
+    script.async = true;
+    script.addEventListener("error", () => reject(new Error("Could not load Stripe Connect.")), { once: true });
+    document.head.appendChild(script);
+  }).catch((error) => {
+    connectLoaderPromise = null;
+    throw error;
+  });
+
+  return connectLoaderPromise;
+}
 
 const LABELS: Record<StripeEmbeddedView, { title: string; description: string; component: string }> = {
   "account-management": {
@@ -77,26 +142,33 @@ export function StripeSiteLinkPage({ view }: { view: StripeEmbeddedView }) {
     return next.clientSecret;
   }, [createSession, view]);
 
-  const connectInstance = useMemo(() => {
-    if (!bootstrap?.publishableKey) return null;
-    return loadConnectAndInitialize({
-      publishableKey: bootstrap.publishableKey,
-      fetchClientSecret,
-    });
-  }, [bootstrap?.publishableKey, fetchClientSecret]);
-
   useEffect(() => {
     const target = mountRef.current;
-    if (!target || !connectInstance) return;
+    if (!target || !bootstrap?.publishableKey) return;
 
-    const embedded = connectInstance.create(info.component as any);
-    target.replaceChildren(embedded);
+    let cancelled = false;
+    let embedded: HTMLElement | null = null;
+
+    void loadStripeConnect()
+      .then((StripeConnect) => {
+        if (cancelled) return;
+        const connectInstance = StripeConnect.init({
+          publishableKey: bootstrap.publishableKey,
+          fetchClientSecret,
+        });
+        embedded = connectInstance.create(info.component);
+        target.replaceChildren(embedded);
+      })
+      .catch((cause) => {
+        if (!cancelled) setError(userFacingError(cause, "Could not load Stripe account tools."));
+      });
 
     return () => {
-      embedded.remove();
+      cancelled = true;
+      embedded?.remove();
       target.replaceChildren();
     };
-  }, [connectInstance, info.component]);
+  }, [bootstrap?.publishableKey, fetchClientSecret, info.component]);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 p-4 pb-24 sm:p-6">

@@ -59,6 +59,7 @@ type StripeTerminalRuntimeState = {
   tokenListenerPromise: Promise<void> | null;
   tokenDeliveryQueue: Promise<void>;
   connected: { terminalId: string; driver: TerminalDriverId; serial: string } | null;
+  readerConnectPromise: Promise<{ mod: StripeModule; reader: any }> | null;
   paymentInFlight: boolean;
 };
 
@@ -77,6 +78,7 @@ function stripeRuntime(): StripeTerminalRuntimeState {
     tokenListenerPromise: null,
     tokenDeliveryQueue: Promise.resolve(),
     connected: null,
+    readerConnectPromise: null,
     paymentInFlight: false,
   };
 
@@ -610,7 +612,7 @@ async function initialize(testMode: boolean) {
   return runtime.initializePromise;
 }
 
-async function ensureReader(configuration: TerminalConfiguration, onStatus?: (message: string) => void) {
+async function ensureReaderInternal(configuration: TerminalConfiguration, onStatus?: (message: string) => void) {
   const mod = await initialize(configuration.testMode);
   const current = await mod.StripeTerminal.getConnectedReader().catch(() => ({ reader: null }));
   if (current.reader) {
@@ -665,6 +667,20 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
   localStorage.removeItem("pos.terminal.lastError");
   window.dispatchEvent(new Event("seza:device-config-changed"));
   return { mod, reader };
+}
+
+// Manual pairing, automatic reconnect, and payment checkout can all ask for the
+// same M2 connection. Stripe Terminal only allows one discovery/connect flow at
+// a time, so share one in-flight promise instead of starting overlapping native
+// discovery sessions that can cancel each other or destabilize the Android SDK.
+async function ensureReader(configuration: TerminalConfiguration, onStatus?: (message: string) => void) {
+  const runtime = stripeRuntime();
+  if (runtime.readerConnectPromise) return runtime.readerConnectPromise;
+
+  runtime.readerConnectPromise = ensureReaderInternal(configuration, onStatus).finally(() => {
+    runtime.readerConnectPromise = null;
+  });
+  return runtime.readerConnectPromise;
 }
 
 export async function restoreStripeTerminalSelection() {
