@@ -360,7 +360,14 @@ export function RegisterAppSettingsPage() {
                   <Switch checked={autoPrint} onCheckedChange={setAutoPrint} />
                 </SettingRow>
                 <SettingRow title="Paper width" description="Match the receipt printer installed at this register.">
-                  <Select value={paper} onValueChange={setPaper}>
+                  <Select
+                    value={paper}
+                    onValueChange={(value) => {
+                      setPaper(value);
+                      localStorage.setItem(keys.paper, value);
+                      window.dispatchEvent(new Event("seza:device-config-changed"));
+                    }}
+                  >
                     <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="58">58 mm</SelectItem>

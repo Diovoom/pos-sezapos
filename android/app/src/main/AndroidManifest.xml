@@ -22,6 +22,16 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Receipt-printer attach handling. After the merchant chooses SEZA as
+                 the default handler once, Android can restore USB permission and
+                 launch the register automatically when the printer returns after
+                 a reboot/power outage. -->
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/usb_printer_filter" />
         </activity>
 
 

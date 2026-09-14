@@ -44,10 +44,11 @@ function lsSet(key: string, val: string) {
   }
 }
 
-export function getPaperColumns(): 32 | 42 {
-  // 42 Font-A columns fills an 80mm head more naturally on common Rongta
-  // mechanisms. 48 columns produced the cramped, 58mm-looking output.
-  return ls(LS.paperWidth) === "80" ? 42 : 32;
+export function getPaperColumns(): 32 | 48 {
+  // The register UI defaults to 80mm. Treat a missing legacy preference as
+  // 80mm too, so the value shown in Settings always matches physical output.
+  // 58mm uses 32 Font-A columns; 80mm uses the full 48-column / 576-dot area.
+  return ls(LS.paperWidth) === "58" ? 32 : 48;
 }
 
 export function isAutoPrintEnabled(): boolean {
@@ -338,7 +339,7 @@ export function hardwareSnapshot() {
   return {
     driver: driver.id,
     driverLabel: driver.label,
-    paperWidth: (ls(LS.paperWidth) === "80" ? "80mm" : "58mm") as "58mm" | "80mm",
+    paperWidth: (ls(LS.paperWidth) === "58" ? "58mm" : "80mm") as "58mm" | "80mm",
     autoPrint: isAutoPrintEnabled(),
     copies: getCopies(),
     drawerEnabled: isDrawerEnabled(),

@@ -112,7 +112,13 @@ export async function printShiftSummary(
   const countedCash = d.cashAccount.countedCash;
   const variance = d.cashAccount.variance;
 
-  parts.push(b.init(), b.font("a"), b.charSpacing(widePaper ? 1 : 0));
+  parts.push(
+    b.init(),
+    b.font("a"),
+    b.leftMargin(0),
+    b.printAreaWidth(widePaper ? 576 : 384),
+    b.charSpacing(0),
+  );
   parts.push(b.align("center"), b.bold(true));
   text("SHIFT REVIEW SUMMARY\n");
   parts.push(b.bold(false));

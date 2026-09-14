@@ -467,7 +467,7 @@ export const createStripePayoutSession = createServerFn({ method: "POST" })
         (normalized.includes("embedded") && normalized.includes("url"))
       ) {
         throw new Error(
-          "Stripe Connect Site links are not configured for live account management. Add the SEZA Owner Dashboard URL in Stripe Connect Site links, then try again.",
+          "Stripe requires all live Connect Site links before account management can open. Configure Notification banner, Account management, Payments, Payouts, Balances, and Documents (if Stripe shows it), then try again.",
         );
       }
       if (stripeCode === "resource_missing" || normalized.includes("no such account")) {

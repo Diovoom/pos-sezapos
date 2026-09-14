@@ -33,6 +33,6 @@ export const Route = createFileRoute("/_dashboard/stripe-connect")({
 });
 
 function StripeConnectRoute() {
-  const { view } = Route.useSearch();
-  return <StripeSiteLinkPage view={view} />;
+  const { view, stripe_account_id } = Route.useSearch();
+  return <StripeSiteLinkPage view={view} autoOpen={Boolean(stripe_account_id)} />;
 }

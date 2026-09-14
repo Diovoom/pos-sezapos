@@ -35,7 +35,7 @@ export interface ReceiptPayload {
   tender?: { method: string; amount: number };
   change?: number;
   currency?: string;
-  columns?: 32 | 42 | 48; // 58mm≈32, 80mm Font A≈42
+  columns?: 32 | 42 | 48; // 58mm≈32, 80mm Font A≈48
 }
 
 const enc = new TextEncoder();
@@ -61,6 +61,14 @@ const CMD = {
   bold: (on: boolean) => bytes(ESC, 0x45, on ? 1 : 0),
   font: (font: "a" | "b") => bytes(ESC, 0x4d, font === "a" ? 0 : 1),
   charSpacing: (dots: number) => bytes(ESC, 0x20, Math.max(0, Math.min(255, Math.round(dots)))),
+  leftMargin: (dots: number) => {
+    const value = Math.max(0, Math.min(65535, Math.round(dots)));
+    return bytes(GS, 0x4c, value & 0xff, (value >> 8) & 0xff);
+  },
+  printAreaWidth: (dots: number) => {
+    const value = Math.max(1, Math.min(65535, Math.round(dots)));
+    return bytes(GS, 0x57, value & 0xff, (value >> 8) & 0xff);
+  },
   size: (n: 1 | 2) => bytes(GS, 0x21, n === 2 ? 0x11 : 0x00),
   feed: (n = 1) => bytes(ESC, 0x64, Math.max(1, Math.min(255, n))),
   cut: () => bytes(GS, 0x56, 0x42, 0x00),
@@ -117,7 +125,17 @@ export function buildReceipt(p: ReceiptPayload): Uint8Array {
   const cols = p.columns ?? 32;
   const currency = p.currency ?? "USD";
   const widePaper = cols > 32;
-  const parts: Uint8Array[] = [CMD.init(), CMD.font("a"), CMD.charSpacing(widePaper ? 1 : 0)];
+  // 203-dpi ESC/POS mechanisms normally expose ~384 printable dots on 58mm
+  // paper and ~576 dots on 80mm paper. Set the print area explicitly so the
+  // receipt-width selector changes the actual printer layout, not just wrapping.
+  const printAreaDots = widePaper ? 576 : 384;
+  const parts: Uint8Array[] = [
+    CMD.init(),
+    CMD.font("a"),
+    CMD.leftMargin(0),
+    CMD.printAreaWidth(printAreaDots),
+    CMD.charSpacing(0),
+  ];
 
   parts.push(CMD.align("center"), CMD.bold(true), CMD.size(2), enc.encode(p.storeName + "\n"));
   parts.push(CMD.size(1), CMD.bold(false));

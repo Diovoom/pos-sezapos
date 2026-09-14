@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertCircle, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { createStripeEmbeddedSession, type StripeEmbeddedView } from "@/lib/stripe-connect.functions";
 import { userFacingError } from "@/lib/errors/user-facing";
 
@@ -103,19 +104,37 @@ const LABELS: Record<StripeEmbeddedView, { title: string; description: string; c
   },
 };
 
-export function StripeSiteLinkPage({ view }: { view: StripeEmbeddedView }) {
+export function StripeSiteLinkPage({
+  view,
+  autoOpen = false,
+}: {
+  view: StripeEmbeddedView;
+  autoOpen?: boolean;
+}) {
   const createSession = useServerFn(createStripeEmbeddedSession);
   const [bootstrap, setBootstrap] = useState<{ publishableKey: string; clientSecret: string } | null>(null);
+  const [started, setStarted] = useState(autoOpen);
   const [error, setError] = useState<string | null>(null);
   const firstClientSecretRef = useRef<string | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const info = LABELS[view];
 
   useEffect(() => {
+    setStarted(autoOpen);
+  }, [autoOpen, view]);
+
+  useEffect(() => {
     let cancelled = false;
     setBootstrap(null);
     setError(null);
     firstClientSecretRef.current = null;
+
+    // Stripe requires every live Site-link URL to be saved before it allows
+    // AccountSession creation. Do not create a session just because Stripe or
+    // the merchant opens this URL for validation; render a real SEZA landing
+    // page first, then create the secure component after explicit open (or when
+    // Stripe sends a real email redirect with stripe_account_id).
+    if (!started) return () => { cancelled = true; };
 
     void createSession({ data: { view } })
       .then((result) => {
@@ -130,7 +149,7 @@ export function StripeSiteLinkPage({ view }: { view: StripeEmbeddedView }) {
     return () => {
       cancelled = true;
     };
-  }, [createSession, view]);
+  }, [createSession, started, view]);
 
   const fetchClientSecret = useCallback(async () => {
     const first = firstClientSecretRef.current;
@@ -177,7 +196,17 @@ export function StripeSiteLinkPage({ view }: { view: StripeEmbeddedView }) {
         <p className="mt-1 text-sm text-muted-foreground">{info.description}</p>
       </div>
 
-      {error ? (
+      {!started ? (
+        <div className="rounded-xl border bg-card p-5">
+          <div className="text-sm text-muted-foreground">
+            This is the SEZA destination for Stripe {info.title.toLowerCase()}.
+            Your store must be signed in before sensitive Stripe information is shown.
+          </div>
+          <Button className="mt-4" onClick={() => setStarted(true)}>
+            Open secure {info.title}
+          </Button>
+        </div>
+      ) : error ? (
         <div className="flex gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           <AlertCircle className="mt-0.5 size-5 shrink-0" />
           <div>

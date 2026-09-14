@@ -9,13 +9,13 @@ import { isNativeMode } from "@/lib/native";
 import {
   clearUsbDevice,
   listUsbPrinters,
-  nativeUsbTestPrint,
   pairUsbPrinter,
   selectedUsbDeviceId,
   usbPrinterReady,
   type UsbPrinterDevice,
 } from "@/lib/hardware/escpos-usb";
 import { setActivePrinter } from "@/lib/hardware";
+import { testPrint } from "@/lib/hardware/native-receipt";
 
 export function NativeUsbPrinterPanel() {
   const [devices, setDevices] = useState<UsbPrinterDevice[]>([]);
@@ -90,8 +90,11 @@ export function NativeUsbPrinterPanel() {
         <div className="flex flex-wrap gap-2 border-t pt-3">
           <Button disabled={!ready || busy} onClick={async () => {
             setBusy(true);
-            try { await nativeUsbTestPrint(); toast.success("SEZA test receipt printed"); }
-            catch (error) { toast.error(userFacingError(error, "Test print failed")); }
+            try {
+              const result = await testPrint();
+              if (!result.ok) throw new Error(result.error || result.reason);
+              toast.success("SEZA test receipt printed");
+            } catch (error) { toast.error(userFacingError(error, "Test print failed")); }
             finally { setBusy(false); }
           }}>Test print</Button>
           <Button variant="outline" disabled={selected == null || busy} onClick={() => {

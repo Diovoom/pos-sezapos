@@ -28,11 +28,42 @@ const TERMINAL_RECONNECT_COOLDOWN_MS = 15_000;
 const TERMINAL_AUTORECONNECT_START_DELAY_MS = 12_000;
 let terminalAutoReconnectEnabledAt = 0;
 
+let usbPrinterReconnectPromise: Promise<boolean> | null = null;
+let lastUsbPrinterReconnectAt = 0;
+const USB_PRINTER_RECONNECT_COOLDOWN_MS = 30_000;
+const USB_PRINTER_AUTORECONNECT_START_DELAY_MS = 4_000;
+let usbPrinterAutoReconnectEnabledAt = 0;
+
 function publishHeartbeatState(cloudReachable: boolean) {
   if (typeof window === "undefined") return;
   const detail = { cloudReachable, lastCheckedAt: new Date().toISOString() };
   try { window.localStorage.setItem("seza.device.heartbeatState", JSON.stringify(detail)); } catch {}
   window.dispatchEvent(new CustomEvent("seza:device-heartbeat-state", { detail }));
+}
+
+
+async function autoReconnectSavedUsbPrinter(): Promise<boolean> {
+  if (stopped || Date.now() < usbPrinterAutoReconnectEnabledAt) return false;
+  if (hardwareSnapshot().driver !== "escpos-usb") return false;
+  if (usbPrinterReconnectPromise) return usbPrinterReconnectPromise;
+
+  const now = Date.now();
+  if (now - lastUsbPrinterReconnectAt < USB_PRINTER_RECONNECT_COOLDOWN_MS) {
+    return escposUsb.usbPrinterReady().catch(() => false);
+  }
+
+  usbPrinterReconnectPromise = (async () => {
+    if (await escposUsb.usbPrinterReady().catch(() => false)) return true;
+    lastUsbPrinterReconnectAt = Date.now();
+    return escposUsb.autoReconnectUsbPrinter().catch((error) => {
+      console.warn("[SEZA POS] saved USB printer auto-reconnect deferred", error);
+      return false;
+    });
+  })().finally(() => {
+    usbPrinterReconnectPromise = null;
+  });
+
+  return usbPrinterReconnectPromise;
 }
 
 async function stripeReaderConnected() {
@@ -97,6 +128,12 @@ async function autoReconnectSavedTerminal(): Promise<boolean> {
 
 async function pollLocalConnections() {
   if (stopped || typeof window === "undefined") return;
+
+  // USB receipt printers are local hardware and should come back without a
+  // cashier visiting Settings after a power outage. Restore the saved stable
+  // printer profile before publishing connection state.
+  await autoReconnectSavedUsbPrinter().catch(() => false);
+
   let terminalConnected = await stripeReaderConnected();
 
   // Startup can beat the network/bootstrap by a few seconds after a power loss.
@@ -134,12 +171,13 @@ async function buildSnapshot() {
   const hardware = hardwareSnapshot();
   const scanner = loadScannerConfig();
   const savedPrinter = escposBle.getSavedTarget();
-  const selectedUsbPrinterId = escposUsb.selectedUsbDeviceId();
+  let selectedUsbPrinterId = escposUsb.selectedUsbDeviceId();
   let usbPrinterConnected = false;
   let usbPrinterName: string | null = null;
   if (hardware.driver === "escpos-usb" && selectedUsbPrinterId != null) {
     try {
       usbPrinterConnected = await escposUsb.usbPrinterReady();
+      selectedUsbPrinterId = escposUsb.selectedUsbDeviceId();
     } catch {
       usbPrinterConnected = false;
     }
@@ -330,11 +368,14 @@ export function startDeviceHeartbeat() {
   // Let the Android shell, cached register identity, network, and USB stack finish booting
   // before the first automatic M2 reconnect attempt. Manual connection remains available.
   terminalAutoReconnectEnabledAt = Date.now() + TERMINAL_AUTORECONNECT_START_DELAY_MS;
+  usbPrinterAutoReconnectEnabledAt = Date.now() + USB_PRINTER_AUTORECONNECT_START_DELAY_MS;
   void (async () => {
     // Restore Stripe once at startup, then keep connection monitoring read-only.
     // This prevents the heartbeat from reinitializing/replacing Stripe while
     // USB discovery or a payment is in flight.
     await stripeTerminal.restoreStripeTerminalSelection().catch(() => false);
+    if (stopped) return;
+    await autoReconnectSavedUsbPrinter().catch(() => false);
     if (stopped) return;
     await autoReconnectSavedTerminal().catch(() => false);
     if (stopped) return;
@@ -348,6 +389,7 @@ export function startDeviceHeartbeat() {
   const refreshForegroundSnapshot = () => {
     // Refresh store/products whenever cashier returns to SEZA.
     void refreshDeviceBootstrap(true).catch(() => undefined);
+    void autoReconnectSavedUsbPrinter().catch(() => false);
     void autoReconnectSavedTerminal().catch(() => false);
     void sendDeviceHeartbeat(true);
   };
@@ -355,7 +397,10 @@ export function startDeviceHeartbeat() {
   const onOnline = refreshForegroundSnapshot;
   const onFocus = refreshForegroundSnapshot;
   const onConfigChanged = () => void sendDeviceHeartbeat(true);
-  const onHardwareChanged = () => void sendDeviceHeartbeat(true);
+  const onHardwareChanged = () => {
+    void autoReconnectSavedUsbPrinter().catch(() => false);
+    void sendDeviceHeartbeat(true);
+  };
 
   const onVisibility = () => {
     if (document.visibilityState === "visible") {

@@ -101,7 +101,7 @@ function ensureInstallId(): string {
 /* ------------------------------- sub-panels ------------------------------- */
 
 function ReceiptPanel() {
-  const [paper, setPaper] = useLocalString(LS.paperWidth, "58");
+  const [paper, setPaper] = useLocalString(LS.paperWidth, "80");
   const [autoPrint, setAutoPrint] = useLocalBool(LS.autoPrint, true);
   const [copies, setCopies] = useLocalString(LS.copies, "1");
   return (
@@ -115,7 +115,7 @@ function ReceiptPanel() {
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="58">58mm (32 columns)</SelectItem>
-              <SelectItem value="80">80mm (42 columns)</SelectItem>
+              <SelectItem value="80">80mm (48 columns)</SelectItem>
             </SelectContent>
           </Select>
         </div>
