@@ -68,6 +68,9 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react(), tailwindcss()],
     build: {
+      // Keep the exact same Tailwind source-scanning behavior as the original SEZA UI.
+      // Avoid the Lightning CSS source(none) minifier crash instead of rewriting styles.css.
+      cssMinify: false,
       outDir: path.resolve(__dirname, "android-webdir"),
       emptyOutDir: true,
       target: "es2020",

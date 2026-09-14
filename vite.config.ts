@@ -24,6 +24,12 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [tanstackStart(), tailwindcss(), tsConfigPaths(), viteReact()],
+    // Preserve SEZA's original Tailwind v4 source(none) + @source behavior.
+    // Vite 8/Lightning CSS can choke on the Tailwind import modifier during minification.
+    // Disabling CSS minification avoids changing global styling just to make the build pass.
+    build: {
+      cssMinify: false,
+    },
     define: {
       "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(supabaseUrl),
       "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(supabasePublishableKey),
