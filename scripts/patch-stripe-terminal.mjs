@@ -33,99 +33,108 @@ function writeIfChanged(file, before, after) {
   return true;
 }
 
-function replaceRequired(source, needle, replacement, label) {
-  if (!source.includes(needle)) {
-    throw new Error(`Stripe Terminal source changed; ${label} patch target was not found.`);
+function insertAfterFunctionHeader(source, signatureRegex, insertion, alreadySafe, label) {
+  if (alreadySafe(source)) return source;
+  const match = source.match(signatureRegex);
+  if (!match || match.index == null) {
+    console.warn(`[SEZA] ${label}: upstream source shape changed; no unsafe target was found, skipping.`);
+    return source;
   }
-  return source.replace(needle, replacement);
+  const at = match.index + match[0].length;
+  return source.slice(0, at) + insertion + source.slice(at);
 }
 
-// Stripe can keep the original native TokenProvider across a WebView reload while
-// Capacitor creates a new plugin-side provider. A shared queue lets the current
-// JS instance deliver a token to the callback that Stripe actually requested.
+// 1) Keep the pending Stripe connection-token callback shared across Capacitor
+// plugin instances/WebView reloads. Older SEZA patches may already have done this
+// with slightly different whitespace, so detect behavior instead of exact text.
 let tokenProvider = readRequired(tokenProviderPath);
 const tokenOriginal = tokenProvider;
 if (!tokenProvider.includes("SEZA_PATCH_SHARED_PENDING_CALLBACKS")) {
-  tokenProvider = replaceRequired(
-    tokenProvider,
-    "    private var pendingCallback: ArrayList<ConnectionTokenCallback> = ArrayList()",
-    `    // SEZA_PATCH_SHARED_PENDING_CALLBACKS\n    companion object {\n        private val pendingCallback: ArrayList<ConnectionTokenCallback> = ArrayList()\n    }`,
-    "shared pending connection-token callback",
-  );
+  if (/companion\s+object\s*\{[\s\S]*pendingCallback\s*:\s*ArrayList<ConnectionTokenCallback>/m.test(tokenProvider)) {
+    console.log("[SEZA] shared pending connection-token callback already present.");
+  } else {
+    const pendingField = /^\s*private\s+var\s+pendingCallback\s*:\s*ArrayList<ConnectionTokenCallback>\s*=\s*ArrayList\(\)\s*$/m;
+    if (pendingField.test(tokenProvider)) {
+      tokenProvider = tokenProvider.replace(
+        pendingField,
+        `    // SEZA_PATCH_SHARED_PENDING_CALLBACKS\n    companion object {\n        private val pendingCallback: ArrayList<ConnectionTokenCallback> = ArrayList()\n    }`,
+      );
+    } else {
+      console.warn("[SEZA] shared token callback: no unsafe instance field found; skipping.");
+    }
+  }
 }
 const tokenChanged = writeIfChanged(tokenProviderPath, tokenOriginal, tokenProvider);
 
 let terminal = readRequired(terminalPath);
 const terminalOriginal = terminal;
 
-// Some POS hardware can report no Bluetooth adapter. The upstream plugin uses
-// bluetooth.isEnabled without a null check during initialize(), which can kill
-// the Android process before USB Reader M2 setup even starts.
+// 2) Null-safe Bluetooth adapter. USB-only POS hardware can have no adapter.
 if (!terminal.includes("SEZA_PATCH_SAFE_BLUETOOTH_ADAPTER")) {
-  terminal = replaceRequired(
-    terminal,
-    `        val bluetooth = BluetoothAdapter.getDefaultAdapter()\n        if (!bluetooth.isEnabled) {`,
-    `        // SEZA_PATCH_SAFE_BLUETOOTH_ADAPTER\n        val bluetooth = BluetoothAdapter.getDefaultAdapter()\n        if (bluetooth != null && !bluetooth.isEnabled) {`,
-    "Bluetooth adapter null guard",
-  );
+  if (/bluetooth\s*!=\s*null\s*&&\s*!bluetooth\.isEnabled/.test(terminal)) {
+    console.log("[SEZA] Bluetooth adapter guard already present.");
+  } else {
+    terminal = terminal.replace(
+      /(val\s+bluetooth\s*=\s*BluetoothAdapter\.getDefaultAdapter\(\)\s*\r?\n\s*)if\s*\(\s*!bluetooth\.isEnabled\s*\)\s*\{/,
+      `$1// SEZA_PATCH_SAFE_BLUETOOTH_ADAPTER\n        if (bluetooth != null && !bluetooth.isEnabled) {`,
+    );
+  }
 }
 
-// Stripe Terminal can publish an empty discovery update before the USB M2 appears.
-// The upstream plugin dereferences readers[0], which throws on that empty update
-// and closes the entire SEZA Android app. Ignore empty updates and keep discovery
-// alive until the real reader arrives or SEZA's own timeout expires.
+// 3) Empty reader discovery guard. Do NOT require readers[0] to be the next
+// statement: earlier patches/plugin updates can insert logging or comments.
 if (!terminal.includes("SEZA_PATCH_EMPTY_DISCOVERY_GUARD")) {
-  terminal = replaceRequired(
-    terminal,
-    `                    override fun onUpdateDiscoveredReaders(readers: List<Reader>) {\n                        Log.d(logTag, readers[0].serialNumber.toString())`,
-    `                    override fun onUpdateDiscoveredReaders(readers: List<Reader>) {\n                        // SEZA_PATCH_EMPTY_DISCOVERY_GUARD\n                        if (readers.isEmpty()) {\n                            return\n                        }\n                        Log.d(logTag, readers[0].serialNumber.toString())`,
-    "empty reader discovery guard",
-  );
+  const discoveryAlreadySafe = /override\s+fun\s+onUpdateDiscoveredReaders\s*\(readers:\s*List<Reader>\)\s*\{[\s\S]{0,500}?readers\.isEmpty\(\)/m.test(terminal);
+  if (discoveryAlreadySafe) {
+    console.log("[SEZA] empty reader discovery guard already present.");
+  } else {
+    terminal = insertAfterFunctionHeader(
+      terminal,
+      /override\s+fun\s+onUpdateDiscoveredReaders\s*\(readers:\s*List<Reader>\)\s*\{/m,
+      `\n                        // SEZA_PATCH_EMPTY_DISCOVERY_GUARD\n                        if (readers.isEmpty()) {\n                            return\n                        }`,
+      () => false,
+      "empty reader discovery guard",
+    );
+  }
 }
 
-// Never let a Capacitor call reach Terminal.getInstance() before Stripe has been
-// initialized. Capacitor wraps native exceptions as a fatal plugin-thread crash,
-// so catching the Promise in JS is not enough.
-// V2 IMPORTANT: pre-init getConnectedReader must reject, not resolve with null.
-// SEZA uses a successful getConnectedReader call to detect an already-existing
-// native Terminal singleton after a WebView reload. Returning a successful null
-// before init makes JS think Stripe is initialized and skip initialize(), which
-// then breaks every manual/automatic reader connection attempt.
-const oldSafeConnectedReader = `        // SEZA_PATCH_SAFE_CONNECTED_READER\n        if (!isInitialized()) {\n            call.resolve(JSObject().put("reader", JSObject.NULL))\n            return\n        }`;
-const newSafeConnectedReader = `        // SEZA_PATCH_SAFE_CONNECTED_READER_V2\n        if (!isInitialized()) {\n            call.reject("Stripe Terminal is not initialized yet.")\n            return\n        }`;
-if (terminal.includes(oldSafeConnectedReader)) {
-  terminal = terminal.replace(oldSafeConnectedReader, newSafeConnectedReader);
-} else if (!terminal.includes("SEZA_PATCH_SAFE_CONNECTED_READER_V2")) {
-  terminal = replaceRequired(
-    terminal,
-    `    fun getConnectedReader(call: PluginCall) {\n        val reader: Reader? = Terminal.getInstance().connectedReader`,
-    `    fun getConnectedReader(call: PluginCall) {\n${newSafeConnectedReader}\n        val reader: Reader? = Terminal.getInstance().connectedReader`,
-    "safe getConnectedReader v2",
+// 4) Pre-init getConnectedReader must REJECT. Returning successful null makes
+// SEZA think a native Terminal singleton exists and it skips initialize().
+const oldSafeConnectedReader = /\s*\/\/ SEZA_PATCH_SAFE_CONNECTED_READER\s*\r?\n\s*if\s*\(!isInitialized\(\)\)\s*\{\s*\r?\n\s*call\.resolve\(JSObject\(\)\.put\("reader",\s*JSObject\.NULL\)\)\s*\r?\n\s*return\s*\r?\n\s*\}/m;
+if (oldSafeConnectedReader.test(terminal)) {
+  terminal = terminal.replace(
+    oldSafeConnectedReader,
+    `\n        // SEZA_PATCH_SAFE_CONNECTED_READER_V2\n        if (!isInitialized()) {\n            call.reject("Stripe Terminal is not initialized yet.")\n            return\n        }`,
   );
 }
+terminal = insertAfterFunctionHeader(
+  terminal,
+  /fun\s+getConnectedReader\s*\(call:\s*PluginCall\)\s*\{/m,
+  `\n        // SEZA_PATCH_SAFE_CONNECTED_READER_V2\n        if (!isInitialized()) {\n            call.reject("Stripe Terminal is not initialized yet.")\n            return\n        }`,
+  (s) => /fun\s+getConnectedReader\s*\(call:\s*PluginCall\)\s*\{[\s\S]{0,450}?if\s*\(!isInitialized\(\)\)[\s\S]{0,200}?call\.reject/m.test(s),
+  "safe getConnectedReader",
+);
 
-if (!terminal.includes("SEZA_PATCH_SAFE_DISCONNECT_READER")) {
-  terminal = replaceRequired(
-    terminal,
-    `    fun disconnectReader(call: PluginCall) {\n        if (Terminal.getInstance().connectedReader == null) {`,
-    `    fun disconnectReader(call: PluginCall) {\n        // SEZA_PATCH_SAFE_DISCONNECT_READER\n        if (!isInitialized()) {\n            call.resolve()\n            return\n        }\n        if (Terminal.getInstance().connectedReader == null) {`,
-    "safe disconnectReader",
-  );
-}
+// 5) disconnectReader before initialize must be a harmless no-op.
+terminal = insertAfterFunctionHeader(
+  terminal,
+  /fun\s+disconnectReader\s*\(call:\s*PluginCall\)\s*\{/m,
+  `\n        // SEZA_PATCH_SAFE_DISCONNECT_READER\n        if (!isInitialized()) {\n            call.resolve()\n            return\n        }`,
+  (s) => /fun\s+disconnectReader\s*\(call:\s*PluginCall\)\s*\{[\s\S]{0,400}?if\s*\(!isInitialized\(\)\)/m.test(s),
+  "safe disconnectReader",
+);
 
-// Defensive native guard: discovery should only run after initialize(). If a
-// lifecycle race slips through, reject the call instead of crashing the app.
-if (!terminal.includes("SEZA_PATCH_SAFE_DISCOVER_BEFORE_INIT")) {
-  terminal = replaceRequired(
-    terminal,
-    `    fun onDiscoverReaders(call: PluginCall) {\n        if (ActivityCompat.checkSelfPermission(`,
-    `    fun onDiscoverReaders(call: PluginCall) {\n        // SEZA_PATCH_SAFE_DISCOVER_BEFORE_INIT\n        if (!isInitialized()) {\n            call.reject("Stripe Terminal is not initialized yet.")\n            return\n        }\n        if (ActivityCompat.checkSelfPermission(`,
-    "safe discover before init",
-  );
-}
+// 6) Never start discovery before Stripe Terminal initialize() completes.
+terminal = insertAfterFunctionHeader(
+  terminal,
+  /fun\s+onDiscoverReaders\s*\(call:\s*PluginCall\)\s*\{/m,
+  `\n        // SEZA_PATCH_SAFE_DISCOVER_BEFORE_INIT\n        if (!isInitialized()) {\n            call.reject("Stripe Terminal is not initialized yet.")\n            return\n        }`,
+  (s) => /fun\s+onDiscoverReaders\s*\(call:\s*PluginCall\)\s*\{[\s\S]{0,450}?if\s*\(!isInitialized\(\)\)/m.test(s),
+  "safe discover before init",
+);
 
 const terminalChanged = writeIfChanged(terminalPath, terminalOriginal, terminal);
 
 console.log(
-  `[SEZA] Stripe Terminal Android safety patch ${tokenChanged || terminalChanged ? "applied" : "already applied"}.`,
+  `[SEZA] Stripe Terminal Android safety patch ${tokenChanged || terminalChanged ? "applied" : "already satisfied"}.`,
 );
