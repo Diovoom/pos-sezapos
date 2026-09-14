@@ -1,5 +1,4 @@
-import { loadConnectAndInitialize } from "@stripe/connect-js/pure";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -12,6 +11,72 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+const CONNECT_JS_URL = "https://connect-js.stripe.com/v1.0/connect.js";
+
+type StripeConnectInstance = {
+  create: (component: string) => HTMLElement;
+};
+
+type StripeConnectGlobal = {
+  init?: (options: {
+    publishableKey: string;
+    fetchClientSecret: () => Promise<string>;
+  }) => StripeConnectInstance;
+  onLoad?: () => void;
+};
+
+declare global {
+  interface Window {
+    StripeConnect?: StripeConnectGlobal;
+  }
+}
+
+let connectLoaderPromise: Promise<Required<Pick<StripeConnectGlobal, "init">> & StripeConnectGlobal> | null = null;
+
+function loadStripeConnect() {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Stripe account tools can only load in the browser."));
+  }
+
+  if (typeof window.StripeConnect?.init === "function") {
+    return Promise.resolve(window.StripeConnect as Required<Pick<StripeConnectGlobal, "init">> & StripeConnectGlobal);
+  }
+
+  if (connectLoaderPromise) return connectLoaderPromise;
+
+  connectLoaderPromise = new Promise<Required<Pick<StripeConnectGlobal, "init">> & StripeConnectGlobal>((resolve, reject) => {
+    const global = (window.StripeConnect ??= {});
+    const previousOnLoad = global.onLoad;
+    const finish = () => {
+      previousOnLoad?.();
+      if (typeof window.StripeConnect?.init !== "function") {
+        reject(new Error("Stripe Connect loaded without its initialization API."));
+        return;
+      }
+      resolve(window.StripeConnect as Required<Pick<StripeConnectGlobal, "init">> & StripeConnectGlobal);
+    };
+
+    global.onLoad = finish;
+
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${CONNECT_JS_URL}"]`);
+    if (existing) {
+      existing.addEventListener("error", () => reject(new Error("Could not load Stripe Connect.")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = CONNECT_JS_URL;
+    script.async = true;
+    script.addEventListener("error", () => reject(new Error("Could not load Stripe Connect.")), { once: true });
+    document.head.appendChild(script);
+  }).catch((error) => {
+    connectLoaderPromise = null;
+    throw error;
+  });
+
+  return connectLoaderPromise;
+}
 
 type Bootstrap = {
   publishableKey: string;
@@ -73,26 +138,35 @@ export function StripePayoutsManager({
     return next.clientSecret;
   }, [createPayoutSession]);
 
-  const connectInstance = useMemo(() => {
-    if (!bootstrap?.publishableKey) return null;
-    return loadConnectAndInitialize({
-      publishableKey: bootstrap.publishableKey,
-      fetchClientSecret,
-    });
-  }, [bootstrap?.publishableKey, fetchClientSecret]);
-
   useEffect(() => {
     const target = mountRef.current;
-    if (!open || !target || !connectInstance) return;
+    if (!open || !target || !bootstrap?.publishableKey) return;
 
-    const accountManagement = connectInstance.create("account-management");
-    target.replaceChildren(accountManagement);
+    let cancelled = false;
+    let accountManagement: HTMLElement | null = null;
+
+    void loadStripeConnect()
+      .then((StripeConnect) => {
+        if (cancelled) return;
+        const connectInstance = StripeConnect.init({
+          publishableKey: bootstrap.publishableKey,
+          fetchClientSecret,
+        });
+        accountManagement = connectInstance.create("account-management");
+        target.replaceChildren(accountManagement);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        toast.error(userFacingError(error, "Could not load payout management."));
+        onOpenChange(false);
+      });
 
     return () => {
-      accountManagement.remove();
+      cancelled = true;
+      accountManagement?.remove();
       target.replaceChildren();
     };
-  }, [connectInstance, open]);
+  }, [bootstrap?.publishableKey, fetchClientSecret, onOpenChange, open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

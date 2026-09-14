@@ -37,6 +37,22 @@ const PLATFORM_STAFF_MSG = "Platform administrators cannot sign in here. Use adm
 const OWNER_ONLY_MSG =
   "The SEZA website is for store owners. Employees use the paired SEZA POS Android app.";
 
+const OWNER_SIGN_IN_TIMEOUT_MS = 12_000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("OWNER_SIGN_IN_TIMEOUT")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function clearOwnerBrowserIdentity(
   queryClient: QueryClient,
   explicitUserId?: string | null,
@@ -64,10 +80,13 @@ async function clearOwnerBrowserIdentity(
 async function ensureOwnerWebsiteAccess(userId: string): Promise<boolean> {
   try {
     const [{ data: profile, error: profileError }, { data: roleRows, error: roleError }] =
-      await Promise.all([
-        supabase.from("profiles").select("store_id").eq("id", userId).maybeSingle(),
-        supabase.from("user_roles").select("role,store_id").eq("user_id", userId),
-      ]);
+      await withTimeout(
+        Promise.all([
+          supabase.from("profiles").select("store_id").eq("id", userId).maybeSingle(),
+          supabase.from("user_roles").select("role,store_id").eq("user_id", userId),
+        ]),
+        8_000,
+      );
     if (profileError) throw profileError;
     if (roleError) throw roleError;
 
@@ -247,9 +266,35 @@ function OwnerEmailLogin() {
     setOwnerLoginIntent(normalizedEmail);
 
     try {
-      const result = await signIn({
-        data: { email: normalizedEmail, password, captchaToken },
-      });
+      let result: Awaited<ReturnType<typeof signIn>> | null = null;
+      try {
+        result = await withTimeout(
+          signIn({ data: { email: normalizedEmail, password, captchaToken } }),
+          OWNER_SIGN_IN_TIMEOUT_MS,
+        );
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== "OWNER_SIGN_IN_TIMEOUT") throw error;
+
+        // Cloudflare/server-function cold starts must not leave the owner on an
+        // endless spinner. Fall back to Supabase Auth directly, then run the
+        // exact same owner/store authorization check before entering dashboard.
+        const { data: direct, error: directError } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+          options: captchaToken ? { captchaToken } : undefined,
+        });
+        if (directError || !direct.user || !direct.session) {
+          clearOwnerLoginIntent();
+          toast.error("Invalid email or password.");
+          return;
+        }
+
+        rememberOwnerSessionIdentity(direct.user);
+        clearOwnerLoginIntent();
+        await finishSignIn(direct.user.id);
+        return;
+      }
+
       if (!result.ok || !result.session || !result.user_id) {
         clearOwnerLoginIntent();
         cooldown.start(result.ok ? 0 : result.retry_after_seconds);
@@ -257,19 +302,20 @@ function OwnerEmailLogin() {
         return;
       }
 
-      // Never layer a new owner session on top of an older one. Safari can
-      // keep dashboard.sezapos.com localStorage alive across account switches.
-      const { data: previous } = await supabase.auth.getSession();
-      const previousUserId = previous.session?.user?.id ?? null;
-      if (previousUserId) {
-        await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
-      }
-      await clearOwnerBrowserIdentity(queryClient, previousUserId);
+      // setSession replaces the browser's active Supabase session. Do not sign
+      // out first: on Safari/WebKit the auth storage lock can stall between a
+      // signOut() and an immediate setSession(), leaving the button spinning
+      // even though the server already accepted the password.
+      const previous = await withTimeout(supabase.auth.getSession(), 4_000).catch(() => null);
+      const previousUserId = previous?.data.session?.user?.id ?? null;
 
-      const { data: activated, error } = await supabase.auth.setSession({
-        access_token: result.session.access_token,
-        refresh_token: result.session.refresh_token,
-      });
+      const { data: activated, error } = await withTimeout(
+        supabase.auth.setSession({
+          access_token: result.session.access_token,
+          refresh_token: result.session.refresh_token,
+        }),
+        8_000,
+      );
       if (error) throw error;
 
       const activeUser = activated.user ?? activated.session?.user;
@@ -283,6 +329,9 @@ function OwnerEmailLogin() {
         throw new Error("The active account did not match the email that was submitted.");
       }
 
+      await withTimeout(clearOwnerBrowserIdentity(queryClient, previousUserId), 3_000).catch(
+        () => undefined,
+      );
       rememberOwnerSessionIdentity(activeUser);
       clearOwnerLoginIntent();
       await finishSignIn(activeUser.id);

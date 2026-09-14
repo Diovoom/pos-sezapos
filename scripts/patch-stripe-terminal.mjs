@@ -86,12 +86,21 @@ if (!terminal.includes("SEZA_PATCH_EMPTY_DISCOVERY_GUARD")) {
 // Never let a Capacitor call reach Terminal.getInstance() before Stripe has been
 // initialized. Capacitor wraps native exceptions as a fatal plugin-thread crash,
 // so catching the Promise in JS is not enough.
-if (!terminal.includes("SEZA_PATCH_SAFE_CONNECTED_READER")) {
+// V2 IMPORTANT: pre-init getConnectedReader must reject, not resolve with null.
+// SEZA uses a successful getConnectedReader call to detect an already-existing
+// native Terminal singleton after a WebView reload. Returning a successful null
+// before init makes JS think Stripe is initialized and skip initialize(), which
+// then breaks every manual/automatic reader connection attempt.
+const oldSafeConnectedReader = `        // SEZA_PATCH_SAFE_CONNECTED_READER\n        if (!isInitialized()) {\n            call.resolve(JSObject().put("reader", JSObject.NULL))\n            return\n        }`;
+const newSafeConnectedReader = `        // SEZA_PATCH_SAFE_CONNECTED_READER_V2\n        if (!isInitialized()) {\n            call.reject("Stripe Terminal is not initialized yet.")\n            return\n        }`;
+if (terminal.includes(oldSafeConnectedReader)) {
+  terminal = terminal.replace(oldSafeConnectedReader, newSafeConnectedReader);
+} else if (!terminal.includes("SEZA_PATCH_SAFE_CONNECTED_READER_V2")) {
   terminal = replaceRequired(
     terminal,
     `    fun getConnectedReader(call: PluginCall) {\n        val reader: Reader? = Terminal.getInstance().connectedReader`,
-    `    fun getConnectedReader(call: PluginCall) {\n        // SEZA_PATCH_SAFE_CONNECTED_READER\n        if (!isInitialized()) {\n            call.resolve(JSObject().put("reader", JSObject.NULL))\n            return\n        }\n        val reader: Reader? = Terminal.getInstance().connectedReader`,
-    "safe getConnectedReader",
+    `    fun getConnectedReader(call: PluginCall) {\n${newSafeConnectedReader}\n        val reader: Reader? = Terminal.getInstance().connectedReader`,
+    "safe getConnectedReader v2",
   );
 }
 

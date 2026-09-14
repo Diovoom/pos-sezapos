@@ -44,9 +44,7 @@ jobs:
       - name: Build hosted website
         run: npm run build
       - name: Build and sync Android web assets
-        run: |
-          npm run android:build
-          npx cap sync android
+        run: npm run android:sync
       - name: Compile Android debug APK
         working-directory: android
         run: |
