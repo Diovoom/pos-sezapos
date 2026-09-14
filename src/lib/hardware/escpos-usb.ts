@@ -38,7 +38,11 @@ function localGet(key: string): string | null {
 
 function localSet(key: string, value: string) {
   if (typeof window === "undefined") return;
-  try { window.localStorage.setItem(key, value); } catch {}
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // localStorage can be unavailable in restricted WebView/browser contexts.
+  }
 }
 
 function readProfile(): UsbPrinterProfile | null {
