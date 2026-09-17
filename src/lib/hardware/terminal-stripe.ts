@@ -61,6 +61,11 @@ type StripeTerminalRuntimeState = {
   connected: { terminalId: string; driver: TerminalDriverId; serial: string } | null;
   readerConnectPromise: Promise<{ mod: StripeModule; reader: any }> | null;
   paymentInFlight: boolean;
+  paymentAttemptId: number;
+  cancelRequestedFor: number | null;
+  paymentStage: "idle" | "preparing" | "collecting" | "confirming";
+  paymentSettledPromise: Promise<void> | null;
+  resolvePaymentSettled: (() => void) | null;
 };
 
 const STRIPE_RUNTIME_KEY = "__sezaStripeTerminalRuntime";
@@ -80,9 +85,24 @@ function stripeRuntime(): StripeTerminalRuntimeState {
     connected: null,
     readerConnectPromise: null,
     paymentInFlight: false,
+    paymentAttemptId: 0,
+    cancelRequestedFor: null,
+    paymentStage: "idle",
+    paymentSettledPromise: null,
+    resolvePaymentSettled: null,
   };
 
-  return root[STRIPE_RUNTIME_KEY]!;
+  // Keep hot reloads / an already-running WebView compatible with the newer
+  // runtime shape. The object is intentionally stored on globalThis so native
+  // Stripe state survives module reloads.
+  const runtime = root[STRIPE_RUNTIME_KEY]!;
+  runtime.paymentAttemptId ??= 0;
+  runtime.cancelRequestedFor ??= null;
+  runtime.paymentStage ??= "idle";
+  runtime.paymentSettledPromise ??= null;
+  runtime.resolvePaymentSettled ??= null;
+
+  return runtime;
 }
 
 const CONNECTION_METHOD_PREFIX = "pos.stripe.connectionMethod.";
@@ -779,30 +799,99 @@ export async function isReady(_driver: TerminalDriverId) {
   }
 }
 
+class StripePaymentCancelledError extends Error {
+  constructor() {
+    super("Payment cancelled");
+    this.name = "StripePaymentCancelledError";
+  }
+}
+
+async function cancelNativeCollection() {
+  try {
+    const mod = await loadModule();
+    await mod.StripeTerminal.cancelCollectPaymentMethod();
+  } catch {
+    // Stripe's Capacitor wrapper resolves when no collection is active and can
+    // also reject if the operation already finished. The attempt-level cancel
+    // flag below is the source of truth for SEZA in both cases.
+  }
+}
+
 export async function charge(
   driver: TerminalDriverId,
   input: { amountCents: number; currency: string; description?: string; idempotencyId?: string },
   onStatus?: (message: string) => void,
-): Promise<{ ok: true; ref: string } | { ok: false; error: string }> {
+  signal?: AbortSignal,
+): Promise<{ ok: true; ref: string } | { ok: false; error: string; cancelled?: boolean }> {
   const runtime = stripeRuntime();
   if (runtime.paymentInFlight) {
-    return { ok: false, error: "A card payment is already in progress. Wait for it to finish or cancel it." };
+    // If the prior dialog was just closed/cancelled, its native M2 operation
+    // may need a brief moment to unwind. Queue the next sale behind that
+    // cancellation instead of surfacing a false "payment in progress" error.
+    if (
+      runtime.cancelRequestedFor === runtime.paymentAttemptId &&
+      runtime.paymentSettledPromise
+    ) {
+      await runtime.paymentSettledPromise;
+    }
   }
 
+  // A genuinely active (non-cancelled) payment still blocks a second charge.
+  // Re-check after the await above in case another caller acquired the slot.
+  if (runtime.paymentInFlight) {
+    return {
+      ok: false,
+      error: "A card payment is already in progress. Wait for it to finish or cancel it.",
+    };
+  }
+
+  const attemptId = runtime.paymentAttemptId + 1;
+  runtime.paymentAttemptId = attemptId;
   runtime.paymentInFlight = true;
+  runtime.cancelRequestedFor = null;
+  runtime.paymentStage = "preparing";
+  runtime.paymentSettledPromise = new Promise<void>((resolve) => {
+    runtime.resolvePaymentSettled = resolve;
+  });
+
+  const requestCancel = () => {
+    if (!runtime.paymentInFlight || runtime.paymentAttemptId !== attemptId) return;
+    // Once card collection has completed, confirmPaymentIntent can already be
+    // committing money. Do not turn a late UI close into a fake cancellation.
+    if (runtime.paymentStage === "confirming") return;
+    runtime.cancelRequestedFor = attemptId;
+    void cancelNativeCollection();
+  };
+
+  const throwIfCancelled = () => {
+    if (runtime.cancelRequestedFor === attemptId || signal?.aborted) {
+      throw new StripePaymentCancelledError();
+    }
+  };
+
+  if (signal?.aborted) requestCancel();
+  signal?.addEventListener("abort", requestCancel, { once: true });
+
   let paymentIntentId = "";
   try {
     if (input.amountCents < 50) {
       return { ok: false, error: "Card payments must be at least $0.50." };
     }
 
+    throwIfCancelled();
     const configuration = await activeConfiguration(driver);
+    throwIfCancelled();
     const { mod } = await ensureReader(configuration, onStatus);
+    throwIfCancelled();
     onStatus?.("Creating secure card-present payment…");
     const intent = await createPaymentIntent(input.amountCents, input.currency, input.description, input.idempotencyId);
     paymentIntentId = intent.id;
+    throwIfCancelled();
     onStatus?.("Ask the customer to tap, insert, or swipe…");
+    runtime.paymentStage = "collecting";
     await mod.StripeTerminal.collectPaymentMethod({ paymentIntent: intent.client_secret });
+    throwIfCancelled();
+    runtime.paymentStage = "confirming";
     onStatus?.("Processing payment…");
     await confirmCollectedPayment(mod, intent.id);
 
@@ -815,6 +904,18 @@ export async function charge(
     onStatus?.("Payment approved");
     return { ok: true, ref: intent.id };
   } catch (error) {
+    const cancelled =
+      error instanceof StripePaymentCancelledError || runtime.cancelRequestedFor === attemptId;
+    if (cancelled) {
+      if (paymentIntentId) {
+        void recordPaymentResult(paymentIntentId, "failed", "Payment cancelled");
+      }
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem("pos.terminal.lastError");
+      }
+      return { ok: false, error: "Payment cancelled", cancelled: true };
+    }
+
     const rawMessage = error instanceof Error ? error.message : "Card payment failed.";
     const message = rawMessage.includes("most recently collected")
       ? "The reader lost the active payment session. Cancel the payment and try the card once more."
@@ -826,17 +927,41 @@ export async function charge(
     if (typeof window !== "undefined") window.dispatchEvent(new Event("seza:device-config-changed"));
     return { ok: false, error: message };
   } finally {
-    runtime.paymentInFlight = false;
+    signal?.removeEventListener("abort", requestCancel);
+    if (runtime.paymentAttemptId === attemptId) {
+      runtime.paymentInFlight = false;
+      runtime.cancelRequestedFor = null;
+      runtime.paymentStage = "idle";
+      const resolveSettled = runtime.resolvePaymentSettled;
+      runtime.resolvePaymentSettled = null;
+      runtime.paymentSettledPromise = null;
+      resolveSettled?.();
+    }
   }
 }
 
 export async function cancelActivePayment() {
-  try {
-    const mod = await loadModule();
-    await mod.StripeTerminal.cancelCollectPaymentMethod();
-  } catch {
-    // There may be no active payment collection to cancel.
+  const runtime = stripeRuntime();
+  if (!runtime.paymentInFlight) return;
+
+  const attemptId = runtime.paymentAttemptId;
+  const settled = runtime.paymentSettledPromise;
+
+  // A PaymentIntent is already being confirmed at this stage. Waiting for its
+  // real result is safer than reporting "cancelled" while Stripe may approve
+  // it in the background.
+  if (runtime.paymentStage === "confirming") {
+    await settled;
+    return;
   }
+
+  runtime.cancelRequestedFor = attemptId;
+  await cancelNativeCollection();
+
+  // Do not release SEZA's payment lock early. A second collect call while the
+  // M2 still owns the first native operation is exactly what produces
+  // "payment in progress" / unexpected-operation failures.
+  await settled;
 }
 
 export async function disconnect() {

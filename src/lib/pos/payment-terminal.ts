@@ -72,7 +72,12 @@ export interface PaymentProvider {
     onEvent: (e: PaymentEvent) => void,
     signal: AbortSignal,
   ): Promise<PaymentResult>;
-  cancel?(): void;
+  /**
+   * Stop the active tender and resolve only after the provider is safe to use
+   * for another payment. This is intentionally async: Stripe Terminal keeps a
+   * native operation lock while collectPaymentMethod is being cancelled.
+   */
+  cancel?(): Promise<void>;
 }
 
 const stripeTerminalProvider: PaymentProvider = {
@@ -94,16 +99,21 @@ const stripeTerminalProvider: PaymentProvider = {
         const lower = message.toLowerCase();
         const status: PaymentStatus = lower.includes("approved")
           ? "approved"
-          : lower.includes("processing") || lower.includes("creating")
+          : lower.includes("processing")
             ? "processing"
-            : lower.includes("tap") || lower.includes("insert") || lower.includes("swipe")
-              ? "waiting_for_customer"
-              : "connecting";
+            : lower.includes("creating")
+              ? "connecting"
+              : lower.includes("tap") || lower.includes("insert") || lower.includes("swipe")
+                ? "waiting_for_customer"
+                : "connecting";
         onEvent({ status, message });
       },
+      signal,
     );
-    if (signal.aborted)
+    if (!result.ok && result.cancelled) {
+      onEvent({ status: "cancelled", message: "Payment cancelled" });
       return { approved: false, finalStatus: "cancelled", message: "Payment cancelled" };
+    }
     if (!result.ok) {
       onEvent({ status: navigator.onLine ? "error" : "network_error", message: result.error });
       return {
@@ -120,8 +130,8 @@ const stripeTerminalProvider: PaymentProvider = {
       reference: result.ref,
     };
   },
-  cancel() {
-    void cancelStripeTerminalPayment();
+  async cancel() {
+    await cancelStripeTerminalPayment();
   },
 };
 

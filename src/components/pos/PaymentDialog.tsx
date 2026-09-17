@@ -154,10 +154,16 @@ export function PaymentDialog({
           className={cn(
             "p-0 gap-0 overflow-hidden",
             "flex flex-col",
+            // Payment tender must leave through the explicit Cancel/Back
+            // controls below. Hiding Radix's generic X prevents the dialog
+            // from disappearing while a native card operation is still
+            // unwinding or being confirmed.
+            "[&>button]:hidden",
             "h-[100dvh] max-h-[100dvh] w-screen max-w-none rounded-none",
             "sm:h-auto sm:max-h-[92dvh] sm:max-w-md sm:rounded-lg sm:w-full",
           )}
           onEscapeKeyDown={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
         >
           {isCash ? (
             <CashPanel
@@ -413,10 +419,13 @@ function SplitPanel({
   });
   const [result, setResult] = useState<PaymentResult | null>(null);
   const [charging, setCharging] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const cash = Math.min(total, Math.max(0, Math.round((Number(cashText) || 0) * 100) / 100));
   const remaining = Math.max(0, Math.round((total - cash) * 100) / 100);
   const approved = remaining === 0 || result?.finalStatus === "approved";
+  const cardProcessing = charging && event.status === "processing";
+  const cardCommitted = remaining > 0 && result?.finalStatus === "approved";
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -467,6 +476,21 @@ function SplitPanel({
       last4: result?.last4,
       allocations,
     });
+  };
+
+  const cancelSplit = async () => {
+    if (cardProcessing || cardCommitted) return;
+    if (charging && provider) {
+      setCancelling(true);
+      setEvent({ status: "connecting", message: "Cancelling card payment…" });
+      abortRef.current?.abort();
+      try {
+        await provider.cancel?.();
+      } finally {
+        setCancelling(false);
+      }
+    }
+    onCancel();
   };
 
   return (
@@ -574,8 +598,20 @@ function SplitPanel({
         )}
       </div>
       <div className="flex shrink-0 gap-2 border-t bg-surface/40 p-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
-        <Button variant="outline" className="flex-1" onClick={onCancel}>
-          Cancel
+        <Button
+          variant="outline"
+          className="flex-1"
+          onClick={() => void cancelSplit()}
+          disabled={cancelling || cardProcessing || cardCommitted}
+        >
+          {cancelling && <Loader2 className="mr-2 size-4 animate-spin" />}
+          {cancelling
+            ? "Cancelling…"
+            : cardProcessing
+              ? "Finishing card payment…"
+              : cardCommitted
+                ? "Card approved"
+                : "Cancel"}
         </Button>
         <Button className="flex-1" disabled={!approved || total <= 0} onClick={finish}>
           Complete split sale
@@ -611,6 +647,7 @@ function TerminalPanel({
   const navigate = useNavigate();
   const [event, setEvent] = useState<PaymentEvent>({ status: "idle", message: "Ready" });
   const [result, setResult] = useState<PaymentResult | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const attemptIdRef = useRef<string>(crypto.randomUUID());
 
@@ -674,6 +711,18 @@ function TerminalPanel({
     }
     return () => abortRef.current?.abort();
   }, [provider?.id]);
+
+  const cancelPayment = async () => {
+    if (!provider || cancelling) return;
+    setCancelling(true);
+    setEvent({ status: "connecting", message: "Cancelling payment…" });
+    abortRef.current?.abort();
+    try {
+      await provider.cancel?.();
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   // ---- No provider connected: block card payments entirely. ----
   if (!provider) {
@@ -759,25 +808,30 @@ function TerminalPanel({
       </div>
 
       <div className="p-4 border-t bg-surface/40 flex gap-2 shrink-0 pb-[max(env(safe-area-inset-bottom),1rem)]">
-        {!isTerminal && (
+        {!isTerminal && status !== "processing" && (
           <Button
             variant="outline"
             className="flex-1"
-            onClick={() => {
-              provider.cancel?.();
-              abortRef.current?.abort();
-            }}
+            onClick={() => void cancelPayment()}
+            disabled={cancelling}
           >
-            Cancel payment
+            {cancelling && <Loader2 className="mr-2 size-4 animate-spin" />}
+            {cancelling ? "Cancelling…" : "Cancel payment"}
           </Button>
+        )}
+        {!isTerminal && status === "processing" && (
+          <div className="flex-1 px-3 text-center text-sm text-muted-foreground">
+            Card received. Finishing payment…
+          </div>
         )}
         {isTerminal && status !== "approved" && (
           <>
-            <Button variant="outline" className="flex-1" onClick={onCancel}>
+            <Button variant="outline" className="flex-1" onClick={onCancel} disabled={cancelling}>
               Back to cart
             </Button>
             <Button
               className="flex-1"
+              disabled={cancelling}
               onClick={() => {
                 if (status !== "network_error") attemptIdRef.current = crypto.randomUUID();
                 start();

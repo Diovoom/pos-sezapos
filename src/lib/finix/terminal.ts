@@ -77,7 +77,9 @@ export const finixTerminalProvider: PaymentProvider = {
       return { approved: false, finalStatus, message };
     }
   },
-  cancel() {
-    void api("/api/public/pos/finix/cancel", { method: "POST", body: "{}" }).catch(() => undefined);
+  async cancel() {
+    await api("/api/public/pos/finix/cancel", { method: "POST", body: "{}" })
+      .then(() => undefined)
+      .catch(() => undefined);
   },
 };

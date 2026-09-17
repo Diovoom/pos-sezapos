@@ -133,6 +133,46 @@ terminal = insertAfterFunctionHeader(
   "safe discover before init",
 );
 
+// 7) Close the cancellation race between collectPaymentMethod() entering the
+// Capacitor plugin and Stripe assigning its native Cancelable. Upstream 8.1.1
+// first retrieves the PaymentIntent and only then sets collectCancelable. If
+// the cashier presses Cancel during that retrieval window, upstream reports a
+// successful cancel even though collection starts a moment later in the
+// background. Remember the early cancel and reject the pending collect call
+// before Stripe is allowed to start reading a card.
+if (!terminal.includes("SEZA_PATCH_PAYMENT_CANCEL_RACE")) {
+  terminal = terminal.replace(
+    /(private\s+var\s+collectCancelable:\s*Cancelable\?\s*=\s*null)/,
+    `$1\n    // SEZA_PATCH_PAYMENT_CANCEL_RACE\n    private var collectCancelRequested: Boolean = false`,
+  );
+
+  terminal = insertAfterFunctionHeader(
+    terminal,
+    /fun\s+collectPaymentMethod\s*\(call:\s*PluginCall\)\s*\{/m,
+    `\n        // A fresh attempt must not inherit a cancel request from an older one.\n        this.collectCancelRequested = false`,
+    () => false,
+    "reset payment cancel request",
+  );
+
+  terminal = insertAfterFunctionHeader(
+    terminal,
+    /fun\s+cancelCollectPaymentMethod\s*\(call:\s*PluginCall\)\s*\{/m,
+    `\n        // Mark cancellation even before Stripe has returned the native Cancelable.\n        this.collectCancelRequested = true`,
+    () => false,
+    "remember early payment cancellation",
+  );
+
+  const retrieveSuccess = /(private\s+val\s+createPaymentIntentCallback[\s\S]*?override\s+fun\s+onSuccess\s*\(paymentIntent:\s*PaymentIntent\)\s*\{)/m;
+  if (retrieveSuccess.test(terminal)) {
+    terminal = terminal.replace(
+      retrieveSuccess,
+      `$1\n                // SEZA_PATCH_PAYMENT_CANCEL_RACE\n                if (collectCancelRequested) {\n                    collectCancelRequested = false\n                    notifyListeners(TerminalEnumEvent.Canceled.webEventName, emptyObject)\n                    collectCall?.reject("Payment cancelled")\n                    collectCall = null\n                    return\n                }`,
+    );
+  } else {
+    console.warn("[SEZA] payment cancel race: retrievePaymentIntent success callback not found; skipping callback guard.");
+  }
+}
+
 const terminalChanged = writeIfChanged(terminalPath, terminalOriginal, terminal);
 
 console.log(
