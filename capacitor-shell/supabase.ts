@@ -73,7 +73,7 @@ const patchedFetch: typeof fetch = (input, init) => {
 
   return nativeFetch(input, { ...init, headers, signal: controller.signal })
     .catch((error) => {
-      console.error("[SEZA Android] Supabase request failed", {
+      import.meta.env.DEV && console.error("[SEZA Android] Supabase request failed", {
         url: typeof input === "string" ? input : input instanceof URL ? input.href : input.url,
         error,
       });

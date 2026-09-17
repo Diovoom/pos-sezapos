@@ -13,12 +13,4 @@ ext {
     androidxJunitVersion = '1.3.0'
     androidxEspressoCoreVersion = '3.7.0'
     cordovaAndroidVersion = '14.0.1'
-    // @capacitor-community/stripe-terminal 8.1.1 defaults to Stripe Terminal
-    // Android 5.3.x. Stripe fixed a cancellation race in later 5.x releases
-    // that could leave collectPaymentMethod hanging and make the next M2 sale
-    // fail with an operation/payment already in progress. Pin all Terminal
-    // modules to the same current 5.x release so cancel completion is reliable.
-    stripeterminalCoreVersion = '5.8.0'
-    stripeterminalTapToPayVersion = '5.8.0'
-    stripeterminalAppOnDevicesVersion = '5.8.0'
 }

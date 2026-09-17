@@ -59,7 +59,7 @@ export const Route = createFileRoute("/api/public/pos/complete-first-login")({
         const { error: pwErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
           password: pwd,
         });
-        if (pwErr) return json({ error: pwErr.message }, 500);
+        if (pwErr) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
 
         const admin: any = supabaseAdmin;
         const patch: Record<string, unknown> = { must_change_password: false };
@@ -69,7 +69,7 @@ export const Route = createFileRoute("/api/public/pos/complete-first-login")({
           patch.must_change_pin = false;
         }
         const { error: profErr } = await admin.from("profiles").update(patch).eq("id", userId);
-        if (profErr) return json({ error: profErr.message }, 500);
+        if (profErr) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
 
         try {
           await admin.from("audit_log").insert({

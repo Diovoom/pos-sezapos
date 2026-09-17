@@ -317,18 +317,14 @@ async function createPaymentIntent(
   const timeout = new Promise<never>((_, reject) => {
     window.setTimeout(() => {
       reject(
-        new Error(
-          `[SEZA-RAW-PAYMENT-INTENT-TIMEOUT] endpoint=/api/public/pos/stripe-terminal/payment-intent waitedMs=${Date.now() - startedAt} amountCents=${amountCents} currency=${currency}`,
-        ),
+        new Error("The payment service took too long to respond."),
       );
     }, 20_000);
   });
 
   const result = await Promise.race([request, timeout]);
   if (!result.client_secret) {
-    throw new Error(
-      `[SEZA-RAW-PAYMENT-INTENT] missing client_secret response=${JSON.stringify(result)}`,
-    );
+    throw new Error("The payment could not be prepared. Please try again.");
   }
   return result;
 }
@@ -398,70 +394,11 @@ function readerList(value: unknown): any[] {
   return [];
 }
 
-function rawTerminalError(error: unknown, stage: string): Error {
-  if (error instanceof Error && error.message.startsWith("[SEZA-RAW-STRIPE]")) {
-    return error;
+function terminalError(error: unknown, stage: string): Error {
+  if (import.meta.env.DEV && typeof console !== "undefined") {
+    console.error(`[SEZA Terminal] ${stage}`, error);
   }
-
-  const record =
-    error && typeof error === "object"
-      ? (error as Record<string, unknown>)
-      : null;
-
-  const values: string[] = [];
-
-  if (error instanceof Error) {
-    values.push(`name=${error.name || "Error"}`);
-    values.push(`message=${error.message || "(empty)"}`);
-  } else if (typeof error === "string") {
-    values.push(`message=${error}`);
-  }
-
-  if (record) {
-    for (const key of [
-      "code",
-      "errorCode",
-      "localizedMessage",
-      "details",
-      "reason",
-      "type",
-      "message",
-    ]) {
-      const value = record[key];
-      if (value !== undefined && value !== null && String(value).trim()) {
-        const rendered =
-          typeof value === "object"
-            ? (() => {
-                try {
-                  return JSON.stringify(value);
-                } catch {
-                  return String(value);
-                }
-              })()
-            : String(value);
-        const entry = `${key}=${rendered}`;
-        if (!values.includes(entry)) values.push(entry);
-      }
-    }
-
-    try {
-      const json = JSON.stringify(record);
-      if (json && json !== "{}") values.push(`json=${json}`);
-    } catch {
-      // Raw diagnostics are best-effort only.
-    }
-  }
-
-  if (!values.length) values.push(`value=${String(error)}`);
-
-  const message = `[SEZA-RAW-STRIPE] stage=${stage} | ${values.join(" | ")}`;
-  console.error(message, error);
-
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem("pos.terminal.rawError", message);
-  }
-
-  return new Error(message);
+  return new Error(userFacingError(error, "Could not connect to the card reader. Please try again."));
 }
 
 async function discoverReaderList(
@@ -525,7 +462,7 @@ async function discoverReaderList(
       return new Promise<any[]>(() => undefined);
     })
     .catch((error) => {
-      throw rawTerminalError(error, "DISCOVER_READERS");
+      throw terminalError(error, "DISCOVER_READERS");
     });
 
   const timeoutMs = configuration.connectionMethod === "usb" ? 10_000 : 20_000;
@@ -567,7 +504,7 @@ async function installConnectionTokenListener(mod: StripeModule): Promise<void> 
             await mod.StripeTerminal.setConnectionToken({ token });
           })
           .catch((error) => {
-            console.error("[SEZA Terminal] connection token delivery failed", error);
+            if (import.meta.env.DEV) console.error("[SEZA Terminal] connection token delivery failed", error);
           });
       })
       .then(() => undefined)
@@ -632,6 +569,17 @@ async function initialize(testMode: boolean) {
   return runtime.initializePromise;
 }
 
+async function ensureStripeTerminalPermissions(configuration: TerminalConfiguration) {
+  if (!isNativeMode() || configuration.driver === "stripe-simulated" || configuration.driver === "stripe-wisepos") return;
+  const { deviceControl } = await import("@/lib/device-control");
+  const permission = await deviceControl.requestTerminalPermissions(configuration.connectionMethod);
+  if (permission.granted && permission.locationGranted) return;
+
+  throw new Error(
+    "SEZA needs Android Precise Location permission to connect Reader M2. Allow Location for SEZA POS, choose Precise, and try again.",
+  );
+}
+
 async function ensureReaderInternal(configuration: TerminalConfiguration, onStatus?: (message: string) => void) {
   const mod = await initialize(configuration.testMode);
   const current = await mod.StripeTerminal.getConnectedReader().catch(() => ({ reader: null }));
@@ -643,6 +591,8 @@ async function ensureReaderInternal(configuration: TerminalConfiguration, onStat
     };
     return { mod, reader: current.reader };
   }
+
+  await ensureStripeTerminalPermissions(configuration);
 
   onStatus?.(
     `Discovering Stripe reader over ${configuration.connectionMethod === "usb" ? "USB" : "Bluetooth"}…`,
@@ -673,7 +623,7 @@ async function ensureReaderInternal(configuration: TerminalConfiguration, onStat
       autoReconnectOnUnexpectedDisconnect: true,
     });
   } catch (error) {
-    throw rawTerminalError(error, "CONNECT_READER_NATIVE");
+    throw terminalError(error, "CONNECT_READER_NATIVE");
   } finally {
     await discovery.stop();
   }
@@ -746,6 +696,7 @@ export async function isTapToPaySupported() {
 
 export async function discoverReaders(driver: TerminalDriverId) {
   const configuration = await activeConfiguration(driver);
+  await ensureStripeTerminalPermissions(configuration);
   const mod = await initialize(configuration.testMode);
   const discovery = await discoverReaderList(mod, configuration);
   try {
@@ -764,13 +715,13 @@ export async function connectReader(driver: TerminalDriverId, onStatus?: (messag
     const { reader } = await ensureReader(configuration, onStatus);
     return { terminalId: configuration.terminalId, serialNumber: reader.serialNumber, label: reader.label || reader.serialNumber };
   } catch (error) {
-    const raw = rawTerminalError(error, "CONNECT_READER");
+    const safe = terminalError(error, "CONNECT_READER");
     if (typeof localStorage !== "undefined") {
-      localStorage.setItem("pos.terminal.lastError", raw.message);
-      localStorage.setItem("pos.terminal.rawError", raw.message);
+      localStorage.setItem("pos.terminal.lastError", safe.message);
+      localStorage.removeItem("pos.terminal.rawError");
     }
     if (typeof window !== "undefined") window.dispatchEvent(new Event("seza:device-config-changed"));
-    throw raw;
+    throw safe;
   }
 }
 
@@ -874,8 +825,8 @@ export async function charge(
 
   let paymentIntentId = "";
   try {
-    if (input.amountCents < 50) {
-      return { ok: false, error: "Card payments must be at least $0.50." };
+    if (input.amountCents < 1) {
+      return { ok: false, error: "Card payments must be at least $0.01." };
     }
 
     throwIfCancelled();

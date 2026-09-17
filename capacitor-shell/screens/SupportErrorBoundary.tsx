@@ -25,7 +25,7 @@ export class SupportErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: unknown) {
     // Log for diagnostics; never surface raw error to the UI.
     // eslint-disable-next-line no-console
-    console.error("[support] render error", error);
+    import.meta.env.DEV && console.error("[support] render error", error);
   }
 
   private retry = () => this.setState((s) => ({ hasError: false, nonce: s.nonce + 1 }));

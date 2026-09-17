@@ -86,7 +86,7 @@ export const Route = createFileRoute("/api/public/pos/device-heartbeat")({
             status_snapshot: snapshot,
           })
           .eq("id", deviceId);
-        if (error) return json({ error: error.message }, 500);
+        if (error) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
 
         // Return the small operating configuration on every acknowledged
         // heartbeat. This keeps an already-open Android register aligned with

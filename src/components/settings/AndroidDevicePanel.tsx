@@ -17,6 +17,7 @@ import {
   type DeviceControlState,
 } from "@/lib/device-control";
 import { isNativeMode } from "@/lib/native";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 const initialState: DeviceControlState = {
   launchOnBoot: false,
@@ -68,11 +69,7 @@ export function AndroidDevicePanel() {
       setState((current) => ({ ...current, [key]: enabled }));
       toast.success("Android terminal setting updated");
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to update terminal setting",
-      );
+      toast.error(userFacingError(error, "Unable to update terminal setting."));
     } finally {
       setBusy(false);
     }
@@ -86,11 +83,7 @@ export function AndroidDevicePanel() {
       await refresh();
       toast.success("Kiosk mode started");
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to start kiosk mode",
-      );
+      toast.error(userFacingError(error, "Unable to start kiosk mode."));
     } finally {
       setBusy(false);
     }
@@ -104,11 +97,7 @@ export function AndroidDevicePanel() {
       await refresh();
       toast.success("Kiosk mode stopped");
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to stop kiosk mode",
-      );
+      toast.error(userFacingError(error, "Unable to stop kiosk mode."));
     } finally {
       setBusy(false);
     }
@@ -120,9 +109,7 @@ export function AndroidDevicePanel() {
     try {
       await deviceControl.relaunch();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Unable to restart SEZA",
-      );
+      toast.error(userFacingError(error, "Unable to restart SEZA."));
       setBusy(false);
     }
   };

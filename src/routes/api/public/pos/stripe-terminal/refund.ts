@@ -80,7 +80,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/refund")({
           );
           return json({ id: refund.id, status: refund.status });
         } catch (error) {
-          return json({ error: error instanceof Error ? error.message : "Stripe refund failed" }, 400);
+          return json({ error: "Stripe refund failed" }, 400);
         }
       },
     },

@@ -13,6 +13,10 @@ export function userFacingError(error: unknown, fallback: string): string {
 
   const clean = message.replace(/\s+/g, " ").trim();
 
+  if (/(?:SEZA[-]RAW|AndroidManifest\.xml|android\.permission\.|missing the following permissions|source release|Gradle|Capacitor|sdkmanager|java\.lang\.|com\.stripe\.|StripeException)/i.test(clean)) {
+    return fallback;
+  }
+
   if (/failed to fetch|networkerror|network request failed|load failed|connection.*lost/i.test(clean)) {
     return "Connection lost. Check the internet connection and try again.";
   }

@@ -68,7 +68,7 @@ export const Route = createFileRoute("/api/public/pos/timeclock")({
           .select("id,store_id,status")
           .eq("id", auth.user.id)
           .maybeSingle();
-        if (profileError) return json({ error: profileError.message }, 500);
+        if (profileError) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
         if (!profile) return json({ error: "Employee profile not found" }, 404);
         if (profile.status === "disabled" || profile.status === "removed")
           return json({ error: "Account is disabled" }, 403);
@@ -83,7 +83,7 @@ export const Route = createFileRoute("/api/public/pos/timeclock")({
           .maybeSingle();
 
     let existing = existingRow;
-        if (readError) return json({ error: readError.message }, 500);
+        if (readError) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
 
         if (payload.action === "clock_in" && existing && profile.store_id) {
           // Repair the exact stale state that used to trap a cashier forever:
@@ -108,7 +108,7 @@ export const Route = createFileRoute("/api/public/pos/timeclock")({
               .update({ clock_out: closedRegister.closed_at, break_start: null })
               .eq("id", existing.id)
               .eq("user_id", auth.user.id);
-            if (repairError) return json({ error: repairError.message }, 500);
+            if (repairError) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
             existing = null;
           }
         }
@@ -120,7 +120,7 @@ export const Route = createFileRoute("/api/public/pos/timeclock")({
             .insert({ user_id: auth.user.id, store_id: profile.store_id ?? null, clock_in: at })
             .select("*")
             .single();
-          if (error) return json({ error: error.message }, 500);
+          if (error) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
           return json({ ok: true, entry: created, alreadyApplied: false });
         }
 
@@ -162,7 +162,7 @@ export const Route = createFileRoute("/api/public/pos/timeclock")({
           .eq("user_id", auth.user.id)
           .select("*")
           .maybeSingle();
-        if (error) return json({ error: error.message }, 500);
+        if (error) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
         return json({ ok: true, entry: updated ?? null, alreadyApplied: false });
       },
     },

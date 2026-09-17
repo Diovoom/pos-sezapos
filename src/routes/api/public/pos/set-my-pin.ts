@@ -87,7 +87,7 @@ export const Route = createFileRoute("/api/public/pos/set-my-pin")({
             .from("profiles")
             .update({ pin_hash: null, pin_fingerprint: null })
             .eq("id", userId);
-          if (error) return json({ error: error.message }, 500);
+          if (error) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
           try {
             await admin.from("audit_log").insert({
               actor_id: userId,
@@ -160,7 +160,7 @@ export const Route = createFileRoute("/api/public/pos/set-my-pin")({
           .from("profiles")
           .update({ pin_hash: hashPin(pin), pin_fingerprint: fp, must_change_pin: false })
           .eq("id", userId);
-        if (error) return json({ error: error.message }, 500);
+        if (error) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
 
         try {
           await admin.from("audit_log").insert({

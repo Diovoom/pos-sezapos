@@ -75,7 +75,7 @@ export const Route = createFileRoute("/api/public/pos/support-end")({
           .from("admin_support_sessions")
           .update({ status: "ended", ended_at: new Date().toISOString() })
           .eq("id", sessionId);
-        if (error) return json({ error: error.message }, 500);
+        if (error) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
 
         try {
           await admin.from("audit_log").insert({

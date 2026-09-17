@@ -1027,8 +1027,7 @@ export function PosPage() {
       if (isOnlineNow()) void syncNow();
     },
     onError: (e, payment) => {
-      // Always log the real error for developers
-      console.error("[sale] finalize failed:", e);
+      if (import.meta.env.DEV) console.error("[sale] finalize failed:", e);
       const friendly =
         e instanceof SaleError ? e.message : "Unable to complete sale. Please try again.";
       const detail =

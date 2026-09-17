@@ -53,6 +53,16 @@ jobs:
           GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
+      - name: Verify APK permissions
+        working-directory: android
+        shell: bash
+        run: |
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          "$AAPT" dump permissions app/build/outputs/apk/debug/app-debug.apk | tee /tmp/seza-apk-permissions.txt
+          grep -Fq "android.permission.ACCESS_FINE_LOCATION" /tmp/seza-apk-permissions.txt
+          grep -Fq "android.permission.BLUETOOTH_SCAN" /tmp/seza-apk-permissions.txt
+          grep -Fq "android.permission.BLUETOOTH_CONNECT" /tmp/seza-apk-permissions.txt
+
       - name: Upload SEZA APK
         uses: actions/upload-artifact@v4
         with:

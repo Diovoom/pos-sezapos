@@ -50,8 +50,8 @@ function createSupabaseClient() {
       ...(!SUPABASE_PUBLISHABLE_KEY ? ["SUPABASE_PUBLISHABLE_KEY"] : []),
     ];
     const message = `Missing Supabase environment variable(s): ${missing.join(", ")}. Configure the Supabase environment variables for SEZA POS.`;
-    console.error(`[Supabase] ${message}`);
-    throw new Error(message);
+    if (import.meta.env.DEV) console.error(`[Supabase] ${message}`);
+    throw new Error("SEZA configuration is temporarily unavailable. Please try again later.");
   }
 
   assertBrowserSafeKey(SUPABASE_PUBLISHABLE_KEY);

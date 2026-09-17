@@ -120,7 +120,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
             livemode: Boolean(intent.livemode),
           });
         } catch (error) {
-          return json({ error: error instanceof Error ? error.message : "Stripe payment failed" }, 400);
+          return json({ error: "Stripe payment failed" }, 400);
         }
       },
     },

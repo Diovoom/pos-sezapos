@@ -10,7 +10,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, Mail, CheckCircle2, RefreshCw, Check } from "lucide-react";
 import { z } from "zod";
-import { getLatestSignupEmailStatus } from "@/lib/auth/verification-status.functions";
 import { marketingUrl } from "@/lib/host";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { secureMerchantSignUp, secureResendVerification } from "@/lib/auth/auth.functions";
@@ -329,13 +328,6 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
   const serverCooldown = useAuthCooldown();
   const [captchaToken, setCaptchaToken] = useState<string>();
   const [captchaReset, setCaptchaReset] = useState(0);
-  const [devStatus, setDevStatus] = useState<null | {
-    status: string;
-    error_message?: string | null;
-    created_at?: string;
-  }>(null);
-  const checkFn = useServerFn(getLatestSignupEmailStatus);
-  const isDev = import.meta.env.DEV;
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -346,22 +338,6 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
     };
   }, [cooldown]);
 
-  const refresh = async () => {
-    if (!isDev) return;
-    try {
-      const res = await checkFn({ data: { email } });
-      setDevStatus(res as any);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  useEffect(() => {
-    if (!isDev) return;
-    refresh();
-    const id = window.setInterval(refresh, 4000);
-    return () => window.clearInterval(id);
-  }, [email]);
 
   const resend = async () => {
     setResending(true);
@@ -374,7 +350,6 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
       }
       toast.success("If the account is awaiting verification, another email was sent.");
       setCooldown(60);
-      refresh();
     } catch {
       toast.error("Could not resend email. Please try again later.");
     } finally {
@@ -383,17 +358,6 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
     }
   };
 
-  const statusBadge = (s: string) => {
-    const map: Record<string, string> = {
-      sent: "bg-emerald-100 text-emerald-800",
-      pending: "bg-amber-100 text-amber-800",
-      failed: "bg-red-100 text-red-800",
-      dlq: "bg-red-100 text-red-800",
-      suppressed: "bg-orange-100 text-orange-800",
-      none: "bg-slate-100 text-slate-700",
-    };
-    return map[s] ?? "bg-slate-100 text-slate-700";
-  };
 
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center p-4">
@@ -438,44 +402,7 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
             .
           </p>
 
-          {isDev && (
-            <div className="mt-4 rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-xs space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-amber-900">Developer diagnostic</span>
-                <button type="button" onClick={refresh} className="text-amber-700 hover:underline">
-                  refresh
-                </button>
-              </div>
-              {devStatus ? (
-                <>
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-600">Last signup email:</span>
-                    <span
-                      className={`px-2 py-0.5 rounded font-medium ${statusBadge(devStatus.status)}`}
-                    >
-                      {devStatus.status}
-                    </span>
-                  </div>
-                  {devStatus.created_at && (
-                    <div className="text-slate-500">
-                      logged {new Date(devStatus.created_at).toLocaleTimeString()}
-                    </div>
-                  )}
-                  {devStatus.error_message && (
-                    <div className="text-red-700">Error: {devStatus.error_message}</div>
-                  )}
-                  {devStatus.status === "none" && (
-                    <div className="text-slate-600">
-                      No send row yet - the queue processes every ~5s. Give it a moment or click
-                      resend.
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-slate-600">Checking…</div>
-              )}
-            </div>
-          )}
+
         </CardContent>
       </Card>
     </div>

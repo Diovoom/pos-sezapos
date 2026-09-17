@@ -144,7 +144,7 @@ export const Route = createFileRoute("/api/public/pos/support-respond")({
           .eq("status", "pending")
           .select("id, status")
           .maybeSingle();
-        if (error) return json({ error: error.message }, 500);
+        if (error) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
         if (!updated) return json({ error: "Request already resolved" }, 409);
 
         try {

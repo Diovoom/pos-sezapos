@@ -27,6 +27,7 @@ import {
   ownerSessionIdentityMatches,
   rememberOwnerSessionIdentity,
 } from "@/lib/owner-session-lock";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 // Browser management surface for store owners only.
 // Employees use the paired Android POS app instead of the website.
@@ -178,7 +179,7 @@ function DashboardLayout() {
       } catch (error) {
         checkoutSyncRef.current = null;
         toast.error(
-          error instanceof Error ? error.message : "Could not confirm the subscription",
+          userFacingError(error, "Could not confirm the subscription. Please try again."),
           { id: toastId },
         );
         navigate({

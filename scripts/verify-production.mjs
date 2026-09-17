@@ -215,6 +215,30 @@ if (zxing?.engines?.node && String(zxing.engines.node).includes(">= 24")) {
     failures.push(".nvmrc must use Node 24 because the locked ZXing package requires Node >=24");
 }
 
+// Merchant-facing runtime must never ship temporary/raw developer diagnostics.
+const runtimeRoots = ["src", "capacitor-shell"];
+const runtimeSourceFiles = [];
+for (const runtimeRoot of runtimeRoots) {
+  const base = path.join(root, runtimeRoot);
+  if (!fs.existsSync(base)) continue;
+  const pending = [base];
+  while (pending.length) {
+    const current = pending.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) { pending.push(full); continue; }
+      if (entry.isFile() && /\.(?:ts|tsx|js|jsx)$/.test(entry.name)) runtimeSourceFiles.push(full);
+    }
+  }
+}
+for (const full of runtimeSourceFiles) {
+  const rel = path.relative(root, full).split(path.sep).join("/");
+  const source = fs.readFileSync(full, "utf8");
+  for (const marker of ["SEZA-RAW", "TEMP RAW STRIPE ERROR", "Developer diagnostic"]) {
+    if (source.includes(marker)) failures.push(`${rel}: contains forbidden production diagnostic marker ${marker}`);
+  }
+}
+
 if (!fs.existsSync(path.join(root, "supabase/migrations")))
   failures.push("Missing Supabase migrations directory");
 if (!fs.existsSync(path.join(root, ".github/workflows/quality.yml")))

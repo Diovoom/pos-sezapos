@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "sonner";
 import { AlertCircle, KeyRound, Loader2 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
@@ -208,9 +209,7 @@ function ResetPasswordPage() {
       } catch (error) {
         if (cancelled || recoveredByEvent) return;
         setRecoveryState("invalid");
-        setRecoveryError(
-          error instanceof Error ? error.message : readableRecoveryError(null),
-        );
+        setRecoveryError(userFacingError(error, readableRecoveryError(null)));
       }
     })();
 
@@ -235,7 +234,7 @@ function ResetPasswordPage() {
       toast.success("Password updated successfully.");
       navigate({ to: adminRecovery ? "/admin" : "/dashboard", replace: true } as any);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not update password");
+      toast.error(userFacingError(err, "Could not update password. Please try again."));
     } finally {
       setBusy(false);
     }

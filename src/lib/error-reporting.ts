@@ -1,5 +1,8 @@
 export function reportAppError(error: unknown, context: Record<string, unknown> = {}) {
-  if (typeof console !== "undefined") {
-    console.error("SEZA application error", { error, route: typeof window !== "undefined" ? window.location.pathname : undefined, ...context });
-  }
+  if (!import.meta.env.DEV || typeof console === "undefined") return;
+  console.error("SEZA application error", {
+    error,
+    route: typeof window !== "undefined" ? window.location.pathname : undefined,
+    ...context,
+  });
 }

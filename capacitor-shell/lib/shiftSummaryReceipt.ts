@@ -1,7 +1,8 @@
 // Build a complete ESC/POS shift-review report and send it through the exact
 // same native printer selected for sale receipts.
 import type { ShiftSummary } from "@/lib/shift-summary";
-import { escposBuilder } from "@/lib/hardware/escpos";
+import { escposBuilder } from "@/lib/hardwimport { userFacingError } from "@/lib/errors/user-facing";
+are/escpos";
 import { getActivePrinter } from "@/lib/hardware";
 import { getPaperColumns } from "@/lib/hardware/native-receipt";
 
@@ -304,6 +305,6 @@ export async function printShiftSummary(
     }
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Printer error" };
+    return { ok: false, error: userFacingError(error, "Printer error. Please try again.") };
   }
 }

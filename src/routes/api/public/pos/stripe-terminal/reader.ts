@@ -153,7 +153,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/reader")({
           const terminals = await listStripeTerminals(caller.storeId);
           return json({ ok: true, terminals });
         } catch (error) {
-          return json({ error: error instanceof Error ? error.message : "Reader update failed" }, 400);
+          return json({ error: "Reader update failed" }, 400);
         }
       },
     },

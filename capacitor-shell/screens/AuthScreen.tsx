@@ -28,6 +28,12 @@ type OfflinePinVerifier = {
 type OfflinePinVault = { version: 2; entries: OfflinePinVerifier[] };
 const OFFLINE_PIN_KEY = "seza.offline_pin_verifiers";
 
+const devConsole = {
+  error: (...args: unknown[]) => { if (import.meta.env.DEV) console.error(...args); },
+  warn: (...args: unknown[]) => { if (import.meta.env.DEV) console.warn(...args); },
+  info: (...args: unknown[]) => { if (import.meta.env.DEV) console.info(...args); },
+};
+
 function bytesToBase64(bytes: Uint8Array) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -229,7 +235,7 @@ export function AuthScreen() {
         }
         if (!data.error) {
           const raw = await res.clone().text().catch(() => "");
-          console.error("[SEZA POS] PIN endpoint returned a non-SEZA error", {
+          devConsole.error("[SEZA POS] PIN endpoint returned a non-SEZA error", {
             status: res.status,
             endpoint,
             body: raw.slice(0, 500),
@@ -244,14 +250,14 @@ export function AuthScreen() {
       let cloudSessionReady = false;
 
       if (!userId && data.token_hash) {
-        console.info("[SEZA POS] legacy PIN response detected; resolving employee from token");
+        devConsole.info("[SEZA POS] legacy PIN response detected; resolving employee from token");
         await supabase.auth.signOut({ scope: "local" } as any).catch(() => {});
         const { data: verified, error: otpErr } = await supabase.auth.verifyOtp({
           token_hash: data.token_hash,
           type: "magiclink",
         });
         if (otpErr || !verified.session?.user?.id) {
-          console.error("[SEZA POS] PIN accepted but cloud session could not be established", otpErr);
+          devConsole.error("[SEZA POS] PIN accepted but cloud session could not be established", otpErr);
           setError("Sign-in is temporarily unavailable. Please try again.");
           setPin("");
           return;
@@ -261,7 +267,7 @@ export function AuthScreen() {
       }
 
       if (!userId) {
-        console.error("[SEZA POS] incomplete PIN response", {
+        devConsole.error("[SEZA POS] incomplete PIN response", {
           status: res.status,
           hasToken: Boolean(data.token_hash),
           hasBootstrap: Boolean(data.bootstrap),
@@ -297,7 +303,7 @@ export function AuthScreen() {
             };
           }
         } catch (snapshotError) {
-          console.warn("[SEZA POS] device bootstrap compatibility request deferred", snapshotError);
+          devConsole.warn("[SEZA POS] device bootstrap compatibility request deferred", snapshotError);
         }
       }
 
@@ -324,7 +330,7 @@ export function AuthScreen() {
             prepared_at: new Date().toISOString(),
           };
         } catch (compatError) {
-          console.warn("[SEZA POS] legacy bootstrap reconstruction deferred", compatError);
+          devConsole.warn("[SEZA POS] legacy bootstrap reconstruction deferred", compatError);
         }
       }
 
@@ -362,7 +368,7 @@ export function AuthScreen() {
         Array.isArray(bootstrap.products) ? cacheProducts(bootstrap.products as any[]) : Promise.resolve(),
         Array.isArray(bootstrap.employees) ? cacheEmployees(bootstrap.employees as any[]) : Promise.resolve(),
         deleteMeta("authenticated_me"),
-      ]).catch((cacheError) => console.error("[SEZA POS] bootstrap cache failed", cacheError));
+      ]).catch((cacheError) => devConsole.error("[SEZA POS] bootstrap cache failed", cacheError));
 
       queryClient.clear();
       queryClient.setQueryData(["me"], meSnapshot);
@@ -380,9 +386,9 @@ export function AuthScreen() {
             type: "magiclink",
           });
           if (!otpErr) cloudSessionReady = true;
-          else console.warn("[SEZA POS] cloud session unavailable:", otpErr.message);
+          else devConsole.warn("[SEZA POS] cloud session unavailable:", otpErr.message);
         } catch (cloudError) {
-          console.warn("[SEZA POS] cloud session unavailable:", cloudError);
+          devConsole.warn("[SEZA POS] cloud session unavailable:", cloudError);
         }
       }
 
@@ -407,7 +413,7 @@ export function AuthScreen() {
           }
         }
       }
-      console.error("[SEZA POS] PIN transport error", err); setError(userSafeNetworkMessage());
+      devConsole.error("[SEZA POS] PIN transport error", err); setError(userSafeNetworkMessage());
       setPin("");
     } finally {
       setBusy(false);
