@@ -1,8 +1,8 @@
 // Build a complete ESC/POS shift-review report and send it through the exact
 // same native printer selected for sale receipts.
 import type { ShiftSummary } from "@/lib/shift-summary";
-import { escposBuilder } from "@/lib/hardwimport { userFacingError } from "@/lib/errors/user-facing";
-are/escpos";
+import { escposBuilder } from "@/lib/hardware/escpos";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { getActivePrinter } from "@/lib/hardware";
 import { getPaperColumns } from "@/lib/hardware/native-receipt";
 
