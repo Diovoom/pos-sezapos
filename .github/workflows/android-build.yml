@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
@@ -63,10 +63,24 @@ jobs:
           grep -Fq "android.permission.BLUETOOTH_SCAN" /tmp/seza-apk-permissions.txt
           grep -Fq "android.permission.BLUETOOTH_CONNECT" /tmp/seza-apk-permissions.txt
 
-      - name: Upload SEZA APK
+      - name: Prepare latest APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk SEZA-POS-latest.apk
+
+      - name: Upload SEZA APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: SEZA-POS-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: SEZA-POS-latest.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish latest SEZA POS APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view seza-pos-latest >/dev/null 2>&1; then
+            gh release upload seza-pos-latest SEZA-POS-latest.apk --clobber
+          else
+            gh release create seza-pos-latest SEZA-POS-latest.apk               --target "${GITHUB_SHA}"               --title "SEZA POS Latest"               --notes "Latest successful SEZA POS Android build from main."
+          fi
