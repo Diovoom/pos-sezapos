@@ -53,7 +53,7 @@ const HOME_REPORTS_SRC = "/images/home-reports-960.webp";
 const HOME_REPORTS_SRCSET =
   "/images/home-reports-640.webp 640w, /images/home-reports-960.webp 960w, /images/home-reports-1280.webp 1280w, /images/home-reports-1536.webp 1536w";
 
-const HOME_TITLE = "SEZA POS | Everything your store needs. Working as one.";
+const HOME_TITLE = "SEZA POS | Everything your store needs — Working as one.";
 const HOME_DESCRIPTION =
   "SEZA POS is a complete retail system for independent stores, bringing register hardware, payments, inventory, cash control, employee management, receipts and reporting together.";
 
@@ -288,14 +288,12 @@ function LandingPage() {
         <div className="absolute left-1/2 top-[-250px] -z-10 h-[560px] w-[760px] -translate-x-1/2 rounded-full bg-blue-500/15 blur-3xl" />
         <div className="absolute -left-24 top-1/2 -z-10 size-80 rounded-full bg-cyan-300/10 blur-3xl" />
 
-        <div className="mx-auto max-w-7xl px-6 pb-20 pt-16 sm:pt-20 lg:px-8 lg:pb-28 lg:pt-24">
+        <div className="mx-auto max-w-7xl px-6 pb-20 pt-8 sm:pt-12 lg:px-8 lg:pb-28 lg:pt-16">
           <div className="mx-auto max-w-4xl text-center">
             <Reveal>
-              <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-blue-800 bg-blue-800 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-sm dark:border-blue-500 dark:bg-blue-700">
-                Complete POS system for independent stores
-              </div>
-              <h1 className="mt-7 text-balance text-5xl font-black tracking-[-0.045em] text-slate-950 sm:text-6xl lg:text-[5.25rem] lg:leading-[0.98] dark:text-white">
-                Everything your store needs. Working as one.
+              <h1 className="text-balance text-5xl font-black tracking-[-0.045em] text-slate-950 sm:text-6xl lg:text-[5.25rem] lg:leading-[0.98] dark:text-white">
+                <span className="block">Everything your store needs</span>
+                <span className="block">Working as one.</span>
               </h1>
               <p className="mx-auto mt-7 max-w-3xl text-pretty text-lg leading-8 text-slate-600 sm:text-xl dark:text-slate-300">
                 SEZA brings the register hardware and software together so you can ring up sales,
@@ -608,7 +606,7 @@ function LandingPage() {
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <Reveal className="mx-auto max-w-3xl text-center">
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">
-              Built around independent business
+              Complete POS system for independent stores
             </p>
             <h2 className="mt-4 text-balance text-4xl font-black tracking-[-0.035em] sm:text-5xl">
               Flexible enough for the store you run today.

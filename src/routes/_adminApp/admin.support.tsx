@@ -37,6 +37,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { rememberAdminChat } from "@/components/admin/AdminPersistentChat";
 import {
   AlertTriangle,
   Inbox,
@@ -178,11 +179,12 @@ function SupportPage() {
     }
   }
 
-  function openWorkspace(id: string) {
-    // Use a normal document navigation for support workspaces. This avoids a
-    // stale client-router chunk after a Cloudflare deployment leaving desktop
-    // "Open workspace" buttons looking clickable but doing nothing.
-    window.location.assign(`/admin/support/${encodeURIComponent(id)}`);
+  function openWorkspace(id: string, finalStatus = false) {
+    if (finalStatus) {
+      window.location.assign(`/admin/support/${encodeURIComponent(id)}`);
+      return;
+    }
+    rememberAdminChat(id);
   }
 
   async function claimOne(id: string) {
@@ -537,11 +539,11 @@ function SupportPage() {
                 className="overflow-hidden cursor-pointer transition-colors hover:border-primary/40 hover:bg-muted/10"
                 role="button"
                 tabIndex={0}
-                onClick={() => openWorkspace(ticket.id)}
+                onClick={() => openWorkspace(ticket.id, finalStatus)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    openWorkspace(ticket.id);
+                    openWorkspace(ticket.id, finalStatus);
                   }
                 }}
               >
@@ -590,7 +592,7 @@ function SupportPage() {
                         event.stopPropagation();
                         if (!ticket.assigned_admin_id && !finalStatus) void claimOne(ticket.id);
                         else
-                          openWorkspace(ticket.id);
+                          openWorkspace(ticket.id, finalStatus);
                       }}
                     >
                       {!ticket.assigned_admin_id && !finalStatus ? "Claim & open" : "Open workspace"}
@@ -680,12 +682,12 @@ function SupportPage() {
                       className="border-t hover:bg-muted/20 cursor-pointer"
                       tabIndex={0}
                       onClick={() =>
-                        openWorkspace(ticket.id)
+                        openWorkspace(ticket.id, finalStatus)
                       }
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          openWorkspace(ticket.id);
+                          openWorkspace(ticket.id, finalStatus);
                         }
                       }}
                     >
@@ -695,7 +697,7 @@ function SupportPage() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            openWorkspace(ticket.id);
+                            openWorkspace(ticket.id, finalStatus);
                           }}
                           className="font-medium text-primary hover:underline"
                           data-no-translate
@@ -761,7 +763,7 @@ function SupportPage() {
                               event.stopPropagation();
                               if (!ticket.assigned_admin_id && !finalStatus) void claimOne(ticket.id);
                               else
-                                openWorkspace(ticket.id);
+                                openWorkspace(ticket.id, finalStatus);
                             }}
                           >
                             {!ticket.assigned_admin_id && !finalStatus ? "Claim & open" : "Open workspace"}

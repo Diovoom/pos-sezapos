@@ -109,7 +109,9 @@ export function AdminPersistentChat() {
   useEffect(() => {
     const onSelection = (event: Event) => {
       const custom = event as CustomEvent<{ ticketId?: string | null }>;
-      setSelectedId(custom.detail?.ticketId ?? readStoredTicket());
+      const ticketId = custom.detail?.ticketId ?? readStoredTicket();
+      setSelectedId(ticketId);
+      if (ticketId) setOpen(true);
     };
     const onStorage = () => setSelectedId(readStoredTicket());
     window.addEventListener(ADMIN_CHAT_SELECTION_EVENT, onSelection as EventListener);

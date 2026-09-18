@@ -383,7 +383,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 </span>
                 <div>
                   <div className="font-bold tracking-tight">SEZA POS</div>
-                  <div className="text-xs text-slate-400">Everything your store needs. Working as one.</div>
+                  <div className="text-xs text-slate-400">Everything your store needs — working as one.</div>
                 </div>
               </div>
               <p className="mt-5 max-w-sm text-sm leading-6 text-slate-400">

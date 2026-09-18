@@ -9,6 +9,7 @@ const STORAGE_KEY = "seza.cookie-consent.v1";
 export const OPEN_COOKIE_SETTINGS_EVENT = "seza:open-cookie-settings";
 
 type Consent = {
+  version: 2;
   necessary: true;
   analytics: boolean;
   marketing: boolean;
@@ -26,7 +27,9 @@ function readConsent(): Consent | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<Consent>;
+    if (parsed.version !== 2) return null;
     return {
+      version: 2,
       necessary: true,
       analytics: parsed.analytics === true,
       marketing: parsed.marketing === true,
@@ -71,6 +74,7 @@ export function CookieConsent() {
 
   const save = (nextAnalytics: boolean, nextMarketing: boolean) => {
     const consent: Consent = {
+      version: 2,
       necessary: true,
       analytics: nextAnalytics,
       marketing: nextMarketing,

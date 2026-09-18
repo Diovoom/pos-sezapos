@@ -229,7 +229,26 @@ export function WebsiteLiveChat() {
     setError("");
   }
 
-  if (!open) return null;
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(true);
+          const session = readSession();
+          if (session) void poll(session);
+        }}
+        className="fixed bottom-20 right-4 z-[75] grid size-14 place-items-center rounded-full border border-blue-600 bg-blue-700 text-white shadow-[0_18px_45px_-16px_rgba(30,64,175,0.85)] transition-all hover:-translate-y-0.5 hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 sm:bottom-6 sm:right-6"
+        aria-label={chat && !isEnded ? "Reopen SEZA live chat" : "Open SEZA live chat"}
+        title={chat && !isEnded ? "Reopen live chat" : "Live chat"}
+      >
+        <Headphones className="size-6" />
+        {chat && !isEnded && (
+          <span className="absolute right-0 top-0 size-3 rounded-full border-2 border-white bg-emerald-400" aria-hidden="true" />
+        )}
+      </button>
+    );
+  }
 
   return (
     <div
