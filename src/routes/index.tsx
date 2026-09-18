@@ -55,7 +55,7 @@ const HOME_REPORTS_SRCSET =
 
 const HOME_TITLE = "SEZA POS | Everything your store needs. Working as one.";
 const HOME_DESCRIPTION =
-  "SEZA POS helps independent retailers sell faster, manage inventory, control cash, run employee shifts, work through internet outages and understand the business from one modern platform.";
+  "SEZA POS is a complete retail system for independent stores, bringing register hardware, payments, inventory, cash control, employee management, receipts and reporting together.";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -277,40 +277,14 @@ const faqs = [
   },
   {
     q: "Can I add hardware later?",
-    a: "Yes. Start with the device you have, then add a scanner, printer, cash drawer, customer display or payment reader as the business grows. A dedicated SEZA hardware selection experience is being prepared.",
+    a: "Yes. SEZA is sold as a complete POS system with the software and core counter hardware working together. You can expand the setup later with additional scanners, printers, cash drawers, customer displays, payment readers or registers as your store grows.",
   },
 ];
 
 function LandingPage() {
   return (
     <MarketingShell>
-      {/* The moving statement sits directly beneath the centered brand mark. */}
-      <div
-        className="seza-marquee border-b border-blue-100/80 bg-blue-50/70 text-blue-950 dark:border-blue-400/10 dark:bg-blue-500/5 dark:text-blue-100"
-        aria-label="SEZA product promises"
-      >
-        <div className="seza-marquee-track py-2.5 text-xs font-semibold uppercase tracking-[0.18em] sm:text-sm">
-          {[0, 1].map((copy) => (
-            <div className="flex shrink-0 items-center" key={copy} aria-hidden={copy === 1}>
-              {[
-                "Everything your store needs. Working as one.",
-                "Sell faster.",
-                "Know your inventory.",
-                "Control every shift.",
-                "Built for independent stores.",
-              ].map((phrase) => (
-                <span className="flex items-center" key={`${copy}-${phrase}`}>
-                  <span className="mx-6 inline-block size-1.5 rounded-full bg-blue-500/70" />
-                  {phrase}
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-
       <section className="relative isolate overflow-hidden">
-        <div className="seza-grid-bg absolute inset-0 -z-20 opacity-55" />
         <div className="absolute left-1/2 top-[-250px] -z-10 h-[560px] w-[760px] -translate-x-1/2 rounded-full bg-blue-500/15 blur-3xl" />
         <div className="absolute -left-24 top-1/2 -z-10 size-80 rounded-full bg-cyan-300/10 blur-3xl" />
 
@@ -318,14 +292,15 @@ function LandingPage() {
           <div className="mx-auto max-w-4xl text-center">
             <Reveal>
               <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-blue-800 bg-blue-800 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-sm dark:border-blue-500 dark:bg-blue-700">
-                Complete store operations platform
+                Complete POS system for independent stores
               </div>
               <h1 className="mt-7 text-balance text-5xl font-black tracking-[-0.045em] text-slate-950 sm:text-6xl lg:text-[5.25rem] lg:leading-[0.98] dark:text-white">
                 Everything your store needs. Working as one.
               </h1>
               <p className="mx-auto mt-7 max-w-3xl text-pretty text-lg leading-8 text-slate-600 sm:text-xl dark:text-slate-300">
-                Ring up sales, manage inventory, control cash, run employee shifts, send receipts
-                and understand the day - without stitching together five different systems.
+                SEZA brings the register hardware and software together so you can ring up sales,
+                manage inventory, control cash, run employee shifts, send receipts and understand
+                the day from one complete POS system.
               </p>
               <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <Button
@@ -346,16 +321,10 @@ function LandingPage() {
                   <a href="#inside-seza">See what is inside</a>
                 </Button>
               </div>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-                <span className="inline-flex items-center gap-1.5">
-                  <span aria-hidden="true">•</span> 14-day free trial
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span aria-hidden="true">•</span> No credit card required
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span aria-hidden="true">•</span> Cancel anytime
-                </span>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <span>14-day free trial</span>
+                <span>No credit card required</span>
+                <span>Cancel anytime</span>
               </div>
             </Reveal>
           </div>
@@ -415,7 +384,6 @@ function LandingPage() {
             to="/hardware"
             className="group relative grid overflow-hidden rounded-[30px] border border-blue-900 bg-blue-800 px-6 py-8 text-white shadow-[0_28px_80px_-38px_rgba(30,64,175,0.9)] transition-all hover:-translate-y-0.5 hover:bg-blue-900 hover:shadow-[0_36px_90px_-38px_rgba(30,64,175,1)] sm:px-9 lg:grid-cols-[1fr_auto] lg:items-center lg:px-12"
           >
-            <div className="seza-grid-bg absolute inset-0 opacity-15" />
             <div className="relative">
               <div className="text-xs font-bold uppercase tracking-[0.15em] text-blue-100">
                 Hardware planning
@@ -424,13 +392,13 @@ function LandingPage() {
                 Plan the complete setup built for your business.
               </h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-blue-50 sm:text-base">
-                Review register, scanner, receipt-printer, cash-drawer, customer-display, and
-                payment-reader requirements before you spend money on hardware.
+                Build your SEZA setup with the register, scanner, printer, cash drawer, customer
+                display, payment reader and software working together.
               </p>
             </div>
             <div className="relative mt-7 flex items-center gap-3 lg:mt-0 lg:pl-10">
               <span className="inline-flex h-12 items-center rounded-full bg-white px-6 text-sm font-black text-blue-700 shadow-lg transition-transform group-hover:scale-[1.03]">
-                View guide <ArrowRight className="ml-2 size-4" />
+                Build your setup <ArrowRight className="ml-2 size-4" />
               </span>
             </div>
           </Link>
@@ -731,11 +699,11 @@ function LandingPage() {
               Questions before you begin
             </p>
             <h2 className="mt-4 text-balance text-4xl font-black tracking-[-0.035em] sm:text-5xl">
-              Straight answers. No sales maze.
+              Straight answers before you get started
             </h2>
             <p className="mt-5 text-lg leading-8 text-muted-foreground">
-              Learn how the trial, hardware, offline mode, manager approvals and Stripe billing work
-              before putting SEZA in front of a cashier.
+              Learn how SEZA hardware, software, payments, offline mode, manager approvals and
+              billing work before your first sale.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild variant="outline" className="rounded-full">
@@ -775,7 +743,6 @@ function LandingPage() {
 
       <section className="px-6 pb-24 lg:px-8">
         <Reveal className="relative mx-auto max-w-7xl overflow-hidden rounded-[36px] border border-blue-900 bg-blue-800 px-6 py-16 text-center text-white shadow-[0_40px_100px_-40px_rgba(30,64,175,0.8)] sm:px-12 lg:py-20">
-          <div className="seza-grid-bg absolute inset-0 opacity-15" />
           <div className="relative mx-auto max-w-3xl">
             <div className="mx-auto grid size-14 place-items-center rounded-2xl border border-white/25 bg-white/10 backdrop-blur">
               <Store className="size-7" />

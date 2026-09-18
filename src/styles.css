@@ -258,53 +258,12 @@ html[data-ui-touch="true"] [role="button"] {
 /* --------------------------------------------------------------------------
    SEZA marketing motion and visual system
    -------------------------------------------------------------------------- */
-.seza-grid-bg {
-  background-image:
-    linear-gradient(
-      to right,
-      color-mix(in oklab, var(--primary) 8%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      to bottom,
-      color-mix(in oklab, var(--primary) 8%, transparent) 1px,
-      transparent 1px
-    );
-  background-size: 42px 42px;
-  mask-image: radial-gradient(circle at center, black 15%, transparent 78%);
-  -webkit-mask-image: radial-gradient(circle at center, black 15%, transparent 78%);
-}
-
-.seza-marquee {
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.seza-marquee-track {
-  display: flex;
-  width: max-content;
-  animation: seza-marquee 32s linear infinite;
-}
-
-.seza-marquee:hover .seza-marquee-track {
-  animation-play-state: paused;
-}
-
 .seza-float-card {
   animation: seza-float 6s ease-in-out infinite;
 }
 
 .seza-float-card-delay {
   animation-delay: -2.4s;
-}
-
-@keyframes seza-marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
 }
 
 @keyframes seza-float {
@@ -318,7 +277,6 @@ html[data-ui-touch="true"] [role="button"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .seza-marquee-track,
   .seza-float-card {
     animation: none;
   }

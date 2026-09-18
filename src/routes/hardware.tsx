@@ -8,7 +8,6 @@ import {
   Printer,
   Smartphone,
   TabletSmartphone,
-  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
@@ -21,13 +20,13 @@ export const Route = createFileRoute("/hardware")({
       {
         name: "description",
         content:
-          "Plan a SEZA POS setup with compatible Android devices, computers, scanners, thermal printers, cash drawers, customer displays, and payment readers.",
+          "Build a complete SEZA POS setup with the register, scanner, printer, cash drawer, customer display, payment reader and software working together.",
       },
       { property: "og:title", content: "Hardware that fits your counter  -  SEZA POS" },
       {
         property: "og:description",
         content:
-          "Understand the device and connection requirements before choosing a SEZA hardware setup.",
+          "See how SEZA brings counter hardware and software together as one complete POS system.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://sezapos.com/hardware" },
@@ -40,50 +39,50 @@ export const Route = createFileRoute("/hardware")({
 const HARDWARE = [
   {
     icon: TabletSmartphone,
-    title: "Register device",
-    body: "Use a supported Android device for the dedicated register experience, or access supported web surfaces from a modern computer.",
+    title: "SEZA countertop register",
+    body: "The main register runs the SEZA POS experience and connects the rest of the counter setup to one system.",
     bullets: [
-      "Touch-friendly checkout",
-      "Android cash-only offline workflow",
-      "Cloud synchronization when connected",
+      "Touch-first checkout",
+      "Offline cash workflow",
+      "Automatic cloud synchronization",
     ],
   },
   {
     icon: Barcode,
     title: "Barcode scanner",
-    body: "Standard USB or Bluetooth HID scanners can act like a keyboard, while supported Android devices can also use camera scanning.",
-    bullets: ["USB HID", "Bluetooth HID", "Android camera scanning"],
+    body: "Scan products quickly with a compatible countertop scanner or the supported camera-scanning workflow.",
+    bullets: ["Fast item lookup", "USB or Bluetooth options", "Camera scanning"],
   },
   {
     icon: Printer,
     title: "Thermal receipt printer",
-    body: "SEZA includes ESC/POS-oriented printing workflows. Compatibility depends on the printer model, connection type, device, and driver setup.",
+    body: "A SEZA-compatible thermal printer provides fast, professional receipts directly from the register.",
     bullets: [
-      "ESC/POS-oriented receipts",
-      "USB, network, or Bluetooth setup",
-      "Test before production use",
+      "Fast receipt printing",
+      "USB, network, or Bluetooth options",
+      "Integrated register workflow",
     ],
   },
   {
     icon: Banknote,
     title: "Cash drawer",
-    body: "A compatible printer-driven drawer can open through the receipt-printer connection when the hardware and command settings are configured correctly.",
+    body: "The cash drawer works with the register workflow for cash sales, payouts, no-sale access and shift accountability.",
     bullets: ["Sale completion", "Payout and no-sale workflows", "Manager accountability"],
   },
   {
     icon: CreditCard,
     title: "Payment reader",
-    body: "SEZA contains Stripe Terminal-ready workflows, but reader support requires an approved merchant setup, compatible hardware, provider configuration, and an Android build that includes the required terminal plugin.",
+    body: "SEZA connects supported payment readers to the checkout flow for secure card-present payments.",
     bullets: [
-      "Provider approval required",
-      "Reader compatibility varies",
-      "Card payments require connectivity",
+      "Tap, insert and swipe",
+      "Connected checkout experience",
+      "Internet required for card payments",
     ],
   },
   {
     icon: MonitorSmartphone,
     title: "Customer display",
-    body: "A compatible second screen can present store branding, line items, and totals when the device and display workflow support it.",
+    body: "A customer-facing second screen can show store branding, sale details and totals while the cashier works on the main register.",
     bullets: ["Second-screen layout", "Store branding", "Sale visibility"],
   },
   {
@@ -101,25 +100,16 @@ function HardwarePage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.32),transparent_42%)]" />
         <div className="relative mx-auto max-w-5xl px-6 text-center">
           <p className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-400/10 px-4 py-2 text-sm font-bold uppercase tracking-[0.16em] text-blue-200">
-            <MonitorSmartphone className="size-4" /> SEZA hardware planning guide
+            <MonitorSmartphone className="size-4" /> SEZA complete POS setup
           </p>
           <h1 className="mt-5 text-balance text-4xl font-black tracking-[-0.04em] sm:text-6xl">
-            Plan a complete counter setup that fits your business.
+            Build the right SEZA POS setup for your store.
           </h1>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-slate-300">
-            Use this guide to identify the right register, scanner, printer, drawer, display, and
-            payment-reader requirements before purchasing equipment.
+            SEZA combines the register, scanner, printer, cash drawer, customer display, payment
+            reader and software into one system built for your counter.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Button
-              asChild
-              size="lg"
-              className="rounded-full bg-white px-7 text-blue-700 hover:bg-blue-50"
-            >
-              <a href="#hardware-catalog">
-                <MonitorSmartphone className="size-4" /> Explore hardware
-              </a>
-            </Button>
             <Button
               asChild
               size="lg"
@@ -131,21 +121,17 @@ function HardwarePage() {
               </a>
             </Button>
           </div>
-          <div className="mx-auto mt-7 inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-400/10 px-4 py-2 text-sm text-blue-100">
-            <ShieldCheck className="size-4" /> Confirm the exact model, operating system,
-            connection, and driver before purchase.
-          </div>
         </div>
       </section>
 
       <section id="hardware-catalog" className="scroll-mt-28 mx-auto max-w-7xl px-6 py-20 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
-            The pieces of a complete SEZA setup
+            What comes together in a complete SEZA setup
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Compatibility is determined by the exact model, operating system, connection method, and
-            installed drivers or native plugins - not only the product category.
+            SEZA brings the hardware and software together so the counter works as one connected
+            system from checkout through close of day.
           </p>
         </div>
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -174,14 +160,14 @@ function HardwarePage() {
 
       <section className="border-y bg-blue-50/60 py-16 dark:bg-blue-500/5">
         <div className="mx-auto max-w-3xl px-6 text-center">
-          <h2 className="text-2xl font-black tracking-tight">Check before you buy</h2>
+          <h2 className="text-2xl font-black tracking-tight">Build your SEZA setup</h2>
           <p className="mt-3 leading-7 text-muted-foreground">
-            Do not purchase hardware based only on a category name. Send SEZA the exact
-            manufacturer, model number, operating system, and connection type so compatibility can
-            be reviewed before deployment.
+            Tell us how your store operates and what your counter needs. SEZA can help match the
+            right register, printer, scanner, cash drawer, customer display, payment reader and
+            software configuration.
           </p>
           <Button asChild className="mt-6 rounded-full">
-            <Link to="/contact">Send hardware details</Link>
+            <Link to="/contact">Talk with SEZA</Link>
           </Button>
         </div>
       </section>
