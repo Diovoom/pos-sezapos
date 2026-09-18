@@ -35,6 +35,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck, Eye, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { getActivityState } from "../lifecycle/activityState";
 import {
   isNativeAppViewCaptureAvailable,
@@ -126,7 +127,7 @@ export function SupportRequestListener() {
     // Never tear down a live capture because of a transient direct
     // Supabase read failure. The HTTPS support endpoints remain authoritative.
     if (error) {
-      console.warn("[support-share] refresh failed", error.message);
+      if (import.meta.env.DEV) console.warn("[support-share] refresh failed", error.message);
       return;
     }
 
@@ -226,7 +227,7 @@ export function SupportRequestListener() {
           toast.error("Live SEZA screen sharing is not available on this Android system yet.");
           void refresh();
         } else {
-          toast.error(declined.error);
+          toast.error(userFacingError(declined.error, "Could not respond to the support request."));
         }
         return;
       }
@@ -261,7 +262,7 @@ export function SupportRequestListener() {
       setPending(null);
       setTimeout(() => void refresh(), 1200);
     } else {
-      toast.error(res.error);
+      toast.error(userFacingError(res.error, "Could not update the support session. Please try again."));
       if (res.status === 409 || res.status === 410) {
         setPending(null);
         void refresh();
@@ -285,7 +286,7 @@ export function SupportRequestListener() {
       setActive(null);
       void refresh();
     } else {
-      toast.error(res.error);
+      toast.error(userFacingError(res.error, "Could not update the support session. Please try again."));
     }
   }
 

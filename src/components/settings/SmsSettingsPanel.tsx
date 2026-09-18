@@ -166,7 +166,7 @@ export function SmsSettingsPanel() {
         test: true,
       });
       if (!res.ok) {
-        toast.error(res.error);
+        toast.error(userFacingError(res.error, "The test message could not be sent. Please try again."));
       } else {
         toast.success("Test SMS sent");
       }

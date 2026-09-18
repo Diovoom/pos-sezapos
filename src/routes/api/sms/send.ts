@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { sendViaProvider } from "@/lib/sms/providers.server";
 import type { SmsProviderId } from "@/lib/sms/types";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -118,7 +119,7 @@ export const Route = createFileRoute("/api/sms/send")({
           await assertStoreFeature({ supabase: admin, storeId, feature: "sms_receipts" });
         } catch (error) {
           return jsonResponse(
-            { error: error instanceof Error ? error.message : "Pro or higher is required for SMS receipts." },
+            { error: userFacingError(error, "Your current plan does not include text-message receipts.") },
             { status: 403 },
           );
         }
@@ -198,7 +199,7 @@ export const Route = createFileRoute("/api/sms/send")({
             to: redactPhone(to),
             error: result.error,
           });
-          return jsonResponse({ error: result.error }, { status: 502 });
+          return jsonResponse({ error: userFacingError(result.error, "The text message could not be sent. Please try again.") }, { status: 502 });
         }
 
         return jsonResponse({

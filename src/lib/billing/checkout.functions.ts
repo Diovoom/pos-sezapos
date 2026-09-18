@@ -602,7 +602,7 @@ export const createBillingPortalSession = createServerFn({ method: "POST" })
     try {
       storeId = await requireBillingOwner(supabase, userId);
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Billing access denied." };
+      return { error: billingErrorMessage(error) };
     }
 
     try {

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { postAuthed } from "../api";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export function OnboardingScreen() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export function OnboardingScreen() {
       toast.success("Account secured. Welcome!");
       navigate({ to: "/pos", replace: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save");
+      toast.error(userFacingError(err, "Could not finish account setup. Please try again."));
     } finally { setBusy(false); }
   };
 

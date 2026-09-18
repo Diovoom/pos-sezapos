@@ -38,6 +38,7 @@ import { loadScannerConfig } from "../lib/scannerConfig";
 import { collectDiagnostics as collectSupportDiagnostics } from "../support/diagnostics";
 import { logAudit } from "@/lib/audit-log";
 import { useTranslation } from "react-i18next";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 
 /* ------------------------------ device settings --------------------------- */
@@ -152,7 +153,7 @@ function PrinterPanel() {
       await escposBle.scanForPrinters((d) => setDevices((prev) =>
         prev.some((x) => x.deviceId === d.deviceId) ? prev : [...prev, d].sort((a, b) => (b.rssi ?? -99) - (a.rssi ?? -99)),
       ));
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Scan failed"); }
+    } catch (e) { toast.error(userFacingError(e, "Could not scan for printers.")); }
     finally { setScanning(false); }
   };
 
@@ -162,7 +163,7 @@ function PrinterPanel() {
       const t = await escposBle.pair(d.deviceId, d.name);
       setSaved(t);
       toast.success(`Paired ${t.name ?? t.deviceId.slice(0, 8)}`);
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Pairing failed"); }
+    } catch (e) { toast.error(userFacingError(e, "Could not pair this printer.")); }
     finally { setPairing(null); }
   };
 
@@ -174,7 +175,7 @@ function PrinterPanel() {
       else if (res.reason === "no_driver") toast.error("Select a printer driver first");
       else if (res.reason === "not_ready") toast.error("Printer not connected. Pair a printer and try again.");
       else if (res.reason === "not_native") toast.error("Test print is available only in the SEZA POS app.");
-      else toast.error(res.error ?? "Printer error");
+      else toast.error(userFacingError(res.error, "The printer could not complete the test."));
     } finally { setTesting(false); }
   };
 
@@ -182,7 +183,7 @@ function PrinterPanel() {
   return (
     <Card>
       <CardHeader><CardTitle className="flex items-center gap-2"><Printer className="h-4 w-4" />Printer</CardTitle>
-        <CardDescription>Generic ESC/POS over Bluetooth is the default production driver. Star Micronics and Epson slots are ready — the merchant's admin must install the vendor SDK to enable them.</CardDescription></CardHeader>
+        <CardDescription>Choose the receipt printer used by this register. Available printer types depend on the connected hardware.</CardDescription></CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label>Active driver</Label>
@@ -190,7 +191,7 @@ function PrinterPanel() {
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               {Object.values(printerDrivers).map((d) => (
-                <SelectItem key={d.id} value={d.id}>{d.label}{d.id === "star" || d.id === "epson" ? " — SDK required" : ""}</SelectItem>
+                <SelectItem key={d.id} value={d.id}>{d.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -229,7 +230,7 @@ function PrinterPanel() {
         {(activeId === "star" || activeId === "epson") && (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
             <AlertTriangle className="mr-1 inline h-4 w-4" />
-            {printerDrivers[activeId].label} requires the vendor SDK. Contact your SEZA support rep to enable this driver — the architecture is ready.
+            {printerDrivers[activeId].label} is not available on this register yet. Contact SEZA Support if you need this printer type.
           </div>
         )}
       </CardContent>
@@ -253,7 +254,7 @@ function CashDrawerPanel() {
       else if (r.reason === "no_driver") toast.error("Select a printer driver first");
       else if (r.reason === "not_ready") toast.error("Printer not connected — pair a printer to open the drawer.");
       else if (r.reason === "not_native") toast.error("Available only in the SEZA POS app.");
-      else toast.error(r.error ?? "Drawer failed");
+      else toast.error(userFacingError(r.error, "The cash drawer could not open."));
     } finally { setBusy(false); }
   };
 
@@ -358,7 +359,7 @@ function TerminalPanel() {
       setReaders(list);
       if (list.length === 0) toast.info("No readers found on this network.");
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Discovery failed";
+      const msg = userFacingError(e, "Could not discover a card reader. Please try again.");
       setLastError(msg); window.localStorage.setItem(LS.terminalLastError, msg);
       toast.error(msg);
     } finally { setDiscovering(false); }
@@ -375,8 +376,9 @@ function TerminalPanel() {
         window.localStorage.setItem(LS.terminalConnected, new Date().toISOString());
         toast.success("Card reader connection verified.");
       } else {
-        setLastError(r.error); window.localStorage.setItem(LS.terminalLastError, r.error);
-        toast.error(r.error);
+        const message = userFacingError(r.error, "The card reader connection could not be verified.");
+        setLastError(message); window.localStorage.setItem(LS.terminalLastError, message);
+        toast.error(message);
       }
     } finally { setTesting(false); }
   };
@@ -398,7 +400,7 @@ function TerminalPanel() {
   return (
     <Card>
       <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="h-4 w-4" />Payment Terminal</CardTitle>
-        <CardDescription>Add a Stripe Terminal reader for in-person card payments. Tap to Pay uses the device's NFC; WisePOS E and WisePad 3 are external readers.</CardDescription></CardHeader>
+        <CardDescription>Connect the card reader used by this register for in-person card payments.</CardDescription></CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label>Active terminal</Label>
@@ -406,7 +408,7 @@ function TerminalPanel() {
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">None</SelectItem>
-              <SelectItem value="stripe-tap-to-pay">Stripe Tap to Pay</SelectItem>
+              <SelectItem value="stripe-tap-to-pay">Tap to Pay</SelectItem>
               <SelectItem value="stripe-wisepos">BBPOS WisePOS E</SelectItem>
               <SelectItem value="stripe-wisepad3">BBPOS WisePad 3</SelectItem>
             </SelectContent>
@@ -419,7 +421,7 @@ function TerminalPanel() {
           <div className="flex items-center justify-between"><span className="text-muted-foreground">Capability</span><span className="font-medium">{capacityLabel}</span></div>
           <div className="flex items-center justify-between"><span className="text-muted-foreground">Connection</span>
             <span>{connected === activeId && activeId !== "none" ? <Badge variant="secondary">Connected</Badge> : <Badge variant="outline">Not connected</Badge>}</span></div>
-          {lastError ? <div className="mt-1 text-xs text-destructive">Last error: {lastError}</div> : null}
+          {lastError ? <div className="mt-1 text-xs text-destructive">Reader status: {userFacingError(lastError, "Needs attention")}</div> : null}
         </div>
 
         {activeId !== "none" && !pluginOk && (
@@ -512,7 +514,7 @@ function RegisterPanel() {
       qc.invalidateQueries({ queryKey: ["register-panel-ctx"] });
       logAudit({ action: "settings.update", entity: "stores", entity_id: ctx.store.id, details: { field: "allow_cashier_quick_add", enabled: next } }).catch(() => {});
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not save");
+      toast.error(userFacingError(e, "Could not save this setting."));
     } finally { setSaving(false); }
   };
 
@@ -573,13 +575,13 @@ function PinPanel() {
     if (!/^\d{6}$/.test(pin)) return toast.error("PIN must be 6 digits");
     setBusy(true);
     try { await postAuthed("/api/public/pos/set-my-pin", { pin }); toast.success("PIN updated"); setPin(""); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Could not save"); }
+    catch (e) { toast.error(userFacingError(e, "Could not save this setting.")); }
     finally { setBusy(false); }
   };
   const clear = async () => {
     setBusy(true);
     try { await postAuthed("/api/public/pos/set-my-pin", { pin: null }); toast.success("PIN cleared"); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Could not clear"); }
+    catch (e) { toast.error(userFacingError(e, "Could not clear the PIN.")); }
     finally { setBusy(false); }
   };
   return (
@@ -609,7 +611,7 @@ function AccountPanel() {
     if (pwd.length < 8) return toast.error("Password must be 8+ characters");
     setBusy(true);
     try { await postAuthed("/api/public/pos/complete-first-login", { new_password: pwd }); toast.success("Password updated"); setPwd(""); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Could not update"); }
+    catch (e) { toast.error(userFacingError(e, "Could not update the password.")); }
     finally { setBusy(false); }
   };
   return (
@@ -672,14 +674,14 @@ function HardwareStatusPanel() {
     setBusy("print");
     try {
       const r = await runTestPrint();
-      r.ok ? toast.success("Test print sent") : toast.error(r.reason === "not_ready" ? "Printer not connected" : (r.error ?? "Printer error"));
+      r.ok ? toast.success("Test print sent") : toast.error(r.reason === "not_ready" ? "Printer not connected" : userFacingError(r.error, "Printer test failed."));
     } finally { setBusy(null); refresh(); }
   };
   const runDrawer = async () => {
     setBusy("drawer");
     try {
       const r = await runTestDrawer();
-      r.ok ? toast.success("Cash drawer opened") : toast.error(r.reason === "not_ready" ? "Drawer/printer not connected" : (r.error ?? "Drawer error"));
+      r.ok ? toast.success("Cash drawer opened") : toast.error(r.reason === "not_ready" ? "Drawer/printer not connected" : userFacingError(r.error, "Cash drawer test failed."));
     } finally { setBusy(null); refresh(); }
   };
   const copyDiag = async () => {
@@ -689,7 +691,7 @@ function HardwareStatusPanel() {
       await navigator.clipboard.writeText(JSON.stringify(diag, null, 2));
       toast.success("Diagnostics copied to clipboard");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not copy diagnostics");
+      toast.error(userFacingError(e, "Could not prepare support information."));
     } finally { setCopyingDiag(false); }
   };
 
@@ -717,14 +719,14 @@ function HardwareStatusPanel() {
           <Row label="Auto-print" value={snap.autoPrint ? "On" : "Off"} />
           <Row label="Copies per sale" value={snap.copies} />
           <Row label="Last successful print" value={snap.lastPrintOk ? new Date(snap.lastPrintOk).toLocaleString() : "—"} />
-          <Row label="Last print error" value={snap.lastPrintErr || "—"} />
+          <Row label="Last print status" value={snap.lastPrintErr ? userFacingError(snap.lastPrintErr, "Needs attention") : "—"} />
         </div>
 
         <div className="rounded-md border p-3">
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><DollarSign className="h-4 w-4" />Cash Drawer</div>
           <Row label="Open on cash sale" value={snap.kickOnCash ? "On" : "Off"} />
           <Row label="Last drawer open" value={snap.lastDrawerOk ? new Date(snap.lastDrawerOk).toLocaleString() : "—"} />
-          <Row label="Last drawer error" value={snap.lastDrawerErr || "—"} />
+          <Row label="Last drawer status" value={snap.lastDrawerErr ? userFacingError(snap.lastDrawerErr, "Needs attention") : "—"} />
         </div>
 
         <div className="rounded-md border p-3">
@@ -738,11 +740,11 @@ function HardwareStatusPanel() {
         <div className="rounded-md border p-3">
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><CreditCard className="h-4 w-4" />Payment Terminal</div>
           <Row label="Active" value={activeTerminal.label} />
-          <Row label="Plugin linked" value={terminalCap.pluginOk === null ? "Checking…" : terminalCap.pluginOk ? "Yes" : "No"} />
+          <Row label="Reader service" value={terminalCap.pluginOk === null ? "Checking…" : terminalCap.pluginOk ? "Available" : "Unavailable"} />
           <Row label="Tap to Pay" value={terminalCap.tapToPay === null ? "Checking…" : terminalCap.tapToPay ? "Supported" : "Not supported"} />
           <Row label="Connected reader" value={connected ?? "—"} />
           <Row label="Last connect" value={(() => { const v = window.localStorage.getItem(LS.terminalConnected); return v ? new Date(v).toLocaleString() : "—"; })()} />
-          <Row label="Last error" value={window.localStorage.getItem(LS.terminalLastError) || "—"} />
+          <Row label="Last reader status" value={(() => { const value = window.localStorage.getItem(LS.terminalLastError); return value ? userFacingError(value, "Needs attention") : "—"; })()} />
         </div>
 
         <div className="flex flex-wrap gap-2">

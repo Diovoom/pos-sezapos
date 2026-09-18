@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export const Route = createFileRoute("/api/public/pos/finix/status")({
   server: {
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/api/public/pos/finix/status")({
             model: device?.model ?? null,
           }, { headers: securityHeaders() });
         } catch (error: any) {
-          return Response.json({ error: error?.message || "Could not check Finix terminal." }, { status: Number(error?.status) || 500, headers: securityHeaders() });
+          return Response.json({ error: userFacingError(error, "The card reader status could not be checked. Please try again.") }, { status: Number(error?.status) || 500, headers: securityHeaders() });
         }
       },
     },

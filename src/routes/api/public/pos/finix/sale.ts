@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export const Route = createFileRoute("/api/public/pos/finix/sale")({
   server: {
@@ -38,7 +39,7 @@ export const Route = createFileRoute("/api/public/pos/finix/sale")({
           const device: any = await finixRequest(terminal.environment, `/devices/${encodeURIComponent(terminal.deviceId)}?include_connection=true`);
           const connected = device?.connection?.connected ?? device?.connected;
           if (connected === false) {
-            return Response.json({ error: "Finix payment terminal is offline." }, { status: 409, headers: securityHeaders() });
+            return Response.json({ error: "The card reader is offline." }, { status: 409, headers: securityHeaders() });
           }
 
           let transfer: any;
@@ -100,7 +101,7 @@ export const Route = createFileRoute("/api/public/pos/finix/sale")({
         } catch (error: any) {
           const status = Number(error?.status) || 500;
           const safeStatus = status >= 400 && status <= 599 ? status : 500;
-          return Response.json({ error: error?.message || "Finix payment could not be completed." }, { status: safeStatus, headers: { "cache-control": "no-store" } });
+          return Response.json({ error: userFacingError(error, "Payment could not be completed. Please try again.") }, { status: safeStatus, headers: { "cache-control": "no-store" } });
         }
       },
     },

@@ -20,6 +20,7 @@ import { ShiftSummaryReport } from "@/components/reports/ShiftSummaryReport";
 import { ArrowLeft, Loader2, Download } from "lucide-react";
 import { format } from "date-fns";
 import { fmtCurrency } from "@/lib/format";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 const sb = supabase as any;
 
@@ -360,8 +361,7 @@ function ShiftsList() {
               </div>
             ) : shiftsQ.isError ? (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                Could not load shift history:{" "}
-                {shiftsQ.error instanceof Error ? shiftsQ.error.message : "Unknown error"}
+                {userFacingError(shiftsQ.error, "Could not load shift history. Please try again.")}
               </div>
             ) : rows.length > 0 ? (
               <div className="overflow-x-auto">

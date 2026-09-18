@@ -9,6 +9,7 @@ import { Printer, FileDown, Loader2, AlertTriangle, FileText } from "lucide-reac
 import { useState } from "react";
 import { isNativeMode } from "@/lib/native";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import {
   ResponsiveContainer,
   BarChart,
@@ -37,9 +38,9 @@ function NativePrintButton({ d }: { d: ShiftSummary }) {
         await import("../../../capacitor-shell/lib/shiftSummaryReceipt");
       const r = await printShiftSummary(d);
       if (r.ok) toast.success("Shift summary sent to printer");
-      else toast.error(r.error);
+      else toast.error(userFacingError(r.error, "The shift summary could not be printed."));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Printer error");
+      toast.error(userFacingError(e, "The shift summary could not be printed."));
     } finally {
       setBusy(false);
     }
@@ -69,9 +70,9 @@ function NativePdfButton({ d }: { d: ShiftSummary }) {
       const { saveAndSharePdf } = await import("../../../capacitor-shell/lib/shiftSummaryPdf");
       const r = await saveAndSharePdf(d);
       if (r.ok) toast.success("PDF ready  -  saved to Documents and shared");
-      else toast.error(`PDF failed: ${r.error}`);
+      else toast.error(userFacingError(r.error, "The shift PDF could not be created."));
     } catch (e) {
-      toast.error(`PDF failed: ${e instanceof Error ? e.message : "unknown error"}`);
+      toast.error(userFacingError(e, "The shift PDF could not be created."));
     } finally {
       setState("idle");
     }

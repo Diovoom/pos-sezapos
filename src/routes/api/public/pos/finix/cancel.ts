@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export const Route = createFileRoute("/api/public/pos/finix/cancel")({
   server: {
@@ -23,7 +24,7 @@ export const Route = createFileRoute("/api/public/pos/finix/cancel")({
           });
           return Response.json({ ok: true, result }, { headers: securityHeaders() });
         } catch (error: any) {
-          return Response.json({ error: error?.message || "Could not cancel the Finix terminal transaction." }, { status: Number(error?.status) || 500, headers: securityHeaders() });
+          return Response.json({ error: userFacingError(error, "The payment could not be cancelled. Please try again.") }, { status: Number(error?.status) || 500, headers: securityHeaders() });
         }
       },
     },

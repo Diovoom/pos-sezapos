@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { isNativeMode } from "@/lib/native";
 import { saveOfflineAction, readMeta } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export type SendSmsArgs = {
   to: string; // E.164
@@ -71,7 +72,7 @@ export async function sendSms(
       body: JSON.stringify(args),
     });
     const body: any = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, error: body?.error || `Send failed (${res.status})` };
+    if (!res.ok) return { ok: false, error: userFacingError(body?.error, "The text receipt could not be sent. Please try again.") };
     return {
       ok: true,
       providerMessageId: body?.providerMessageId,
@@ -79,7 +80,7 @@ export async function sendSms(
     };
   } catch (err) {
     if (queueOnNetworkFailure) return queueSms(args);
-    return { ok: false, error: err instanceof Error ? err.message : "Network error" };
+    return { ok: false, error: userFacingError(err, "The text receipt could not be sent. Please try again.") };
   }
 }
 

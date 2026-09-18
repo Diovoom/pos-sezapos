@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 import {
   AlertCircle,
   ArrowLeft,
@@ -535,8 +536,7 @@ function CreateTicketForm({
       toast.success(`Support request #${ticket.ticketNumber ?? ""} sent`);
       onCreated(ticket.id);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Support request could not be sent.";
-      toast.error(msg);
+      toast.error(userFacingError(e, "Support request could not be sent. Please try again."));
     } finally {
       setSubmitting(false);
     }

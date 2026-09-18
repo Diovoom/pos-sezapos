@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/audit-log";
 import { saveInventoryDraft } from "@/lib/inventory-drafts";
 import { isOnlineNow } from "@/lib/offline/useOnline";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export type QuickAddedProduct = {
   id: string;
@@ -151,7 +152,7 @@ export function QuickAddProductDialog({
       onCreated(localProduct);
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save product locally");
+      toast.error(userFacingError(error, "Could not save this product. Please try again."));
     } finally {
       setBusy(false);
     }

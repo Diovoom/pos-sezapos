@@ -138,7 +138,7 @@ export function CloseShiftDialog({
       const correlationId =
         (crypto as { randomUUID?: () => string }).randomUUID?.() ?? `cc-${Date.now().toString(36)}`;
       const message = e instanceof Error ? e.message : "Post-close step failed";
-      setPostCloseFailed({ message, correlationId });
+      setPostCloseFailed({ message: userFacingError(e, "Employee clock-out could not be completed. Try again from Time Clock."), correlationId });
       void logAudit({
         action: "system.error",
         entity: "register_session",

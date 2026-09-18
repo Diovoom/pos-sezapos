@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Scan, Bluetooth, RotateCcw } from "lucide-react";
 import { loadScannerConfig, saveScannerConfig, attachWedgeListener, type ScannerConfig } from "../lib/scannerConfig";
 import { supabase } from "../supabase";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export function ScannerSettingsScreen() {
   const [cfg, setCfg] = useState<ScannerConfig>(() => loadScannerConfig());
@@ -100,7 +101,7 @@ export function ScannerSettingsScreen() {
             <div><span className="text-muted-foreground">Last scan:</span> {cfg.lastScanAt ?? "—"}</div>
             <div><span className="text-muted-foreground">Last barcode:</span> {cfg.lastBarcode ?? "—"}</div>
             <div><span className="text-muted-foreground">Last match:</span> {cfg.lastMatchedProduct ?? "—"}</div>
-            <div><span className="text-muted-foreground">Last error:</span> {cfg.lastError ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last status:</span> {cfg.lastError ? userFacingError(cfg.lastError, "Needs attention") : "—"}</div>
           </div>
 
           <div className="flex gap-2">
@@ -178,7 +179,7 @@ function TestScanner({ onClose }: { onClose: () => void }) {
           setState((s) => ({ ...s, status: "not_found" }));
         }
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Product lookup failed";
+        const msg = userFacingError(e, "Product lookup failed. Please try again.");
         saveScannerConfig({ lastError: msg });
         setState((s) => ({ ...s, status: "error", errorMsg: msg }));
       }

@@ -354,7 +354,7 @@ function DevicesPage() {
                       value={
                         snap.drawer?.enabled
                           ? snap.drawer.last_error
-                            ? `Error: ${snap.drawer.last_error}`
+                            ? userFacingError(snap.drawer.last_error, "Needs attention")
                             : "Enabled"
                           : "Disabled"
                       }
@@ -369,7 +369,7 @@ function DevicesPage() {
                           : snap.terminal?.configured_reader
                             ? `${snap.terminal.configured_reader} · configured`
                           : snap.terminal?.merchant_ready || merchantPaymentReady
-                            ? "Stripe ready · reader not connected"
+                            ? "Payment setup ready · reader not connected"
                             : (snap.terminal?.label && snap.terminal.label !== "None"
                               ? snap.terminal.label
                               : "Not configured")

@@ -130,7 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     try {
       cleanup = initializeUiPreferences();
     } catch (error) {
-      console.error("SEZA appearance startup failed; using fallback.", error);
+      if (import.meta.env.DEV) console.error("SEZA appearance startup failed; using fallback.", error);
     }
     return () => {
       cleanup?.();

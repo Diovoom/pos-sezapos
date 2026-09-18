@@ -20,6 +20,7 @@ import { Fingerprint, KeyRound, Loader2, LogIn } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { hasAnyPlatformRole } from "@/lib/platform-roles";
 import { marketingUrl } from "@/lib/host";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { secureOwnerPasswordSignIn, securePasswordReset } from "@/lib/auth/auth.functions";
 import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/auth";
 import { startAuthentication } from "@simplewebauthn/browser";
@@ -113,7 +114,7 @@ async function ensureOwnerWebsiteAccess(userId: string): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error("[Owner website access]", error);
+    if (import.meta.env.DEV) console.error("[Owner website access]", error);
     await supabase.auth.signOut();
     toast.error("We could not verify owner access. Please try again.");
     return false;
@@ -185,7 +186,7 @@ function OwnerAuthPage() {
     };
 
     const oauthError = params.get("error_description");
-    if (oauthError) toast.error(oauthError);
+    if (oauthError) toast.error(userFacingError(oauthError, "Sign in could not be completed. Please try again."));
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
@@ -298,7 +299,7 @@ function OwnerEmailLogin() {
       if (!result.ok || !result.session || !result.user_id) {
         clearOwnerLoginIntent();
         cooldown.start(result.ok ? 0 : result.retry_after_seconds);
-        toast.error(result.ok ? "Sign in failed" : result.error);
+        toast.error(result.ok ? "Sign in failed" : userFacingError(result.error, "Sign in failed. Please try again."));
         return;
       }
 
@@ -339,7 +340,7 @@ function OwnerEmailLogin() {
       await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
       await clearOwnerBrowserIdentity(queryClient).catch(() => undefined);
       clearOwnerLoginIntent();
-      console.error("[Owner password sign-in]", error);
+      if (import.meta.env.DEV) console.error("[Owner password sign-in]", error);
       toast.error("Sign in is temporarily unavailable. Please try again.");
     } finally {
       setBusy(false);
@@ -386,7 +387,7 @@ function OwnerEmailLogin() {
       await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
       await clearOwnerBrowserIdentity(queryClient).catch(() => undefined);
       clearOwnerLoginIntent();
-      toast.error(error?.message || "Passkey sign-in failed.");
+      toast.error(userFacingError(error, "Passkey sign-in failed. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -414,7 +415,7 @@ function OwnerEmailLogin() {
     });
 
     if (error) {
-      toast.error(error.message ?? `${provider} sign in failed`);
+      toast.error(userFacingError(error, "Sign in failed. Please try again."));
       setBusy(false);
       return;
     }

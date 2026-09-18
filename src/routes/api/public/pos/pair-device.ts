@@ -5,6 +5,7 @@
 //
 // The code MUST be short-lived (default 15 minutes) and single-use.
 import { createFileRoute } from "@tanstack/react-router";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 type Body = { code?: unknown; label?: unknown; platform?: unknown };
 
@@ -93,10 +94,10 @@ export const Route = createFileRoute("/api/public/pos/pair-device")({
         } catch (error) {
           return json(
             {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "This store has reached its POS register allowance",
+              error: userFacingError(
+                error,
+                "This store has reached its POS register allowance.",
+              ),
               code: "PLAN_REGISTER_LIMIT",
             },
             403,
@@ -116,7 +117,7 @@ export const Route = createFileRoute("/api/public/pos/pair-device")({
           .select("id, store_id, label")
           .single();
         if (devErr || !dev)
-          return json({ error: devErr?.message ?? "Could not register device" }, 500);
+          return json({ error: userFacingError(devErr, "Could not register this POS device. Please try again.") }, 500);
 
         await admin
           .from("device_pairing_codes")

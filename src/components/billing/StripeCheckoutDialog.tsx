@@ -8,6 +8,7 @@ import {
 } from "@/lib/billing/checkout.functions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 interface StripeCheckoutDialogProps {
   open: boolean;
@@ -62,7 +63,7 @@ export function StripeCheckoutDialog({
         window.location.assign(result.url);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Could not start Stripe test checkout");
+          setError(userFacingError(err, "Could not start checkout. Please try again."));
         }
       }
     })();
@@ -89,7 +90,7 @@ export function StripeCheckoutDialog({
       onOpenChange(false);
       window.location.assign(`${window.location.origin}/settings?section=billing&plan_changed=1`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not change the subscription plan");
+      setError(userFacingError(err, "Could not change the subscription plan. Please try again."));
       setSwitching(false);
     }
   };

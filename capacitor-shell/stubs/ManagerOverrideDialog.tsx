@@ -38,6 +38,7 @@ import { supabase, API_BASE_URL } from "../supabase";
 import { getPairing } from "../lib/pairing";
 import { readMeta } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export type ManagerOverrideResult = { manager_id: string; manager_name: string };
 
@@ -72,7 +73,7 @@ function messageFor(err: UiError): string {
     case "session":
       return "Your session has expired. Sign in again to request approval.";
     case "server":
-      return err.msg ?? "Approval could not be completed. Try again.";
+      return userFacingError(err.msg, "Approval could not be completed. Try again.");
   }
 }
 

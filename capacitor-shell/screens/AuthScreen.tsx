@@ -242,7 +242,7 @@ export function AuthScreen() {
           });
         }
         setPin("");
-        setError(data.error ?? "Sign-in failed. Please try again.");
+        setError(userFacingError(data.error, "Sign-in failed. Please try again."));
         return;
       }
       let userId = data.user_id ?? null;

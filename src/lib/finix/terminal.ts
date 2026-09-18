@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { userFacingError } from "@/lib/errors/user-facing";
 import type { PaymentEvent, PaymentProvider, PaymentRequest, PaymentResult } from "@/lib/pos/payment-terminal";
 
 const API_BASE = typeof window !== "undefined" && (window as any).Capacitor
@@ -24,7 +25,7 @@ async function api(path: string, init: RequestInit) {
   });
   let payload: any = null;
   try { payload = await response.json(); } catch { payload = null; }
-  if (!response.ok) throw new Error(payload?.error || `Payment request failed (${response.status}).`);
+  if (!response.ok) throw new Error(userFacingError(payload?.error, "The payment service is temporarily unavailable. Please try again."));
   return payload;
 }
 
@@ -34,11 +35,11 @@ export async function checkFinixTerminal() {
 
 export const finixTerminalProvider: PaymentProvider = {
   id: "finix",
-  name: "Finix",
+  name: "Card reader",
   async charge(req: PaymentRequest, onEvent: (e: PaymentEvent) => void, signal: AbortSignal): Promise<PaymentResult> {
     if (signal.aborted) return { approved: false, finalStatus: "cancelled", message: "Payment cancelled" };
     const idempotencyId = req.idempotencyId || crypto.randomUUID();
-    onEvent({ status: "connecting", message: "Connecting to Finix terminal" });
+    onEvent({ status: "connecting", message: "Connecting to card reader" });
     onEvent({ status: "waiting_for_customer", message: "Tap, insert, or swipe on the payment terminal" });
 
     try {
@@ -70,9 +71,10 @@ export const finixTerminalProvider: PaymentProvider = {
       };
     } catch (error) {
       if (signal.aborted) return { approved: false, finalStatus: "cancelled", message: "Payment cancelled" };
-      const message = error instanceof Error ? error.message : "Finix payment failed";
-      const network = !navigator.onLine || /network|fetch|offline/i.test(message);
+      const rawMessage = error instanceof Error ? error.message : "";
+      const network = !navigator.onLine || /network|fetch|offline/i.test(rawMessage);
       const finalStatus = network ? "network_error" : "error";
+      const message = userFacingError(error, "The card payment could not be completed. Please try again.");
       onEvent({ status: finalStatus, message });
       return { approved: false, finalStatus, message };
     }

@@ -12,6 +12,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 const Form = FormProvider;
 
@@ -140,7 +141,7 @@ const FormMessage = React.forwardRef<
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, children, ...props }, ref) => {
   const { error, formMessageId } = useFormField();
-  const body = error ? String(error?.message ?? "") : children;
+  const body = error ? userFacingError(error, "Please check this field and try again.") : children;
 
   if (!body) {
     return null;

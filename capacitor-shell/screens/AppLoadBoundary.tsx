@@ -12,7 +12,7 @@ export class AppLoadBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[SEZA Android] application failed to load", error, info);
+    if (import.meta.env.DEV) console.error("[SEZA Android] application failed to load", error, info);
   }
 
   render() {

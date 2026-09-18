@@ -422,7 +422,7 @@ export function PosPage() {
           );
         }
       })
-      .catch((error) => console.error("[offline] store cache isolation failed", error));
+      .catch((error) => { if (import.meta.env.DEV) console.error("[offline] store cache isolation failed", error); });
   }, [store?.id]);
 
   const { data: categories = [] } = useQuery<Category[]>({
@@ -1016,7 +1016,7 @@ export function PosPage() {
               details: { total, method: payment.method, items: cart.length },
             }),
           )
-          .catch((err) => console.warn("[sale] audit log failed (non-fatal):", err));
+          .catch((err) => { if (import.meta.env.DEV) console.warn("[sale] audit log failed (non-fatal):", err); });
       }
       clearCart();
       setPayOpen(false);

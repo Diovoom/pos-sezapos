@@ -39,7 +39,7 @@ export function MerchantScreenShare({
     }
     const signaling = openSignalingChannel(supabase, channelToken, (msg) => {
       if (!disposed)
-        void handleSignal(msg).catch((error) => console.error("[merchant-rtc]", error));
+        void handleSignal(msg).catch((error) => { if (import.meta.env.DEV) console.error("[merchant-rtc]", error); });
     });
 
     const end = (reason: string, notify = true) => {

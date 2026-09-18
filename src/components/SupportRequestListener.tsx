@@ -21,6 +21,7 @@ import { ShieldCheck, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { MerchantScreenShare } from "@/components/support/MerchantScreenShare";
 import { isNativeMode } from "@/lib/native";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { startNativeScreenShare } from "@/lib/support/native-screen-share";
 
 type SupportRequest = {
@@ -145,7 +146,7 @@ export function SupportRequestListener() {
         setPending(null);
         void refresh();
       } catch (error: any) {
-        toast.error(error?.message ?? "Failed to respond");
+        toast.error(userFacingError(error, "Could not respond to the support request."));
       } finally {
         setBusy(false);
       }
@@ -211,7 +212,7 @@ export function SupportRequestListener() {
       if (stream) stream.getTracks().forEach((track) => track.stop());
       await nativeStopRef.current?.().catch(() => {});
       nativeStopRef.current = null;
-      toast.error(error?.message ?? "Screen sharing was cancelled or blocked");
+      toast.error(userFacingError(error, "Screen sharing was cancelled or blocked."));
       try {
         await respond({
           data: { sessionId: target.id, decision: "decline", note: "screen_share_failed" },
@@ -232,7 +233,7 @@ export function SupportRequestListener() {
     try {
       await endFn({ data: { sessionId: current.id } });
     } catch (error: any) {
-      toast.error(error?.message ?? "Failed to end session");
+      toast.error(userFacingError(error, "Could not end the support session. Please try again."));
     } finally {
       await stopCapture();
       activeRef.current = null;

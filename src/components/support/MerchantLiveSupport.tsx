@@ -26,6 +26,7 @@ import {
 import { ArrowLeft, Archive, LifeBuoy, Loader2, MessageSquare, Plus, RefreshCw, Send } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 type SupportIdentity = {
   userId: string;
@@ -214,7 +215,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
       setNewOpen(false);
       refreshAll();
     },
-    onError: (error: any) => toast.error(error?.message ?? "Could not create support case"),
+    onError: (error: unknown) => toast.error(userFacingError(error, "Could not create support case.")),
   });
 
   const sendReply = useMutation({
@@ -235,7 +236,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
       setReply("");
       refreshAll();
     },
-    onError: (error: any) => toast.error(error?.message ?? "Could not send message"),
+    onError: (error: unknown) => toast.error(userFacingError(error, "Could not send message.")),
   });
 
   const closeCase = useMutation({
@@ -250,7 +251,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
       toast.success("Support case closed");
       refreshAll();
     },
-    onError: (error: any) => toast.error(error?.message ?? "Could not close support case"),
+    onError: (error: unknown) => toast.error(userFacingError(error, "Could not close support case.")),
   });
 
   return (

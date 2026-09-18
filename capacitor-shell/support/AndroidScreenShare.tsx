@@ -25,6 +25,7 @@ import {
   type SignalPayload,
 } from "@/lib/support/webrtc";
 import { toast } from "sonner";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 type Props = {
   sessionId: string;
@@ -162,7 +163,7 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
         const candidate = pendingAdminIce.shift();
         if (!candidate) continue;
         try { await pc.addIceCandidate(candidate); }
-        catch (error) { console.warn("[android-rtc] addIce", error); }
+        catch (error) { if (import.meta.env.DEV) console.warn("[android-rtc] addIce", error); }
       }
     }
 
@@ -230,7 +231,7 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
           if (!pc.remoteDescription) pendingAdminIce.push(message.candidate);
           else {
             try { await pc.addIceCandidate(message.candidate); }
-            catch (error) { console.warn("[android-rtc] addIce", error); }
+            catch (error) { if (import.meta.env.DEV) console.warn("[android-rtc] addIce", error); }
           }
           break;
         case "bye":
@@ -248,9 +249,9 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
         await signaling.send({ kind: "hello", from: "merchant" });
       } catch (error) {
         if (disposed) return;
-        const message = capture.getLastError() || (error instanceof Error ? error.message : String(error));
-        console.error("[seza-app-view] start failed", error);
-        toast.error(`Screen sharing could not start: ${message}`);
+        const captureError = capture.getLastError() || error;
+        if (import.meta.env.DEV) console.error("[seza-app-view] start failed", error);
+        toast.error(userFacingError(captureError, "Screen sharing could not start. Please try again."));
         end("app_capture_start_failed");
       }
     })();

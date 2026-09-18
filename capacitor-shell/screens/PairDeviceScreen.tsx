@@ -5,6 +5,7 @@ import { SEZA_LOGO_URL } from "../logo";
 import { API_BASE_URL } from "../supabase";
 import { setPairing } from "../lib/pairing";
 import { cacheMeta, cacheProducts } from "@/lib/offline/db";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 export function PairDeviceScreen() {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ export function PairDeviceScreen() {
         };
       };
       if (!res.ok || !data.device_id || !data.device_secret || !data.store_id) {
-        setErr(data.error ?? "Could not pair this device"); return;
+        setErr(userFacingError(data.error, "Could not pair this device. Check the code and try again.")); return;
       }
       await setPairing({
         deviceId: data.device_id,
@@ -64,11 +65,11 @@ export function PairDeviceScreen() {
           ? cacheProducts(bootstrap.products as any[])
           : Promise.resolve(),
         cacheMeta("provisioned_at", bootstrap.prepared_at ?? new Date().toISOString()),
-      ]).catch((cacheError) => console.warn("[SEZA POS] pairing bootstrap cache warning", cacheError));
+      ]).catch((cacheError) => { if (import.meta.env.DEV) console.warn("[SEZA POS] pairing bootstrap cache warning", cacheError); });
 
       navigate({ to: "/auth", replace: true });
     } catch (e) {
-      console.error("[SEZA POS] pairing transport error", e); setErr(userSafeNetworkMessage());
+      if (import.meta.env.DEV) console.error("[SEZA POS] pairing transport error", e); setErr(userSafeNetworkMessage());
     } finally {
       setBusy(false);
     }

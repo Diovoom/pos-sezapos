@@ -150,7 +150,7 @@ async function callApi<T>(path: string, body: Record<string, unknown> = {}): Pro
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(String((result as any)?.error || `SEZA payment service error ${response.status}`));
+    throw new Error(userFacingError((result as any)?.error, "The payment service is temporarily unavailable. Please try again."));
   }
   return result as T;
 }
@@ -198,7 +198,7 @@ export async function refundStripeSale(input: {
 
 async function fetchConnectionToken() {
   const result = await callApi<{ secret: string }>("/api/public/pos/stripe-terminal/connection-token");
-  if (!result.secret) throw new Error("Stripe Terminal connection token was empty");
+  if (!result.secret) throw new Error("The card reader could not start. Please try again.");
   return result.secret;
 }
 
@@ -212,7 +212,6 @@ async function createPaymentIntent(
   description?: string,
   idempotencyId?: string,
 ) {
-  const startedAt = Date.now();
   const request = callApi<{ id: string; client_secret: string }>(
     "/api/public/pos/stripe-terminal/payment-intent",
     { amount: amountCents, currency, description, idempotencyId },
@@ -220,23 +219,19 @@ async function createPaymentIntent(
 
   const timeout = new Promise<never>((_, reject) => {
     window.setTimeout(() => {
-      reject(
-        new Error(
-          `Stripe Terminal payment request timed out after ${Date.now() - startedAt}ms.`,
-        ),
-      );
+      reject(new Error("The payment request timed out. Please try again."));
     }, 20_000);
   });
 
   const result = await Promise.race([request, timeout]);
   if (!result.client_secret) {
-    throw new Error("Stripe did not return a card-present payment secret.");
+    throw new Error("The payment could not be started. Please try again.");
   }
   return result;
 }
 
 async function loadModule(): Promise<StripeModule> {
-  if (!isNativeMode()) throw new Error("Stripe Terminal is available in the SEZA Android POS app.");
+  if (!isNativeMode()) throw new Error("Card reader payments are available in the SEZA POS app.");
   const state = runtimeState();
   state.modulePromise ??= import("@capacitor-community/stripe-terminal");
   return state.modulePromise;
@@ -252,12 +247,12 @@ function driverForTerminal(terminal: StripeTerminalRecord, preferred?: TerminalD
 async function activeConfiguration(preferred?: TerminalDriverId): Promise<TerminalConfiguration> {
   const context = await getStripeTerminalContext();
   if (!context.ready || !context.locationId) {
-    throw new Error("Stripe merchant setup is not ready. Finish verification and payout setup in the Owner Dashboard.");
+    throw new Error("Payment setup is not ready. Finish verification and payout setup in the Owner Dashboard.");
   }
   const terminal = context.terminals.find((item) => item.status === "active");
-  if (!terminal) throw new Error("No Stripe reader is active. Open Payment terminal and pair a reader.");
+  if (!terminal) throw new Error("No card reader is active. Open Payment terminal and pair a reader.");
   const driver = driverForTerminal(terminal, preferred);
-  if (!driver || driver === "none") throw new Error("The active Stripe reader type is not configured.");
+  if (!driver || driver === "none") throw new Error("The active card reader type is not configured.");
   return {
     terminalId: terminal.id,
     driver,
@@ -301,22 +296,12 @@ function readerList(value: unknown): any[] {
 }
 
 function terminalError(error: unknown, stage: string): Error {
-  const message =
-    error instanceof Error
-      ? error.message || error.name
-      : typeof error === "string"
-        ? error
-        : (() => {
-            try {
-              return JSON.stringify(error);
-            } catch {
-              return String(error);
-            }
-          })();
-
-  const normalized = message || "Stripe Terminal returned an unknown error.";
-  console.error(`[SEZA Stripe M2] ${stage}: ${normalized}`, error);
-  return new Error(normalized);
+  if (import.meta.env.DEV && typeof console !== "undefined") {
+    console.error(`[SEZA card reader] ${stage}`, error);
+  }
+  return new Error(
+    userFacingError(error, "The card reader could not complete this request. Please try again."),
+  );
 }
 
 async function discoverReaderList(
@@ -422,7 +407,7 @@ async function installConnectionTokenListener(mod: StripeModule): Promise<void> 
             await mod.StripeTerminal.setConnectionToken({ token });
           })
           .catch((error) => {
-            console.error("[SEZA Stripe M2] connection token delivery failed", error);
+            if (import.meta.env.DEV) console.error("[SEZA card reader] connection token delivery failed", error);
           });
       })
       .then(() => undefined)
@@ -452,7 +437,7 @@ async function initialize(testMode: boolean) {
 
   if (state.nativeInitialized) {
     if (state.initializedMode !== null && state.initializedMode !== testMode) {
-      throw new Error("Restart SEZA POS before switching between a simulated Stripe reader and a physical reader.");
+      throw new Error("Restart SEZA POS before switching between a simulated reader and a physical reader.");
     }
     return mod;
   }
@@ -488,13 +473,13 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
     runtimeState().connected = {
       terminalId: configuration.terminalId,
       driver: configuration.driver,
-      serial: String(current.reader.serialNumber || current.reader.label || "Stripe reader"),
+      serial: String(current.reader.serialNumber || current.reader.label || "Card reader"),
     };
     return { mod, reader: current.reader };
   }
 
   onStatus?.(
-    `Discovering Stripe reader over ${configuration.connectionMethod === "usb" ? "USB" : "Bluetooth"}…`,
+    `Discovering card reader over ${configuration.connectionMethod === "usb" ? "USB" : "Bluetooth"}…`,
   );
   const discovery = await discoverReaderList(mod, configuration);
   const readers = discovery.readers;
@@ -506,8 +491,8 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
     await discovery.stop();
     throw new Error(
       configuration.driver === "stripe-m2" && configuration.connectionMethod === "usb"
-        ? "Stripe Terminal did not return the connected Reader M2 before discovery timed out."
-        : "Stripe Terminal did not return a reader before discovery timed out.",
+        ? "Reader M2 did not respond before discovery timed out."
+        : "The card reader did not respond before discovery timed out.",
     );
   }
 
@@ -529,7 +514,7 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
   runtimeState().connected = {
     terminalId: configuration.terminalId,
     driver: configuration.driver,
-    serial: String(reader.serialNumber || reader.label || "Stripe reader"),
+    serial: String(reader.serialNumber || reader.label || "Card reader"),
   };
   await updateStripeTerminal("connected", configuration.terminalId, { serial: reader.serialNumber });
   localStorage.setItem("pos.terminal.connectedAt", new Date().toISOString());
@@ -586,7 +571,7 @@ export async function discoverReaders(driver: TerminalDriverId) {
   try {
     return discovery.readers.map((reader) => ({
       id: String(reader?.serialNumber || reader?.id || "reader"),
-      label: String(reader?.label || reader?.serialNumber || "Stripe reader"),
+      label: String(reader?.label || reader?.serialNumber || "Card reader"),
     }));
   } finally {
     await discovery.stop();
@@ -620,7 +605,7 @@ export async function getNativeConnectedReader() {
     if (!reader) return null;
     return {
       serialNumber: String(reader.serialNumber || ""),
-      label: String(reader.label || reader.serialNumber || "Stripe reader"),
+      label: String(reader.label || reader.serialNumber || "Card reader"),
       deviceType: String(reader.deviceType || ""),
     };
   } catch {
@@ -648,7 +633,7 @@ export async function charge(
     await mod.StripeTerminal.collectPaymentMethod({ paymentIntent: intent.client_secret });
     onStatus?.("Processing payment…");
     await mod.StripeTerminal.confirmPaymentIntent();
-    await recordPaymentResult(intent.id, "completed", "Stripe Terminal payment approved");
+    await recordPaymentResult(intent.id, "completed", "Card payment approved");
     onStatus?.("Payment approved");
     return { ok: true, ref: intent.id };
   } catch (error) {

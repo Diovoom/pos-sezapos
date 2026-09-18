@@ -163,7 +163,7 @@ function EmployeeProfile() {
         <div className="p-6">
           <Card>
             <CardContent className="p-10 text-center text-sm text-destructive">
-              Error loading employee: {profileQ.error.message}
+              {userFacingError(profileQ.error, "Could not load this employee. Please try again.")}
             </CardContent>
           </Card>
         </div>
@@ -1021,7 +1021,7 @@ function DangerZoneCard({
     },
     onError: (e) => {
       const m = e instanceof Error ? e.message : "Failed";
-      if (m !== "Cancelled") toast.error(m);
+      if (m !== "Cancelled") toast.error(userFacingError(e, "This action could not be completed."));
     },
   });
   const resetM = useMutation({
@@ -1038,7 +1038,7 @@ function DangerZoneCard({
     },
     onError: (e) => {
       const m = e instanceof Error ? e.message : "Failed";
-      if (m !== "Cancelled") toast.error(m);
+      if (m !== "Cancelled") toast.error(userFacingError(e, "This action could not be completed."));
     },
   });
   const logoutM = useMutation({
@@ -1053,7 +1053,7 @@ function DangerZoneCard({
     },
     onError: (e) => {
       const m = e instanceof Error ? e.message : "Failed";
-      if (m !== "Cancelled") toast.error(m);
+      if (m !== "Cancelled") toast.error(userFacingError(e, "This action could not be completed."));
     },
   });
   const deleteM = useMutation({

@@ -237,6 +237,25 @@ for (const full of runtimeSourceFiles) {
   for (const marker of ["SEZA-RAW", "TEMP RAW STRIPE ERROR", "Developer diagnostic"]) {
     if (source.includes(marker)) failures.push(`${rel}: contains forbidden production diagnostic marker ${marker}`);
   }
+
+  const adminOnly =
+    rel.startsWith("src/routes/_adminApp/") ||
+    rel.startsWith("src/components/admin/") ||
+    rel.startsWith("src/components/support/Admin");
+  if (!adminOnly && rel !== "src/lib/errors/user-facing.ts") {
+    if (/toast\.error\(\s*(?:error|err|e)(?:\?\.)?\.message/.test(source)) {
+      failures.push(`${rel}: sends a raw Error.message to a customer toast`);
+    }
+    if (/toast\.error\(\s*(?:error|err|e)\s+instanceof\s+Error\s*\?\s*(?:error|err|e)\.message/.test(source)) {
+      failures.push(`${rel}: sends a raw conditional Error.message to a customer toast`);
+    }
+  }
+
+  if (rel.startsWith("src/routes/api/public/")) {
+    if (/error:\s*(?:error|err|e|devErr)(?:\?\.)?\.message/.test(source)) {
+      failures.push(`${rel}: returns a raw internal error message from a public API`);
+    }
+  }
 }
 
 if (!fs.existsSync(path.join(root, "supabase/migrations")))

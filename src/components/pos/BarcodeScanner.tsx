@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { Button } from "@/components/ui/button";
 import { Loader2, Camera, X } from "lucide-react";
 export type BarcodeFormatName =
@@ -181,7 +182,7 @@ export function BarcodeScanner({
       } catch (e) {
         if (cancelled) return;
         setStatus("error");
-        setError(e instanceof Error ? e.message : "Camera unavailable");
+        setError(userFacingError(e, "Camera access is unavailable. Check camera permission and try again."));
       }
     })();
 

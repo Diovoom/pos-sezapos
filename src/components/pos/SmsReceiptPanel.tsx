@@ -22,6 +22,7 @@ import { sendSms, buildReceiptSms } from "@/lib/sms/send";
 import { fmtCurrency } from "@/lib/format";
 import { isNativeMode } from "@/lib/native";
 import type { ReceiptData } from "./Receipt";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 // Curated common countries first, then all others sorted alphabetically.
 const PRIORITY: CountryCode[] = ["US", "CA", "GB", "AU", "FR", "DE", "ES", "MX", "BR", "IN", "NG"];
@@ -96,7 +97,7 @@ export function SmsReceiptPanel({
         idempotencyKey: `receipt-${data.transactionId}-${e164}`,
       });
       if (!res.ok) {
-        toast.error(res.error);
+        toast.error(userFacingError(res.error, "The text receipt could not be sent. Please try again."));
         return;
       }
       setDeliveryStatus(res.queued ? "queued" : res.alreadySent ? "already_sent" : "sent");

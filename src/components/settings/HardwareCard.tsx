@@ -62,8 +62,10 @@ export function HardwareCard({
         details: { transport: t, name: info.name },
       });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Connection failed";
-      if (!msg.toLowerCase().includes("cancel")) toast.error(msg);
+      const rawMessage = e instanceof Error ? e.message : "";
+      if (!rawMessage.toLowerCase().includes("cancel")) {
+        toast.error(userFacingError(e, "The device could not connect. Please try again."));
+      }
     } finally {
       setBusy(null);
     }

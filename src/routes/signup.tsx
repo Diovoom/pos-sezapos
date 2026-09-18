@@ -15,6 +15,7 @@ import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { secureMerchantSignUp, secureResendVerification } from "@/lib/auth/auth.functions";
 import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/auth";
 import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "@/lib/security/disposable-email";
+import { userFacingError } from "@/lib/errors/user-facing";
 
 const signupSearch = z.object({
   plan: z.enum(["starter", "pro", "business"]).optional(),
@@ -127,7 +128,7 @@ function SignupPage() {
       });
       if (!result.ok) {
         cooldown.start(result.retry_after_seconds);
-        toast.error(result.error);
+        toast.error(userFacingError(result.error, "Could not complete this request. Please try again."));
         return;
       }
 
@@ -345,7 +346,7 @@ function SentPanel({ email, onReset }: { email: string; onReset: () => void }) {
       const result = await resendVerification({ data: { email, captchaToken } });
       if (!result.ok) {
         serverCooldown.start(result.retry_after_seconds);
-        toast.error(result.error);
+        toast.error(userFacingError(result.error, "Could not complete this request. Please try again."));
         return;
       }
       toast.success("If the account is awaiting verification, another email was sent.");

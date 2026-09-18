@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { userFacingError } from "@/lib/errors/user-facing";
 import { useOnline, useSyncEvents } from "@/lib/offline/useOnline";
 import { pendingCounts, syncNow } from "@/lib/offline/sync";
 import {
@@ -42,12 +43,11 @@ const STATUS_META: Record<OfflineSaleStatus, { label: string; tone: string; Icon
   needs_attention: { label: "Needs attention", tone: "bg-destructive/10 text-destructive border-destructive/30", Icon: AlertTriangle },
 };
 
-function safeErrorLabel(code?: string | null, message?: string | null): string {
-  if (!code && !message) return "—";
-  // Redact anything that looks like it could leak sensitive detail; prefer
-  // the coarse code + short human message.
-  const short = (message ?? "").slice(0, 120);
-  return code ? `${code} · ${short}` : short;
+function safeErrorLabel(_code?: string | null, message?: string | null): string {
+  return userFacingError(
+    message,
+    "This sale could not sync. Retry or contact SEZA Support if it continues.",
+  );
 }
 
 export function PendingSyncScreen() {
