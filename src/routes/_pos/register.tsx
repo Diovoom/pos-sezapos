@@ -52,6 +52,8 @@ import {
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import { userFacingError } from "@/lib/user-error";
 import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
+import { isNativeMode } from "@/lib/native";
+import { printCashMovementReceipt } from "@/lib/hardware/native-receipt";
 
 export const Route = createFileRoute("/_pos/register")({
   head: () => ({
@@ -104,6 +106,67 @@ const PAYOUT_REASONS = [
 ];
 
 const DEPOSIT_REASONS = ["Cash drop from safe", "Owner deposit", "Change fund top-up", "Other"];
+
+function moneyDigits(value: string) {
+  if (!value) return "";
+  const cents = Math.max(0, Math.round((Number(value) || 0) * 100));
+  return cents > 0 ? String(cents) : "";
+}
+
+function formatMoneyDigits(digits: string) {
+  if (!digits) return "";
+  return (Number(digits) / 100).toFixed(2);
+}
+
+function appendMoneyKey(value: string, key: string) {
+  const current = moneyDigits(value);
+  const next = `${current}${key}`.replace(/^0+(?=\d)/, "");
+  if (next.length > 9) return value;
+  return formatMoneyDigits(next);
+}
+
+function deleteMoneyKey(value: string) {
+  const current = moneyDigits(value);
+  return formatMoneyDigits(current.slice(0, -1));
+}
+
+function CashAmountKeypad({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0"];
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2">
+        {keys.map((key) => (
+          <Button
+            key={key}
+            type="button"
+            variant="outline"
+            className="h-11 text-lg font-semibold"
+            onClick={() => onChange(appendMoneyKey(value, key))}
+          >
+            {key}
+          </Button>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 text-lg font-semibold"
+          aria-label="Delete last amount digit"
+          onClick={() => onChange(deleteMoneyKey(value))}
+        >
+          ⌫
+        </Button>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-9 w-full text-sm text-muted-foreground"
+        onClick={() => onChange("")}
+      >
+        Clear amount
+      </Button>
+    </div>
+  );
+}
 
 export function RegisterPage() {
   const { data: me } = useMe();
@@ -310,7 +373,7 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
       const [salesRes, refundRes] = await Promise.all([
         sb
           .from("sales")
-          .select("total, payment_method, status")
+          .select("id, total, payment_method, status")
           .eq("register_session_id", session.id),
         sb
           .from("refunds")
@@ -321,14 +384,49 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
       const sales = (salesRes.data ?? []).filter((row: any) => row.status === "completed");
 
       const refunds = (refundRes.data ?? []).filter((row: any) => row.refund_type !== "void");
+      const saleIds = sales.map((row: any) => row.id).filter(Boolean);
+      const paymentRows = saleIds.length
+        ? ((await sb
+            .from("sale_payments")
+            .select("sale_id, amount, method, status")
+            .in("sale_id", saleIds)).data ?? [])
+        : [];
+      const settledPayments = paymentRows.filter(
+        (row: any) =>
+          !row.status || ["completed", "succeeded", "approved"].includes(String(row.status)),
+      );
+      const paymentsBySale = new Map<string, any[]>();
+      for (const row of settledPayments) {
+        const key = String(row.sale_id);
+        const list = paymentsBySale.get(key) ?? [];
+        list.push(row);
+        paymentsBySale.set(key, list);
+      }
+      const cashSales = sales.reduce((sum: number, sale: any) => {
+        const rows = paymentsBySale.get(String(sale.id));
+        if (rows?.length) {
+          return (
+            sum +
+            rows
+              .filter((row: any) => String(row.method).toLowerCase() === "cash")
+              .reduce((part: number, row: any) => part + Number(row.amount || 0), 0)
+          );
+        }
+        return sum + (sale.payment_method === "cash" ? Number(sale.total || 0) : 0);
+      }, 0);
 
-      const cashSales = sales
-        .filter((row: any) => row.payment_method === "cash")
-        .reduce((sum: number, row: any) => sum + Number(row.total || 0), 0);
-
-      const cardSales = sales
-        .filter((row: any) => row.payment_method !== "cash")
-        .reduce((sum: number, row: any) => sum + Number(row.total || 0), 0);
+      const cardSales = sales.reduce((sum: number, sale: any) => {
+        const rows = paymentsBySale.get(String(sale.id));
+        if (rows?.length) {
+          return (
+            sum +
+            rows
+              .filter((row: any) => String(row.method).toLowerCase() !== "cash")
+              .reduce((part: number, row: any) => part + Number(row.amount || 0), 0)
+          );
+        }
+        return sum + (sale.payment_method !== "cash" ? Number(sale.total || 0) : 0);
+      }, 0);
 
       const cashRefunds = refunds
         .filter((row: any) => row.payment_method === "cash")
@@ -519,6 +617,7 @@ function CashMovementDialog({
       if (!me?.user?.id) throw new Error("Not signed in");
       const rounded = Math.round(amt * 100) / 100;
       const localId = crypto.randomUUID();
+      const createdAt = new Date().toISOString();
       await saveOfflineCashMovement({
         id: localId,
         idempotency_key: `cash:${type}:${localId}`,
@@ -529,7 +628,7 @@ function CashMovementDialog({
         amount: rounded,
         reason: effectiveReason,
         notes: notes || null,
-        local_created_at: new Date().toISOString(),
+        local_created_at: createdAt,
         status: "pending",
         attempts: 0,
       });
@@ -539,14 +638,33 @@ function CashMovementDialog({
           syncNow().catch((error) => console.warn("[SEZA POS] cash movement sync deferred", error)),
         );
       }
-      return { id: localId };
+      return { id: localId, createdAt, amount: rounded };
     },
-    onSuccess: () => {
+    onSuccess: (movement) => {
       toast.success(
         isOnlineNow()
           ? `${label} recorded`
           : `${label} recorded offline  -  will sync automatically`,
       );
+      if (isNativeMode()) {
+        void printCashMovementReceipt({
+          type,
+          amount: movement.amount,
+          reason: effectiveReason,
+          notes: notes || null,
+          movementId: movement.id,
+          createdAt: movement.createdAt,
+          storeName: me?.store?.name ?? "SEZA POS",
+          cashierName: me?.profile?.full_name ?? me?.user?.email ?? null,
+          currentBalance,
+          resultingBalance: isPayout
+            ? currentBalance - movement.amount
+            : currentBalance + movement.amount,
+          currency: me?.store?.currency ?? "USD",
+        }).then((printed) => {
+          if (!printed.ok) toast.error(`${label} recorded, but the required receipt could not print.`);
+        });
+      }
       reset();
       onOpenChange(false);
       onDone();
@@ -562,7 +680,7 @@ function CashMovementDialog({
         if (!v) reset();
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {isPayout ? (
@@ -604,17 +722,17 @@ function CashMovementDialog({
             )}
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-2">
             <Label>Amount ($)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              autoFocus
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-            />
+            <div
+              role="textbox"
+              aria-readonly="true"
+              aria-label={`${label} amount`}
+              className="flex h-14 items-center justify-end rounded-md border bg-background px-3 text-2xl font-mono"
+            >
+              {amount || "0.00"}
+            </div>
+            <CashAmountKeypad value={amount} onChange={setAmount} />
           </div>
 
           <div className="rounded-md border p-3 space-y-1 text-sm bg-surface/40">
@@ -648,7 +766,7 @@ function CashMovementDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0 z-10 border-t bg-background pt-3">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>
             Cancel
           </Button>

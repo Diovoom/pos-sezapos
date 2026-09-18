@@ -20,6 +20,7 @@ import {
   Wifi,
   WifiOff,
   SplitSquareHorizontal,
+  Gift,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -126,8 +127,13 @@ export function PaymentDialog({
 }: Props) {
   const isCash = method === "cash";
   const isSplit = method === "split";
+  const isGiftCard = method === "gift_card";
   const [managerOpen, setManagerOpen] = useState(false);
   const requestCancel = () => {
+    if (isGiftCard) {
+      onOpenChange(false);
+      return;
+    }
     if (bypassCancelApproval) {
       onOpenChange(false);
       return;
@@ -174,6 +180,12 @@ export function PaymentDialog({
               onComplete={onComplete}
               onCancel={requestCancel}
             />
+          ) : isGiftCard ? (
+            <GiftCardPanel
+              total={total}
+              currency={currency}
+              onBack={() => onOpenChange(false)}
+            />
           ) : (
             <TerminalPanel
               key={String(open)}
@@ -197,6 +209,48 @@ export function PaymentDialog({
         onApprove={approveCancel}
       />
     </>
+  );
+}
+
+function GiftCardPanel({
+  total,
+  currency,
+  onBack,
+}: {
+  total: number;
+  currency: string;
+  onBack: () => void;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <DialogHeader className="shrink-0 border-b p-6 pb-4">
+        <DialogTitle className="flex items-center gap-2">
+          <Gift className="size-5 text-primary" /> Gift card
+        </DialogTitle>
+        <DialogDescription>{fmtCurrency(total, currency)} sale</DialogDescription>
+      </DialogHeader>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-y-auto p-8 text-center">
+        <div className="grid size-16 place-items-center rounded-full bg-primary/10 text-primary">
+          <Gift className="size-9" />
+        </div>
+        <div className="max-w-sm">
+          <div className="text-lg font-semibold">SEZA gift cards are not configured yet</div>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Store-issued gift cards need a SEZA gift-card balance and redemption system. They should
+            not be sent to the Stripe Reader M2 as a gift-card tender.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            If the customer has a Visa, Mastercard or other network prepaid card, go back and use
+            Card instead.
+          </p>
+        </div>
+      </div>
+      <div className="shrink-0 border-t bg-surface/40 p-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
+        <Button className="w-full" onClick={onBack}>
+          Back to checkout
+        </Button>
+      </div>
+    </div>
   );
 }
 

@@ -16,6 +16,8 @@ import { userFacingError } from "@/lib/user-error";
 import { usePlanGate } from "@/hooks/useSubscription";
 import {
   autoPrintOnComplete,
+  isAutoPrintEnabled,
+  printReceipt,
   reprintReceipt,
   openDrawerAfterCashSale,
   openDrawerAfterCashRefund,
@@ -40,6 +42,7 @@ export function ReceiptDialog({
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [deliveryStatus, setDeliveryStatus] = useState<"sent" | "queued" | null>(null);
+  const [printedManually, setPrintedManually] = useState(false);
   const planGate = usePlanGate();
   const smsIncluded = planGate.canFeature("sms_receipts");
 
@@ -66,6 +69,7 @@ export function ReceiptDialog({
       setEmail("");
       setSending(false);
       setDeliveryStatus(null);
+      setPrintedManually(false);
     }
   }, [open, data?.transactionId]);
 
@@ -232,19 +236,27 @@ export function ReceiptDialog({
     }
   };
 
+  const nativeFreshSale = isNativeMode() && autoPrint;
+  const autoPrintActive = nativeFreshSale && isAutoPrintEnabled();
+  const manualFirstPrint = nativeFreshSale && !autoPrintActive && !printedManually;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-0 overflow-hidden">
+      <DialogContent
+        className={`max-w-md p-0 overflow-hidden ${manualFirstPrint ? "[&>button:last-child]:hidden" : ""}`}
+      >
         <DialogHeader className="p-4 border-b flex-row items-center justify-between space-y-0">
           <DialogTitle>Receipt</DialogTitle>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100"
-            aria-label="Close without receipt"
-          >
-            No receipt
-          </button>
+          {manualFirstPrint && (
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100"
+              aria-label="Continue without a receipt"
+            >
+              No receipt
+            </button>
+          )}
         </DialogHeader>
         <div className="max-h-[50vh] overflow-y-auto bg-muted/40 py-4">
           {data && <Receipt ref={ref} data={data} />}
@@ -318,14 +330,22 @@ export function ReceiptDialog({
             onClick={async () => {
               if (!isNativeMode()) return handlePrint();
               if (!data) return;
-              const r = await reprintReceipt(data);
-              if (r.ok) toast.success("Reprint sent to printer");
-              else if (r.reason === "no_driver") toast.error("No printer configured");
+              const firstPrint = nativeFreshSale && !autoPrintActive && !printedManually;
+              const r = firstPrint ? await printReceipt(data) : await reprintReceipt(data);
+              if (r.ok) {
+                if (firstPrint) {
+                  setPrintedManually(true);
+                  toast.success("Receipt sent to printer");
+                } else {
+                  toast.success("Reprint sent to printer");
+                }
+              } else if (r.reason === "no_driver") toast.error("No printer configured");
               else if (r.reason === "not_ready") toast.error("Printer not connected");
               else toast.error("Printer error");
             }}
           >
-            <Printer className="size-4" /> {isNativeMode() && data ? "Reprint" : "Print"}
+            <Printer className="size-4" />
+            {isNativeMode() && data && !manualFirstPrint ? "Reprint" : "Print"}
           </Button>
         </div>
       </DialogContent>

@@ -25,6 +25,9 @@ import {
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import { saveOfflineCashMovement } from "@/lib/offline/db";
 import { userFacingError } from "@/lib/user-error";
+import { useMe } from "@/hooks/useMe";
+import { isNativeMode } from "@/lib/native";
+import { printCashMovementReceipt } from "@/lib/hardware/native-receipt";
 
 const sb = supabase as any;
 
@@ -68,6 +71,7 @@ export function OpenDrawerDialog({
   onCountShift?: () => void;
   onSafeDropRecorded?: () => void;
 }) {
+  const { data: me } = useMe();
   const [reason, setReason] = useState<DrawerReason>("make_change");
   const [note, setNote] = useState("");
   const [amount, setAmount] = useState("");
@@ -128,9 +132,12 @@ export function OpenDrawerDialog({
       });
 
       // 2. Safe drop → cash_movements row (server enforces uniqueness via user + session + type + notes matching pattern).
+      let movementReceipt: { id: string; createdAt: string; amount: number } | null = null;
       if (requiresAmount && session) {
         if (!cashierId) throw new Error("Cashier identity is unavailable");
         const movementId = crypto.randomUUID();
+        const createdAt = new Date().toISOString();
+        const roundedAmount = Math.round(amt * 100) / 100;
         const movement = {
           id: movementId,
           idempotency_key: `safe-drop:${clientDedupeId}`,
@@ -138,14 +145,15 @@ export function OpenDrawerDialog({
           store_id: targetStore,
           user_id: cashierId,
           type: "safe_drop" as const,
-          amount: Math.round(amt * 100) / 100,
+          amount: roundedAmount,
           reason: "Safe drop",
           notes: note.trim() || `dedupe:${clientDedupeId}`,
-          local_created_at: new Date().toISOString(),
+          local_created_at: createdAt,
           status: "pending" as const,
           attempts: 0,
         };
         await saveOfflineCashMovement(movement);
+        movementReceipt = { id: movementId, createdAt, amount: roundedAmount };
         if (isOnlineNow()) {
           void import("@/lib/offline/sync").then(({ syncNow }) =>
             syncNow().catch((error) => console.warn("[SEZA POS] safe-drop sync deferred", error)),
@@ -164,7 +172,7 @@ export function OpenDrawerDialog({
         }
       }
 
-      return { status, bridgeAvailable };
+      return { status, bridgeAvailable, movementReceipt };
     },
     onSuccess: (r) => {
       if (r.status === "opened") {
@@ -177,6 +185,21 @@ export function OpenDrawerDialog({
         );
       }
       const isCountShift = reason === "count_shift";
+      if (r.movementReceipt && isNativeMode()) {
+        void printCashMovementReceipt({
+          type: "safe_drop",
+          amount: r.movementReceipt.amount,
+          reason: "Safe drop",
+          notes: note || null,
+          movementId: r.movementReceipt.id,
+          createdAt: r.movementReceipt.createdAt,
+          storeName: me?.store?.name ?? "SEZA POS",
+          cashierName: me?.profile?.full_name ?? me?.user?.email ?? null,
+          currency: me?.store?.currency ?? "USD",
+        }).then((printed) => {
+          if (!printed.ok) toast.error("Safe drop recorded, but the required receipt could not print.");
+        });
+      }
       onOpenChange(false);
       if (requiresAmount) onSafeDropRecorded?.();
       if (isCountShift) onCountShift?.();

@@ -187,13 +187,44 @@ export async function fetchShiftSummary(sessionId: string) {
     (typeof paymentKinds)[number],
     number
   >;
-  for (const sale of completedSales) {
-    const method = sale.payment_method as (typeof paymentKinds)[number];
-    if (method in byMethod) byMethod[method] += Number(sale.total || 0);
+  const settledPaymentRows = paymentRows.filter(
+    (payment) =>
+      completedSaleIds.has(payment.sale_id) &&
+      (!payment.status || ["completed", "succeeded", "approved"].includes(payment.status)),
+  );
+  const paymentSaleIds = new Set(settledPaymentRows.map((payment) => payment.sale_id));
+  const normalizePaymentMethod = (value: unknown): (typeof paymentKinds)[number] | null => {
+    const method = String(value ?? "").toLowerCase();
+    if (method === "tap_to_pay") return "tap";
+    if (method === "manual_card") return "card";
+    return (paymentKinds as readonly string[]).includes(method)
+      ? (method as (typeof paymentKinds)[number])
+      : null;
+  };
+  for (const payment of settledPaymentRows) {
+    const method = normalizePaymentMethod(payment.method);
+    if (method) byMethod[method] += Number(payment.amount || 0);
   }
-  const totalCashReceived = completedSales
-    .filter((sale) => sale.payment_method === "cash")
-    .reduce((sum, sale) => sum + Number(sale.amount_tendered || sale.total || 0), 0);
+  for (const sale of completedSales) {
+    if (paymentSaleIds.has(sale.id)) continue;
+    const method = normalizePaymentMethod(sale.payment_method);
+    if (method) byMethod[method] += Number(sale.total || 0);
+  }
+  const totalCashReceived = completedSales.reduce((sum, sale) => {
+    const rows = settledPaymentRows.filter((payment) => payment.sale_id === sale.id);
+    if (rows.length) {
+      return (
+        sum +
+        rows
+          .filter((payment) => normalizePaymentMethod(payment.method) === "cash")
+          .reduce((part, payment) => part + Number(payment.amount || 0), 0)
+      );
+    }
+    return sum +
+      (sale.payment_method === "cash"
+        ? Number(sale.amount_tendered || sale.total || 0)
+        : 0);
+  }, 0);
   const totalChangeGiven = completedSales
     .filter((sale) => sale.payment_method === "cash")
     .reduce((sum, sale) => sum + Number(sale.change_due || 0), 0);
@@ -370,7 +401,7 @@ export async function fetchShiftSummary(sessionId: string) {
     feesSummary: { gratuityTotal, feeTotal, total: gratuityTotal + feeTotal },
     cashAccount: {
       openingCash: Number(session.opening_cash ?? 0),
-      cashSales: Number(session.cash_sales ?? byMethod.cash ?? 0),
+      cashSales: settledPaymentRows.length ? byMethod.cash : Number(session.cash_sales ?? byMethod.cash ?? 0),
       cashRefunds: Number(session.cash_refunds ?? 0),
       depositTotal,
       payoutTotal,

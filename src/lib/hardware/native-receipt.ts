@@ -139,8 +139,16 @@ export function receiptDataToPayload(
     total: d.total,
     tender:
       d.amountTendered != null
-        ? { method: d.paymentMethod.replace("_", " ").toUpperCase(), amount: d.amountTendered }
+        ? { method: d.paymentMethod.replaceAll("_", " ").toUpperCase(), amount: d.amountTendered }
         : undefined,
+    tenderAllocations: d.paymentAllocations?.length
+      ? d.paymentAllocations
+          .filter((allocation) => Number(allocation.amount) > 0)
+          .map((allocation) => ({
+            method: allocation.method.replaceAll("_", " ").toUpperCase(),
+            amount: Number(allocation.amount),
+          }))
+      : undefined,
     change: d.changeDue ?? undefined,
     currency: d.store.currency ?? "USD",
     columns,
@@ -148,6 +156,21 @@ export function receiptDataToPayload(
     footer,
   };
 }
+
+
+export type CashMovementReceiptInput = {
+  type: "payout" | "deposit" | "safe_drop";
+  amount: number;
+  reason: string;
+  notes?: string | null;
+  movementId: string;
+  createdAt: string | Date;
+  storeName?: string | null;
+  cashierName?: string | null;
+  currentBalance?: number | null;
+  resultingBalance?: number | null;
+  currency?: string | null;
+};
 
 export type PrintResult =
   | { ok: true; copies: number }
@@ -182,6 +205,56 @@ async function printOnceInternal(payload: ReceiptPayload, copies: number): Promi
 }
 
 /**
+ * Required operational receipt. This intentionally ignores the normal sale
+ * auto-print preference: payouts, deposits and safe drops always attempt one
+ * physical receipt on the Android register.
+ */
+export async function printCashMovementReceipt(
+  input: CashMovementReceiptInput,
+): Promise<PrintResult> {
+  const currency = input.currency || "USD";
+  const money = (value: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(value || 0));
+  const title =
+    input.type === "payout"
+      ? "CASH PAYOUT"
+      : input.type === "deposit"
+        ? "CASH DEPOSIT"
+        : "SAFE DROP";
+  const signedAmount = `${input.type === "deposit" ? "+" : "-"}${money(input.amount)}`;
+  const rows: Array<{ label: string; value: string; bold?: boolean }> = [
+    { label: "Reason", value: input.reason || title },
+    { label: "Amount", value: signedAmount, bold: true },
+  ];
+  if (input.currentBalance != null) rows.push({ label: "Before", value: money(input.currentBalance) });
+  if (input.resultingBalance != null)
+    rows.push({ label: "After", value: money(input.resultingBalance), bold: true });
+
+  const payload: ReceiptPayload = {
+    storeName: input.storeName || "SEZA POS",
+    ticketNumber: input.movementId.slice(0, 8).toUpperCase(),
+    cashierName: compactReceiptCashierName(input.cashierName) || undefined,
+    timestamp: input.createdAt,
+    items: [],
+    subtotal: 0,
+    total: 0,
+    currency,
+    columns: getPaperColumns(),
+    operational: { title, rows },
+    footer: input.notes?.trim() ? [`Notes: ${input.notes.trim()}`] : ["SEZA POS cash control receipt"],
+  };
+
+  const res = await printOnceInternal(payload, 1);
+  void logAudit({
+    action: "hardware.print.cash_movement",
+    entity: "cash_movement",
+    entity_id: input.movementId,
+    details: { type: input.type, ok: res.ok, reason: res.ok ? undefined : res.reason },
+  }).catch(() => {});
+  return res;
+}
+
+/**
  * Auto-print a completed sale receipt. Idempotent per transactionId within
  * this app session  -  screen rotations, resumes, or re-renders will not
  * trigger a second print. Safe-fail: never throws.
@@ -201,6 +274,24 @@ export async function autoPrintOnComplete(d: ReceiptData): Promise<PrintResult> 
     details: { ok: res.ok, reason: res.ok ? undefined : res.reason },
   }).catch(() => {
     /* audit failure never blocks sale */
+  });
+  return res;
+}
+
+/**
+ * Explicit first print when auto-print is disabled for a completed sale.
+ * Prints the normal customer receipt without a REPRINT/DUPLICATE banner.
+ */
+export async function printReceipt(d: ReceiptData): Promise<PrintResult> {
+  const payload = receiptDataToPayload(d);
+  const res = await printOnceInternal(payload, 1);
+  void logAudit({
+    action: "hardware.print.manual",
+    entity: "sale",
+    entity_id: d.transactionId,
+    details: { ok: res.ok, reason: res.ok ? undefined : res.reason },
+  }).catch(() => {
+    /* ignore */
   });
   return res;
 }
@@ -288,7 +379,13 @@ export async function openDrawerAfterCashSale(d: ReceiptData): Promise<DrawerRes
   if (!isNativeMode()) return { ok: false, reason: "not_native" };
   if (!isKickOnCashEnabled()) return { ok: false, reason: "no_driver" };
   const method = (d.paymentMethod || "").toLowerCase();
-  if (!method.includes("cash")) return { ok: false, reason: "no_driver" };
+  const hasCashAllocation = Boolean(
+    d.paymentAllocations?.some(
+      (allocation) => allocation.method.toLowerCase() === "cash" && Number(allocation.amount) > 0,
+    ),
+  );
+  if (!method.includes("cash") && !hasCashAllocation)
+    return { ok: false, reason: "no_driver" };
   const key = `sale:${d.transactionId}`;
   if (drawerTx.has(key)) return { ok: true };
   drawerTx.add(key);
@@ -313,7 +410,13 @@ export async function openDrawerAfterCashRefund(d: ReceiptData): Promise<DrawerR
   if (!isNativeMode()) return { ok: false, reason: "not_native" };
   if (!isKickOnRefundEnabled()) return { ok: false, reason: "no_driver" };
   const method = (d.paymentMethod || "").toLowerCase();
-  if (!method.includes("cash")) return { ok: false, reason: "no_driver" };
+  const hasCashAllocation = Boolean(
+    d.paymentAllocations?.some(
+      (allocation) => allocation.method.toLowerCase() === "cash" && Number(allocation.amount) > 0,
+    ),
+  );
+  if (!method.includes("cash") && !hasCashAllocation)
+    return { ok: false, reason: "no_driver" };
   const key = `refund:${d.transactionId}`;
   if (drawerTx.has(key)) return { ok: true };
   drawerTx.add(key);

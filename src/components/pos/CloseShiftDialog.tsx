@@ -266,12 +266,46 @@ export function CloseShiftDialog({
       const noSales = (noSaleRes.data ?? []) as any[];
       const completed = sales.filter((sale) => sale.status === "completed");
       const voided = sales.filter((sale) => sale.status === "voided");
-      const cashSales = completed
-        .filter((sale) => sale.payment_method === "cash")
-        .reduce((sum, sale) => sum + Number(sale.total || 0), 0);
-      const cardSales = completed
-        .filter((sale) => sale.payment_method !== "cash")
-        .reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+      const completedIds = completed.map((sale) => sale.id).filter(Boolean);
+      const paymentRows = completedIds.length
+        ? ((await sb
+            .from("sale_payments")
+            .select("sale_id, amount, method, status")
+            .in("sale_id", completedIds)).data ?? [])
+        : [];
+      const paymentsBySale = new Map<string, any[]>();
+      for (const row of paymentRows) {
+        if (row.status && !["completed", "succeeded", "approved"].includes(String(row.status)))
+          continue;
+        const key = String(row.sale_id);
+        const list = paymentsBySale.get(key) ?? [];
+        list.push(row);
+        paymentsBySale.set(key, list);
+      }
+      const cashSales = completed.reduce((sum, sale) => {
+        const rows = paymentsBySale.get(String(sale.id));
+        if (rows?.length) {
+          return (
+            sum +
+            rows
+              .filter((row) => String(row.method).toLowerCase() === "cash")
+              .reduce((part, row) => part + Number(row.amount || 0), 0)
+          );
+        }
+        return sum + (sale.payment_method === "cash" ? Number(sale.total || 0) : 0);
+      }, 0);
+      const cardSales = completed.reduce((sum, sale) => {
+        const rows = paymentsBySale.get(String(sale.id));
+        if (rows?.length) {
+          return (
+            sum +
+            rows
+              .filter((row) => String(row.method).toLowerCase() !== "cash")
+              .reduce((part, row) => part + Number(row.amount || 0), 0)
+          );
+        }
+        return sum + (sale.payment_method !== "cash" ? Number(sale.total || 0) : 0);
+      }, 0);
       const cashRefunds = refunds
         .filter((refund) => refund.payment_method === "cash" && refund.refund_type !== "void")
         .reduce((sum, refund) => sum + Number(refund.total || 0), 0);

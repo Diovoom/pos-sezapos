@@ -33,6 +33,11 @@ export interface ReceiptPayload {
   discount?: number;
   total: number;
   tender?: { method: string; amount: number };
+  tenderAllocations?: Array<{ method: string; amount: number }>;
+  operational?: {
+    title: string;
+    rows: Array<{ label: string; value: string; bold?: boolean }>;
+  };
   change?: number;
   currency?: string;
   columns?: 32 | 42 | 48; // 58mm≈32, 80mm Font A≈48
@@ -141,6 +146,35 @@ export function buildReceipt(p: ReceiptPayload): Uint8Array {
   parts.push(CMD.size(1), CMD.bold(false));
   for (const raw of p.header ?? []) for (const line of sanitizeReceiptText(raw)) parts.push(enc.encode(line + "\n"));
 
+  if (p.operational) {
+    parts.push(CMD.bold(true), enc.encode(p.operational.title + "\n"), CMD.bold(false));
+    parts.push(CMD.align("left"), enc.encode("-".repeat(cols) + "\n"));
+    parts.push(enc.encode(`Ticket:  ${p.ticketNumber}\n`));
+    const operationalCashier = compactCashierName(p.cashierName);
+    if (operationalCashier) parts.push(enc.encode(`Cashier: ${operationalCashier}\n`));
+    parts.push(enc.encode(`Date:    ${new Date(p.timestamp).toLocaleString()}\n`));
+    parts.push(enc.encode("-".repeat(cols) + "\n"));
+    const operationalRow = (label: string, value: string, bold = false) => {
+      if (bold) parts.push(CMD.bold(true));
+      parts.push(enc.encode(pad(label, cols - value.length) + value + "\n"));
+      if (bold) parts.push(CMD.bold(false));
+    };
+    for (const entry of p.operational.rows) {
+      operationalRow(entry.label, entry.value, entry.bold);
+    }
+    parts.push(enc.encode("\n"), CMD.align("center"));
+    for (const raw of p.footer ?? []) for (const line of sanitizeReceiptText(raw)) parts.push(enc.encode(line + "\n"));
+    parts.push(enc.encode("\n\n"), CMD.charSpacing(0), CMD.feed(1), CMD.cut());
+    const total = parts.reduce((n, a) => n + a.length, 0);
+    const out = new Uint8Array(total);
+    let o = 0;
+    for (const a of parts) {
+      out.set(a, o);
+      o += a.length;
+    }
+    return out;
+  }
+
   parts.push(CMD.align("left"), enc.encode("-".repeat(cols) + "\n"));
   parts.push(enc.encode(`Ticket:  ${p.ticketNumber}\n`));
   const cashier = compactCashierName(p.cashierName);
@@ -185,7 +219,15 @@ export function buildReceipt(p: ReceiptPayload): Uint8Array {
     row("Discount", "-" + money(p.discount, currency));
   if (typeof p.tax === "number" && p.tax > 0) row("Tax", money(p.tax, currency));
   row("TOTAL", money(p.total, currency), true);
-  if (p.tender) row(p.tender.method, money(p.tender.amount, currency));
+  if (p.tenderAllocations?.length) {
+    row("Method", p.tender?.method ?? "SPLIT");
+    for (const allocation of p.tenderAllocations) {
+      row(allocation.method, money(allocation.amount, currency));
+    }
+    if (p.tender) row("Tendered", money(p.tender.amount, currency));
+  } else if (p.tender) {
+    row(p.tender.method, money(p.tender.amount, currency));
+  }
   if (typeof p.change === "number" && p.change > 0) row("Change", money(p.change, currency));
 
   parts.push(enc.encode("\n"), CMD.align("center"));
