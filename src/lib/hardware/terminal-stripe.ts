@@ -846,13 +846,19 @@ export async function charge(
     onStatus?.("Processing payment…");
     await confirmCollectedPayment(mod, intent.id);
 
-    const finalStatus = await reconcilePaymentIntent(intent.id);
-    if (finalStatus && finalStatus.status !== "succeeded" && finalStatus.status !== "requires_capture") {
-      throw new Error(finalStatus.last_payment_error || `Payment did not complete (${finalStatus.status}).`);
-    }
-
-    await recordPaymentResult(intent.id, "completed", "Stripe Terminal payment approved");
+    // Stripe Terminal has already confirmed the card-present PaymentIntent at
+    // this point. Do not add another blocking server status-poll loop to every
+    // successful tap/insert/swipe; that loop could add several seconds after
+    // the reader had already approved the payment.
     onStatus?.("Payment approved");
+
+    // Audit persistence is important, but it is not part of card authorization.
+    // Save it in the background so the cashier can complete the sale immediately
+    // after Stripe's native confirmation. The error fallback inside
+    // confirmCollectedPayment() still reconciles with Stripe when confirmation
+    // is ambiguous or times out.
+    void recordPaymentResult(intent.id, "completed", "Stripe Terminal payment approved");
+
     return { ok: true, ref: intent.id };
   } catch (error) {
     const cancelled =
