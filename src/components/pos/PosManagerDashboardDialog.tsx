@@ -104,7 +104,6 @@ export function PosManagerDashboardDialog({
   const permissions = usePermissions();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
-  const role = String(me?.roles?.[0] ?? "cashier").toLowerCase();
   const isManager =
     permissions.isSuper ||
     permissions.isManager ||
@@ -152,23 +151,29 @@ export function PosManagerDashboardDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[88dvh] w-[min(94vw,780px)] max-w-[780px] flex-col gap-0 overflow-hidden rounded-xl p-0 shadow-2xl"
+        className="flex flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-none sm:max-w-none"
+        style={{
+          left: 0,
+          top: 0,
+          width: "100vw",
+          height: "100dvh",
+          maxWidth: "none",
+          maxHeight: "none",
+          transform: "none",
+        }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        <DialogHeader className="shrink-0 border-b bg-background px-4 py-3 pr-11 text-left">
-          <DialogTitle className="text-base font-semibold">
-            {isManager ? "Manager menu" : "Register menu"}
-          </DialogTitle>
-          <DialogDescription className="text-xs">
-            {storeName} · {role}
-          </DialogDescription>
+        <DialogHeader className="shrink-0 border-b bg-background px-4 py-3 pr-12 text-left">
+          <DialogTitle className="sr-only">Store menu</DialogTitle>
+          <DialogDescription className="sr-only">Register tools and settings for {storeName}</DialogDescription>
+          <div className="truncate text-xs font-medium text-muted-foreground">{storeName}</div>
         </DialogHeader>
 
         <div
           ref={scrollRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/20 p-3 pb-5"
+          className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain bg-muted/20 p-3 pb-[calc(2rem+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] md:p-4"
         >
           <div className="mb-4">
             <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

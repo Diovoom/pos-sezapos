@@ -54,8 +54,8 @@ const ShiftsPage = lazyNamed<ComponentType>(
   "ShiftsPage",
 );
 const SupportScreen = lazyNamed<ComponentType>(
-  () => import("./screens/SupportScreen"),
-  "SupportScreen",
+  () => import("./screens/SupportScreenViewport"),
+  "SupportScreenViewport",
 );
 const AuthRoute = lazyNamed<ComponentType>(
   () => import("./screens/AuthRoute"),
