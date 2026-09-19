@@ -97,21 +97,19 @@ const PaymentTerminalPage = lazyNamed<ComponentType>(
 function RouteSkeleton() {
   return (
     <div
-      aria-label="Loading page"
+      aria-label="Loading screen"
       style={{
-        minHeight: "100dvh",
+        height: "100%",
+        minHeight: 0,
         background: "#f8fafc",
-        padding: 20,
+        padding: 16,
         display: "grid",
-        gridTemplateRows: "64px 1fr",
-        gap: 16,
+        gridTemplateColumns: "2fr 1fr",
+        gap: 12,
       }}
     >
-      <div style={{ borderRadius: 14, background: "#e2e8f0" }} />
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
-        <div style={{ borderRadius: 16, background: "#eef2f7" }} />
-        <div style={{ borderRadius: 16, background: "#e2e8f0" }} />
-      </div>
+      <div style={{ borderRadius: 10, background: "#eef2f7" }} />
+      <div style={{ borderRadius: 10, background: "#e2e8f0" }} />
     </div>
   );
 }
@@ -181,28 +179,37 @@ const deviceSetupRoute = createRoute({
   ),
 });
 
+// Keep one POS shell mounted for the entire signed-in register experience.
+// Previously every screen mounted a brand-new PosShell, which made Back feel
+// like browser/page navigation and flashed the full-screen loading skeleton.
+const posShellRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: "pos-shell",
+  beforeLoad: requireAuth,
+  component: () => (
+    <LazyScreen>
+      <PosShell>
+        <Outlet />
+      </PosShell>
+    </LazyScreen>
+  ),
+});
+
 const shellRoute = (
   path: string,
   Component: ComponentType,
 ) =>
   createRoute({
-    getParentRoute: () => rootRoute,
+    getParentRoute: () => posShellRoute,
     path,
-    beforeLoad: requireAuth,
     component: () => (
       <LazyScreen>
-        <PosShell>
-          <Component />
-        </PosShell>
+        <Component />
       </LazyScreen>
     ),
   });
 
-const routeTree = rootRoute.addChildren([
-  indexRoute,
-  authRoute,
-  pairRoute,
-  deviceSetupRoute,
+const posRoutes = [
   shellRoute("/pos", PosPage),
   shellRoute("/register", RegisterPage),
   shellRoute("/refunds", RefundsPage),
@@ -216,6 +223,14 @@ const routeTree = rootRoute.addChildren([
   shellRoute("/pending-sync", PendingSyncScreen),
   shellRoute("/manager-tools", PosManagerToolsPage),
   shellRoute("/payment-terminal", PaymentTerminalPage),
+];
+
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  authRoute,
+  pairRoute,
+  deviceSetupRoute,
+  posShellRoute.addChildren(posRoutes),
 ]);
 
 function initialShellEntry(): string {

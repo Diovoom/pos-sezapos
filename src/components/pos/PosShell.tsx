@@ -1,4 +1,4 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -92,6 +92,7 @@ function compactEmployeeName(value?: string | null) {
 export function PosShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const router = useRouter();
   const qc = useQueryClient();
   const meQuery = useMe();
   const me = meQuery.data;
@@ -255,6 +256,8 @@ export function PosShell({ children }: { children: ReactNode }) {
       fromManagerDashboard = sessionStorage.getItem("seza.posToolOrigin") === "manager-dashboard";
       sessionStorage.removeItem("seza.posToolOrigin");
       if (fromManagerDashboard) {
+        // Open the dashboard immediately while the stable POS shell stays
+        // mounted. The history back only swaps the inner screen underneath it.
         sessionStorage.setItem("seza.openManagerDashboard", "1");
         setManagerDashboard(true);
       }
@@ -262,7 +265,15 @@ export function PosShell({ children }: { children: ReactNode }) {
       // sessionStorage is best-effort navigation state only.
     }
 
-    navigate({ to: "/pos" as any });
+    const historyIndex = Number((router.history.location.state as any)?.__TSR_index ?? 0);
+    if (historyIndex > 0) {
+      router.history.back();
+      return;
+    }
+
+    // A directly-opened nested screen has no in-app history entry. Keep the
+    // fallback inside the existing shell so it still feels like native back.
+    navigate({ to: "/pos" as any, replace: true });
   };
 
   useEffect(() => {

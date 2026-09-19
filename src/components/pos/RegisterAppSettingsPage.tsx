@@ -1,20 +1,25 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  ArrowLeft,
+  Banknote,
+  Barcode,
   ChevronRight,
   Cloud,
   CreditCard,
+  Info,
+  LifeBuoy,
   MonitorCog,
-  MessageCircle,
   MonitorUp,
   Phone,
+  Printer,
   ReceiptText,
+  RotateCcw,
   Save,
   Settings2,
   Smartphone,
   Sun,
   Type,
-  RotateCcw,
   WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -46,22 +51,61 @@ const keys = {
   customerDisplayAuto: "pos.customerDisplay.autoStart",
 } as const;
 
-type Section = "general" | "display" | "customer" | "receipts" | "connections" | "sync" | "support" | "android";
+type Section =
+  | "general"
+  | "display"
+  | "android"
+  | "receipts"
+  | "customer"
+  | "hardware"
+  | "payments"
+  | "sync"
+  | "support"
+  | "about";
 
-const sections: Array<{
+type SectionItem = {
   id: Section;
   label: string;
+  description: string;
   icon: typeof Settings2;
-}> = [
-  { id: "general", label: "General", icon: Settings2 },
-  { id: "display", label: "Display & accessibility", icon: Sun },
-  { id: "customer", label: "Customer display", icon: MonitorCog },
-  { id: "receipts", label: "Receipts", icon: ReceiptText },
-  { id: "connections", label: "Connections", icon: MonitorCog },
-  { id: "sync", label: "Sync & offline", icon: WifiOff },
-  { id: "support", label: "Support", icon: MessageCircle },
-  { id: "android", label: "Android", icon: Smartphone },
+};
+
+const settingGroups: Array<{ label: string; items: SectionItem[] }> = [
+  {
+    label: "Register",
+    items: [
+      { id: "general", label: "General", description: "Register identity and basic behavior", icon: Settings2 },
+      { id: "display", label: "Display & accessibility", description: "Brightness and text size", icon: Sun },
+      { id: "android", label: "Android terminal", description: "Boot, kiosk, and system behavior", icon: Smartphone },
+    ],
+  },
+  {
+    label: "Checkout",
+    items: [
+      { id: "receipts", label: "Receipts", description: "Printing and receipt preferences", icon: ReceiptText },
+      { id: "customer", label: "Customer display", description: "Second-screen behavior and message", icon: MonitorCog },
+    ],
+  },
+  {
+    label: "Connections",
+    items: [
+      { id: "hardware", label: "Hardware", description: "Printer, scanner, drawer, and display", icon: Printer },
+      { id: "payments", label: "Payments", description: "Reader M2 and payment terminal", icon: CreditCard },
+      { id: "sync", label: "Offline & sync", description: "Pending work and cloud synchronization", icon: WifiOff },
+    ],
+  },
+  {
+    label: "Help",
+    items: [
+      { id: "support", label: "Support", description: "Cases, screen sharing, and phone support", icon: LifeBuoy },
+      { id: "about", label: "About SEZA POS", description: "App, store, and register information", icon: Info },
+    ],
+  },
 ];
+
+const sectionMeta = Object.fromEntries(
+  settingGroups.flatMap((group) => group.items.map((item) => [item.id, item])),
+) as Record<Section, SectionItem>;
 
 function read(key: string, fallback: string) {
   if (typeof window === "undefined") return fallback;
@@ -72,6 +116,7 @@ export function RegisterAppSettingsPage() {
   const navigate = useNavigate();
   const me = useMe();
   const [section, setSection] = useState<Section>("general");
+  const [mobileDetail, setMobileDetail] = useState(false);
   const [label, setLabel] = useState(() => read(keys.label, "Register 1"));
   const [paper, setPaper] = useState(() => read(keys.paper, "80"));
   const [copies, setCopies] = useState(() => read(keys.copies, "1"));
@@ -97,6 +142,18 @@ export function RegisterAppSettingsPage() {
   const [brightness, setBrightness] = useState(0.85);
   const [textScale, setTextScale] = useState(() => readTextScale());
 
+  const activeMeta = sectionMeta[section];
+  const storeName = String((me.data?.store as any)?.name ?? "SEZA store");
+  const role = String(me.data?.roles?.[0] ?? "employee");
+
+  const hardwareStatus = useMemo(() => {
+    if (typeof window === "undefined") return { scanner: "Not tested", display: "Automatic" };
+    return {
+      scanner: localStorage.getItem("pos.hw.scanner.status") === "connected" ? "Connected" : "Not tested",
+      display: localStorage.getItem("pos.hw.display.status") === "connected" ? "Connected" : "Automatic",
+    };
+  }, [section]);
+
   useEffect(() => {
     applyTextScale(textScale, false);
   }, [textScale]);
@@ -115,6 +172,11 @@ export function RegisterAppSettingsPage() {
     setCustomerMessage(owner.welcomeMessage);
     setCustomerTextScale(owner.textScale);
   }, [me.data?.store, useOwnerCustomerDisplay]);
+
+  const openSection = (next: Section) => {
+    setSection(next);
+    setMobileDetail(true);
+  };
 
   const saveCustomerDisplay = () => {
     if (typeof window === "undefined") return;
@@ -139,7 +201,7 @@ export function RegisterAppSettingsPage() {
     localStorage.setItem(keys.autoPrint, autoPrint ? "1" : "0");
     localStorage.setItem(keys.customerDisplayAuto, customerDisplayAuto ? "1" : "0");
     window.dispatchEvent(new Event("seza:device-config-changed"));
-    toast.success("App settings saved");
+    toast.success("Register settings saved");
   };
 
   const updateCustomerDisplayAuto = (enabled: boolean) => {
@@ -170,282 +232,362 @@ export function RegisterAppSettingsPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-muted/20">
-      <div className="shrink-0 border-b bg-background px-4 py-3">
+      <div className="shrink-0 border-b bg-background px-4 py-2.5">
         <div className="flex items-center gap-2">
-          <Settings2 className="size-5 text-primary" />
+          <Settings2 className="size-4 text-primary" />
           <div>
-            <h1 className="text-lg font-black">App settings</h1>
-            <p className="text-xs text-muted-foreground">
-              Configure this SEZA register without leaving the POS.
-            </p>
+            <h1 className="text-sm font-semibold">Settings</h1>
+            <p className="text-[11px] text-muted-foreground">Register and device settings</p>
           </div>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden md:grid md:grid-cols-[220px_1fr]">
-        <nav className="border-b bg-background md:border-b-0 md:border-r">
-          <div className="flex gap-1 overflow-x-auto touch-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] p-2 md:block md:space-y-1 md:overflow-visible md:p-3">
-            {sections.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setSection(item.id)}
-                className={cn(
-                  "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition md:w-full",
-                  section === item.id
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                <item.icon className="size-4" />
-                {item.label}
-              </button>
+      <div className="min-h-0 flex-1 overflow-hidden md:grid md:grid-cols-[300px_1fr]">
+        <aside
+          className={cn(
+            "min-h-0 overflow-y-auto border-r bg-muted/10 p-3",
+            mobileDetail ? "hidden md:block" : "block",
+          )}
+        >
+          <div className="space-y-4">
+            {settingGroups.map((group) => (
+              <section key={group.label}>
+                <div className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {group.label}
+                </div>
+                <div className="overflow-hidden rounded-lg border bg-background">
+                  {group.items.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => openSection(item.id)}
+                      className={cn(
+                        "flex min-h-[52px] w-full items-center gap-3 border-b px-3 py-2.5 text-left transition-colors last:border-b-0",
+                        section === item.id ? "bg-primary/8" : "hover:bg-muted/35",
+                      )}
+                    >
+                      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                        <item.icon className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium leading-5">{item.label}</span>
+                        <span className="block truncate text-[11px] leading-4 text-muted-foreground">
+                          {item.description}
+                        </span>
+                      </span>
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground md:hidden" />
+                    </button>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
-        </nav>
+        </aside>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] p-4 pb-28 md:p-6 md:pb-10">
-          <div className="mx-auto max-w-4xl space-y-4">
-            {section === "general" && (
-              <SettingsGroup title="General" description="Basic identity and behavior for this register.">
-                <SettingRow title="Register name" description="Shown to the owner when identifying this device.">
-                  <Input
-                    className="w-56"
-                    value={label}
-                    onChange={(event) => setLabel(event.target.value)}
-                    maxLength={50}
-                    aria-label="Register name"
-                  />
-                </SettingRow>
-                <SettingRow title="Save changes" description="Apply the current register preferences.">
-                  <Button onClick={save}>
-                    <Save className="mr-2 size-4" />
-                    Save
-                  </Button>
-                </SettingRow>
-              </SettingsGroup>
-            )}
+        <section
+          className={cn(
+            "min-h-0 flex-col bg-background",
+            mobileDetail ? "flex" : "hidden md:flex",
+          )}
+        >
+          <div className="flex shrink-0 items-center gap-3 border-b px-4 py-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8 md:hidden"
+              onClick={() => setMobileDetail(false)}
+              aria-label="Back to settings"
+            >
+              <ArrowLeft className="size-4" />
+            </Button>
+            <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+              <activeMeta.icon className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">{activeMeta.label}</h2>
+              <p className="truncate text-[11px] text-muted-foreground">{activeMeta.description}</p>
+            </div>
+          </div>
 
-            {section === "display" && (
-              <SettingsGroup title="Display & accessibility" description="Adjust the cashier screen for the person using this register.">
-                <SettingRow title="Screen brightness" description="Changes the SEZA cashier screen brightness while the app is open.">
-                  <div className="flex w-64 items-center gap-3">
-                    <Sun className="size-4 text-muted-foreground" />
-                    <Slider
-                      value={[Math.round(brightness * 100)]}
-                      min={20}
-                      max={100}
-                      step={5}
-                      disabled={!native}
-                      onValueChange={(values) => void updateBrightness((values[0] ?? 85) / 100)}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24 md:pb-8">
+            <div className="mx-auto max-w-3xl space-y-4">
+              {section === "general" && (
+                <>
+                  <SettingsGroup title="Register">
+                    <SettingRow title="Register name" description="How this device is identified in SEZA.">
+                      <Input
+                        className="h-8 w-52 text-sm"
+                        value={label}
+                        onChange={(event) => setLabel(event.target.value)}
+                        maxLength={50}
+                        aria-label="Register name"
+                      />
+                    </SettingRow>
+                    <ValueRow title="Store" value={storeName} />
+                    <ValueRow title="Signed-in role" value={role} />
+                    <SettingRow title="Save register settings">
+                      <Button size="sm" className="h-8 text-xs" onClick={save}>
+                        <Save className="mr-1.5 size-3.5" />
+                        Save
+                      </Button>
+                    </SettingRow>
+                  </SettingsGroup>
+                </>
+              )}
+
+              {section === "display" && (
+                <SettingsGroup title="Cashier display">
+                  <SettingRow title="Screen brightness" description="Brightness while SEZA is open.">
+                    <div className="flex w-56 items-center gap-2.5">
+                      <Sun className="size-3.5 text-muted-foreground" />
+                      <Slider
+                        value={[Math.round(brightness * 100)]}
+                        min={20}
+                        max={100}
+                        step={5}
+                        disabled={!native}
+                        onValueChange={(values) => void updateBrightness((values[0] ?? 85) / 100)}
+                      />
+                      <span className="w-11 text-right text-xs tabular-nums">{Math.round(brightness * 100)}%</span>
+                    </div>
+                  </SettingRow>
+                  <SettingRow title="Text size" description="Scale labels and controls across the POS.">
+                    <div className="flex w-56 items-center gap-2.5">
+                      <Type className="size-3.5 text-muted-foreground" />
+                      <Slider
+                        value={[Math.round(textScale * 100)]}
+                        min={90}
+                        max={130}
+                        step={5}
+                        onValueChange={(values) => updateTextScale((values[0] ?? 100) / 100)}
+                      />
+                      <span className="w-11 text-right text-xs tabular-nums">{Math.round(textScale * 100)}%</span>
+                    </div>
+                  </SettingRow>
+                  {native && (
+                    <LinkRow
+                      icon={<Sun className="size-4" />}
+                      title="Android display settings"
+                      description="Open system-level display controls."
+                      onClick={() => void deviceControl.openDisplaySettings()}
                     />
-                    <span className="w-12 text-right text-sm tabular-nums">{Math.round(brightness * 100)}%</span>
-                  </div>
-                </SettingRow>
-                <SettingRow title="Text size" description="Make labels, buttons, and settings easier to read across the POS.">
-                  <div className="flex w-64 items-center gap-3">
-                    <Type className="size-4 text-muted-foreground" />
-                    <Slider
-                      value={[Math.round(textScale * 100)]}
-                      min={90}
-                      max={130}
-                      step={5}
-                      onValueChange={(values) => updateTextScale((values[0] ?? 100) / 100)}
-                    />
-                    <span className="w-12 text-right text-sm tabular-nums">{Math.round(textScale * 100)}%</span>
-                  </div>
-                </SettingRow>
-                {native && (
-                  <LinkRow
-                    icon={<Sun className="size-4" />}
-                    title="More Android display options"
-                    description="Open Android display settings for system-level brightness and display controls."
-                    onClick={() => void deviceControl.openDisplaySettings()}
-                  />
-                )}
-                <SettingRow title="Reset display preferences" description="Return SEZA brightness and text size to the recommended defaults.">
-                  <Button variant="outline" onClick={() => void resetDisplay()}>
-                    <RotateCcw className="mr-2 size-4" />
-                    Reset
-                  </Button>
-                </SettingRow>
-              </SettingsGroup>
-            )}
+                  )}
+                  <SettingRow title="Reset display preferences">
+                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => void resetDisplay()}>
+                      <RotateCcw className="mr-1.5 size-3.5" />
+                      Reset
+                    </Button>
+                  </SettingRow>
+                </SettingsGroup>
+              )}
 
-            {section === "customer" && (
-              <SettingsGroup
-                title="Customer display"
-                description="Control the idle screen customers see before a sale starts."
-              >
-                <SettingRow
-                  title="Auto-connect"
-                  description="Open the customer-facing screen automatically when SEZA detects the second display."
-                >
-                  <Switch checked={customerDisplayAuto} onCheckedChange={updateCustomerDisplayAuto} />
-                </SettingRow>
-                <SettingRow
-                  title="Use owner dashboard defaults"
-                  description="Follow the store-wide message, store photo, and text size configured by the owner."
-                >
-                  <Switch checked={useOwnerCustomerDisplay} onCheckedChange={setUseOwnerCustomerDisplay} />
-                </SettingRow>
-                <SettingRow
-                  title="Idle screen"
-                  description="Choose what this register shows when there is no active cart."
-                >
-                  <Select
-                    value={customerIdleMode}
-                    onValueChange={(value) => setCustomerIdleMode(value === "image" ? "image" : "message")}
-                    disabled={useOwnerCustomerDisplay}
-                  >
-                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="message">Message</SelectItem>
-                      <SelectItem value="image">Store photo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </SettingRow>
-                <SettingRow
-                  title="Welcome message"
-                  description="For example: Welcome to our store. Up to 48 characters."
-                >
-                  <Input
-                    className="w-64"
-                    value={customerMessage}
-                    onChange={(event) => setCustomerMessage(event.target.value.slice(0, 48))}
-                    disabled={useOwnerCustomerDisplay}
-                    placeholder="Welcome"
-                    maxLength={48}
-                  />
-                </SettingRow>
-                <SettingRow
-                  title="Welcome text size"
-                  description="Adjust only the large idle message on the customer display."
-                >
-                  <div className="flex w-64 items-center gap-3">
-                    <Type className="size-4 text-muted-foreground" />
-                    <Slider
-                      value={[Math.round(customerTextScale * 100)]}
-                      min={80}
-                      max={180}
-                      step={10}
-                      disabled={useOwnerCustomerDisplay}
-                      onValueChange={(values) =>
-                        setCustomerTextScale(Math.min(1.8, Math.max(0.8, (values[0] ?? 100) / 100)))
+              {section === "android" && <AndroidDevicePanel />}
+
+              {section === "receipts" && (
+                <SettingsGroup title="Customer receipts">
+                  <SettingRow title="Auto-print after sale" description="Print immediately after checkout.">
+                    <Switch checked={autoPrint} onCheckedChange={setAutoPrint} />
+                  </SettingRow>
+                  <SettingRow title="Paper width" description="Match the installed receipt printer.">
+                    <Select
+                      value={paper}
+                      onValueChange={(value) => {
+                        setPaper(value);
+                        localStorage.setItem(keys.paper, value);
+                        window.dispatchEvent(new Event("seza:device-config-changed"));
+                      }}
+                    >
+                      <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="58">58 mm</SelectItem>
+                        <SelectItem value="80">80 mm</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </SettingRow>
+                  <SettingRow title="Receipt copies" description="Printed copies after a sale.">
+                    <Input
+                      className="h-8 w-20 text-sm"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={3}
+                      value={copies}
+                      onChange={(event) =>
+                        setCopies(String(Math.min(3, Math.max(1, Number(event.target.value) || 1))))
                       }
                     />
-                    <span className="w-12 text-right text-sm tabular-nums">
-                      {Math.round(customerTextScale * 100)}%
-                    </span>
-                  </div>
-                </SettingRow>
-                <SettingRow
-                  title="Store photo"
-                  description="Upload or change the store photo from Owner Dashboard → Settings → Customer display."
-                >
-                  <span className="text-xs font-semibold text-muted-foreground">Owner controlled</span>
-                </SettingRow>
-                <SettingRow title="Apply customer display" description="Refresh the secondary screen with these settings.">
-                  <Button onClick={saveCustomerDisplay}>
-                    <Save className="mr-2 size-4" />
-                    Apply
-                  </Button>
-                </SettingRow>
-              </SettingsGroup>
-            )}
+                  </SettingRow>
+                  <SettingRow title="Apply receipt preferences">
+                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={save}>
+                      <Save className="mr-1.5 size-3.5" />
+                      Apply
+                    </Button>
+                  </SettingRow>
+                </SettingsGroup>
+              )}
 
-            {section === "receipts" && (
-              <SettingsGroup title="Receipts" description="Printing behavior after a completed sale.">
-                <SettingRow title="Auto-print after sale" description="Print the receipt immediately after checkout.">
-                  <Switch checked={autoPrint} onCheckedChange={setAutoPrint} />
-                </SettingRow>
-                <SettingRow title="Paper width" description="Match the receipt printer installed at this register.">
-                  <Select
-                    value={paper}
-                    onValueChange={(value) => {
-                      setPaper(value);
-                      localStorage.setItem(keys.paper, value);
-                      window.dispatchEvent(new Event("seza:device-config-changed"));
-                    }}
-                  >
-                    <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="58">58 mm</SelectItem>
-                      <SelectItem value="80">80 mm</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </SettingRow>
-                <SettingRow title="Receipt copies" description="Number of printed copies after a sale.">
-                  <Input
-                    className="w-24"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={3}
-                    value={copies}
-                    onChange={(event) =>
-                      setCopies(String(Math.min(3, Math.max(1, Number(event.target.value) || 1))))
-                    }
+              {section === "customer" && (
+                <SettingsGroup title="Customer display">
+                  <SettingRow title="Auto-connect" description="Start the second screen automatically when detected.">
+                    <Switch checked={customerDisplayAuto} onCheckedChange={updateCustomerDisplayAuto} />
+                  </SettingRow>
+                  <SettingRow title="Use owner defaults" description="Follow store-wide customer-display settings.">
+                    <Switch checked={useOwnerCustomerDisplay} onCheckedChange={setUseOwnerCustomerDisplay} />
+                  </SettingRow>
+                  <SettingRow title="Idle screen" description="What customers see between sales.">
+                    <Select
+                      value={customerIdleMode}
+                      onValueChange={(value) => setCustomerIdleMode(value === "image" ? "image" : "message")}
+                      disabled={useOwnerCustomerDisplay}
+                    >
+                      <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="message">Message</SelectItem>
+                        <SelectItem value="image">Store photo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </SettingRow>
+                  <SettingRow title="Welcome message" description="Up to 48 characters.">
+                    <Input
+                      className="h-8 w-56 text-sm"
+                      value={customerMessage}
+                      onChange={(event) => setCustomerMessage(event.target.value.slice(0, 48))}
+                      disabled={useOwnerCustomerDisplay}
+                      placeholder="Welcome"
+                      maxLength={48}
+                    />
+                  </SettingRow>
+                  <SettingRow title="Welcome text size">
+                    <div className="flex w-56 items-center gap-2.5">
+                      <Type className="size-3.5 text-muted-foreground" />
+                      <Slider
+                        value={[Math.round(customerTextScale * 100)]}
+                        min={80}
+                        max={180}
+                        step={10}
+                        disabled={useOwnerCustomerDisplay}
+                        onValueChange={(values) =>
+                          setCustomerTextScale(Math.min(1.8, Math.max(0.8, (values[0] ?? 100) / 100)))
+                        }
+                      />
+                      <span className="w-11 text-right text-xs tabular-nums">{Math.round(customerTextScale * 100)}%</span>
+                    </div>
+                  </SettingRow>
+                  <SettingRow title="Apply customer display">
+                    <Button size="sm" className="h-8 text-xs" onClick={saveCustomerDisplay}>
+                      <Save className="mr-1.5 size-3.5" />
+                      Apply
+                    </Button>
+                  </SettingRow>
+                </SettingsGroup>
+              )}
+
+              {section === "hardware" && (
+                <>
+                  <SettingsGroup title="Connected hardware">
+                    <LinkRow
+                      icon={<Printer className="size-4" />}
+                      title="Receipt printer"
+                      description={`Paper width ${paper} mm`}
+                      onClick={() => navigate({ to: "/manager-tools" as any })}
+                    />
+                    <LinkRow
+                      icon={<Barcode className="size-4" />}
+                      title="Barcode scanner"
+                      description={hardwareStatus.scanner}
+                      onClick={() => navigate({ to: "/manager-tools" as any })}
+                    />
+                    <LinkRow
+                      icon={<Banknote className="size-4" />}
+                      title="Cash drawer"
+                      description="Controlled through the receipt printer"
+                      onClick={() => navigate({ to: "/manager-tools" as any })}
+                    />
+                    <LinkRow
+                      icon={<MonitorCog className="size-4" />}
+                      title="Customer display"
+                      description={hardwareStatus.display}
+                      onClick={() => openSection("customer")}
+                    />
+                  </SettingsGroup>
+                </>
+              )}
+
+              {section === "payments" && (
+                <SettingsGroup title="Card payments">
+                  <LinkRow
+                    icon={<CreditCard className="size-4" />}
+                    title="Payment terminal"
+                    description="Reader M2 status, USB/Bluetooth connection, and reconnect controls."
+                    onClick={() => navigate({ to: "/payment-terminal" as any })}
                   />
-                </SettingRow>
-                <SettingRow title="Apply receipt preferences">
-                  <Button variant="outline" onClick={save}>
-                    <Save className="mr-2 size-4" />
-                    Apply
-                  </Button>
-                </SettingRow>
-              </SettingsGroup>
-            )}
+                  <ValueRow title="Processor" value="Stripe Terminal" />
+                  <ValueRow title="Reader connection" value="Automatic reconnect" />
+                </SettingsGroup>
+              )}
 
-            {section === "connections" && (
-              <SettingsGroup title="Connections" description="Hardware and payment connections used by this register.">
-                <LinkRow
-                  icon={<MonitorCog className="size-4" />}
-                  title="Peripheral hardware"
-                  description="Printer, scanner, and cash drawer. Customer display starts automatically on supported dual-screen hardware."
-                  onClick={() => navigate({ to: "/manager-tools" as any })}
-                />
-                <LinkRow
-                  icon={<CreditCard className="size-4" />}
-                  title="Payment terminal"
-                  description="Connect, select, and test the card reader."
-                  onClick={() => navigate({ to: "/payment-terminal" as any })}
-                />
-              </SettingsGroup>
-            )}
+              {section === "sync" && (
+                <SettingsGroup title="Offline & synchronization">
+                  <LinkRow
+                    icon={<Cloud className="size-4" />}
+                    title="Sync queue"
+                    description="Review records waiting for SEZA Cloud and retry synchronization."
+                    onClick={() => navigate({ to: "/pending-sync" as any })}
+                  />
+                  <ValueRow title="Offline mode" value="Automatic fallback" />
+                  <ValueRow title="Reconnect behavior" value="Sync when connection returns" />
+                </SettingsGroup>
+              )}
 
-            {section === "sync" && (
-              <SettingsGroup title="Sync & offline" description="Review offline work and cloud synchronization.">
-                <LinkRow
-                  icon={<Cloud className="size-4" />}
-                  title="Sync queue"
-                  description="Review records waiting for SEZA Cloud and retry synchronization."
-                  onClick={() => navigate({ to: "/pending-sync" as any })}
-                />
-              </SettingsGroup>
-            )}
+              {section === "support" && (
+                <>
+                  <SettingsGroup title="Help & support">
+                    <LinkRow
+                      icon={<LifeBuoy className="size-4" />}
+                      title="Support center"
+                      description="Open support cases and follow replies from SEZA."
+                      onClick={() => navigate({ to: "/support" as any })}
+                    />
+                    <a
+                      href={`tel:${LEGAL_CONFIG.phone}`}
+                      className="flex min-h-[54px] items-center gap-3 border-b px-3 py-2.5 text-left transition last:border-b-0 hover:bg-muted/35"
+                    >
+                      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                        <Phone className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium">Call SEZA Support</span>
+                        <span className="block text-[11px] text-muted-foreground">{LEGAL_CONFIG.phoneDisplay}</span>
+                      </span>
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                    </a>
+                    <SettingRow
+                      title="Screen sharing"
+                      description="SEZA Admin must start the request. This register will ask you to Allow or Decline."
+                    >
+                      <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                        <MonitorUp className="size-3.5" /> Admin initiated
+                      </div>
+                    </SettingRow>
+                  </SettingsGroup>
+                  <ManagerSupportFooter />
+                </>
+              )}
 
-            {section === "support" && (
-              <SettingsGroup
-                title="Screen sharing"
-                description="SEZA Admin can start a secure view-only screen-sharing session while helping you."
-              >
-                <SettingRow
-                  title="Share screen with SEZA Admin"
-                  description="Only SEZA Admin can start screen sharing. This register will show Allow or Decline before anything is shared."
-                >
-                  <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                    <MonitorUp className="size-4" />
-                    Admin initiated
-                  </div>
-                </SettingRow>
-              </SettingsGroup>
-            )}
-
-            {section === "android" && <AndroidDevicePanel />}
-            <ManagerSupportFooter />
+              {section === "about" && (
+                <SettingsGroup title="About this register">
+                  <ValueRow title="Product" value={LEGAL_CONFIG.productName} />
+                  <ValueRow title="Company" value={LEGAL_CONFIG.companyName} />
+                  <ValueRow title="Store" value={storeName} />
+                  <ValueRow title="Register" value={label || "Register 1"} />
+                  <ValueRow title="Platform" value={native ? "Android POS" : "Web POS"} />
+                  <ValueRow title="Support" value={LEGAL_CONFIG.supportEmail} />
+                </SettingsGroup>
+              )}
+            </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );
@@ -453,20 +595,17 @@ export function RegisterAppSettingsPage() {
 
 function SettingsGroup({
   title,
-  description,
   children,
 }: {
   title: string;
-  description?: string;
   children: ReactNode;
 }) {
   return (
     <section>
-      <div className="mb-2 px-1">
-        <h2 className="text-base font-bold">{title}</h2>
-        {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
+      <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
       </div>
-      <div className="overflow-hidden rounded-xl border bg-background">{children}</div>
+      <div className="overflow-hidden rounded-lg border bg-background">{children}</div>
     </section>
   );
 }
@@ -481,12 +620,21 @@ function SettingRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-16 items-center justify-between gap-4 border-b px-4 py-3 last:border-b-0">
+    <div className="flex min-h-[54px] items-center justify-between gap-4 border-b px-3 py-2.5 last:border-b-0">
       <div className="min-w-0">
-        <Label className="font-semibold">{title}</Label>
-        {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
+        <Label className="text-sm font-medium">{title}</Label>
+        {description ? <p className="text-[11px] leading-4 text-muted-foreground">{description}</p> : null}
       </div>
       <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+function ValueRow({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="flex min-h-[50px] items-center justify-between gap-4 border-b px-3 py-2 last:border-b-0">
+      <span className="text-sm font-medium">{title}</span>
+      <span className="max-w-[55%] truncate text-right text-xs text-muted-foreground">{value}</span>
     </div>
   );
 }
@@ -506,12 +654,12 @@ function LinkRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-16 w-full items-center gap-3 border-b px-4 py-3 text-left transition last:border-b-0 hover:bg-muted/40"
+      className="flex min-h-[54px] w-full items-center gap-3 border-b px-3 py-2.5 text-left transition last:border-b-0 hover:bg-muted/35"
     >
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">{icon}</span>
+      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">{icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block font-semibold">{title}</span>
-        <span className="block text-xs text-muted-foreground">{description}</span>
+        <span className="block text-sm font-medium leading-5">{title}</span>
+        <span className="block truncate text-[11px] leading-4 text-muted-foreground">{description}</span>
       </span>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
     </button>

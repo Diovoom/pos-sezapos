@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { LockKeyhole, MonitorUp, Power, RefreshCw } from "lucide-react";
+import { LockKeyhole, Power, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -35,7 +28,6 @@ export function AndroidDevicePanel() {
 
   const refresh = useCallback(async () => {
     if (!native) return;
-
     try {
       setState(await deviceControl.getState());
     } catch {
@@ -52,20 +44,10 @@ export function AndroidDevicePanel() {
     enabled: boolean,
   ) => {
     setBusy(true);
-
     try {
-      if (key === "launchOnBoot") {
-        await deviceControl.setLaunchOnBoot(enabled);
-      }
-
-      if (key === "keepAwake") {
-        await deviceControl.setKeepAwake(enabled);
-      }
-
-      if (key === "immersive") {
-        await deviceControl.setImmersive(enabled);
-      }
-
+      if (key === "launchOnBoot") await deviceControl.setLaunchOnBoot(enabled);
+      if (key === "keepAwake") await deviceControl.setKeepAwake(enabled);
+      if (key === "immersive") await deviceControl.setImmersive(enabled);
       setState((current) => ({ ...current, [key]: enabled }));
       toast.success("Android terminal setting updated");
     } catch (error) {
@@ -77,7 +59,6 @@ export function AndroidDevicePanel() {
 
   const startKiosk = async () => {
     setBusy(true);
-
     try {
       await deviceControl.startKiosk();
       await refresh();
@@ -91,7 +72,6 @@ export function AndroidDevicePanel() {
 
   const stopKiosk = async () => {
     setBusy(true);
-
     try {
       await deviceControl.stopKiosk();
       await refresh();
@@ -105,7 +85,6 @@ export function AndroidDevicePanel() {
 
   const restartSeza = async () => {
     setBusy(true);
-
     try {
       await deviceControl.relaunch();
     } catch (error) {
@@ -117,102 +96,91 @@ export function AndroidDevicePanel() {
   if (!native) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MonitorUp className="size-5" />
-          Android terminal mode
-        </CardTitle>
-        <CardDescription>
-          Controls for a dedicated SEZA POS machine. Full kiosk lockdown
-          requires the hardware to provision SEZA as a device-owner app.
-        </CardDescription>
-      </CardHeader>
+    <div className="space-y-4">
+      <section>
+        <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Startup & display
+        </div>
+        <div className="overflow-hidden rounded-lg border bg-background">
+          <ToggleRow
+            label="Open SEZA after reboot"
+            description="Launch the register automatically after Android starts."
+            checked={state.launchOnBoot}
+            disabled={busy}
+            onChange={(enabled) => void toggle("launchOnBoot", enabled)}
+          />
+          <ToggleRow
+            label="Keep screen awake"
+            description="Prevent the cashier screen from sleeping during a shift."
+            checked={state.keepAwake}
+            disabled={busy}
+            onChange={(enabled) => void toggle("keepAwake", enabled)}
+          />
+          <ToggleRow
+            label="Hide Android navigation"
+            description="Use immersive mode while SEZA is open."
+            checked={state.immersive}
+            disabled={busy}
+            onChange={(enabled) => void toggle("immersive", enabled)}
+          />
+        </div>
+      </section>
 
-      <CardContent className="space-y-5">
-        <Setting
-          label="Open SEZA after reboot"
-          checked={state.launchOnBoot}
-          disabled={busy}
-          onChange={(enabled) => void toggle("launchOnBoot", enabled)}
-        />
-
-        <Setting
-          label="Keep the POS screen awake"
-          checked={state.keepAwake}
-          disabled={busy}
-          onChange={(enabled) => void toggle("keepAwake", enabled)}
-        />
-
-        <Setting
-          label="Hide Android navigation while SEZA is open"
-          checked={state.immersive}
-          disabled={busy}
-          onChange={(enabled) => void toggle("immersive", enabled)}
-        />
-
-        <div className="rounded-lg border p-3 text-sm">
-          <div className="font-medium">Kiosk status</div>
-          <div className="text-muted-foreground">
-            {state.inLockTask
-              ? "Kiosk mode is active."
-              : "Kiosk mode is not active."}{" "}
-            {state.deviceOwner
-              ? "This terminal is provisioned as device owner."
-              : "Screen pinning may ask for Android confirmation until device-owner provisioning is completed."}
+      <section>
+        <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Kiosk mode
+        </div>
+        <div className="overflow-hidden rounded-lg border bg-background">
+          <div className="flex min-h-[54px] items-center justify-between gap-4 border-b px-3 py-2.5">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">Kiosk status</div>
+              <div className="text-[11px] leading-4 text-muted-foreground">
+                {state.inLockTask ? "Active" : "Not active"}
+                {state.deviceOwner ? " · Device owner enabled" : " · Android confirmation may be required"}
+              </div>
+            </div>
+            <LockKeyhole className="size-4 shrink-0 text-muted-foreground" />
+          </div>
+          <div className="flex flex-wrap gap-2 px-3 py-3">
+            <Button size="sm" className="h-8 text-xs" disabled={busy} onClick={() => void startKiosk()}>
+              <LockKeyhole className="mr-1.5 size-3.5" />
+              Start kiosk
+            </Button>
+            <Button size="sm" className="h-8 text-xs" variant="outline" disabled={busy} onClick={() => void stopKiosk()}>
+              Stop kiosk
+            </Button>
+            <Button size="sm" className="h-8 text-xs" variant="outline" disabled={busy} onClick={() => void restartSeza()}>
+              <RefreshCw className="mr-1.5 size-3.5" />
+              Restart SEZA
+            </Button>
           </div>
         </div>
+      </section>
 
-        <div className="flex flex-wrap gap-2">
-          <Button disabled={busy} onClick={() => void startKiosk()}>
-            <LockKeyhole className="mr-2 size-4" />
-            Start kiosk
-          </Button>
-
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={() => void stopKiosk()}
-          >
-            Stop kiosk
-          </Button>
-
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={() => void restartSeza()}
-          >
-            <RefreshCw className="mr-2 size-4" />
-            Restart SEZA
-          </Button>
-        </div>
-
-        <p className="flex items-start gap-2 text-xs text-muted-foreground">
-          <Power className="mt-0.5 size-3.5 shrink-0" />
-          Android can delay boot launching until the user unlocks the device.
-          Test this on the exact terminal model.
-        </p>
-      </CardContent>
-    </Card>
+      <p className="flex items-start gap-2 px-1 text-[11px] leading-4 text-muted-foreground">
+        <Power className="mt-0.5 size-3.5 shrink-0" />
+        Android can delay boot launching until the device is unlocked. Test kiosk behavior on the exact SEZA hardware model.
+      </p>
+    </div>
   );
 }
 
-type SettingProps = {
+type ToggleRowProps = {
   label: string;
+  description: string;
   checked: boolean;
   disabled: boolean;
   onChange: (enabled: boolean) => void;
 };
 
-function Setting({ label, checked, disabled, onChange }: SettingProps) {
+function ToggleRow({ label, description, checked, disabled, onChange }: ToggleRowProps) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <Label>{label}</Label>
-      <Switch
-        checked={checked}
-        disabled={disabled}
-        onCheckedChange={onChange}
-      />
+    <div className="flex min-h-[54px] items-center justify-between gap-4 border-b px-3 py-2.5 last:border-b-0">
+      <div className="min-w-0">
+        <Label className="text-sm font-medium">{label}</Label>
+        <p className="text-[11px] leading-4 text-muted-foreground">{description}</p>
+      </div>
+      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
     </div>
   );
 }

@@ -1,8 +1,11 @@
 import { useRef, type TouchEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  ChevronRight,
   Clock,
+  Cloud,
   CreditCard,
+  LifeBuoy,
   MonitorCog,
   RotateCcw,
   Settings,
@@ -19,6 +22,7 @@ import { useMe } from "@/hooks/useMe";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ManagerSupportFooter } from "@/components/pos/ManagerSupportFooter";
 
+
 type Tool = {
   label: string;
   description: string;
@@ -26,6 +30,64 @@ type Tool = {
   to: string;
   managerOnly?: boolean;
 };
+
+const operationTools: Tool[] = [
+  {
+    label: "Refunds & receipts",
+    description: "Find a sale, refund, return, exchange, or reprint a receipt.",
+    icon: RotateCcw,
+    to: "/refunds",
+  },
+  {
+    label: "Register",
+    description: "Cash drawer, payouts, deposits, safe drops, and drawer controls.",
+    icon: Wallet,
+    to: "/register",
+  },
+  {
+    label: "Clock & shift review",
+    description: "Clock in or out, review time entries, and close the current shift.",
+    icon: Clock,
+    to: "/timeclock",
+  },
+];
+
+const setupTools: Tool[] = [
+  {
+    label: "Hardware",
+    description: "Receipt printer, scanner, cash drawer, and customer display.",
+    icon: MonitorCog,
+    to: "/manager-tools",
+  },
+  {
+    label: "Payment terminal",
+    description: "Reader M2 status, connection, and payment-terminal setup.",
+    icon: CreditCard,
+    to: "/payment-terminal",
+  },
+  {
+    label: "Settings",
+    description: "Register, display, receipts, hardware, sync, Android, and support.",
+    icon: Settings,
+    to: "/settings",
+    managerOnly: true,
+  },
+];
+
+const systemTools: Tool[] = [
+  {
+    label: "Offline & sync queue",
+    description: "Review work waiting to sync and retry pending records.",
+    icon: Cloud,
+    to: "/pending-sync",
+  },
+  {
+    label: "SEZA Support",
+    description: "Open support, follow cases, and request help with this register.",
+    icon: LifeBuoy,
+    to: "/support",
+  },
+];
 
 export function PosManagerDashboardDialog({
   open,
@@ -83,57 +145,21 @@ export function PosManagerDashboardDialog({
     if (dy >= 90 && dy > dx * 1.25) onOpenChange(false);
   };
 
-  const tools: Tool[] = [
-    {
-      label: "Refunds & receipts",
-      description: "Find sales, refunds, returns, and reprints.",
-      icon: RotateCcw,
-      to: "/refunds",
-    },
-    {
-      label: "Peripheral hardware",
-      description: "Printer, scanner, drawer, and customer display.",
-      icon: MonitorCog,
-      to: "/manager-tools",
-    },
-    {
-      label: "Clock & shift review",
-      description: "Time clock, shift review, and closeout.",
-      icon: Clock,
-      to: "/timeclock",
-    },
-    {
-      label: "Register",
-      description: "Drawer, payouts, deposits, and cash controls.",
-      icon: Wallet,
-      to: "/register",
-    },
-    {
-      label: "Payment terminal",
-      description: "Check or reconnect the card reader.",
-      icon: CreditCard,
-      to: "/payment-terminal",
-    },
-    {
-      label: "App settings",
-      description: "Register, receipt, display, and sync settings.",
-      icon: Settings,
-      to: "/settings",
-      managerOnly: true,
-    },
-  ];
+  const visibleOperations = operationTools.filter((tool) => isManager || !tool.managerOnly);
+  const visibleSetup = setupTools.filter((tool) => isManager || !tool.managerOnly);
+  const visibleSystem = systemTools.filter((tool) => isManager || !tool.managerOnly);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[82dvh] w-[min(94vw,920px)] max-w-[920px] flex-col gap-0 overflow-hidden rounded-lg p-0 shadow-xl"
+        className="flex max-h-[88dvh] w-[min(94vw,780px)] max-w-[780px] flex-col gap-0 overflow-hidden rounded-xl p-0 shadow-2xl"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        <DialogHeader className="shrink-0 border-b px-4 py-3 pr-11 text-left">
+        <DialogHeader className="shrink-0 border-b bg-background px-4 py-3 pr-11 text-left">
           <DialogTitle className="text-base font-semibold">
-            {isManager ? "Manager dashboard" : "Dashboard"}
+            {isManager ? "Manager menu" : "Register menu"}
           </DialogTitle>
           <DialogDescription className="text-xs">
             {storeName} · {role}
@@ -142,37 +168,76 @@ export function PosManagerDashboardDialog({
 
         <div
           ref={scrollRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-5"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/20 p-3 pb-5"
         >
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
-            {tools
-              .filter((tool) => isManager || !tool.managerOnly)
-              .map((tool) => (
+          <div className="mb-4">
+            <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Quick actions
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {visibleOperations.map((tool) => (
                 <button
-                  key={tool.label}
+                  key={`quick-${tool.label}`}
                   type="button"
                   onClick={() => go(tool.to)}
-                  className="group min-h-[92px] rounded-md border bg-background p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="flex min-h-[66px] flex-col items-center justify-center gap-1 rounded-lg border bg-background px-2 py-2 text-center transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <div className="flex items-start gap-2.5">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-md border bg-muted/40 text-primary">
-                      <tool.icon className="size-4" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold leading-5">{tool.label}</span>
-                      <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
-                        {tool.description}
-                      </span>
-                    </span>
-                  </div>
+                  <tool.icon className="size-4 text-primary" />
+                  <span className="text-xs font-semibold leading-4">{tool.label}</span>
                 </button>
               ))}
+            </div>
           </div>
-          <div className="mt-3 border-t pt-2">
+
+          <MenuSection title="Operations" tools={visibleOperations} onSelect={go} />
+          <MenuSection title="Register setup" tools={visibleSetup} onSelect={go} />
+          <MenuSection title="System" tools={visibleSystem} onSelect={go} />
+
+          <div className="mt-4 border-t pt-2">
             <ManagerSupportFooter />
           </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function MenuSection({
+  title,
+  tools,
+  onSelect,
+}: {
+  title: string;
+  tools: Tool[];
+  onSelect: (to: string) => void;
+}) {
+  if (!tools.length) return null;
+  return (
+    <section className="mb-4">
+      <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </div>
+      <div className="overflow-hidden rounded-lg border bg-background">
+        {tools.map((tool) => (
+          <button
+            key={`${title}-${tool.label}`}
+            type="button"
+            onClick={() => onSelect(tool.to)}
+            className="flex min-h-[54px] w-full items-center gap-3 border-b px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+          >
+            <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+              <tool.icon className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium leading-5">{tool.label}</span>
+              <span className="block truncate text-[11px] leading-4 text-muted-foreground">
+                {tool.description}
+              </span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

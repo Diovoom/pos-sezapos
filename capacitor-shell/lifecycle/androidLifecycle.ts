@@ -60,9 +60,26 @@ async function handleFallbackBack(router: ShellRouter) {
     return;
   }
 
-  // Nested authenticated route: navigate back to the register.
+  // Nested authenticated route: use the in-app history stack first. This
+  // returns Settings → Hardware → Settings, or Manager tool → Dashboard,
+  // instead of rebuilding the register route for every Back press.
   if (path !== PIN_ROUTE) {
-    router.navigate({ to: REGISTER_ROUTE, replace: false });
+    try {
+      if (sessionStorage.getItem("seza.posToolOrigin") === "manager-dashboard") {
+        sessionStorage.removeItem("seza.posToolOrigin");
+        sessionStorage.setItem("seza.openManagerDashboard", "1");
+      }
+    } catch {
+      // sessionStorage is best-effort navigation state only.
+    }
+
+    const historyIndex = Number((router.history.location.state as any)?.__TSR_index ?? 0);
+    if (historyIndex > 0) {
+      router.history.back();
+      return;
+    }
+
+    router.navigate({ to: REGISTER_ROUTE, replace: true });
   }
 }
 
