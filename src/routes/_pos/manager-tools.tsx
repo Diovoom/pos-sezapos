@@ -12,34 +12,37 @@ export const Route = createFileRoute("/_pos/manager-tools")({
 
 export function PosManagerToolsPage() {
   return (
-    <div className="flex h-full min-h-0 flex-col bg-muted/25">
-      <div className="shrink-0 border-b bg-background px-4 py-3">
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <div className="shrink-0 border-b px-4 py-2.5">
         <div className="flex items-center gap-2">
-          <MonitorCog className="size-5 text-primary" />
+          <MonitorCog className="size-4 text-primary" />
           <div>
-            <h1 className="text-lg font-black">Peripheral hardware</h1>
-            <p className="text-xs text-muted-foreground">
-              Configure hardware physically connected to this Android register.
+            <h1 className="text-sm font-semibold">Peripheral hardware</h1>
+            <p className="text-[11px] text-muted-foreground">
+              Configure hardware connected to this register.
             </p>
           </div>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] p-4 pb-24">
-        <div className="mx-auto max-w-6xl space-y-4">
-          <div className="grid gap-4 lg:grid-cols-2">
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-20">
+        <div className="mx-auto max-w-6xl space-y-3">
+          <div className="grid gap-3 lg:grid-cols-3">
             <NativeUsbPrinterPanel />
             <NativeScannerPanel />
             <NativeDrawerPanel />
           </div>
-          <div className="flex items-start gap-3 rounded-xl border bg-background p-4">
-            <Monitor className="mt-0.5 size-5 text-primary" />
+
+          <div className="flex items-start gap-2 rounded-md border bg-muted/20 px-3 py-2.5">
+            <Monitor className="mt-0.5 size-4 shrink-0 text-primary" />
             <div>
-              <div className="font-semibold">Customer display connects automatically</div>
-              <div className="text-sm text-muted-foreground">
-                On supported dual-screen SEZA hardware there is no manual Detect & Connect step. Customize the idle message, image, and text size from App settings → Customer display.
+              <div className="text-sm font-medium">Customer display</div>
+              <div className="text-[11px] leading-4 text-muted-foreground">
+                Supported dual-screen SEZA hardware connects automatically. Customize it from App settings → Customer display.
               </div>
             </div>
           </div>
+
           <ManagerSupportFooter />
         </div>
       </div>

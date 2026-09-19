@@ -43,7 +43,10 @@ export function PosManagerDashboardDialog({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const role = String(me?.roles?.[0] ?? "cashier").toLowerCase();
-  const isManager = permissions.isSuper || permissions.isManager || me?.roles?.includes("super_admin") === true;
+  const isManager =
+    permissions.isSuper ||
+    permissions.isManager ||
+    me?.roles?.includes("super_admin") === true;
 
   const go = (to: string) => {
     try {
@@ -83,37 +86,37 @@ export function PosManagerDashboardDialog({
   const tools: Tool[] = [
     {
       label: "Refunds & receipts",
-      description: "Find a sale, prepare a refund or return, and reprint receipts.",
+      description: "Find sales, refunds, returns, and reprints.",
       icon: RotateCcw,
       to: "/refunds",
     },
     {
       label: "Peripheral hardware",
-      description: "Configure and test the printer, scanner, cash drawer, and customer display.",
+      description: "Printer, scanner, drawer, and customer display.",
       icon: MonitorCog,
       to: "/manager-tools",
     },
     {
-      label: "Clock & Shift review",
-      description: "Clock in or out, review time entries, and review or close the current shift.",
+      label: "Clock & shift review",
+      description: "Time clock, shift review, and closeout.",
       icon: Clock,
       to: "/timeclock",
     },
     {
       label: "Register",
-      description: "Open the cash drawer and record payouts or deposits.",
+      description: "Drawer, payouts, deposits, and cash controls.",
       icon: Wallet,
       to: "/register",
     },
     {
       label: "Payment terminal",
-      description: "Check or reconnect the card terminal used by this register.",
+      description: "Check or reconnect the card reader.",
       icon: CreditCard,
       to: "/payment-terminal",
     },
     {
       label: "App settings",
-      description: "Register preferences, receipts, sync, Android behavior, and app settings.",
+      description: "Register, receipt, display, and sync settings.",
       icon: Settings,
       to: "/settings",
       managerOnly: true,
@@ -123,22 +126,25 @@ export function PosManagerDashboardDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex h-[94dvh] max-w-6xl flex-col overflow-hidden p-0 overscroll-contain"
+        className="flex max-h-[82dvh] w-[min(94vw,920px)] max-w-[920px] flex-col gap-0 overflow-hidden rounded-lg p-0 shadow-xl"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        <div className="flex shrink-0 justify-center pt-2" aria-hidden="true">
-          <span className="h-1 w-12 rounded-full bg-muted-foreground/30" />
-        </div>
-        <DialogHeader className="border-b px-4 pb-4 pt-2 pr-12 text-left">
-          <DialogTitle>{isManager ? "Manager dashboard" : "Dashboard"}</DialogTitle>
-          <DialogDescription>
-            Tools available to {role} at {storeName}. The current employee stays signed in.
+        <DialogHeader className="shrink-0 border-b px-4 py-3 pr-11 text-left">
+          <DialogTitle className="text-base font-semibold">
+            {isManager ? "Manager dashboard" : "Dashboard"}
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {storeName} · {role}
           </DialogDescription>
         </DialogHeader>
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch] touch-pan-y p-4 pb-24">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-5"
+        >
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
             {tools
               .filter((tool) => isManager || !tool.managerOnly)
               .map((tool) => (
@@ -146,15 +152,25 @@ export function PosManagerDashboardDialog({
                   key={tool.label}
                   type="button"
                   onClick={() => go(tool.to)}
-                  className="rounded-xl border bg-background p-4 text-left transition hover:border-primary/50 hover:bg-muted/30"
+                  className="group min-h-[92px] rounded-md border bg-background p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <tool.icon className="size-5 text-primary" />
-                  <div className="mt-3 font-bold">{tool.label}</div>
-                  <div className="mt-1 text-sm text-muted-foreground">{tool.description}</div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-md border bg-muted/40 text-primary">
+                      <tool.icon className="size-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold leading-5">{tool.label}</span>
+                      <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+                        {tool.description}
+                      </span>
+                    </span>
+                  </div>
                 </button>
               ))}
           </div>
-          <ManagerSupportFooter />
+          <div className="mt-3 border-t pt-2">
+            <ManagerSupportFooter />
+          </div>
         </div>
       </DialogContent>
     </Dialog>

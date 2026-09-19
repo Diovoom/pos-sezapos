@@ -45,28 +45,51 @@ export function NativeScannerPanel() {
   const connected = localStorage.getItem(STATUS_KEY) === "connected";
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-2"><Barcode className="size-5" /> Barcode scanner</span>
-          <Badge variant="outline" className={connected ? "border-success/30 bg-success/10 text-success" : "text-muted-foreground"}>
+    <Card className="rounded-md shadow-none">
+      <CardHeader className="space-y-1 p-3 pb-2">
+        <CardTitle className="flex items-start justify-between gap-2 text-sm font-semibold">
+          <span className="flex items-center gap-2">
+            <Barcode className="size-4" /> Barcode scanner
+          </span>
+          <Badge
+            variant="outline"
+            className={`h-5 px-1.5 text-[10px] font-medium ${
+              connected ? "border-success/30 bg-success/10 text-success" : "text-muted-foreground"
+            }`}
+          >
             {connected ? <CheckCircle2 className="mr-1 size-3" /> : <XCircle className="mr-1 size-3" />}
-            {connected ? "Connected" : "Not tested"}
+            {connected ? "Ready" : "Not tested"}
           </Badge>
         </CardTitle>
-        <CardDescription>
-          Works with USB or Bluetooth scanners that act like a keyboard. Scan a barcode ending with Enter.
+        <CardDescription className="text-[11px] leading-4">
+          USB or Bluetooth HID scanner that sends Enter after a barcode.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="rounded-lg border bg-surface/40 p-3 text-sm">
-          <div className="flex items-center gap-2 font-medium"><Keyboard className="size-4" /> HID keyboard scanner</div>
-          <p className="mt-1 text-muted-foreground">Last barcode: <span className="font-mono text-foreground">{lastBarcode || "None"}</span></p>
+
+      <CardContent className="space-y-2 p-3 pt-0">
+        <div className="rounded-md border bg-muted/20 p-2 text-[11px]">
+          <div className="flex items-center gap-1.5 font-medium">
+            <Keyboard className="size-3.5" /> HID scanner
+          </div>
+          <p className="mt-1 text-muted-foreground">
+            Last barcode: <span className="font-mono text-foreground">{lastBarcode || "None"}</span>
+          </p>
         </div>
-        <Button onClick={() => { buffer.current = ""; setTesting(true); }} disabled={testing}>
-          <Play className="mr-2 size-4" /> {testing ? "Scan a barcode now…" : "Test scanner"}
+
+        <Button
+          size="sm"
+          className="h-8 text-xs"
+          onClick={() => {
+            buffer.current = "";
+            setTesting(true);
+          }}
+          disabled={testing}
+        >
+          <Play className="mr-1.5 size-3.5" /> {testing ? "Scan now…" : "Test scanner"}
         </Button>
-        {testing ? <p className="text-sm font-medium text-primary">Scan any product barcode. Do not click another field.</p> : null}
+        {testing ? (
+          <p className="text-[11px] font-medium text-primary">Scan any product barcode now.</p>
+        ) : null}
       </CardContent>
     </Card>
   );
