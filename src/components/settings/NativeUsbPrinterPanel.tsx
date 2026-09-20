@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Printer, RefreshCw, Usb, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Printer, RefreshCw, Usb, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { isNativeMode } from "@/lib/native";
@@ -49,15 +48,11 @@ export function NativeUsbPrinterPanel() {
           <span className="flex items-center gap-2">
             <Printer className="size-4" /> Receipt printer
           </span>
-          <Badge
-            variant="outline"
-            className={`h-5 px-1.5 text-[10px] font-medium ${
-              ready ? "border-success/30 bg-success/10 text-success" : "text-muted-foreground"
-            }`}
-          >
-            {ready ? <CheckCircle2 className="mr-1 size-3" /> : <XCircle className="mr-1 size-3" />}
-            {ready ? "Ready" : "Not set"}
-          </Badge>
+          {ready ? (
+            <span className="grid size-5 place-items-center text-success" title="Printer verified" aria-label="Printer verified">
+              <CheckCircle2 className="size-4" />
+            </span>
+          ) : null}
         </CardTitle>
         <CardDescription className="text-[11px] leading-4">
           Built-in or USB ESC/POS printer used by this register.
