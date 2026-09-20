@@ -185,7 +185,11 @@ function SupportPage() {
     // the persistent-chat key, so the “Open workspace” button appeared to do
     // nothing and never navigated to the ticket route.
     rememberAdminChat(id);
-    window.location.assign(`/admin/support/${encodeURIComponent(id)}`);
+    void navigate({
+      to: "/admin/support/$ticketId",
+      params: { ticketId: id },
+      replace: false,
+    });
   }
 
   async function claimOne(id: string) {

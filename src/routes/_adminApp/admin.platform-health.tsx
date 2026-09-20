@@ -49,22 +49,28 @@ function PlatformHealthPage() {
             : "One or more server variables are missing",
         },
         {
-          label: "Stripe sandbox",
+          label: "Stripe Connect / live payments",
           icon: Webhook,
-          ok: data.stripe_sandbox.configured && data.stripe_sandbox.webhook_configured,
-          detail: `${data.stripe_sandbox.configured ? "API key ready" : "API key missing"} · ${data.stripe_sandbox.webhook_configured ? "webhook ready" : "webhook secret missing"}`,
+          ok: data.stripe_live.configured,
+          detail: data.stripe_live.configured
+            ? "Live Stripe API key ready for Connect and Terminal"
+            : "STRIPE_LIVE_SECRET_KEY missing",
         },
         {
-          label: "Stripe subscriptions / Connect",
+          label: "Stripe Terminal webhook",
           icon: Webhook,
-          ok: data.stripe_live.configured && data.stripe_live.subscription_webhook_configured,
-          detail: `${data.stripe_live.configured ? "live API key ready" : "live API key missing"} · ${data.stripe_live.subscription_webhook_configured ? "subscription webhook ready" : "subscription webhook secret missing"}`,
+          ok: data.stripe_live.terminal_webhook_configured,
+          detail: data.stripe_live.terminal_webhook_configured
+            ? "Live Terminal webhook secret ready"
+            : "STRIPE_TERMINAL_LIVE_WEBHOOK_SECRET missing",
         },
         {
-          label: "Stripe Terminal",
+          label: `Stripe subscription billing (${data.stripe_live.billing_mode})`,
           icon: Webhook,
-          ok: data.stripe_live.configured && data.stripe_live.terminal_webhook_configured,
-          detail: `${data.stripe_live.configured ? "live API key ready" : "live API key missing"} · ${data.stripe_live.terminal_webhook_configured ? "Terminal webhook ready" : "STRIPE_TERMINAL_LIVE_WEBHOOK_SECRET missing"}`,
+          ok:
+            data.stripe_live.billing_configured &&
+            data.stripe_live.billing_webhook_configured,
+          detail: `${data.stripe_live.billing_configured ? "billing API key ready" : "billing API key missing"} · ${data.stripe_live.billing_webhook_configured ? "billing webhook ready" : "billing webhook secret missing"}`,
         },
         {
           label: "Transactional email",

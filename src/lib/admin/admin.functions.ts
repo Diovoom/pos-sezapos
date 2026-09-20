@@ -2136,6 +2136,7 @@ export const adminPlatformHealth = createServerFn({ method: "GET" })
 
     const stripeSandboxConfigured = Boolean(process.env.STRIPE_SANDBOX_SECRET_KEY);
     const stripeLiveConfigured = Boolean(process.env.STRIPE_LIVE_SECRET_KEY);
+    const stripeBillingMode = process.env.STRIPE_BILLING_MODE === "live" ? "live" : "sandbox";
     const stripeSandboxWebhookConfigured = Boolean(process.env.PAYMENTS_SANDBOX_WEBHOOK_SECRET);
     // Subscription/Connect webhooks and Terminal webhooks are separate Stripe
     // endpoints. Keep both signals so Platform Health never reports Terminal as
@@ -2158,12 +2159,20 @@ export const adminPlatformHealth = createServerFn({ method: "GET" })
       stripe_sandbox: {
         configured: stripeSandboxConfigured,
         webhook_configured: stripeSandboxWebhookConfigured,
+        required: stripeBillingMode === "sandbox",
       },
       stripe_live: {
         configured: stripeLiveConfigured,
         webhook_configured: stripeLiveWebhookConfigured,
         subscription_webhook_configured: stripeLiveWebhookConfigured,
         terminal_webhook_configured: stripeTerminalLiveWebhookConfigured,
+        billing_mode: stripeBillingMode,
+        billing_configured:
+          stripeBillingMode === "live" ? stripeLiveConfigured : stripeSandboxConfigured,
+        billing_webhook_configured:
+          stripeBillingMode === "live"
+            ? stripeLiveWebhookConfigured
+            : stripeSandboxWebhookConfigured,
       },
       email: { configured: emailConfigured },
       app_version:

@@ -31,6 +31,34 @@ function joinBytes(...parts: Uint8Array[]) {
   return output;
 }
 
+function findNalPayload(bytes: Uint8Array, nalType: number): number {
+  for (let i = 0; i + 4 < bytes.length; i++) {
+    const start3 = bytes[i] === 0 && bytes[i + 1] === 0 && bytes[i + 2] === 1;
+    const start4 =
+      bytes[i] === 0 && bytes[i + 1] === 0 && bytes[i + 2] === 0 && bytes[i + 3] === 1;
+    if (!start3 && !start4) continue;
+    const offset = i + (start4 ? 4 : 3);
+    if (offset < bytes.length && (bytes[offset] & 0x1f) === nalType) return offset;
+  }
+  return -1;
+}
+
+function avcCodecFromSps(sps: Uint8Array): string {
+  const nal = findNalPayload(sps, 7);
+  const payload = nal >= 0 ? nal : 0;
+  // SPS bytes after the NAL header are profile_idc, constraint flags and level_idc.
+  // WebCodecs requires these to match the Android encoder. Hard-coding Baseline
+  // makes High/Main-profile POS encoders decode to a permanent black canvas.
+  if (payload + 3 < sps.length) {
+    const hex = [sps[payload + 1], sps[payload + 2], sps[payload + 3]]
+      .map((value) => value.toString(16).padStart(2, "0"))
+      .join("")
+      .toUpperCase();
+    return `avc1.${hex}`;
+  }
+  return "avc1.42E01F";
+}
+
 /**
  * Turn the Android MediaProjection/H.264 stream into a normal MediaStream.
  * That lets the existing view-only WebRTC publisher carry the native screen
@@ -56,7 +84,8 @@ export async function startNativeScreenShare(): Promise<{
   if (!ctx) throw new Error("Screen renderer is unavailable");
   ctx.fillStyle = "#111827";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const stream = canvas.captureStream(15);
+  const stream = canvas.captureStream(0);
+  const canvasTrack = stream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void };
   const listeners: PluginListenerHandle[] = [];
   let stopped = false;
   let configured = false;
@@ -80,6 +109,7 @@ export async function startNativeScreenShare(): Promise<{
           canvas.height = frame.displayHeight;
         }
         ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+        canvasTrack?.requestFrame?.();
         firstFrameResolve?.();
         firstFrameResolve = null;
       } finally {
@@ -99,7 +129,7 @@ export async function startNativeScreenShare(): Promise<{
       configPrefix = joinBytes(sps, pps);
       try {
         decoder.configure({
-          codec: "avc1.42E01F",
+          codec: avcCodecFromSps(sps),
           codedWidth: canvas.width,
           codedHeight: canvas.height,
           optimizeForLatency: true,
