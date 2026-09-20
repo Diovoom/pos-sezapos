@@ -990,7 +990,7 @@ function DangerZoneCard({
   const resetCreds = useServerFn(resetEmployeeCredentials);
   const forceLogout = useServerFn(forceLogoutEmployee);
   const del = useServerFn(deleteEmployee);
-  const [tempPw, setTempPw] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
@@ -1027,13 +1027,13 @@ function DangerZoneCard({
   const resetM = useMutation({
     mutationFn: async () => {
       const reason = askReason(
-        "Reset password (issues a one-time temporary password and signs the user out everywhere)",
+        "Send this employee a secure password reset email and sign them out everywhere",
       );
       if (reason === null) throw new Error("Cancelled");
       return resetCreds({ data: { user_id: profile.id, reason } });
     },
-    onSuccess: (r) => {
-      setTempPw(r.temp_password);
+    onSuccess: () => {
+      setResetSent(true);
       onChanged();
     },
     onError: (e) => {
@@ -1146,28 +1146,17 @@ function DangerZoneCard({
         </p>
       </CardContent>
 
-      <Dialog open={!!tempPw} onOpenChange={(v) => !v && setTempPw(null)}>
+      <Dialog open={resetSent} onOpenChange={(v) => !v && setResetSent(false)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Temporary password issued</DialogTitle>
+            <DialogTitle>Password reset email sent</DialogTitle>
             <DialogDescription>
-              Share this with the employee. They'll set a new password at next sign-in. All existing
-              sessions have been signed out.
+              The employee will choose a new password from the secure email link. No temporary password was generated. Existing sessions have been signed out.
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-md bg-muted p-4 font-mono text-lg text-center">{tempPw}</div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                navigator.clipboard.writeText(tempPw ?? "");
-                toast.success("Copied");
-              }}
-            >
-              <Copy className="size-4 mr-2" />
-              Copy
-            </Button>
-            <Button onClick={() => setTempPw(null)}>Done</Button>
+
+            <Button onClick={() => setResetSent(false)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

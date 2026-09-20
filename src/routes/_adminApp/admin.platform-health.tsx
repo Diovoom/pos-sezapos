@@ -55,10 +55,16 @@ function PlatformHealthPage() {
           detail: `${data.stripe_sandbox.configured ? "API key ready" : "API key missing"} · ${data.stripe_sandbox.webhook_configured ? "webhook ready" : "webhook secret missing"}`,
         },
         {
-          label: "Stripe live",
+          label: "Stripe subscriptions / Connect",
           icon: Webhook,
-          ok: data.stripe_live.configured && data.stripe_live.webhook_configured,
-          detail: `${data.stripe_live.configured ? "API key ready" : "API key missing"} · ${data.stripe_live.webhook_configured ? "webhook ready" : "webhook secret missing"}`,
+          ok: data.stripe_live.configured && data.stripe_live.subscription_webhook_configured,
+          detail: `${data.stripe_live.configured ? "live API key ready" : "live API key missing"} · ${data.stripe_live.subscription_webhook_configured ? "subscription webhook ready" : "subscription webhook secret missing"}`,
+        },
+        {
+          label: "Stripe Terminal",
+          icon: Webhook,
+          ok: data.stripe_live.configured && data.stripe_live.terminal_webhook_configured,
+          detail: `${data.stripe_live.configured ? "live API key ready" : "live API key missing"} · ${data.stripe_live.terminal_webhook_configured ? "Terminal webhook ready" : "STRIPE_TERMINAL_LIVE_WEBHOOK_SECRET missing"}`,
         },
         {
           label: "Transactional email",

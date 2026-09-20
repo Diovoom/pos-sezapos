@@ -160,13 +160,13 @@ function EmployeesPage() {
     onError: (e) => toast.error(userFacingError(e, "Failed")),
   });
 
-  const [resetInfo, setResetInfo] = useState<{ email: string; temp: string } | null>(null);
+  const [resetInfo, setResetInfo] = useState<{ email: string } | null>(null);
   const resetM = useMutation({
     mutationFn: async (row: EmployeeRow) => {
       const reason = window.prompt("Reason for password reset? (min 4 chars)") ?? "";
       if (reason.trim().length < 4) throw new Error("Reason is required");
       const r = await resetCreds({ data: { user_id: row.id, reason } });
-      return { email: row.email!, temp: r.temp_password };
+      return { email: r.email ?? row.email! };
     },
     onSuccess: (data) => {
       setResetInfo(data);
@@ -381,17 +381,13 @@ function EmployeesPage() {
       <Dialog open={!!resetInfo} onOpenChange={(v) => !v && setResetInfo(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Temporary password issued</DialogTitle>
+            <DialogTitle>Password reset email sent</DialogTitle>
             <DialogDescription>
-              Share this with the employee. They'll be asked to set a new password on next sign-in.
+              The employee will use the secure Supabase email link to choose a new password. No temporary password is generated.
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-md bg-muted p-4 font-mono text-lg text-center">
-            {resetInfo?.temp}
-          </div>
           <div className="text-xs text-muted-foreground text-center">Email: {resetInfo?.email}</div>
           <DialogFooter>
-            <CopyBtn value={resetInfo?.temp ?? ""} />
             <Button onClick={() => setResetInfo(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
@@ -433,9 +429,7 @@ function CreateEmployeeDialog({
     hire_date: new Date().toISOString().slice(0, 10),
   });
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ employee_id: string; email: string; temp: string } | null>(
-    null,
-  );
+  const [result, setResult] = useState<{ employee_id: string; email: string } | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -478,7 +472,7 @@ function CreateEmployeeDialog({
         onOpenChange(false);
       } else {
         const r = await create({ data: form });
-        setResult({ employee_id: r.employee_id, email: r.email, temp: r.temp_password });
+        setResult({ employee_id: r.employee_id, email: r.email });
         await upsertCachedEmployee({
           id: r.user_id,
           first_name: form.first_name.trim(),
@@ -525,7 +519,7 @@ function CreateEmployeeDialog({
             <DialogHeader>
               <DialogTitle>New employee</DialogTitle>
               <DialogDescription>
-                A 6-digit Employee ID and one-time password will be generated.
+                A 6-digit Employee ID will be generated and Supabase will email a secure account invitation.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={submit} className="space-y-3">
@@ -604,14 +598,12 @@ function CreateEmployeeDialog({
             <DialogHeader>
               <DialogTitle>Employee created</DialogTitle>
               <DialogDescription>
-                Share these credentials with the employee. They'll set a permanent password and PIN
-                on first sign-in.
+                The employee invitation was emailed securely. They choose their own password, then set their PIN during onboarding.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
               <Field label="Employee ID" value={result.employee_id} mono big />
               <Field label="Email (first login only)" value={result.email} />
-              <Field label="Temporary password" value={result.temp} mono />
             </div>
             <DialogFooter>
               <Button onClick={close}>Done</Button>

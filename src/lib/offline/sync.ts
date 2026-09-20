@@ -337,16 +337,8 @@ async function syncAction(action: OfflineAction): Promise<void> {
         photo_url: null,
         pending_sync: false,
       });
-      // Preserve the one-time credential locally until the owner opens the
-      // Employees page. It is never sent to analytics/logs or stored in source.
-      const { cacheMeta } = await import("./db");
-      await cacheMeta(`employee_provisioned:${action.id}`, {
-        user_id: result.user_id,
-        employee_id: result.employee_id,
-        email: result.email,
-        temp_password: result.temp_password,
-        created_at: new Date().toISOString(),
-      });
+      // The queued employee is provisioned with a Supabase email invite.
+      // No password or credential is generated or persisted during offline sync.
     }
     await updateOfflineAction(action.id, {
       status: "synced",

@@ -9,13 +9,6 @@ import { authenticatedWriteRateLimit } from "@/lib/security/rate-limit";
 
 /* ------------------------------- helpers ------------------------------- */
 
-function generateTempPassword(): string {
-  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789abcdefghjkmnpqrstuvwxyz";
-  let out = "";
-  const bytes = crypto.getRandomValues(new Uint8Array(14));
-  for (let i = 0; i < bytes.length; i++) out += chars[bytes[i] % chars.length];
-  return out + "!7";
-}
 
 async function assertOwner(context: { supabase: SupabaseCtx; userId: string }) {
   const { data, error } = await context.supabase.rpc("has_any_role", {
@@ -269,15 +262,15 @@ export const createEmployee = createServerFn({ method: "POST" })
       currentCount: usage.employees,
     });
 
-    const tempPassword = generateTempPassword();
     const email = data.email.trim().toLowerCase();
 
-    // Create auth user (auto-confirmed so first sign-in works immediately).
-    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: {
+    // Passwordless provisioning: Supabase owns the invite token and the employee
+    // chooses a password from the emailed onboarding link. No generated password
+    // is ever created, returned, cached, logged, or shown to the merchant.
+    const redirectTo = `${process.env.PUBLIC_APP_URL ?? process.env.APP_URL ?? "https://dashboard.sezapos.com"}/reset-password`;
+    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      redirectTo,
+      data: {
         full_name: `${data.first_name} ${data.last_name}`.trim(),
         first_name: data.first_name,
         last_name: data.last_name,
@@ -328,7 +321,7 @@ export const createEmployee = createServerFn({ method: "POST" })
       user_id: created.user.id,
       email,
       employee_id: profile?.employee_id as string,
-      temp_password: tempPassword,
+      invite_sent: true,
     };
   });
 
@@ -415,10 +408,10 @@ export const resetEmployeeCredentials = createServerFn({ method: "POST" })
     const reason = (data.reason ?? "").trim();
     if (reason.length < 4) throw new Error("A reason of at least 4 characters is required");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const tempPassword = generateTempPassword();
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
-      password: tempPassword,
-    });
+    const { data: target, error: targetError } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
+    if (targetError || !target.user?.email) throw new Error(targetError?.message || "Employee email not found");
+    const redirectTo = `${process.env.PUBLIC_APP_URL ?? process.env.APP_URL ?? "https://dashboard.sezapos.com"}/reset-password`;
+    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(target.user.email, { redirectTo });
     if (error) throw new Error(error.message);
 
     const admin: any = supabaseAdmin;
@@ -438,7 +431,7 @@ export const resetEmployeeCredentials = createServerFn({ method: "POST" })
       reason,
       details: { credential: "password+pin" },
     });
-    return { temp_password: tempPassword, correlation_id: correlationId };
+    return { reset_email_sent: true, email: target.user.email, correlation_id: correlationId };
   });
 
 /* --------------- force logout from every device / session -------------- */

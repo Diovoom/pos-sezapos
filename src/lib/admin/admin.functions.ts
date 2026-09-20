@@ -2137,7 +2137,11 @@ export const adminPlatformHealth = createServerFn({ method: "GET" })
     const stripeSandboxConfigured = Boolean(process.env.STRIPE_SANDBOX_SECRET_KEY);
     const stripeLiveConfigured = Boolean(process.env.STRIPE_LIVE_SECRET_KEY);
     const stripeSandboxWebhookConfigured = Boolean(process.env.PAYMENTS_SANDBOX_WEBHOOK_SECRET);
+    // Subscription/Connect webhooks and Terminal webhooks are separate Stripe
+    // endpoints. Keep both signals so Platform Health never reports Terminal as
+    // broken just because the subscription webhook uses a different secret.
     const stripeLiveWebhookConfigured = Boolean(process.env.PAYMENTS_LIVE_WEBHOOK_SECRET);
+    const stripeTerminalLiveWebhookConfigured = Boolean(process.env.STRIPE_TERMINAL_LIVE_WEBHOOK_SECRET);
     const emailConfigured = Boolean(process.env.RESEND_API_KEY);
     const supabaseConfigured = Boolean(
       process.env.SUPABASE_URL &&
@@ -2158,6 +2162,8 @@ export const adminPlatformHealth = createServerFn({ method: "GET" })
       stripe_live: {
         configured: stripeLiveConfigured,
         webhook_configured: stripeLiveWebhookConfigured,
+        subscription_webhook_configured: stripeLiveWebhookConfigured,
+        terminal_webhook_configured: stripeTerminalLiveWebhookConfigured,
       },
       email: { configured: emailConfigured },
       app_version:

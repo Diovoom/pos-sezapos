@@ -62,18 +62,18 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
           <div className="text-sm text-muted-foreground">Loading permissions…</div>
         ) : (
           <div>
-            <div className="mb-2 text-xs text-muted-foreground md:hidden">
-              Swipe left or right to view every role.
+            <div className="mb-3 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground md:hidden">
+              Permissions are grouped below. Swipe horizontally to compare roles; the permission name stays pinned while you review access.
             </div>
             <div
               className="-mx-4 max-w-[calc(100%+2rem)] touch-auto overflow-x-auto overscroll-x-contain px-4 [-webkit-overflow-scrolling:touch] md:mx-0 md:max-w-full md:px-0"
             >
-            <table className="min-w-[820px] w-full text-sm">
+            <table className="min-w-[720px] w-full table-fixed text-sm md:min-w-[820px]">
               <thead>
                 <tr className="border-b">
-                  <th className="sticky left-0 z-20 min-w-[260px] bg-background text-left p-2">Permission</th>
+                  <th className="sticky left-0 z-20 w-[220px] bg-background p-3 text-left shadow-[1px_0_0_hsl(var(--border))] md:w-[280px]">Permission</th>
                   {ROLES.map((r) => (
-                    <th key={r} className="min-w-[120px] whitespace-nowrap p-2 text-center capitalize">
+                    <th key={r} className="w-[110px] whitespace-nowrap p-3 text-center capitalize md:w-[130px]">
                       {r}
                     </th>
                   ))}
@@ -92,9 +92,9 @@ export function RolePermissionsPanel({ canEdit }: { canEdit: boolean }) {
                     </tr>
                     {ALL_PERMISSIONS.filter((p) => p.group === group).map((p) => (
                       <tr key={p.key} className="border-b last:border-b-0">
-                        <td className="sticky left-0 z-10 min-w-[260px] bg-background p-2">
-                          <div>{p.label}</div>
-                          <div className="text-xs text-muted-foreground font-mono">{p.key}</div>
+                        <td className="sticky left-0 z-10 w-[220px] bg-background p-3 shadow-[1px_0_0_hsl(var(--border))] md:w-[280px]">
+                          <div className="font-medium leading-tight">{p.label}</div>
+                          <div className="mt-1 break-all text-[10px] leading-tight text-muted-foreground font-mono md:text-xs">{p.key}</div>
                         </td>
                         {ROLES.map((role) => {
                           const set = map.get(role)!;

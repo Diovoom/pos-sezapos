@@ -9,6 +9,7 @@ import {
   adminSendSupportMessage,
   adminClaimSupportCase,
   adminMarkCommunicationRead,
+  adminTransitionSupportCase,
 } from "@/lib/admin/company-admin.functions";
 import { supabaseAdminAuth } from "@/integrations/supabase/admin-client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,6 +25,7 @@ import {
   ExternalLink,
   RefreshCw,
   PhoneOff,
+  RotateCcw,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -46,6 +48,7 @@ function CommunicationsPage() {
   const endChat = useServerFn(adminEndSupportChat);
   const claim = useServerFn(adminClaimSupportCase);
   const markRead = useServerFn(adminMarkCommunicationRead);
+  const transition = useServerFn(adminTransitionSupportCase);
   const qc = useQueryClient();
 
   const [view, setView] = useState<"active" | "ended" | "all">("active");
@@ -161,6 +164,22 @@ function CommunicationsPage() {
       refresh();
     } catch (error: any) {
       toast.error(error?.message ?? "Could not end live chat");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reopenSelected() {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      await transition({ data: { ticketId: selectedId, status: "open", reason: "Reopened from Live Communications" } });
+      toast.success("Case and live conversation reopened");
+      setView("active");
+      rememberAdminChat(selectedId);
+      refresh();
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not reopen conversation");
     } finally {
       setBusy(false);
     }
@@ -324,7 +343,11 @@ function CommunicationsPage() {
                       <UserCheck className="mr-1 h-4 w-4" /> Claim
                     </Button>
                   )}
-                  {selected.ticket.chat_status !== "ended" && (
+                  {selected.ticket.chat_status === "ended" || ["resolved", "closed"].includes(selected.ticket.status) ? (
+                    <Button size="sm" onClick={() => void reopenSelected()} disabled={busy}>
+                      <RotateCcw className="mr-1 h-4 w-4" /> Reopen
+                    </Button>
+                  ) : (
                     <Button
                       size="sm"
                       variant="destructive"
@@ -382,8 +405,7 @@ function CommunicationsPage() {
                 {selected.ticket.chat_status === "ended" ||
                 ["resolved", "closed"].includes(selected.ticket.status) ? (
                   <div className="rounded-lg bg-muted p-4 text-sm">
-                    This live chat has ended and the transcript is read-only. Reopen the full case
-                    to continue.
+                    This live chat has ended and the transcript is read-only. Use Reopen above to reactivate the same case and conversation.
                   </div>
                 ) : (
                   <div className="flex items-end gap-2">

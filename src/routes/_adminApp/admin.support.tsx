@@ -179,12 +179,11 @@ function SupportPage() {
     }
   }
 
-  function openWorkspace(id: string, finalStatus = false) {
-    if (finalStatus) {
-      window.location.assign(`/admin/support/${encodeURIComponent(id)}`);
-      return;
-    }
+  function openWorkspace(id: string, _finalStatus = false) {
+    // Always navigate to the exact ticket. Persisting the id alone left the
+    // admin on the queue and made “Open workspace” appear to do nothing.
     rememberAdminChat(id);
+    window.location.assign(`/admin/support/${encodeURIComponent(id)}`);
   }
 
   async function claimOne(id: string) {
