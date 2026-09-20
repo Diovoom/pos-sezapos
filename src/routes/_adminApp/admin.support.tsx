@@ -180,8 +180,10 @@ function SupportPage() {
   }
 
   function openWorkspace(id: string, _finalStatus = false) {
-    // Always navigate to the exact ticket. Persisting the id alone left the
-    // admin on the queue and made “Open workspace” appear to do nothing.
+    // Keep Live Communications focused on the same conversation, then open
+    // the full exact-ticket workspace. Previously active cases only updated
+    // the persistent-chat key, so the “Open workspace” button appeared to do
+    // nothing and never navigated to the ticket route.
     rememberAdminChat(id);
     window.location.assign(`/admin/support/${encodeURIComponent(id)}`);
   }

@@ -125,15 +125,15 @@ export function AdminScreenViewer({
       streamRef.current = stream;
       setRemoteStream(stream);
 
-      // Browser/web screen share still uses the regular RTP video track.
-      // Android uses the JPEG DataChannel below because this POS WebView can
-      // negotiate a video track successfully while sending only black frames.
-      if (capability !== "android_screen_share") {
-        visualReceivedRef.current = true;
-        setStatus("connected");
-        setErrorText(null);
-        setMinimized(false);
-      }
+      // Native Android capture is decoded into a canvas MediaStream on the POS
+      // before WebRTC publishes it. That stream is real screen pixels, so the
+      // admin must render the RTP video track for Android too. The old viewer
+      // ignored this track and waited for a JPEG DataChannel the merchant never
+      // creates, which produced a permanent black/“waiting for pixels” view.
+      visualReceivedRef.current = true;
+      setStatus("connected");
+      setErrorText(null);
+      setMinimized(false);
     };
 
     const frameAssemblies = new Map<string, {
@@ -505,7 +505,7 @@ export function AdminScreenViewer({
               )}
               style={{ pointerEvents: "none" }}
             />
-          ) : remoteStream && capability !== "android_screen_share" ? (
+          ) : remoteStream ? (
             <video
               ref={videoRef}
               autoPlay
