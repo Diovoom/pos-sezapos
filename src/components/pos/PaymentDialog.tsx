@@ -34,6 +34,7 @@ import { isOnlineNow } from "@/lib/offline/useOnline";
 import { ManagerOverrideDialog } from "@/components/pos/ManagerOverrideDialog";
 import { isNativeMode } from "@/lib/native";
 import { userFacingError } from "@/lib/errors/user-facing";
+import { useTrainingMode } from "@/lib/pos/training-mode";
 
 export type PaymentMethod =
   "cash" | "card" | "tap" | "apple_pay" | "google_pay" | "gift_card" | "split";
@@ -125,6 +126,7 @@ export function PaymentDialog({
   onPaymentEvent,
   bypassCancelApproval = false,
 }: Props) {
+  const trainingMode = useTrainingMode();
   const isCash = method === "cash";
   const isSplit = method === "split";
   const isGiftCard = method === "gift_card";
@@ -166,7 +168,14 @@ export function PaymentDialog({
           )}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          {isCash ? (
+          {trainingMode ? (
+            <TrainingPaymentPanel
+              method={method}
+              total={total}
+              currency={currency}
+              onClose={() => onOpenChange(false)}
+            />
+          ) : isCash ? (
             <CashPanel
               total={total}
               currency={currency}
@@ -209,6 +218,90 @@ export function PaymentDialog({
         onApprove={approveCancel}
       />
     </>
+  );
+}
+
+function TrainingPaymentPanel({
+  method,
+  total,
+  currency,
+  onClose,
+}: {
+  method: PaymentMethod;
+  total: number;
+  currency: string;
+  onClose: () => void;
+}) {
+  const [status, setStatus] = useState<"ready" | "approved" | "declined" | "cancelled">("ready");
+  const label = method === "cash" ? "Cash" : method === "split" ? "Split cash + card" : "Card";
+
+  const printTrainingReceipt = () => {
+    const receipt = window.open("", "_blank", "width=420,height=640");
+    if (!receipt) return;
+    const amount = fmtCurrency(total, currency);
+    receipt.document.write(`<!doctype html><html><head><title>Training receipt</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{text-align:center;font-size:20px}.warning{border:3px solid #111;padding:12px;text-align:center;font-weight:800;margin:18px 0}.row{display:flex;justify-content:space-between;margin:10px 0}.muted{color:#555;font-size:12px;text-align:center}</style></head><body><h1>SEZA POS</h1><div class="warning">TRAINING TRANSACTION<br>NOT A SALE</div><div class="row"><span>Practice tender</span><strong>${label}</strong></div><div class="row"><span>Practice total</span><strong>${amount}</strong></div><div class="row"><span>ACTUAL CHARGE</span><strong>$0.00</strong></div><p class="muted">No payment was processed. No sale, inventory change, payout, or report entry was created.</p><script>window.onload=()=>window.print()<\/script></body></html>`);
+    receipt.document.close();
+  };
+
+  const finishPractice = () => {
+    onClose();
+    // Reload clears the practice cart while Training Mode intentionally resets OFF.
+    // This guarantees a restarted/reloaded register cannot remain in training accidentally.
+    window.setTimeout(() => window.location.reload(), 120);
+  };
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <DialogHeader className="shrink-0 border-b bg-amber-50 p-6 pb-4 text-amber-950">
+        <DialogTitle className="flex items-center gap-2">
+          <AlertTriangle className="size-5" /> Training payment
+        </DialogTitle>
+        <DialogDescription className="text-amber-900">
+          NO REAL TRANSACTION — {fmtCurrency(total, currency)} practice {label.toLowerCase()} checkout.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 overflow-y-auto p-8 text-center">
+        {status === "ready" ? (
+          <>
+            <div className="grid size-16 place-items-center rounded-full bg-amber-100 text-amber-800">
+              {method === "cash" ? <Banknote className="size-9" /> : <CreditCard className="size-9" />}
+            </div>
+            <div>
+              <div className="text-lg font-semibold">Simulate the customer payment</div>
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">Stripe and Reader M2 are not contacted. Choose a result to train the cashier.</p>
+            </div>
+            <div className="grid w-full max-w-sm grid-cols-1 gap-2 sm:grid-cols-3">
+              <Button onClick={() => setStatus("approved")}>Approved</Button>
+              <Button variant="outline" onClick={() => setStatus("declined")}>Declined</Button>
+              <Button variant="outline" onClick={() => setStatus("cancelled")}>Cancelled</Button>
+            </div>
+          </>
+        ) : (
+          <>
+            {status === "approved" ? <CheckCircle2 className="size-16 text-success" /> : <XCircle className="size-16 text-destructive" />}
+            <div>
+              <div className="text-2xl font-bold capitalize">{status}</div>
+              <p className="mt-1 text-sm text-muted-foreground">Training result only. Nothing was charged or recorded.</p>
+            </div>
+          </>
+        )}
+      </div>
+      <div className="shrink-0 border-t bg-surface/40 p-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
+        {status === "approved" ? (
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={printTrainingReceipt}>Print training receipt</Button>
+            <Button className="flex-1" onClick={finishPractice}>Finish practice sale</Button>
+          </div>
+        ) : status === "ready" ? (
+          <Button variant="outline" className="w-full" onClick={onClose}>Back to cart</Button>
+        ) : (
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={onClose}>Back to cart</Button>
+            <Button className="flex-1" onClick={() => setStatus("ready")}>Try again</Button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

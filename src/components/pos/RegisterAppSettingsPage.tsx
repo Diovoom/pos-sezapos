@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Cloud,
   CreditCard,
+  GraduationCap,
   Info,
   LifeBuoy,
   MonitorCog,
@@ -37,6 +38,7 @@ import { deviceControl } from "@/lib/device-control";
 import { applyTextScale, readTextScale } from "@/lib/display-preferences";
 import { isNativeMode } from "@/lib/native";
 import { useMe } from "@/hooks/useMe";
+import { setTrainingMode, useTrainingMode } from "@/lib/pos/training-mode";
 import {
   CUSTOMER_DISPLAY_LOCAL_KEYS,
   clearLocalCustomerDisplayOverrides,
@@ -57,6 +59,7 @@ type Section =
   | "android"
   | "receipts"
   | "customer"
+  | "training"
   | "hardware"
   | "payments"
   | "sync"
@@ -84,6 +87,7 @@ const settingGroups: Array<{ label: string; items: SectionItem[] }> = [
     items: [
       { id: "receipts", label: "Receipts", description: "Printing and receipt preferences", icon: ReceiptText },
       { id: "customer", label: "Customer display", description: "Second-screen behavior and message", icon: MonitorCog },
+      { id: "training", label: "Training mode", description: "Practice checkout without real transactions", icon: GraduationCap },
     ],
   },
   {
@@ -145,6 +149,8 @@ export function RegisterAppSettingsPage() {
   const activeMeta = sectionMeta[section];
   const storeName = String((me.data?.store as any)?.name ?? "SEZA store");
   const role = String(me.data?.roles?.[0] ?? "employee");
+  const trainingMode = useTrainingMode();
+  const canManageTraining = ["owner", "admin", "manager"].includes(role.toLowerCase());
 
   const hardwareStatus = useMemo(() => {
     if (typeof window === "undefined") return { scanner: "Not tested", display: "Automatic" };
@@ -481,6 +487,33 @@ export function RegisterAppSettingsPage() {
                     </Button>
                   </SettingRow>
                 </SettingsGroup>
+              )}
+
+              {section === "training" && (
+                <>
+                  <SettingsGroup title="Staff training">
+                    <SettingRow
+                      title="Training mode"
+                      description="Practice sales on this POS without charging cards, recording sales, changing inventory, or affecting reports."
+                    >
+                      <Switch
+                        checked={trainingMode}
+                        disabled={!canManageTraining}
+                        onCheckedChange={(enabled) => {
+                          setTrainingMode(enabled);
+                          toast.success(enabled ? "Training mode is on — no real transactions" : "Training mode is off — live checkout restored");
+                        }}
+                        aria-label="Training mode"
+                      />
+                    </SettingRow>
+                    <ValueRow title="Card payments" value={trainingMode ? "Simulated only" : "Live"} />
+                    <ValueRow title="Sales & inventory" value={trainingMode ? "Not recorded" : "Live"} />
+                    <ValueRow title="App restart" value="Training turns off automatically" />
+                  </SettingsGroup>
+                  {!canManageTraining ? (
+                    <p className="px-1 text-xs text-muted-foreground">A manager, owner, or admin must turn Training Mode on or off.</p>
+                  ) : null}
+                </>
               )}
 
               {section === "hardware" && (
