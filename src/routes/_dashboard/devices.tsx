@@ -30,6 +30,7 @@ import {
   ScanLine,
   CreditCard,
   DollarSign,
+  Download,
 } from "lucide-react";
 import {
   createPairingCode,
@@ -40,6 +41,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
 import { usePlanGate } from "@/hooks/useSubscription";
 import { formatPlanLimit } from "@/lib/plans";
+import { marketingUrl } from "@/lib/host";
 
 export const Route = createFileRoute("/_dashboard/devices")({
   head: () => ({
@@ -220,15 +222,23 @@ function DevicesPage() {
         title="POS Devices"
         subtitle="Live, read-only status from each paired Android register"
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => devicesQ.refetch()}
-            disabled={devicesQ.isFetching}
-          >
-            <RefreshCw className={`size-4 mr-2 ${devicesQ.isFetching ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a href={marketingUrl("/download")} target="_blank" rel="noreferrer">
+                <Download className="mr-2 size-4" />
+                Download SEZA POS
+              </a>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => devicesQ.refetch()}
+              disabled={devicesQ.isFetching}
+            >
+              <RefreshCw className={`size-4 mr-2 ${devicesQ.isFetching ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         }
       />
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">

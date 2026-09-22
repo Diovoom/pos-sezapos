@@ -36,6 +36,7 @@ const PRODUCT_ITEMS: NavItem[] = [
 ];
 
 const RESOURCE_ITEMS: NavItem[] = [
+  { to: "/download", label: "Download SEZA POS", description: "Install the official Android register app" },
   { to: "/hardware", label: "Hardware", description: "Build a setup that fits your counter" },
   { to: "/security", label: "Security", description: "How SEZA protects merchant data" },
   {
@@ -48,6 +49,7 @@ const RESOURCE_ITEMS: NavItem[] = [
 ];
 
 const MOBILE_ITEMS: NavItem[] = [
+  { to: "/download", label: "Download SEZA POS", description: "Official Android register APK" },
   { to: "/guide", label: "User guide", description: "How to use SEZA POS and what is included" },
   { to: "/hardware", label: "Hardware", description: "Compatibility and production updates" },
   { to: "/features", label: "All features", description: "Everything inside SEZA POS" },
@@ -401,6 +403,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             <FooterColumn
               title="Product"
               links={[
+                { to: "/download", label: "Download SEZA POS" },
                 { to: "/guide", label: "User guide" },
                 { to: "/hardware", label: "Hardware compatibility" },
                 { to: "/features", label: "Features" },

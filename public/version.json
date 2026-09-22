@@ -3,7 +3,7 @@
     "build":  10,
     "minimumSupportedVersion":  "1.0.0",
     "mandatory":  false,
-    "updateUrl":  "https://sezapos.com/support",
+    "updateUrl":  "https://sezapos.com/download",
     "releaseNotes":  [
                          "Reworked Android customer display into a dedicated secondary-display activity so the cashier touchscreen remains on the primary display",
                          "Hardened printed receipts to remove processor/reference lines and show cashier as first name plus last initial",
