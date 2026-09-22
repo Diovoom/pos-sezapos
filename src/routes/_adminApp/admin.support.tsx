@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
@@ -66,8 +66,14 @@ export const Route = createFileRoute("/_adminApp/admin/support")({
   head: () => ({
     meta: [{ title: "Support  -  SEZA Admin" }, { name: "robots", content: "noindex, nofollow" }],
   }),
-  component: SupportPage,
+  component: SupportRoutePage,
 });
+
+function SupportRoutePage() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  if (/^\/admin\/support\/[^/]+\/?$/.test(pathname)) return <Outlet />;
+  return <SupportPage />;
+}
 
 const PRIORITY_COLOR: Record<string, string> = {
   urgent: "bg-red-500/15 text-red-600 border-red-500/30",

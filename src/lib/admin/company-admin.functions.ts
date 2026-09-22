@@ -1235,6 +1235,10 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
       ]);
 
       const devices = devicesRes.data ?? [];
+      if (resolvedDevice?.id) {
+        resolvedDevice =
+          devices.find((row: any) => row.id === resolvedDevice.id) ?? resolvedDevice;
+      }
       if (!resolvedDevice) resolvedDevice = devices[0] ?? null;
       const latestDevice = resolvedDevice ?? devices[0] ?? null;
       const snapshot = latestDevice?.status_snapshot && typeof latestDevice.status_snapshot === "object"

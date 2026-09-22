@@ -5,6 +5,8 @@
 // object that can be JSON-stringified into the ticket body / notes.
 
 import { hardwareSnapshot } from "@/lib/hardware/native-receipt";
+import { getActiveTerminal } from "@/lib/hardware";
+import { loadScannerConfig } from "../lib/scannerConfig";
 
 export type SupportDiagnostics = {
   app: {
@@ -33,6 +35,13 @@ export type SupportDiagnostics = {
     lastPrintErr: string | null;
     lastDrawerOk: string | null;
     lastDrawerErr: string | null;
+    scannerMode: string | null;
+    scannerLastScanAt: string | null;
+    scannerLastError: string | null;
+    terminalDriver: string | null;
+    terminalLabel: string | null;
+    terminalConnectStatus: string | null;
+    terminalLastError: string | null;
   };
   context: {
     route: string;
@@ -137,6 +146,8 @@ export async function collectDiagnostics(opts: {
     },
     hardware: (() => {
       const s = hardwareSnapshot();
+      const scanner = loadScannerConfig();
+      const terminal = getActiveTerminal();
       return {
         printerDriver: s.driver,
         paperWidth: s.paperWidth,
@@ -147,6 +158,19 @@ export async function collectDiagnostics(opts: {
         lastPrintErr: s.lastPrintErr,
         lastDrawerOk: s.lastDrawerOk,
         lastDrawerErr: s.lastDrawerErr,
+        scannerMode: scanner.enabled ? scanner.type : null,
+        scannerLastScanAt: scanner.lastScanAt ?? null,
+        scannerLastError: scanner.lastError ?? null,
+        terminalDriver: terminal.id === "none" ? null : terminal.id,
+        terminalLabel: terminal.id === "none" ? null : terminal.label,
+        terminalConnectStatus:
+          typeof window === "undefined"
+            ? null
+            : window.localStorage.getItem("pos.terminal.connectStatus"),
+        terminalLastError:
+          typeof window === "undefined"
+            ? null
+            : window.localStorage.getItem("pos.terminal.lastError"),
       };
     })(),
 

@@ -61,6 +61,7 @@ import {
   ReceiptText,
   CircleAlert,
   PlugZap,
+  Cpu,
   Trash2,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
@@ -94,6 +95,30 @@ const PRIORITY_LABELS: Record<string, string> = {
   normal: "Normal",
   low: "Low",
 };
+
+
+const DIAGNOSTIC_MARKER = "--- Device diagnostics (attached with consent) ---";
+
+function parseProblemBody(body?: string | null): {
+  description: string;
+  diagnostics: any | null;
+} {
+  const raw = String(body ?? "").trim();
+  if (!raw) return { description: "", diagnostics: null };
+  const markerIndex = raw.indexOf(DIAGNOSTIC_MARKER);
+  if (markerIndex < 0) return { description: raw, diagnostics: null };
+
+  const description = raw.slice(0, markerIndex).trim();
+  const attached = raw.slice(markerIndex + DIAGNOSTIC_MARKER.length);
+  const match = attached.match(/```json\s*([\s\S]*?)```/i);
+  if (!match?.[1]) return { description, diagnostics: null };
+
+  try {
+    return { description, diagnostics: JSON.parse(match[1]) };
+  } catch {
+    return { description, diagnostics: null };
+  }
+}
 
 function SupportCasePage() {
   const { ticketId } = Route.useParams();
@@ -179,6 +204,8 @@ function SupportCasePage() {
     () => data?.problem_message ?? data?.messages?.[0] ?? null,
     [data?.problem_message, data?.messages],
   );
+  const reportedProblem = useMemo(() => parseProblemBody(problem?.body), [problem?.body]);
+  const reportedDiagnostics = reportedProblem.diagnostics;
 
   useEffect(() => {
     if (!data?.ticket?.id) return;
@@ -484,7 +511,7 @@ function SupportCasePage() {
         </CardHeader>
         <CardContent>
           <div className="whitespace-pre-wrap text-sm" data-no-translate>
-            {problem?.body || "The merchant did not include an opening message."}
+            {reportedProblem.description || "The merchant did not include an opening message."}
           </div>
           <div className="mt-3 text-xs text-muted-foreground">
             Reported {format(new Date(ticket.created_at), "MMM d, yyyy 'at' h:mm a")} by{" "}
@@ -517,6 +544,96 @@ function SupportCasePage() {
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
+          {reportedDiagnostics ? (
+            <div className="grid gap-3 lg:grid-cols-2">
+              <DiagnosticPanel title="Android device reported with case" icon={Cpu}>
+                <DiagnosticLine
+                  label="Device"
+                  value={[reportedDiagnostics.device?.manufacturer, reportedDiagnostics.device?.model]
+                    .filter(Boolean)
+                    .join(" ") || "Unknown Android hardware"}
+                  note={
+                    reportedDiagnostics.device?.osVersion
+                      ? `Android ${reportedDiagnostics.device.osVersion}`
+                      : "Android version not reported"
+                  }
+                />
+                <DiagnosticLine
+                  label="SEZA app"
+                  value={
+                    reportedDiagnostics.app?.appVersion
+                      ? `v${reportedDiagnostics.app.appVersion}${reportedDiagnostics.app?.buildVersion ? ` (${reportedDiagnostics.app.buildVersion})` : ""}`
+                      : reportedDiagnostics.app?.platform || "Unknown version"
+                  }
+                  note={reportedDiagnostics.app?.packageId || undefined}
+                />
+                <DiagnosticLine
+                  label="Display"
+                  value={
+                    reportedDiagnostics.device?.screen
+                      ? `${reportedDiagnostics.device.screen.width} × ${reportedDiagnostics.device.screen.height} @ ${reportedDiagnostics.device.screen.dpr || 1}x`
+                      : "Not reported"
+                  }
+                  note={reportedDiagnostics.device?.orientation || undefined}
+                />
+                <DiagnosticLine
+                  label="Captured"
+                  value={
+                    reportedDiagnostics.context?.capturedAt
+                      ? format(new Date(reportedDiagnostics.context.capturedAt), "MMM d, yyyy 'at' h:mm:ss a")
+                      : "Not reported"
+                  }
+                  note={reportedDiagnostics.context?.route ? `Route: ${reportedDiagnostics.context.route}` : undefined}
+                />
+              </DiagnosticPanel>
+
+              <DiagnosticPanel title="Hardware reported with case" icon={Printer}>
+                <DiagnosticLine
+                  label="Printer"
+                  value={reportedDiagnostics.hardware?.printerDriver || "Not reported"}
+                  note={
+                    reportedDiagnostics.hardware?.lastPrintErr ||
+                    (reportedDiagnostics.hardware?.lastPrintOk
+                      ? `Last successful print ${formatDistanceToNow(new Date(reportedDiagnostics.hardware.lastPrintOk), { addSuffix: true })}`
+                      : undefined)
+                  }
+                  alert={Boolean(reportedDiagnostics.hardware?.lastPrintErr)}
+                />
+                <DiagnosticLine
+                  label="Cash drawer"
+                  value={reportedDiagnostics.hardware?.kickOnCash ? "Configured for cash sales" : "Not configured for automatic kick"}
+                  note={reportedDiagnostics.hardware?.lastDrawerErr || undefined}
+                  alert={Boolean(reportedDiagnostics.hardware?.lastDrawerErr)}
+                />
+                <DiagnosticLine
+                  label="Scanner"
+                  value={
+                    reportedDiagnostics.hardware?.scannerLastScanAt
+                      ? "Verified by a scan"
+                      : reportedDiagnostics.hardware?.scannerMode
+                        ? "Configured — no recent scan proof"
+                        : "Not reported"
+                  }
+                  note={
+                    reportedDiagnostics.hardware?.scannerLastScanAt
+                      ? `Last scan ${formatDistanceToNow(new Date(reportedDiagnostics.hardware.scannerLastScanAt), { addSuffix: true })}`
+                      : reportedDiagnostics.hardware?.scannerMode
+                  }
+                />
+                <DiagnosticLine
+                  label="Card reader"
+                  value={reportedDiagnostics.hardware?.terminalLabel || reportedDiagnostics.hardware?.terminalDriver || "Not reported"}
+                  note={reportedDiagnostics.hardware?.terminalLastError || reportedDiagnostics.hardware?.terminalConnectStatus || undefined}
+                  alert={Boolean(reportedDiagnostics.hardware?.terminalLastError)}
+                />
+              </DiagnosticPanel>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
+              This case did not include the on-device Android snapshot. Live register diagnostics are shown below when the POS is online.
+            </div>
+          )}
+
           {!diagnostics ? (
             <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
               No diagnostic snapshot is available for this merchant yet. Open Manage merchant & POS or ask the merchant to bring the register online.
@@ -572,6 +689,23 @@ function SupportCasePage() {
                     label="Cash drawer"
                     value={diagnostics.snapshot?.drawer?.enabled ? "Enabled" : "Not enabled"}
                     note={diagnostics.snapshot?.drawer?.last_error || (diagnostics.snapshot?.drawer?.last_ok ? `Last OK ${formatDistanceToNow(new Date(diagnostics.snapshot.drawer.last_ok), { addSuffix: true })}` : undefined)}
+                  />
+                  <DiagnosticLine
+                    label="Barcode scanner"
+                    value={
+                      diagnostics.snapshot?.scanner?.last_scan_at
+                        ? "Verified by a scan"
+                        : diagnostics.snapshot?.scanner?.mode
+                          ? "Configured — no recent scan proof"
+                          : "Not configured"
+                    }
+                    note={
+                      diagnostics.snapshot?.scanner?.last_scan_at
+                        ? `Last scan ${formatDistanceToNow(new Date(diagnostics.snapshot.scanner.last_scan_at), { addSuffix: true })}`
+                        : diagnostics.snapshot?.scanner?.mode
+                          ? `Mode: ${diagnostics.snapshot.scanner.mode}${diagnostics.snapshot?.scanner?.suffix ? ` · suffix ${diagnostics.snapshot.scanner.suffix}` : ""}`
+                          : undefined
+                    }
                   />
                   <DiagnosticLine
                     label="Card reader"

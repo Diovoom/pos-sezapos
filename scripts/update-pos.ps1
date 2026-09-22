@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Device = "10.0.0.20:5555"
 )
 
@@ -9,8 +9,9 @@ $AndroidSdk = "F:\Android\Sdk"
 $Adb = Join-Path $AndroidSdk "platform-tools\adb.exe"
 $Keystore = "$env:USERPROFILE\.android\debug.keystore"
 
-$WorkflowApi = "https://api.github.com/repos/Diovoom/pos-sezapos/actions/workflows/android-build.yml/runs?branch=main&per_page=1"
-$ReleaseUrl = "https://github.com/Diovoom/pos-sezapos/releases/download/seza-pos-latest/SEZA-POS-latest.apk"
+$WorkflowApiBase = "https://api.github.com/repos/Diovoom/pos-sezapos/actions/workflows/android-build.yml/runs"
+$ReleaseApi = "https://api.github.com/repos/Diovoom/pos-sezapos/releases/tags/seza-pos-latest"
+$ReleaseAssetName = "SEZA-POS-latest.apk"
 
 $UpdateDir = Join-Path $ProjectRoot ".seza-update"
 $DownloadedApk = Join-Path $UpdateDir "SEZA-POS-latest.apk"
@@ -39,6 +40,27 @@ if (-not $ExpectedSha) {
     throw "Could not determine the current SEZA Git commit."
 }
 
+# Reuse the GitHub credential already stored by Git Credential Manager.
+$CredentialRequest = "protocol=https`nhost=github.com`n`n"
+$CredentialResponse = $CredentialRequest | & $Git credential fill 2>$null
+
+if ($LASTEXITCODE -ne 0 -or -not $CredentialResponse) {
+    throw "Could not read the GitHub credential from Git Credential Manager. Run a normal git pull/push and sign in to GitHub, then try again."
+}
+
+$GitHubToken = $null
+foreach ($Line in $CredentialResponse) {
+    if ($Line -like "password=*") {
+        $GitHubToken = $Line.Substring("password=".Length)
+    }
+}
+
+if (-not $GitHubToken) {
+    throw "Git Credential Manager did not return a GitHub token. Run a normal git pull/push and sign in to GitHub, then try again."
+}
+
+$WorkflowApi = "${WorkflowApiBase}?branch=main&head_sha=$ExpectedSha&per_page=1"
+
 $BuildTools = Get-ChildItem (Join-Path $AndroidSdk "build-tools") -Directory |
     Sort-Object { [version]$_.Name } -Descending |
     Select-Object -First 1
@@ -59,15 +81,14 @@ Write-Host "SEZA POS Update"
 Write-Host "Commit: $ExpectedSha"
 Write-Host ""
 
-# Wait for GitHub Actions to finish building the APK for the exact commit
-# currently checked out in VS Code. This prevents installing the previous APK
-# when the user runs the updater immediately after git push.
 $Deadline = (Get-Date).AddMinutes(20)
 $Ready = $false
 
 while ((Get-Date) -lt $Deadline) {
     $RunJson = & $Curl -L --silent --show-error --fail --retry 3 --retry-delay 2 `
         -H "Accept: application/vnd.github+json" `
+        -H "Authorization: Bearer $GitHubToken" `
+        -H "X-GitHub-Api-Version: 2022-11-28" `
         -H "User-Agent: SEZA-POS-Updater" `
         $WorkflowApi 2>&1
 
@@ -117,6 +138,30 @@ if (-not $Ready) {
 
 Write-Host ""
 Write-Host "GitHub build succeeded."
+Write-Host "Finding latest SEZA POS APK release..."
+
+$ReleaseJson = & $Curl -L --silent --show-error --fail --retry 3 --retry-delay 2 `
+    -H "Accept: application/vnd.github+json" `
+    -H "Authorization: Bearer $GitHubToken" `
+    -H "X-GitHub-Api-Version: 2022-11-28" `
+    -H "User-Agent: SEZA-POS-Updater" `
+    $ReleaseApi 2>&1
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Could not read the SEZA POS private release from GitHub."
+}
+
+try {
+    $ReleaseData = ($ReleaseJson -join "`n") | ConvertFrom-Json
+    $ReleaseAsset = $ReleaseData.assets | Where-Object { $_.name -eq $ReleaseAssetName } | Select-Object -First 1
+} catch {
+    throw "Could not read the SEZA POS release information."
+}
+
+if (-not $ReleaseAsset -or -not $ReleaseAsset.url) {
+    throw "The GitHub release does not contain $ReleaseAssetName."
+}
+
 Write-Host "Downloading latest SEZA POS APK..."
 
 if (Test-Path $DownloadedApk) {
@@ -124,8 +169,12 @@ if (Test-Path $DownloadedApk) {
 }
 
 & $Curl -L --fail --show-error --retry 5 --retry-delay 2 --connect-timeout 20 `
+    -H "Accept: application/octet-stream" `
+    -H "Authorization: Bearer $GitHubToken" `
+    -H "X-GitHub-Api-Version: 2022-11-28" `
+    -H "User-Agent: SEZA-POS-Updater" `
     --output $DownloadedApk `
-    $ReleaseUrl
+    $ReleaseAsset.url
 
 if ($LASTEXITCODE -ne 0) {
     throw "Could not download the published SEZA POS APK from GitHub."
