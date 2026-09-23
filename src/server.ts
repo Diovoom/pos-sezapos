@@ -9,6 +9,27 @@ type ServerEntry = {
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
+const KEYY_BEAUTY_HOST = "keyybeauty.sezapos.com";
+const KEYY_BEAUTY_ROUTE = "/dahv-yzg-xk";
+
+function rewriteKeyyBeautyHtmlRequest(request: Request): Request {
+  if (request.method !== "GET") return request;
+
+  const url = new URL(request.url);
+  if (url.hostname.toLowerCase() !== KEYY_BEAUTY_HOST) return request;
+
+  const accept = request.headers.get("accept") ?? "";
+  if (!accept.includes("text/html")) return request;
+
+  // Internal rewrite only: the browser keeps showing keyybeauty.sezapos.com.
+  // Any HTML navigation on this host stays inside the Keyy Beauty microsite.
+  if (url.pathname !== KEYY_BEAUTY_ROUTE) {
+    url.pathname = KEYY_BEAUTY_ROUTE;
+  }
+
+  return new Request(url, request);
+}
+
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
     serverEntryPromise = import("@tanstack/react-start/server-entry").then(
@@ -42,7 +63,8 @@ function applySearchIndexPolicy(request: Request, response: Response): Response 
   const noindexHost =
     hostname === "dashboard.sezapos.com" ||
     hostname === "admin.sezapos.com" ||
-    hostname === "pos.sezapos.com";
+    hostname === "pos.sezapos.com" ||
+    hostname === KEYY_BEAUTY_HOST;
 
   if (!noindexHost) return response;
 
@@ -59,7 +81,8 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
+      const routedRequest = rewriteKeyyBeautyHtmlRequest(request);
+      const response = await handler.fetch(routedRequest, env, ctx);
       const normalized = await normalizeCatastrophicSsrResponse(response);
       return applySearchIndexPolicy(request, normalized);
     } catch (error) {

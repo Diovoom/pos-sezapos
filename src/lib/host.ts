@@ -1,9 +1,10 @@
-export type AppSurface = "marketing" | "dashboard" | "admin" | "pos" | "unknown";
+export type AppSurface = "marketing" | "dashboard" | "admin" | "pos" | "keyy" | "unknown";
 
 const MARKETING_HOSTS = new Set(["sezapos.com", "www.sezapos.com"]);
 const DASHBOARD_HOST = "dashboard.sezapos.com";
 const ADMIN_HOST = "admin.sezapos.com";
 const LEGACY_POS_HOST = "pos.sezapos.com";
+const KEYY_BEAUTY_HOST = "keyybeauty.sezapos.com";
 
 function hostnameOnly(host: string | null | undefined): string {
   return (host ?? "").trim().toLowerCase().split(":")[0] ?? "";
@@ -15,6 +16,7 @@ export function getAppFromHost(host: string | null | undefined): AppSurface {
   if (name === DASHBOARD_HOST) return "dashboard";
   if (name === ADMIN_HOST) return "admin";
   if (name === LEGACY_POS_HOST) return "pos";
+  if (name === KEYY_BEAUTY_HOST) return "keyy";
   return "unknown";
 }
 

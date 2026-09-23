@@ -269,6 +269,11 @@ function RootComponent() {
   // are dynamically imported only for dashboard/admin/POS/native surfaces.
   useEffect(() => {
     const app = currentApp();
+
+    // Keyy Beauty is a standalone public microsite served from
+    // keyybeauty.sezapos.com. Keep it isolated from SEZA auth/POS runtime.
+    if (app === "keyy") return;
+
     if (app === "marketing") {
       const path = window.location.pathname;
       const dashboardPrefixes = [

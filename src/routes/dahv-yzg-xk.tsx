@@ -28,7 +28,9 @@ export const Route = createFileRoute("/dahv-yzg-xk")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "theme-color", content: "#fff2f8" },
     ],
+    links: [{ rel: "canonical", href: "https://keyybeauty.sezapos.com/" }],
   }),
   component: KeyyBeautyGuide,
 });
@@ -195,13 +197,13 @@ function KeyyBeautyGuide() {
           </div>
 
           <div className="dahv-gallery-grid mt-10">
-            <GalleryCard src={heroImage} alt="Perik woz" caption="Pink style" />
-            <GalleryCard src={blondeImage} alt="Perik blond" caption="Blonde glam" />
-            <GalleryCard src={middlePartImage} alt="Middle part" caption="Middle part" />
-            <GalleryCard src={curlyImage} alt="Curly side part" caption="Curly look" />
-            <GalleryCard src={straightImage} alt="Straight pony style" caption="Straight style" />
-            <GalleryCard src={curlyFrontalImage} alt="Perik nwa boukle ak frontal" caption="Curly frontal" />
-            <GalleryCard src={volumeCurlsImage} alt="Perik nwa ak gwo boukl" caption="Volume curls" />
+            <GalleryCard src={heroImage} alt="Perik woz" caption="Style woz" />
+            <GalleryCard src={blondeImage} alt="Perik blond" caption="Blond glam" />
+            <GalleryCard src={middlePartImage} alt="Middle part" caption="Raie nan mitan" />
+            <GalleryCard src={curlyImage} alt="Curly side part" caption="Boukl sou kote" />
+            <GalleryCard src={straightImage} alt="Straight pony style" caption="Style dwat" />
+            <GalleryCard src={curlyFrontalImage} alt="Perik nwa boukle ak frontal" caption="Frontal boukle" />
+            <GalleryCard src={volumeCurlsImage} alt="Perik nwa ak gwo boukl" caption="Gwo boukl" />
           </div>
         </div>
       </section>
@@ -209,10 +211,10 @@ function KeyyBeautyGuide() {
       <section className="dahv-section dahv-section-white">
         <div className="dahv-shell max-w-6xl">
           <div className="text-center">
-            <SectionBadge>POLICY</SectionBadge>
-            <h2 className="dahv-heading mt-5">Sa seller la ka esplike w sou policy a</h2>
+            <SectionBadge>KONDISYON</SectionBadge>
+            <h2 className="dahv-heading mt-5">Sa seller la ka esplike w sou kondisyon yo</h2>
             <p className="dahv-body mx-auto mt-5 max-w-4xl">
-              Men yon fason pou eksplike policy yo jan seller yo konn fè sa. Mwen kite l fasil pou w li.
+              Men yon fason pou eksplike kondisyon yo jan seller yo konn fè sa. Mwen kite l fasil pou w li.
             </p>
           </div>
 
@@ -221,11 +223,11 @@ function KeyyBeautyGuide() {
               <div className="text-3xl">💗</div>
               <h3>Sa yo konn voye ba ou</h3>
               <ul>
-                <li>Yo verifye Amazon profile ou anvan yo deside si yo ka kolabore avè w.</li>
-                <li>Yo ka voye keyword la pou w chache pwodwi a.</li>
-                <li>Yo ka mande w voye foto pwodwi a anvan ou order, pou yo verifye si se li.</li>
-                <li>Yo ka mande order number la apre ou fin mete order la.</li>
-                <li>Yo ka mande email PayPal la selon jan policy a ye a.</li>
+                <li>Yo verifye pwofil Amazon ou anvan yo deside si yo ka kolabore avè w.</li>
+                <li>Yo ka voye mo kle a (keyword) pou w chèche pwodwi a.</li>
+                <li>Yo ka mande w voye foto pwodwi a anvan ou pase kòmann lan, pou yo verifye si se li.</li>
+                <li>Yo ka mande nimewo kòmann lan apre ou fin pase kòmann lan.</li>
+                <li>Yo ka mande imèl PayPal la selon kondisyon yo te ba ou.</li>
               </ul>
             </article>
 
@@ -233,10 +235,10 @@ function KeyyBeautyGuide() {
               <div className="text-3xl">🎀</div>
               <h3>Sa ou dwe sonje</h3>
               <ul>
-                <li>Li mesaj seller la byen pou w ka konprann policy li bay la.</li>
+                <li>Li mesaj seller la byen pou w ka konprann kondisyon li bay yo.</li>
                 <li>Toujou voye pwodwi a tounen ba li nan chat la pou verifye si se menm cheve a.</li>
                 <li>Kenbe screenshot tout sa yo di w nan konvèsasyon an.</li>
-                <li>Si yo mande PayPal email ou, voye bon email la san fot.</li>
+                <li>Si yo mande imèl PayPal ou, voye bon adrès imèl la san fot.</li>
                 <li>Suiv etap yo youn apre lòt pou pa fè erè pandan kolaborasyon an.</li>
               </ul>
             </article>

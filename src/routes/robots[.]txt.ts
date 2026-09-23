@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 const MARKETING_HOSTS = new Set(["sezapos.com", "www.sezapos.com"]);
+const KEYY_BEAUTY_HOST = "keyybeauty.sezapos.com";
 
 export const Route = createFileRoute("/robots.txt")({
   server: {
@@ -8,6 +9,7 @@ export const Route = createFileRoute("/robots.txt")({
       GET: async ({ request }) => {
         const hostname = new URL(request.url).hostname.toLowerCase();
         const isMarketing = MARKETING_HOSTS.has(hostname);
+        const isKeyyBeauty = hostname === KEYY_BEAUTY_HOST;
 
         const lines = isMarketing
           ? [
@@ -38,13 +40,21 @@ export const Route = createFileRoute("/robots.txt")({
               "Sitemap: https://sezapos.com/sitemap.xml",
               "",
             ]
-          : [
-              "User-agent: *",
-              "Allow: /",
-              "",
-              "# This host is excluded from search by X-Robots-Tag and page-level noindex.",
-              "",
-            ];
+          : isKeyyBeauty
+            ? [
+                "User-agent: *",
+                "Disallow: /",
+                "",
+                "# Keyy Beauty is intentionally excluded from search indexing.",
+                "",
+              ]
+            : [
+                "User-agent: *",
+                "Allow: /",
+                "",
+                "# This host is excluded from search by X-Robots-Tag and page-level noindex.",
+                "",
+              ];
 
         return new Response(lines.join("\n"), {
           headers: {
