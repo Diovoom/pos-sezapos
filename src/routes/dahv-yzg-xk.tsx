@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import heroAsset from "@/assets/dahv-hero.png.asset.json";
 import avaAsset from "@/assets/dahv-ava.png.asset.json";
 import collageAsset from "@/assets/dahv-collage.png.asset.json";
+import "./dahv-yzg-xk.css";
 
 export const Route = createFileRoute("/dahv-yzg-xk")({
   head: () => ({
@@ -24,12 +25,9 @@ export const Route = createFileRoute("/dahv-yzg-xk")({
   component: KeyyBeautyGuide,
 });
 
-const burgundy = "bg-[#4a0e24]";
-const blush = "bg-[#f6d1d8]";
-
 function Heart({ className }: { className: string }) {
   return (
-    <span aria-hidden="true" className={`absolute text-[#f6d1d8]/35 ${className}`}>
+    <span aria-hidden="true" className={`dahv-heart absolute ${className}`}>
       ♥
     </span>
   );
@@ -37,17 +35,17 @@ function Heart({ className }: { className: string }) {
 
 function KeyyBeautyGuide() {
   return (
-    <main className="w-full overflow-x-hidden bg-[#4a0e24] font-sans text-[#16080d]">
-      <section className={`relative isolate min-h-[100svh] overflow-hidden ${burgundy} text-white`}>
-        <Heart className="left-[7%] top-[66%] text-4xl animate-[dahv-float_7s_ease-in-out_infinite]" />
-        <Heart className="right-[9%] top-[12%] text-2xl animate-[dahv-float_8s_ease-in-out_1s_infinite]" />
+    <main className="dahv-page w-full overflow-x-hidden font-sans">
+      <section className="dahv-dark dahv-hero relative isolate min-h-[100svh] overflow-hidden">
+        <Heart className="dahv-float left-[7%] top-[66%] text-4xl" />
+        <Heart className="dahv-float-delayed right-[9%] top-[12%] text-2xl" />
         <div className="mx-auto grid min-h-[100svh] max-w-[1280px] items-center gap-8 px-6 py-12 sm:px-12 lg:grid-cols-[0.9fr_1.1fr] lg:px-[7%]">
           <div className="relative z-10 flex flex-col items-start">
-            <p className="text-sm font-semibold uppercase text-[#f6d1d8] sm:text-base">WIG REVIEWS</p>
+            <p className="dahv-kicker text-sm font-semibold uppercase sm:text-base">WIG REVIEWS</p>
             <h1 className="mt-9 max-w-[620px] text-[clamp(3.4rem,10vw,6.7rem)] font-bold leading-[1.08] tracking-[0] lg:mt-20">
               Kijan pou<br />resevwa cheve<br />gratis
             </h1>
-            <p className="mt-12 rounded-full bg-[#f6d1d8] px-5 py-2 text-[clamp(1.45rem,4vw,2.4rem)] font-bold text-white lg:mt-20">
+            <p className="dahv-pill mt-12 rounded-full px-5 py-2 text-[clamp(1.45rem,4vw,2.4rem)] font-bold lg:mt-20">
               By: Keyy beauty
             </p>
           </div>
@@ -59,7 +57,7 @@ function KeyyBeautyGuide() {
         </div>
       </section>
 
-      <section className={`${blush} flex min-h-[72svh] items-center px-5 py-16 sm:px-10 lg:min-h-[720px]`}>
+      <section className="dahv-light flex min-h-[72svh] items-center px-5 py-16 sm:px-10 lg:min-h-[720px]">
         <div className="mx-auto w-full max-w-[1120px] text-center">
           <h2 className="text-3xl font-bold tracking-[0] sm:text-4xl">introduction</h2>
           <p className="mx-auto mt-5 max-w-5xl text-xl leading-relaxed sm:text-2xl">
@@ -75,8 +73,8 @@ function KeyyBeautyGuide() {
         </div>
       </section>
 
-      <section className={`${burgundy} relative overflow-hidden px-5 py-14 text-[#f6d1d8] sm:px-10 lg:min-h-[720px]`}>
-        <Heart className="right-[3%] top-8 text-5xl animate-[dahv-float_9s_ease-in-out_infinite]" />
+      <section className="dahv-dark relative overflow-hidden px-5 py-14 sm:px-10 lg:min-h-[720px]">
+        <Heart className="dahv-float right-[3%] top-8 text-5xl" />
         <div className="mx-auto max-w-[1220px]">
           <h2 className="text-center text-[clamp(3rem,7vw,5.2rem)] font-bold leading-none tracking-[0]">komanse la</h2>
           <div className="mt-8 grid gap-10 lg:grid-cols-[1.35fr_0.65fr] lg:items-center">
@@ -99,7 +97,7 @@ function KeyyBeautyGuide() {
                 <li>Chat Gpt se pouw kapab utilize google traduction siw pa pale anglais</li>
               </ul>
             </div>
-            <figure className="mx-auto w-full max-w-[340px] rounded-[22px] border-2 border-[#f6d1d8] p-4 sm:p-5">
+            <figure className="mx-auto w-full max-w-[340px] rounded-[22px] border-2 border-current p-4 sm:p-5">
               <figcaption className="py-3 text-center text-2xl font-bold">Ava</figcaption>
               <img src={avaAsset.url} alt="Ava, beauty influencer" className="mt-3 aspect-square w-full rounded-[18px] object-cover" />
               <p className="px-2 py-7 text-center text-lg leading-snug">Beauty Influencer and Stylist at<br />Chic Wigs</p>
@@ -108,7 +106,7 @@ function KeyyBeautyGuide() {
         </div>
       </section>
 
-      <section className={`${blush} flex min-h-[720px] items-center px-5 py-16 sm:px-10`}>
+      <section className="dahv-light flex min-h-[720px] items-center px-5 py-16 sm:px-10">
         <div className="mx-auto w-full max-w-[1250px] text-center">
           <h2 className="text-[clamp(2.6rem,6vw,4.2rem)] font-bold leading-tight tracking-[0]">kijan pouw kontakte seller yo ?</h2>
           <p className="mx-auto mt-14 max-w-5xl text-[clamp(1.4rem,3vw,2rem)] font-bold leading-snug">
@@ -124,7 +122,7 @@ function KeyyBeautyGuide() {
         </div>
       </section>
 
-      <section className={`${burgundy} flex min-h-[720px] items-center px-5 py-14 text-[#f6d1d8] sm:px-10`}>
+      <section className="dahv-dark flex min-h-[720px] items-center px-5 py-14 sm:px-10">
         <div className="mx-auto grid w-full max-w-[1220px] gap-10 lg:grid-cols-[1.35fr_0.65fr]">
           <div>
             <h2 className="text-[clamp(3rem,7vw,5rem)] font-bold leading-none tracking-[0]">Horraire seller yo</h2>
@@ -143,7 +141,7 @@ function KeyyBeautyGuide() {
         </div>
       </section>
 
-      <section className={`${blush} flex min-h-[720px] items-center px-5 py-16 sm:px-10`}>
+      <section className="dahv-light flex min-h-[720px] items-center px-5 py-16 sm:px-10">
         <div className="mx-auto w-full max-w-[1250px]">
           <h2 className="text-[clamp(4rem,9vw,6rem)] font-bold leading-none tracking-[0]">policy</h2>
           <p className="mt-12 text-[clamp(1.4rem,3vw,2rem)]">Mwen pral moutrew ki seller pou w dako ak policy l yo</p>
@@ -157,10 +155,6 @@ function KeyyBeautyGuide() {
         </div>
       </section>
 
-      <style>{`
-        @keyframes dahv-float { 0%,100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-16px) rotate(6deg); } }
-        @media (prefers-reduced-motion: reduce) { [class*="dahv-float"] { animation: none !important; } }
-      `}</style>
     </main>
   );
 }
