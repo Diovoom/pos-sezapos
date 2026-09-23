@@ -47,7 +47,7 @@ function SectionBadge({ children }: { children: ReactNode }) {
   return <span className="dahv-badge">{children}</span>;
 }
 
-function KeyyBeautyGuide() {
+export function KeyyBeautyGuide() {
   return (
     <main className="dahv-page">
       <section className="dahv-hero-section">
