@@ -56,7 +56,7 @@ function GalleryCard({ src, alt, caption }: { src: string; alt: string; caption:
   );
 }
 
-function KeyyBeautyGuide() {
+export function KeyyBeautyGuide() {
   return (
     <main className="dahv-page">
       <section className="dahv-hero-section">

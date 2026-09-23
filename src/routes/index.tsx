@@ -41,7 +41,8 @@ import {
 } from "@/components/ui/accordion";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { Reveal } from "@/components/marketing/Reveal";
-import { dashboardUrl } from "@/lib/host";
+import { currentApp, dashboardUrl } from "@/lib/host";
+import { KeyyBeautyGuide } from "./dahv-yzg-xk";
 import { SEZA_PLANS } from "@/lib/plans";
 const HOME_SELL_SRC = "/images/home-sell-960.webp";
 const HOME_SELL_SRCSET =
@@ -282,6 +283,13 @@ const faqs = [
 ];
 
 function LandingPage() {
+  // Cloudflare internally rewrites the Keyy Beauty host to /dahv-yzg-xk for SSR.
+  // In the browser the visible URL intentionally remains "/", so keep the
+  // hydrated root route on the same microsite instead of rendering SEZA home.
+  if (currentApp() === "keyy") {
+    return <KeyyBeautyGuide />;
+  }
+
   return (
     <MarketingShell>
       <section className="relative isolate overflow-hidden">
