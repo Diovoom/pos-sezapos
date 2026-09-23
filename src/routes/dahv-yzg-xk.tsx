@@ -1,160 +1,264 @@
 import { createFileRoute } from "@tanstack/react-router";
-import heroAsset from "@/assets/dahv-hero.png.asset.json";
-import avaAsset from "@/assets/dahv-ava.png.asset.json";
-import collageAsset from "@/assets/dahv-collage.png.asset.json";
+import type { ReactNode } from "react";
 import "./dahv-yzg-xk.css";
+
+const heroImage = "/keyy-beauty/pink-front.jpg";
+const blondeImage = "/keyy-beauty/blonde-glam.jpg";
+const middlePartImage = "/keyy-beauty/middle-part.jpg";
+const curlyImage = "/keyy-beauty/curly-side.jpg";
+const straightImage = "/keyy-beauty/straight-pony.jpg";
+const curlyFrontalImage = "/keyy-beauty/curly-frontal.jpg";
+const volumeCurlsImage = "/keyy-beauty/volume-curls.jpg";
 
 export const Route = createFileRoute("/dahv-yzg-xk")({
   head: () => ({
     meta: [
-      { title: "Kijan pou resevwa cheve gratis — Keyy Beauty" },
+      { title: "Gid Kolaborasyon Perik — Keyy Beauty" },
       {
         name: "description",
-        content: "Gid Keyy Beauty pou Amazon wig reviews ak kolaborasyon.",
+        content:
+          "Yon gid an kreyòl pou kontakte seller yo, konprann kolaborasyon an, ak suiv etap yo pou resevwa cheve.",
       },
       { name: "robots", content: "noindex, nofollow, noarchive, nosnippet" },
-      { property: "og:title", content: "Kijan pou resevwa cheve gratis — Keyy Beauty" },
+      { property: "og:title", content: "Gid Kolaborasyon Perik — Keyy Beauty" },
       {
         property: "og:description",
-        content: "Gid Keyy Beauty pou Amazon wig reviews ak kolaborasyon.",
+        content:
+          "Yon gid an kreyòl pou kontakte seller yo, konprann kolaborasyon an, ak suiv etap yo pou resevwa cheve.",
       },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: KeyyBeautyGuide,
 });
 
-function Heart({ className }: { className: string }) {
+function FloatingHeart({ className = "", children = "♥" }: { className?: string; children?: string }) {
   return (
-    <span aria-hidden="true" className={`dahv-heart absolute ${className}`}>
-      ♥
+    <span aria-hidden="true" className={`dahv-heart dahv-float absolute select-none ${className}`}>
+      {children}
     </span>
+  );
+}
+
+function SectionBadge({ children }: { children: ReactNode }) {
+  return <span className="dahv-badge">{children}</span>;
+}
+
+function GalleryCard({ src, alt, caption }: { src: string; alt: string; caption: string }) {
+  return (
+    <figure className="dahv-gallery-card">
+      <img src={src} alt={alt} className="dahv-gallery-image" />
+      <figcaption>{caption}</figcaption>
+    </figure>
   );
 }
 
 function KeyyBeautyGuide() {
   return (
-    <main className="dahv-page w-full overflow-x-hidden font-sans">
-      <section className="dahv-dark dahv-hero relative isolate min-h-[100svh] overflow-hidden">
-        <Heart className="dahv-float left-[7%] top-[66%] text-4xl" />
-        <Heart className="dahv-float-delayed right-[9%] top-[12%] text-2xl" />
-        <div className="mx-auto grid min-h-[100svh] max-w-[1280px] items-center gap-8 px-6 py-12 sm:px-12 lg:grid-cols-[0.9fr_1.1fr] lg:px-[7%]">
-          <div className="relative z-10 flex flex-col items-start">
-            <p className="dahv-kicker text-sm font-semibold uppercase sm:text-base">WIG REVIEWS</p>
-            <h1 className="mt-9 max-w-[620px] text-[clamp(3.4rem,10vw,6.7rem)] font-bold leading-[1.08] tracking-[0] lg:mt-20">
-              Kijan pou<br />resevwa cheve<br />gratis
+    <main className="dahv-page">
+      <section className="dahv-hero-section">
+        <FloatingHeart className="left-[5%] top-[10%] text-4xl sm:text-5xl" />
+        <FloatingHeart className="right-[8%] top-[14%] text-3xl sm:text-4xl">♡</FloatingHeart>
+        <FloatingHeart className="bottom-[7%] left-[10%] text-3xl">✦</FloatingHeart>
+
+        <div className="dahv-shell dahv-hero-grid">
+          <div className="relative z-10 dahv-hero-copy">
+            <SectionBadge>KEYY BEAUTY • GID KOLABORASYON</SectionBadge>
+
+            <h1 className="dahv-display mt-7">
+              Kijan pou resevwa
+              <br />
+              cheve pou
+              <br />
+              kolaborasyon
             </h1>
-            <p className="dahv-pill mt-12 rounded-full px-5 py-2 text-[clamp(1.45rem,4vw,2.4rem)] font-bold lg:mt-20">
-              By: Keyy beauty
+
+            <p className="dahv-lead mt-7 max-w-2xl">
+              Premye bagay la se ekri seller yo ak mesaj mwen te ba ou a. Gid sa a
+              ap ede w konprann etap yo, orè pou ekri yo, epi kijan yo konn esplike
+              policy yo apre yo verifye pwofil ou.
             </p>
-          </div>
-          <img
-            src={heroAsset.url}
-            alt="Koleksyon perik nan ton mawon, blond ak nwa"
-            className="mx-auto hidden max-h-[82svh] w-full max-w-[560px] object-contain lg:block"
-          />
-        </div>
-      </section>
 
-      <section className="dahv-light flex min-h-[72svh] items-center px-5 py-16 sm:px-10 lg:min-h-[720px]">
-        <div className="mx-auto w-full max-w-[1120px] text-center">
-          <h2 className="text-3xl font-bold tracking-[0] sm:text-4xl">introduction</h2>
-          <p className="mx-auto mt-5 max-w-5xl text-xl leading-relaxed sm:text-2xl">
-            Byenvini nan gid sa a ki pral montre w egzakteman kijan ou ka vinn tounen<br className="hidden md:block" /> reviewer epi kòmanse resevwa wigs,bundles<br className="hidden md:block" /> ak lòt pwodwi cheve gratis pou selman yon kòmantè sou Amazon.
-          </p>
-          <h3 className="mx-auto mt-8 max-w-4xl text-[clamp(2.35rem,6vw,4rem)] font-bold leading-tight tracking-[0]">
-            Amazon pa bay pwodwi gratis<br className="hidden sm:block" /> dirèkteman.sa ki pase a se:
-          </h3>
-          <ul className="mx-auto mt-7 max-w-5xl list-disc space-y-2 pl-7 text-left text-xl leading-relaxed sm:text-2xl">
-            <li>Seller yo bezwen review oswa videyo pou vann plis</li>
-            <li>Yo chèche moun pou yo kapab fè yon kolaborasyon yap baw pwodwi a gratis pou yon kòmantè</li>
-          </ul>
-        </div>
-      </section>
-
-      <section className="dahv-dark relative overflow-hidden px-5 py-14 sm:px-10 lg:min-h-[720px]">
-        <Heart className="dahv-float right-[3%] top-8 text-5xl" />
-        <div className="mx-auto max-w-[1220px]">
-          <h2 className="text-center text-[clamp(3rem,7vw,5.2rem)] font-bold leading-none tracking-[0]">komanse la</h2>
-          <div className="mt-8 grid gap-10 lg:grid-cols-[1.35fr_0.65fr] lg:items-center">
-            <div className="text-lg leading-relaxed sm:text-xl">
-              <h3 className="mb-4 font-bold">kijan pou resevwa cheve gratis?</h3>
-              <ul className="list-disc space-y-1 pl-7">
-                <li>kijan pou w resevwa pwodwi gratis pou yon kòmantè</li>
-                <li>kijan pou ekri mesaj ki fè yo reponn ou</li>
-                <li>Horaire seller yo kilè yo travay</li>
-                <li>ki policy seller yo mande sak bon ak sa ki pa bon</li>
-                <li>kijan pouw fè review</li>
-                <li>wap jwenn plus ke 160 Amazon wig seller pou kolaborasyon</li>
-              </ul>
-              <p className="mt-4">pouw resevwa cheve gratis ak lot pwodwi ou dwe gen 4 applikasyon sa yo</p>
-              <p className="mt-2 text-xl sm:text-2xl">1-Instagram&nbsp; 2-Amazon&nbsp; 3-Paypal&nbsp; 4-Chat Gpt</p>
-              <ul className="mt-4 list-disc space-y-1 pl-7">
-                <li>instagram se seller mwen pral baw ou yo avec mesaj pouw ekri seller yo epi lè yo reponn pouw kapab fè kolaboration e achte pwodui yo sou Amazon.</li>
-                <li>Amazon se pouw kapab resevwa pwodwi a epou seller a ka few achte nan store li a</li>
-                <li>Paypal se pouw kapab resevwa lajan seller a pral revoye pou an e gras ak email ou pral kreye lan se li wap bay selman</li>
-                <li>Chat Gpt se pouw kapab utilize google traduction siw pa pale anglais</li>
-              </ul>
+            <div className="mt-8 inline-flex items-center gap-3 rounded-full bg-white px-5 py-3 shadow-sm">
+              <span className="text-2xl">🎀</span>
+              <span className="font-semibold text-pink-700">Pa: Keyy Beauty</span>
             </div>
-            <figure className="mx-auto w-full max-w-[340px] rounded-[22px] border-2 border-current p-4 sm:p-5">
-              <figcaption className="py-3 text-center text-2xl font-bold">Ava</figcaption>
-              <img src={avaAsset.url} alt="Ava, beauty influencer" className="mt-3 aspect-square w-full rounded-[18px] object-cover" />
-              <p className="px-2 py-7 text-center text-lg leading-snug">Beauty Influencer and Stylist at<br />Chic Wigs</p>
-            </figure>
+          </div>
+
+          <div className="relative dahv-hero-visual">
+            <div className="dahv-photo-frame dahv-hero-photo">
+              <img src={heroImage} alt="Perik woz ak boukl" className="h-full w-full object-cover" />
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="dahv-light flex min-h-[720px] items-center px-5 py-16 sm:px-10">
-        <div className="mx-auto w-full max-w-[1250px] text-center">
-          <h2 className="text-[clamp(2.6rem,6vw,4.2rem)] font-bold leading-tight tracking-[0]">kijan pouw kontakte seller yo ?</h2>
-          <p className="mx-auto mt-14 max-w-5xl text-[clamp(1.4rem,3vw,2rem)] font-bold leading-snug">
-            ou kapab kontakte seller yo sou instagram avek lis seller mwen<br className="hidden md:block" /> pral voye pou ou yo wap kontakte seller yo ak&nbsp; mesaj sa👇
+      <section className="dahv-section dahv-section-white">
+        <div className="dahv-shell max-w-5xl text-center">
+          <SectionBadge>ENTWODIKSYON</SectionBadge>
+          <h2 className="dahv-heading mt-5">Byenvini nan gid la 💗</h2>
+          <p className="dahv-body mx-auto mt-6 max-w-4xl">
+            Paj sa a mete tout bagay ansanm nan yon sèl plas pou w ka li l fasil.
+            Ou ka pran mesaj la, voye li bay seller yo, tann repons yo, epi suiv
+            etap yo selon policy seller la ap ba ou.
           </p>
-          <div className="mx-auto mt-14 max-w-[1240px] text-[clamp(1.25rem,2.4vw,1.8rem)] leading-[1.35]">
+          <div className="dahv-note mt-8 text-left">
+            <p className="font-bold text-pink-800">Ti rapèl:</p>
+            <p className="mt-2">
+              Seller yo konn mande plis detay sou pwofil ou, sou fason w ap travay,
+              ak sou pwodwi w ap chèche a. Se poutèt sa li bon pou w li tout etap yo
+              anvan ou kòmanse.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="dahv-section dahv-section-pink">
+        <div className="dahv-shell">
+          <div className="text-center">
+            <SectionBadge>MESAJ POU SELLER</SectionBadge>
+            <h2 className="dahv-heading mt-5">Premye bagay la: ekri seller yo</h2>
+            <p className="dahv-body mx-auto mt-5 max-w-3xl">
+              Pran mesaj sa a menm jan an, kopye li, epi voye li bay seller yo.
+            </p>
+          </div>
+
+          <div className="dahv-message mt-9">
             <p>Hello,</p>
-            <p>My name is (mete non w) and I am a hair and Amazon wig reviewer based in the United States,I<br className="hidden lg:block" /> came across your wigs and truly love their quality and style.</p>
-            <p>Iwould be existed to collaborate with your brand. Ican provide honest 5-star reviews,create<br className="hidden lg:block" /> high-quality video content,and take professional photos showcasing your products.</p>
-            <p>I believe this partnership woul be beneficial for both of us by increasing visibility and sales for<br className="hidden lg:block" /> your brand.</p>
-            <p>thank you for considering my request.Ilook forward to the opportunity to work together.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="dahv-dark flex min-h-[720px] items-center px-5 py-14 sm:px-10">
-        <div className="mx-auto grid w-full max-w-[1220px] gap-10 lg:grid-cols-[1.35fr_0.65fr]">
-          <div>
-            <h2 className="text-[clamp(3rem,7vw,5rem)] font-bold leading-none tracking-[0]">Horraire seller yo</h2>
-            <p className="mt-10 text-center text-[clamp(1.4rem,3vw,2rem)] leading-relaxed">
-              seller yo ap viv en chine e se chinois yo ye sa<br className="hidden sm:block" /> vle di kisa?<br /> yo pa gen menm l’heure avec nou yo gen 12h<br className="hidden sm:block" /> de temps en plus nou
+            <p>
+              My name is <strong>(mete non w)</strong> and I am a hair and Amazon wig reviewer
+              based in the United States. I came across your wigs and truly love their quality and style.
             </p>
-            <h3 className="mt-12 text-center text-[clamp(1.8rem,4vw,2.5rem)] font-bold">kile ou kapab kontakte seller yo?</h3>
-            <p className="mt-10 text-center text-[clamp(1.35rem,3vw,1.85rem)] leading-relaxed">
-              Seller yo komanse travay Dimanch swa yo plis online a 8h sa vle di 8h nan aswè pou ou e 8h nan matin pou seller yo lèw ekri yo nan matin nan lè USA a yo ka pa reponn paske c lè yap domi.
+            <p>
+              I would be excited to collaborate with your brand. I can provide honest reviews,
+              create high-quality video content, and take professional photos showcasing your products.
+            </p>
+            <p>
+              I believe this partnership would be beneficial for both of us by increasing visibility
+              and sales for your brand.
+            </p>
+            <p>
+              Thank you for considering my request. I look forward to the opportunity to work together.
             </p>
           </div>
-          <div className="flex flex-col justify-between gap-10">
-            <p className="mx-auto max-w-[350px] text-lg leading-tight">Join us for exclusive wig reviews<br />and collaborations that celebrate<br />beauty and confidence in every<br />style.</p>
-            <img src={collageAsset.url} alt="Kolaj modèl ak diferan koulè perik" className="w-full rounded-[18px] object-cover" />
+        </div>
+      </section>
+
+      <section className="dahv-section dahv-section-white">
+        <div className="dahv-shell max-w-6xl">
+          <div className="text-center">
+            <SectionBadge>ENPÒTAN</SectionBadge>
+            <h2 className="dahv-heading mt-5">Men kijan sa konn pase apre yo reponn ou</h2>
+          </div>
+
+          <div className="dahv-important-steps mt-10">
+            <div className="dahv-step-card">
+              <div className="dahv-step-number">1</div>
+              <p>
+                Premye bagay pou w fè se ekri seller yo ak mesaj mwen te ba ou a. Jis kopye mesaj la epi voye l bay seller yo. Pi bon lè pou kontakte yo se anviwon <strong>8è oswa 9è nan aswè, lè Etazini</strong>.
+              </p>
+            </div>
+
+            <div className="dahv-step-card">
+              <div className="dahv-step-number">2</div>
+              <p>
+                Lè seller la reponn ou, premye bagay li ka mande w se <strong>pwofil Amazon ou</strong> pou li ka verifye l epi deside si li kapab kolabore avè w.
+              </p>
+            </div>
+
+            <div className="dahv-step-card">
+              <div className="dahv-step-number">3</div>
+              <p>
+                Apre sa, seller la ap eksplike w kondisyon kolaborasyon an. Pa egzanp, li ka di w li fè <strong>mwatye peman an apre pwodwi a fin ekspedye</strong>. Li ka voye yon <strong>mo kle (keyword)</strong> ba ou pou w al chèche cheve li vle voye a sou Amazon. <strong>Anvan ou pase kòmann lan</strong>, voye foto oswa lyen pwodwi ou jwenn lan bay seller la pou li konfime se bon cheve a.
+              </p>
+            </div>
+
+            <div className="dahv-step-card">
+              <div className="dahv-step-number">4</div>
+              <p>
+                Lè w fin pase kòmann lan, voye <strong>nimewo kòmann lan</strong> ba li. Lè pwodwi a fin ekspedye, sa k ap pase apre sa ap depann de kondisyon nou te dakò sou yo. Si peman an dwe fèt atravè PayPal, seller la ka mande w <strong>adrès imèl PayPal ou</strong> pou li kapab voye peman an ba ou.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="dahv-light flex min-h-[720px] items-center px-5 py-16 sm:px-10">
-        <div className="mx-auto w-full max-w-[1250px]">
-          <h2 className="text-[clamp(4rem,9vw,6rem)] font-bold leading-none tracking-[0]">policy</h2>
-          <p className="mt-12 text-[clamp(1.4rem,3vw,2rem)]">Mwen pral moutrew ki seller pou w dako ak policy l yo</p>
-          <div className="mt-28 text-[clamp(1.4rem,3vw,2rem)] leading-relaxed sm:ml-5">
-            <p>Half refund after Shipping✅ half after review✅</p>
-            <p>Full refund after review❌</p>
-            <p>Full refund after order number✅</p>
-            <p>Full refund after Shipping✅</p>
-            <p className="mt-2 max-w-5xl text-center">Si ou ta achte yon cheve seller a fe 1 semaine ou pa janm tandel return cheve a</p>
+      <section className="dahv-section dahv-section-pink">
+        <div className="dahv-shell max-w-6xl">
+          <div className="text-center">
+            <SectionBadge>DESIGN AK FOTO YO</SectionBadge>
+            <h2 className="dahv-heading mt-5">Kèk style ak foto pou fè paj la bèl</h2>
+            <p className="dahv-body mx-auto mt-5 max-w-3xl">
+              Men kèk imaj yo mete nan paj la pou nenpòt moun ki antre sou li wè style yo touswit.
+            </p>
+          </div>
+
+          <div className="dahv-gallery-grid mt-10">
+            <GalleryCard src={heroImage} alt="Perik woz" caption="Pink style" />
+            <GalleryCard src={blondeImage} alt="Perik blond" caption="Blonde glam" />
+            <GalleryCard src={middlePartImage} alt="Middle part" caption="Middle part" />
+            <GalleryCard src={curlyImage} alt="Curly side part" caption="Curly look" />
+            <GalleryCard src={straightImage} alt="Straight pony style" caption="Straight style" />
+            <GalleryCard src={curlyFrontalImage} alt="Perik nwa boukle ak frontal" caption="Curly frontal" />
+            <GalleryCard src={volumeCurlsImage} alt="Perik nwa ak gwo boukl" caption="Volume curls" />
           </div>
         </div>
       </section>
 
+      <section className="dahv-section dahv-section-white">
+        <div className="dahv-shell max-w-6xl">
+          <div className="text-center">
+            <SectionBadge>POLICY</SectionBadge>
+            <h2 className="dahv-heading mt-5">Sa seller la ka esplike w sou policy a</h2>
+            <p className="dahv-body mx-auto mt-5 max-w-4xl">
+              Men yon fason pou eksplike policy yo jan seller yo konn fè sa. Mwen kite l fasil pou w li.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-6 lg:grid-cols-2">
+            <article className="dahv-policy-card dahv-policy-good">
+              <div className="text-3xl">💗</div>
+              <h3>Sa yo konn voye ba ou</h3>
+              <ul>
+                <li>Yo verifye Amazon profile ou anvan yo deside si yo ka kolabore avè w.</li>
+                <li>Yo ka voye keyword la pou w chache pwodwi a.</li>
+                <li>Yo ka mande w voye foto pwodwi a anvan ou order, pou yo verifye si se li.</li>
+                <li>Yo ka mande order number la apre ou fin mete order la.</li>
+                <li>Yo ka mande email PayPal la selon jan policy a ye a.</li>
+              </ul>
+            </article>
+
+            <article className="dahv-policy-card dahv-policy-bad">
+              <div className="text-3xl">🎀</div>
+              <h3>Sa ou dwe sonje</h3>
+              <ul>
+                <li>Li mesaj seller la byen pou w ka konprann policy li bay la.</li>
+                <li>Toujou voye pwodwi a tounen ba li nan chat la pou verifye si se menm cheve a.</li>
+                <li>Kenbe screenshot tout sa yo di w nan konvèsasyon an.</li>
+                <li>Si yo mande PayPal email ou, voye bon email la san fot.</li>
+                <li>Suiv etap yo youn apre lòt pou pa fè erè pandan kolaborasyon an.</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="dahv-finale">
+        <FloatingHeart className="left-[8%] top-[18%] text-4xl" />
+        <FloatingHeart className="right-[10%] bottom-[20%] text-5xl">♡</FloatingHeart>
+        <div className="dahv-shell max-w-4xl text-center">
+          <p className="text-sm font-bold uppercase tracking-[0.22em] text-pink-500">FINI 💕</p>
+          <h2 className="dahv-display mt-6 text-pink-800">
+            Mèsi paske ou li
+            <br />
+            epi ou konprann
+            <br />
+            tout sa ki ekri
+          </h2>
+          <p className="mt-8 text-3xl font-bold text-pink-600 sm:text-4xl">BESTIE 💗💗💗💗💗</p>
+        </div>
+      </section>
     </main>
   );
 }
