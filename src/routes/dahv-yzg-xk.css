@@ -1,0 +1,27 @@
+.dahv-page {
+  --dahv-burgundy: oklch(0.282 0.09 352);
+  --dahv-blush: oklch(0.89 0.045 6);
+  --dahv-ink: oklch(0.18 0.025 350);
+  --dahv-white: oklch(1 0 0);
+  background: var(--dahv-burgundy);
+  color: var(--dahv-ink);
+}
+
+.dahv-dark { background: var(--dahv-burgundy); color: var(--dahv-blush); }
+.dahv-light { background: var(--dahv-blush); color: var(--dahv-ink); }
+.dahv-hero { color: var(--dahv-white); }
+.dahv-kicker { color: var(--dahv-blush); }
+.dahv-pill { background: var(--dahv-blush); color: var(--dahv-white); }
+.dahv-heart { color: color-mix(in oklab, var(--dahv-blush) 35%, transparent); }
+
+@keyframes dahv-float {
+  0%, 100% { transform: translateY(0) rotate(-5deg); }
+  50% { transform: translateY(-16px) rotate(6deg); }
+}
+
+.dahv-float { animation: dahv-float 7s ease-in-out infinite; }
+.dahv-float-delayed { animation: dahv-float 8s ease-in-out 1s infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dahv-float, .dahv-float-delayed { animation: none; }
+}
