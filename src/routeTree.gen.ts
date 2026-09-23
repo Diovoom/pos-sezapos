@@ -29,6 +29,8 @@ import { Route as HardwareRouteImport } from './routes/hardware'
 import { Route as GuideRouteImport } from './routes/guide'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as FaqRouteImport } from './routes/faq'
+import { Route as DownloadRouteImport } from './routes/download'
+import { Route as DahvYzgXkRouteImport } from './routes/dahv-yzg-xk'
 import { Route as CustomerDisplayRouteImport } from './routes/customer-display'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CareersRouteImport } from './routes/careers'
@@ -105,6 +107,7 @@ import { Route as ApiPublicPosPairDeviceRouteImport } from './routes/api/public/
 import { Route as ApiPublicPosDeviceHeartbeatRouteImport } from './routes/api/public/pos/device-heartbeat'
 import { Route as ApiPublicPosDeviceBootstrapRouteImport } from './routes/api/public/pos/device-bootstrap'
 import { Route as ApiPublicPosCompleteFirstLoginRouteImport } from './routes/api/public/pos/complete-first-login'
+import { Route as ApiPublicPosApkRouteImport } from './routes/api/public/pos/apk'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiEmailTransactionalSendRouteImport } from './routes/api/email/transactional/send'
 import { Route as ApiEmailQueueProcessRouteImport } from './routes/api/email/queue/process'
@@ -219,6 +222,16 @@ const FeaturesRoute = FeaturesRouteImport.update({
 const FaqRoute = FaqRouteImport.update({
   id: '/faq',
   path: '/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DownloadRoute = DownloadRouteImport.update({
+  id: '/download',
+  path: '/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DahvYzgXkRoute = DahvYzgXkRouteImport.update({
+  id: '/dahv-yzg-xk',
+  path: '/dahv-yzg-xk',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomerDisplayRoute = CustomerDisplayRouteImport.update({
@@ -610,6 +623,11 @@ const ApiPublicPosCompleteFirstLoginRoute =
     path: '/api/public/pos/complete-first-login',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicPosApkRoute = ApiPublicPosApkRouteImport.update({
+  id: '/api/public/pos/apk',
+  path: '/api/public/pos/apk',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -705,6 +723,8 @@ export interface FileRoutesByFullPath {
   '/careers': typeof CareersRoute
   '/contact': typeof ContactRoute
   '/customer-display': typeof CustomerDisplayRoute
+  '/dahv-yzg-xk': typeof DahvYzgXkRoute
+  '/download': typeof DownloadRoute
   '/faq': typeof FaqRoute
   '/features': typeof FeaturesRoute
   '/guide': typeof GuideRoute
@@ -783,6 +803,7 @@ export interface FileRoutesByFullPath {
   '/api/email/queue/process': typeof ApiEmailQueueProcessRoute
   '/api/email/transactional/send': typeof ApiEmailTransactionalSendRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/pos/apk': typeof ApiPublicPosApkRoute
   '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
   '/api/public/pos/device-bootstrap': typeof ApiPublicPosDeviceBootstrapRoute
   '/api/public/pos/device-heartbeat': typeof ApiPublicPosDeviceHeartbeatRoute
@@ -815,6 +836,8 @@ export interface FileRoutesByTo {
   '/careers': typeof CareersRoute
   '/contact': typeof ContactRoute
   '/customer-display': typeof CustomerDisplayRoute
+  '/dahv-yzg-xk': typeof DahvYzgXkRoute
+  '/download': typeof DownloadRoute
   '/faq': typeof FaqRoute
   '/features': typeof FeaturesRoute
   '/guide': typeof GuideRoute
@@ -893,6 +916,7 @@ export interface FileRoutesByTo {
   '/api/email/queue/process': typeof ApiEmailQueueProcessRoute
   '/api/email/transactional/send': typeof ApiEmailTransactionalSendRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/pos/apk': typeof ApiPublicPosApkRoute
   '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
   '/api/public/pos/device-bootstrap': typeof ApiPublicPosDeviceBootstrapRoute
   '/api/public/pos/device-heartbeat': typeof ApiPublicPosDeviceHeartbeatRoute
@@ -929,6 +953,8 @@ export interface FileRoutesById {
   '/careers': typeof CareersRoute
   '/contact': typeof ContactRoute
   '/customer-display': typeof CustomerDisplayRoute
+  '/dahv-yzg-xk': typeof DahvYzgXkRoute
+  '/download': typeof DownloadRoute
   '/faq': typeof FaqRoute
   '/features': typeof FeaturesRoute
   '/guide': typeof GuideRoute
@@ -1007,6 +1033,7 @@ export interface FileRoutesById {
   '/api/email/queue/process': typeof ApiEmailQueueProcessRoute
   '/api/email/transactional/send': typeof ApiEmailTransactionalSendRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/pos/apk': typeof ApiPublicPosApkRoute
   '/api/public/pos/complete-first-login': typeof ApiPublicPosCompleteFirstLoginRoute
   '/api/public/pos/device-bootstrap': typeof ApiPublicPosDeviceBootstrapRoute
   '/api/public/pos/device-heartbeat': typeof ApiPublicPosDeviceHeartbeatRoute
@@ -1041,6 +1068,8 @@ export interface FileRouteTypes {
     | '/careers'
     | '/contact'
     | '/customer-display'
+    | '/dahv-yzg-xk'
+    | '/download'
     | '/faq'
     | '/features'
     | '/guide'
@@ -1119,6 +1148,7 @@ export interface FileRouteTypes {
     | '/api/email/queue/process'
     | '/api/email/transactional/send'
     | '/api/public/payments/webhook'
+    | '/api/public/pos/apk'
     | '/api/public/pos/complete-first-login'
     | '/api/public/pos/device-bootstrap'
     | '/api/public/pos/device-heartbeat'
@@ -1151,6 +1181,8 @@ export interface FileRouteTypes {
     | '/careers'
     | '/contact'
     | '/customer-display'
+    | '/dahv-yzg-xk'
+    | '/download'
     | '/faq'
     | '/features'
     | '/guide'
@@ -1229,6 +1261,7 @@ export interface FileRouteTypes {
     | '/api/email/queue/process'
     | '/api/email/transactional/send'
     | '/api/public/payments/webhook'
+    | '/api/public/pos/apk'
     | '/api/public/pos/complete-first-login'
     | '/api/public/pos/device-bootstrap'
     | '/api/public/pos/device-heartbeat'
@@ -1264,6 +1297,8 @@ export interface FileRouteTypes {
     | '/careers'
     | '/contact'
     | '/customer-display'
+    | '/dahv-yzg-xk'
+    | '/download'
     | '/faq'
     | '/features'
     | '/guide'
@@ -1342,6 +1377,7 @@ export interface FileRouteTypes {
     | '/api/email/queue/process'
     | '/api/email/transactional/send'
     | '/api/public/payments/webhook'
+    | '/api/public/pos/apk'
     | '/api/public/pos/complete-first-login'
     | '/api/public/pos/device-bootstrap'
     | '/api/public/pos/device-heartbeat'
@@ -1378,6 +1414,8 @@ export interface RootRouteChildren {
   CareersRoute: typeof CareersRoute
   ContactRoute: typeof ContactRoute
   CustomerDisplayRoute: typeof CustomerDisplayRoute
+  DahvYzgXkRoute: typeof DahvYzgXkRoute
+  DownloadRoute: typeof DownloadRoute
   FaqRoute: typeof FaqRoute
   FeaturesRoute: typeof FeaturesRoute
   GuideRoute: typeof GuideRoute
@@ -1412,6 +1450,7 @@ export interface RootRouteChildren {
   ApiEmailQueueProcessRoute: typeof ApiEmailQueueProcessRoute
   ApiEmailTransactionalSendRoute: typeof ApiEmailTransactionalSendRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
+  ApiPublicPosApkRoute: typeof ApiPublicPosApkRoute
   ApiPublicPosCompleteFirstLoginRoute: typeof ApiPublicPosCompleteFirstLoginRoute
   ApiPublicPosDeviceBootstrapRoute: typeof ApiPublicPosDeviceBootstrapRoute
   ApiPublicPosDeviceHeartbeatRoute: typeof ApiPublicPosDeviceHeartbeatRoute
@@ -1576,6 +1615,20 @@ declare module '@tanstack/react-router' {
       path: '/faq'
       fullPath: '/faq'
       preLoaderRoute: typeof FaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/download': {
+      id: '/download'
+      path: '/download'
+      fullPath: '/download'
+      preLoaderRoute: typeof DownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dahv-yzg-xk': {
+      id: '/dahv-yzg-xk'
+      path: '/dahv-yzg-xk'
+      fullPath: '/dahv-yzg-xk'
+      preLoaderRoute: typeof DahvYzgXkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customer-display': {
@@ -2110,6 +2163,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPosCompleteFirstLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/pos/apk': {
+      id: '/api/public/pos/apk'
+      path: '/api/public/pos/apk'
+      fullPath: '/api/public/pos/apk'
+      preLoaderRoute: typeof ApiPublicPosApkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
       path: '/api/public/payments/webhook'
@@ -2395,6 +2455,8 @@ const rootRouteChildren: RootRouteChildren = {
   CareersRoute: CareersRoute,
   ContactRoute: ContactRoute,
   CustomerDisplayRoute: CustomerDisplayRoute,
+  DahvYzgXkRoute: DahvYzgXkRoute,
+  DownloadRoute: DownloadRoute,
   FaqRoute: FaqRoute,
   FeaturesRoute: FeaturesRoute,
   GuideRoute: GuideRoute,
@@ -2429,6 +2491,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiEmailQueueProcessRoute: ApiEmailQueueProcessRoute,
   ApiEmailTransactionalSendRoute: ApiEmailTransactionalSendRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
+  ApiPublicPosApkRoute: ApiPublicPosApkRoute,
   ApiPublicPosCompleteFirstLoginRoute: ApiPublicPosCompleteFirstLoginRoute,
   ApiPublicPosDeviceBootstrapRoute: ApiPublicPosDeviceBootstrapRoute,
   ApiPublicPosDeviceHeartbeatRoute: ApiPublicPosDeviceHeartbeatRoute,
