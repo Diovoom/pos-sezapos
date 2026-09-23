@@ -30,7 +30,6 @@ import { Route as GuideRouteImport } from './routes/guide'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as DownloadRouteImport } from './routes/download'
-import { Route as DahvYzgXkRouteImport } from './routes/dahv-yzg-xk'
 import { Route as CustomerDisplayRouteImport } from './routes/customer-display'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CareersRouteImport } from './routes/careers'
@@ -227,11 +226,6 @@ const FaqRoute = FaqRouteImport.update({
 const DownloadRoute = DownloadRouteImport.update({
   id: '/download',
   path: '/download',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DahvYzgXkRoute = DahvYzgXkRouteImport.update({
-  id: '/dahv-yzg-xk',
-  path: '/dahv-yzg-xk',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomerDisplayRoute = CustomerDisplayRouteImport.update({
@@ -723,7 +717,6 @@ export interface FileRoutesByFullPath {
   '/careers': typeof CareersRoute
   '/contact': typeof ContactRoute
   '/customer-display': typeof CustomerDisplayRoute
-  '/dahv-yzg-xk': typeof DahvYzgXkRoute
   '/download': typeof DownloadRoute
   '/faq': typeof FaqRoute
   '/features': typeof FeaturesRoute
@@ -836,7 +829,6 @@ export interface FileRoutesByTo {
   '/careers': typeof CareersRoute
   '/contact': typeof ContactRoute
   '/customer-display': typeof CustomerDisplayRoute
-  '/dahv-yzg-xk': typeof DahvYzgXkRoute
   '/download': typeof DownloadRoute
   '/faq': typeof FaqRoute
   '/features': typeof FeaturesRoute
@@ -953,7 +945,6 @@ export interface FileRoutesById {
   '/careers': typeof CareersRoute
   '/contact': typeof ContactRoute
   '/customer-display': typeof CustomerDisplayRoute
-  '/dahv-yzg-xk': typeof DahvYzgXkRoute
   '/download': typeof DownloadRoute
   '/faq': typeof FaqRoute
   '/features': typeof FeaturesRoute
@@ -1068,7 +1059,6 @@ export interface FileRouteTypes {
     | '/careers'
     | '/contact'
     | '/customer-display'
-    | '/dahv-yzg-xk'
     | '/download'
     | '/faq'
     | '/features'
@@ -1181,7 +1171,6 @@ export interface FileRouteTypes {
     | '/careers'
     | '/contact'
     | '/customer-display'
-    | '/dahv-yzg-xk'
     | '/download'
     | '/faq'
     | '/features'
@@ -1297,7 +1286,6 @@ export interface FileRouteTypes {
     | '/careers'
     | '/contact'
     | '/customer-display'
-    | '/dahv-yzg-xk'
     | '/download'
     | '/faq'
     | '/features'
@@ -1414,7 +1402,6 @@ export interface RootRouteChildren {
   CareersRoute: typeof CareersRoute
   ContactRoute: typeof ContactRoute
   CustomerDisplayRoute: typeof CustomerDisplayRoute
-  DahvYzgXkRoute: typeof DahvYzgXkRoute
   DownloadRoute: typeof DownloadRoute
   FaqRoute: typeof FaqRoute
   FeaturesRoute: typeof FeaturesRoute
@@ -1622,13 +1609,6 @@ declare module '@tanstack/react-router' {
       path: '/download'
       fullPath: '/download'
       preLoaderRoute: typeof DownloadRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dahv-yzg-xk': {
-      id: '/dahv-yzg-xk'
-      path: '/dahv-yzg-xk'
-      fullPath: '/dahv-yzg-xk'
-      preLoaderRoute: typeof DahvYzgXkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customer-display': {
@@ -2455,7 +2435,6 @@ const rootRouteChildren: RootRouteChildren = {
   CareersRoute: CareersRoute,
   ContactRoute: ContactRoute,
   CustomerDisplayRoute: CustomerDisplayRoute,
-  DahvYzgXkRoute: DahvYzgXkRoute,
   DownloadRoute: DownloadRoute,
   FaqRoute: FaqRoute,
   FeaturesRoute: FeaturesRoute,

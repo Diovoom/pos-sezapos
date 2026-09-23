@@ -26,6 +26,9 @@ export type CustomerDisplayPayload = {
   discount: number;
   tax: number;
   total: number;
+  cashPrice?: number | null;
+  cardPrice?: number | null;
+  cardPriceAdjustment?: number | null;
   paymentMethod?: string | null;
   amountTendered?: number | null;
   changeDue?: number | null;

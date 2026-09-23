@@ -158,7 +158,7 @@ export function CustomerDisplayPage() {
             className="absolute left-1/2 top-[72%] -translate-x-1/2 text-center whitespace-nowrap"
             aria-live="polite"
           >
-            <p className="text-lg md:text-2xl font-semibold text-slate-500">Total</p>
+            <p className="text-lg md:text-2xl font-semibold text-slate-500">Card Total</p>
             <p className="mt-1 text-5xl md:text-7xl font-black tracking-tight text-slate-950">
               {fmtCurrency(sale.total, sale.currency)}
             </p>
@@ -315,12 +315,29 @@ export function CustomerDisplayPage() {
               <MoneyRow label="Discount" value={`− ${fmtCurrency(sale.discount, sale.currency)}`} />
             )}
             <MoneyRow label="Tax" value={fmtCurrency(sale.tax, sale.currency)} />
-            <div className="mt-4 flex items-end justify-between border-t border-dashed border-white/25 pt-5">
-              <span className="text-2xl md:text-3xl font-bold">Total</span>
-              <span className="text-4xl md:text-6xl font-mono font-black tracking-tight">
-                {fmtCurrency(sale.total, sale.currency)}
-              </span>
-            </div>
+            {sale.cashPrice != null && sale.cardPrice != null && sale.cardPrice > sale.cashPrice ? (
+              <>
+                <div className="mt-4 border-t border-dashed border-white/25 pt-4">
+                  <MoneyRow label="Cash Price" value={fmtCurrency(sale.cashPrice, sale.currency)} />
+                  <div className="mt-3 flex items-end justify-between">
+                    <span className="text-2xl md:text-3xl font-bold">Card Price</span>
+                    <span className="text-4xl md:text-6xl font-mono font-black tracking-tight">
+                      {fmtCurrency(sale.cardPrice, sale.currency)}
+                    </span>
+                  </div>
+                </div>
+                <p className="pt-2 text-right text-xs text-white/50">
+                  Cash customers receive the lower cash price.
+                </p>
+              </>
+            ) : (
+              <div className="mt-4 flex items-end justify-between border-t border-dashed border-white/25 pt-5">
+                <span className="text-2xl md:text-3xl font-bold">Total</span>
+                <span className="text-4xl md:text-6xl font-mono font-black tracking-tight">
+                  {fmtCurrency(sale.total, sale.currency)}
+                </span>
+              </div>
+            )}
           </div>
         </footer>
       )}

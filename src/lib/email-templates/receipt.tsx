@@ -37,6 +37,9 @@ export interface ReceiptEmailData {
   tax?: number;
   discount?: number;
   total?: number;
+  cashBaseTotal?: number;
+  cardPriceAdjustment?: number;
+  finalAmountCharged?: number;
   paymentMethod?: string;
   cardBrand?: string | null;
   last4?: string | null;
@@ -63,12 +66,15 @@ const ReceiptEmail = (props: ReceiptEmailData) => {
   const lines = props.lines ?? [];
   const dt = props.createdAt ? new Date(props.createdAt) : new Date();
   const storeName = props.storeName ?? "Your Store";
+  const cardPriceAdjustment = Math.max(0, Number(props.cardPriceAdjustment ?? 0));
+  const cashBaseTotal = Number(props.cashBaseTotal ?? props.total ?? 0);
+  const finalAmountCharged = Number(props.finalAmountCharged ?? props.total ?? 0);
 
   return (
     <Html lang="en" dir="ltr">
       <Head />
       <Preview>
-        Your receipt from {storeName} - {fmt(props.total, currency)}
+        Your receipt from {storeName} - {fmt(finalAmountCharged, currency)}
       </Preview>
       <Body style={main}>
         <Container style={container}>
@@ -122,12 +128,27 @@ const ReceiptEmail = (props: ReceiptEmailData) => {
               <TotalsRow label="Discount" value={`-${fmt(props.discount, currency)}`} />
             ) : null}
             <TotalsRow label="Tax" value={fmt(props.tax, currency)} />
+            {cardPriceAdjustment > 0 ? (
+              <>
+                <TotalsRow label="Cash Price" value={fmt(cashBaseTotal, currency)} />
+                <TotalsRow
+                  label="Card Price Adjustment"
+                  value={fmt(cardPriceAdjustment, currency)}
+                />
+              </>
+            ) : null}
             <Row style={{ marginTop: 8 }}>
               <Column>
-                <Text style={grandLabel}>TOTAL</Text>
+                <Text style={grandLabel}>
+                  {cardPriceAdjustment > 0
+                    ? "CARD TOTAL"
+                    : props.paymentMethod === "cash"
+                      ? "CASH TOTAL"
+                      : "TOTAL"}
+                </Text>
               </Column>
               <Column style={{ textAlign: "right" }}>
-                <Text style={grandValue}>{fmt(props.total, currency)}</Text>
+                <Text style={grandValue}>{fmt(finalAmountCharged, currency)}</Text>
               </Column>
             </Row>
           </Section>
@@ -211,6 +232,9 @@ export const template = {
     tax: 0.43,
     discount: 0,
     total: 5.68,
+    cashBaseTotal: 5.68,
+    cardPriceAdjustment: 0.21,
+    finalAmountCharged: 5.89,
     paymentMethod: "card",
     cardBrand: "VISA",
     last4: "4242",

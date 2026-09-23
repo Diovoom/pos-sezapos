@@ -69,7 +69,7 @@ export async function fetchShiftSummary(sessionId: string) {
       sb
         .from("sales")
         .select(
-          "id, receipt_number, cashier_id, subtotal, tax, discount, total, payment_method, amount_tendered, change_due, status, created_at, refunded_amount",
+          "id, receipt_number, cashier_id, subtotal, tax, discount, total, card_price_adjustment, payment_method, amount_tendered, change_due, status, created_at, refunded_amount",
         )
         .eq("register_session_id", sessionId)
         .order("created_at"),
@@ -201,9 +201,20 @@ export async function fetchShiftSummary(sessionId: string) {
       ? (method as (typeof paymentKinds)[number])
       : null;
   };
+  const adjustmentRemainingBySale = new Map(
+    completedSales.map((sale) => [sale.id, Math.max(0, Number(sale.card_price_adjustment || 0))]),
+  );
   for (const payment of settledPaymentRows) {
     const method = normalizePaymentMethod(payment.method);
-    if (method) byMethod[method] += Number(payment.amount || 0);
+    if (!method) continue;
+    let reportableAmount = Number(payment.amount || 0);
+    if (["card", "tap", "apple_pay", "google_pay"].includes(method)) {
+      const remainingAdjustment = adjustmentRemainingBySale.get(payment.sale_id) ?? 0;
+      const appliedAdjustment = Math.min(reportableAmount, remainingAdjustment);
+      reportableAmount -= appliedAdjustment;
+      adjustmentRemainingBySale.set(payment.sale_id, remainingAdjustment - appliedAdjustment);
+    }
+    byMethod[method] += Math.max(0, reportableAmount);
   }
   for (const sale of completedSales) {
     if (paymentSaleIds.has(sale.id)) continue;
@@ -252,6 +263,9 @@ export async function fetchShiftSummary(sessionId: string) {
   // Card brands, fees, tips and gratuities are read from processor metadata
   // when the connected provider supplies them. We never invent a brand.
   const cardBrands = new Map<string, CardBrandBucket>();
+  const brandAdjustmentRemaining = new Map(
+    completedSales.map((sale) => [sale.id, Math.max(0, Number(sale.card_price_adjustment || 0))]),
+  );
   let gratuityTotal = 0;
   let feeTotal = 0;
   for (const payment of paymentRows) {
@@ -263,7 +277,11 @@ export async function fetchShiftSummary(sessionId: string) {
     const rawBrand = metadataText(payment.metadata, ["card_brand", "brand", "network", "card_network"]);
     const brand = rawBrand || "Card - brand unavailable";
     const bucket = cardBrands.get(brand) ?? { brand, amount: 0, count: 0 };
-    bucket.amount += Number(payment.amount || 0);
+    const rawAmount = Number(payment.amount || 0);
+    const remainingAdjustment = brandAdjustmentRemaining.get(payment.sale_id) ?? 0;
+    const appliedAdjustment = Math.min(rawAmount, remainingAdjustment);
+    bucket.amount += Math.max(0, rawAmount - appliedAdjustment);
+    brandAdjustmentRemaining.set(payment.sale_id, remainingAdjustment - appliedAdjustment);
     bucket.count += 1;
     cardBrands.set(brand, bucket);
   }

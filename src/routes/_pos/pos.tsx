@@ -96,6 +96,11 @@ import {
   type CustomerDisplayPayload,
 } from "@/lib/pos/customer-display-sync";
 import { resolveCustomerDisplaySettings } from "@/lib/customer-display-preferences";
+import {
+  isCardPaymentMethod,
+  normalizeCardProcessingPricing,
+  quoteCardPrice,
+} from "@/lib/pos/card-pricing";
 
 type SaleStep = "auth" | "sale_insert" | "sale_items_insert" | "inventory";
 class SaleError extends Error {
@@ -382,6 +387,41 @@ export function PosPage() {
     }, 150);
     return () => window.clearTimeout(timer);
   }, [cart, store?.id, activeUserId]);
+
+  // Store pricing is part of the merchant configuration, not a cashier preference.
+  // Realtime makes an owner toggle take effect on open registers immediately;
+  // the existing device heartbeat remains the fallback and refreshes the same
+  // cached store row when Realtime is unavailable.
+  useEffect(() => {
+    if (!store?.id || !online) return;
+    const storeId = String(store.id);
+    const channel = supabase
+      .channel(`pos-store-pricing:${storeId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "stores", filter: `id=eq.${storeId}` },
+        ({ new: next }) => {
+          const row = next as Record<string, unknown>;
+          const patch = {
+            recover_card_processing_costs: Boolean(row.recover_card_processing_costs),
+            card_processing_percent: Number(row.card_processing_percent ?? 0),
+            card_processing_fixed_fee: Number(row.card_processing_fixed_fee ?? 0),
+            updated_at: row.updated_at,
+          };
+          const current = (qc.getQueryData(["store", storeId]) as Record<string, unknown> | null) ?? {};
+          const merged = { ...current, ...patch };
+          qc.setQueryData(["store", storeId], merged);
+          void Promise.all([cacheMeta(`store:${storeId}`, merged), cacheMeta("store", merged)]).catch(
+            () => undefined,
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [store?.id, online, qc]);
 
   const { data: profile } = useQuery<any>({
     queryKey: ["me-profile", activeUserId],
@@ -701,6 +741,17 @@ export function PosPage() {
   const taxableAfterDiscount = Math.max(0, taxableBase * (1 - discountRatio));
   const tax = Math.round(taxableAfterDiscount * taxRate * 100) / 100;
   const total = Math.max(0, Math.round((subtotal - discountAmount + tax) * 100) / 100);
+  const cardPricing = useMemo(
+    () => normalizeCardProcessingPricing(store),
+    [
+      store?.recover_card_processing_costs,
+      store?.card_processing_percent,
+      store?.card_processing_fixed_fee,
+    ],
+  );
+  const cardQuote = useMemo(() => quoteCardPrice(total, cardPricing), [total, cardPricing]);
+  const dualPricingActive = cardPricing.enabled && cardQuote.adjustment > 0;
+  const selectedTenderTotal = isCardPaymentMethod(tender) ? cardQuote.cardPrice : total;
   const loyaltyEarn = loyaltyEnabled && loyalty
     ? Math.floor(Math.max(0, subtotal - discountAmount))
     : 0;
@@ -862,7 +913,7 @@ export function PosPage() {
         : [
             {
               method: payment.method === "split" ? "card" : payment.method,
-              amount: total,
+              amount: payment.finalAmountCharged ?? selectedTenderTotal,
               reference: payment.reference,
               cardBrand: payment.cardBrand,
               last4: payment.last4,
@@ -881,7 +932,17 @@ export function PosPage() {
           provider: allocation.provider ?? null,
           provider_reference: allocation.reference ?? null,
           status: "completed",
-          metadata: { card_brand: allocation.cardBrand ?? null, last4: allocation.last4 ?? null },
+          metadata: {
+            card_brand: allocation.cardBrand ?? null,
+            last4: allocation.last4 ?? null,
+            cash_base_total: payment.cashBaseTotal ?? total,
+            card_price_adjustment: payment.cardPriceAdjustment ?? 0,
+            final_amount_charged: payment.finalAmountCharged ?? selectedTenderTotal,
+            processing_fee_estimate: payment.estimatedProcessorFee ?? null,
+            estimated_merchant_net: payment.estimatedMerchantNet ?? null,
+            pricing_percent: cardPricing.percentRate,
+            pricing_fixed_fee: cardPricing.fixedFee,
+          },
         }));
 
       // 4. Atomically create header + items + payment ledger. Inventory
@@ -896,6 +957,11 @@ export function PosPage() {
           tax,
           discount: discountAmount,
           total,
+          cash_base_total: payment.cashBaseTotal ?? total,
+          card_price_adjustment: payment.cardPriceAdjustment ?? 0,
+          final_amount_charged: payment.finalAmountCharged ?? selectedTenderTotal,
+          processing_fee_estimate: payment.estimatedProcessorFee ?? null,
+          estimated_merchant_net: payment.estimatedMerchantNet ?? null,
           payment_method: payment.method,
           amount_tendered: payment.amountTendered,
           change_due: payment.changeDue,
@@ -942,6 +1008,9 @@ export function PosPage() {
         tax,
         discount: discountAmount,
         total,
+        cashBaseTotal: payment.cashBaseTotal ?? total,
+        cardPriceAdjustment: payment.cardPriceAdjustment ?? 0,
+        finalAmountCharged: payment.finalAmountCharged ?? selectedTenderTotal,
         paymentMethod: payment.method,
         amountTendered: payment.amountTendered,
         changeDue: payment.changeDue,
@@ -979,7 +1048,13 @@ export function PosPage() {
         subtotal: rd.subtotal,
         discount: rd.discount ?? 0,
         tax: rd.tax,
-        total: rd.total,
+        cashPrice: rd.cashBaseTotal ?? rd.total,
+        cardPrice:
+          (rd.cardPriceAdjustment ?? 0) > 0
+            ? rd.finalAmountCharged ?? rd.total
+            : null,
+        cardPriceAdjustment: rd.cardPriceAdjustment ?? 0,
+        total: rd.finalAmountCharged ?? rd.total,
         paymentMethod: rd.paymentMethod,
         amountTendered: rd.amountTendered ?? null,
         changeDue: rd.changeDue ?? null,
@@ -989,12 +1064,13 @@ export function PosPage() {
       setDisplayStatus(null);
       setDisplayCompletion(completedDisplay);
       window.setTimeout(() => setDisplayCompletion(null), 4_500);
+      const chargedTotal = payment.finalAmountCharged ?? total;
       toast.success(
         isOffline
-          ? `Offline sale saved · ${fmtCurrency(total, currency)}. It will sync when online.`
+          ? `Offline sale saved · ${fmtCurrency(chargedTotal, currency)}. It will sync when online.`
           : isLocalFirst
-            ? `Sale completed · ${fmtCurrency(total, currency)}. Syncing securely.`
-            : `Sale completed · ${fmtCurrency(total, currency)}`,
+            ? `Sale completed · ${fmtCurrency(chargedTotal, currency)}. Syncing securely.`
+            : `Sale completed · ${fmtCurrency(chargedTotal, currency)}`,
       );
       if (loyaltyEnabled && loyalty) {
         if (effectiveLoyaltyRedemption > 0) {
@@ -1013,7 +1089,14 @@ export function PosPage() {
               action: "sale.create",
               entity: "sale",
               entity_id: rd.transactionId,
-              details: { total, method: payment.method, items: cart.length },
+              details: {
+                total,
+                cash_base_total: payment.cashBaseTotal ?? total,
+                card_price_adjustment: payment.cardPriceAdjustment ?? 0,
+                final_amount_charged: chargedTotal,
+                method: payment.method,
+                items: cart.length,
+              },
             }),
           )
           .catch((err) => { if (import.meta.env.DEV) console.warn("[sale] audit log failed (non-fatal):", err); });
@@ -1135,7 +1218,10 @@ export function PosPage() {
       subtotal,
       discount: discountAmount,
       tax,
-      total,
+      cashPrice: dualPricingActive ? cardQuote.cashPrice : null,
+      cardPrice: dualPricingActive ? cardQuote.cardPrice : null,
+      cardPriceAdjustment: dualPricingActive ? cardQuote.adjustment : null,
+      total: payOpen && isCardPaymentMethod(tender) ? cardQuote.cardPrice : total,
       updatedAt: new Date().toISOString(),
     };
     const timer = window.setTimeout(() => void publishCustomerDisplay(payload), 60);
@@ -1156,6 +1242,10 @@ export function PosPage() {
     finalize.isPending,
     payOpen,
     tender,
+    dualPricingActive,
+    cardQuote.cashPrice,
+    cardQuote.cardPrice,
+    cardQuote.adjustment,
   ]);
 
   const cartPanel = (
@@ -1267,9 +1357,20 @@ export function PosPage() {
             value={fmtCurrency(tax, currency)}
           />
           <div className="flex justify-between text-xl font-bold pt-1.5 border-t border-dashed">
-            <span>{t("pos.total")}</span>
+            <span>{dualPricingActive ? "Cash Price" : t("pos.total")}</span>
             <span className="font-mono">{fmtCurrency(total, currency)}</span>
           </div>
+          {dualPricingActive && (
+            <div className="mt-2 rounded-lg border border-blue-500/25 bg-blue-500/5 px-3 py-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">Card Price</span>
+                <span className="font-mono font-bold">{fmtCurrency(cardQuote.cardPrice, currency)}</span>
+              </div>
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                Cash customers receive the lower cash price. The card price is set before the card is presented.
+              </p>
+            </div>
+          )}
           {loyaltyEnabled && loyalty && loyaltyEarn > 0 && (
             <div className="flex justify-between text-[11px] text-muted-foreground">
               <span>Loyalty · {loyalty.identifier}</span>
@@ -1309,7 +1410,12 @@ export function PosPage() {
                 )}
               >
                 <Icon className="size-3.5" />
-                {t.label}
+                <span>{t.label}</span>
+                {dualPricingActive && t.id === "cash" ? (
+                  <span className="font-mono">{fmtCurrency(total, currency)}</span>
+                ) : dualPricingActive && t.id === "card" ? (
+                  <span className="font-mono">{fmtCurrency(cardQuote.cardPrice, currency)}</span>
+                ) : null}
               </button>
             );
           })}
@@ -1344,10 +1450,10 @@ export function PosPage() {
           {finalize.isPending ? (
             <Loader2 className="size-5 animate-spin" />
           ) : needsAgeVerification ? (
-            <>Verify Age to Charge {fmtCurrency(total, currency)}</>
+            <>Verify Age to Charge {fmtCurrency(selectedTenderTotal, currency)}</>
           ) : (
             <>
-              {t("pos.charge")} {fmtCurrency(total, currency)}
+              {t("pos.charge")} {fmtCurrency(selectedTenderTotal, currency)}
             </>
           )}
         </Button>
@@ -1580,7 +1686,9 @@ export function PosPage() {
           }
         }}
         method={tender}
-        total={total}
+        total={selectedTenderTotal}
+        baseTotal={total}
+        cardPricing={cardPricing}
         currency={currency}
         onComplete={(p) => finalize.mutate(p)}
         onPaymentEvent={(event) => {

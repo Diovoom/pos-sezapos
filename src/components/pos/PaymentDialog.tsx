@@ -35,6 +35,12 @@ import { ManagerOverrideDialog } from "@/components/pos/ManagerOverrideDialog";
 import { isNativeMode } from "@/lib/native";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { useTrainingMode } from "@/lib/pos/training-mode";
+import {
+  estimatedProcessingFee,
+  quoteCardPrice,
+  roundMoney,
+  type CardProcessingPricing,
+} from "@/lib/pos/card-pricing";
 
 export type PaymentMethod =
   "cash" | "card" | "tap" | "apple_pay" | "google_pay" | "gift_card" | "split";
@@ -56,6 +62,11 @@ export type CompletedPayment = {
   cardBrand?: string;
   last4?: string;
   allocations?: PaymentAllocation[];
+  cashBaseTotal?: number;
+  cardPriceAdjustment?: number;
+  finalAmountCharged?: number;
+  estimatedProcessorFee?: number;
+  estimatedMerchantNet?: number;
 };
 
 type Props = {
@@ -63,6 +74,8 @@ type Props = {
   onOpenChange: (v: boolean) => void;
   method: PaymentMethod;
   total: number;
+  baseTotal?: number;
+  cardPricing?: CardProcessingPricing;
   currency: string;
   onComplete: (p: CompletedPayment) => void;
   onPaymentEvent?: (event: PaymentEvent) => void;
@@ -121,12 +134,15 @@ export function PaymentDialog({
   onOpenChange,
   method,
   total,
+  baseTotal,
+  cardPricing,
   currency,
   onComplete,
   onPaymentEvent,
   bypassCancelApproval = false,
 }: Props) {
   const trainingMode = useTrainingMode();
+  const resolvedBaseTotal = baseTotal ?? total;
   const isCash = method === "cash";
   const isSplit = method === "split";
   const isGiftCard = method === "gift_card";
@@ -184,8 +200,9 @@ export function PaymentDialog({
             />
           ) : isSplit ? (
             <SplitPanel
-              total={total}
+              total={resolvedBaseTotal}
               currency={currency}
+              pricing={cardPricing}
               onComplete={onComplete}
               onCancel={requestCancel}
             />
@@ -200,6 +217,8 @@ export function PaymentDialog({
               key={String(open)}
               method={method}
               total={total}
+              baseTotal={resolvedBaseTotal}
+              pricing={cardPricing}
               currency={currency}
               onComplete={onComplete}
               onPaymentEvent={onPaymentEvent}
@@ -530,7 +549,14 @@ function CashPanel({
               status: "completed",
               message: `Tendered ${tendered.toFixed(2)}, change ${change.toFixed(2)}`,
             });
-            onComplete({ method: "cash", amountTendered: tendered, changeDue: change });
+            onComplete({
+              method: "cash",
+              amountTendered: tendered,
+              changeDue: change,
+              cashBaseTotal: total,
+              cardPriceAdjustment: 0,
+              finalAmountCharged: total,
+            });
           }}
         >
           Complete sale
@@ -545,11 +571,13 @@ function CashPanel({
 function SplitPanel({
   total,
   currency,
+  pricing,
   onComplete,
   onCancel,
 }: {
   total: number;
   currency: string;
+  pricing?: CardProcessingPricing;
   onComplete: (p: CompletedPayment) => void;
   onCancel: () => void;
 }) {
@@ -562,14 +590,22 @@ function SplitPanel({
   const [result, setResult] = useState<PaymentResult | null>(null);
   const [charging, setCharging] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const cash = Math.min(total, Math.max(0, Math.round((Number(cashText) || 0) * 100) / 100));
-  const remaining = Math.max(0, Math.round((total - cash) * 100) / 100);
-  const approved = remaining === 0 || result?.finalStatus === "approved";
+  const effectivePricing: CardProcessingPricing = pricing ?? {
+    enabled: false,
+    percentRate: 0,
+    fixedFee: 0,
+  };
+  const cash = Math.min(total, Math.max(0, roundMoney(Number(cashText) || 0)));
+  const remainingBase = Math.max(0, roundMoney(total - cash));
+  const cardQuote = quoteCardPrice(remainingBase, effectivePricing);
+  const cardCharge = cardQuote.cardPrice;
+  const finalAmount = roundMoney(cash + cardCharge);
+  const approved = cardCharge === 0 || result?.finalStatus === "approved";
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const chargeRemaining = async () => {
-    if (remaining <= 0 || !provider || charging) return;
+    if (cardCharge <= 0 || !provider || charging) return;
     if (!isOnlineNow()) {
       setEvent({
         status: "network_error",
@@ -583,7 +619,7 @@ function SplitPanel({
     setResult(null);
     try {
       const paymentResult = await provider.charge(
-        { amount: remaining, currency, method: "card" },
+        { amount: cardCharge, currency, method: "card" },
         (next) => setEvent(next),
         controller.signal,
       );
@@ -597,23 +633,33 @@ function SplitPanel({
     if (!approved) return;
     const allocations: PaymentAllocation[] = [];
     if (cash > 0) allocations.push({ method: "cash", amount: cash });
-    if (remaining > 0 && result)
+    if (cardCharge > 0 && result) {
       allocations.push({
         method: "card",
-        amount: remaining,
+        amount: cardCharge,
         provider: provider?.id,
         reference: result.reference,
         cardBrand: result.cardBrand,
         last4: result.last4,
       });
+    }
     onComplete({
       method: "split",
-      amountTendered: total,
+      amountTendered: finalAmount,
       changeDue: 0,
       reference: result?.reference,
       cardBrand: result?.cardBrand,
       last4: result?.last4,
       allocations,
+      cashBaseTotal: total,
+      cardPriceAdjustment: roundMoney(finalAmount - total),
+      finalAmountCharged: finalAmount,
+      estimatedProcessorFee:
+        cardCharge > 0 ? cardQuote.estimatedProcessingFee : 0,
+      estimatedMerchantNet:
+        cardCharge > 0
+          ? roundMoney(cash + cardQuote.estimatedMerchantNet)
+          : total,
     });
   };
 
@@ -624,24 +670,44 @@ function SplitPanel({
           <SplitSquareHorizontal className="size-5 text-primary" /> Split payment
         </DialogTitle>
         <DialogDescription>
-          Take part in cash, then charge the exact remaining balance to card.
+          Enter the cash portion first. SEZA calculates the card portion before the reader starts.
         </DialogDescription>
       </DialogHeader>
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-6">
         <div className="grid grid-cols-2 gap-3 rounded-2xl border bg-muted/30 p-4">
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Total due</div>
-            <div className="mt-1 text-2xl font-bold font-mono">{fmtCurrency(total, currency)}</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              Cash/base price
+            </div>
+            <div className="mt-1 text-2xl font-bold font-mono">
+              {fmtCurrency(total, currency)}
+            </div>
           </div>
           <div className="text-right">
             <div className="text-xs uppercase tracking-wide text-muted-foreground">
-              Card balance
+              Card portion
             </div>
             <div className="mt-1 text-2xl font-bold font-mono text-primary">
-              {fmtCurrency(remaining, currency)}
+              {fmtCurrency(cardCharge, currency)}
             </div>
           </div>
         </div>
+
+        {cardQuote.adjustment > 0 && (
+          <div className="rounded-lg border border-blue-500/25 bg-blue-500/5 px-4 py-3 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Card price adjustment</span>
+              <span className="font-mono font-semibold">
+                {fmtCurrency(cardQuote.adjustment, currency)}
+              </span>
+            </div>
+            <div className="mt-1 flex justify-between gap-3 font-semibold">
+              <span>Customer total</span>
+              <span className="font-mono">{fmtCurrency(finalAmount, currency)}</span>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label>Cash amount</Label>
           <div
@@ -689,7 +755,8 @@ function SplitPanel({
             }}
           />
         </div>
-        {remaining > 0 && (
+
+        {cardCharge > 0 && (
           <div className="rounded-2xl border p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -716,7 +783,7 @@ function SplitPanel({
               {charging && <Loader2 className="mr-2 size-4 animate-spin" />}
               {result?.finalStatus === "approved"
                 ? "Card approved"
-                : `Charge ${fmtCurrency(remaining, currency)}`}
+                : `Charge ${fmtCurrency(cardCharge, currency)}`}
             </Button>
           </div>
         )}
@@ -738,6 +805,8 @@ function SplitPanel({
 function TerminalPanel({
   method,
   total,
+  baseTotal,
+  pricing,
   currency,
   onComplete,
   onPaymentEvent,
@@ -746,6 +815,8 @@ function TerminalPanel({
 }: {
   method: PaymentMethod;
   total: number;
+  baseTotal: number;
+  pricing?: CardProcessingPricing;
   currency: string;
   onComplete: (p: CompletedPayment) => void;
   onPaymentEvent?: (event: PaymentEvent) => void;
@@ -875,6 +946,15 @@ function TerminalPanel({
     );
   }
 
+  const effectivePricing: CardProcessingPricing = pricing ?? {
+    enabled: false,
+    percentRate: 0,
+    fixedFee: 0,
+  };
+  const cardPriceAdjustment = Math.max(0, roundMoney(total - baseTotal));
+  const processorFeeEstimate = estimatedProcessingFee(total, effectivePricing);
+  const merchantNetEstimate = roundMoney(total - processorFeeEstimate);
+
   const status: PaymentStatus = result?.finalStatus ?? event.status;
   const isTerminal =
     status === "approved" ||
@@ -891,11 +971,22 @@ function TerminalPanel({
           <CreditCard className="size-5 text-primary" /> Card payment
         </DialogTitle>
         <DialogDescription>
-          Charging{" "}
-          <span className="font-mono font-semibold text-foreground">
-            {fmtCurrency(total, currency)}
-          </span>{" "}
-          via {method.replace("_", " ")}
+          {cardPriceAdjustment > 0 ? (
+            <>
+              Cash price {fmtCurrency(baseTotal, currency)} · Card total{" "}
+              <span className="font-mono font-semibold text-foreground">
+                {fmtCurrency(total, currency)}
+              </span>
+            </>
+          ) : (
+            <>
+              Charging{" "}
+              <span className="font-mono font-semibold text-foreground">
+                {fmtCurrency(total, currency)}
+              </span>{" "}
+              via {method.replace("_", " ")}
+            </>
+          )}
         </DialogDescription>
       </DialogHeader>
 
@@ -955,6 +1046,11 @@ function TerminalPanel({
                 reference: result.reference,
                 cardBrand: result.cardBrand,
                 last4: result.last4,
+                cashBaseTotal: baseTotal,
+                cardPriceAdjustment,
+                finalAmountCharged: total,
+                estimatedProcessorFee: processorFeeEstimate,
+                estimatedMerchantNet: merchantNetEstimate,
               })
             }
           >

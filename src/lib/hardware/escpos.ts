@@ -31,6 +31,8 @@ export interface ReceiptPayload {
   subtotal: number;
   tax?: number;
   discount?: number;
+  cashBaseTotal?: number;
+  cardPriceAdjustment?: number;
   total: number;
   tender?: { method: string; amount: number };
   tenderAllocations?: Array<{ method: string; amount: number }>;
@@ -218,7 +220,13 @@ export function buildReceipt(p: ReceiptPayload): Uint8Array {
   if (typeof p.discount === "number" && p.discount > 0)
     row("Discount", "-" + money(p.discount, currency));
   if (typeof p.tax === "number" && p.tax > 0) row("Tax", money(p.tax, currency));
-  row("TOTAL", money(p.total, currency), true);
+  if ((p.cardPriceAdjustment ?? 0) > 0) {
+    row("Cash Price", money(p.cashBaseTotal ?? p.total - (p.cardPriceAdjustment ?? 0), currency));
+    row("Card Price Adj.", money(p.cardPriceAdjustment ?? 0, currency));
+    row("CARD TOTAL", money(p.total, currency), true);
+  } else {
+    row(p.tender?.method === "CASH" ? "CASH TOTAL" : "TOTAL", money(p.total, currency), true);
+  }
   if (p.tenderAllocations?.length) {
     row("Method", p.tender?.method ?? "SPLIT");
     for (const allocation of p.tenderAllocations) {

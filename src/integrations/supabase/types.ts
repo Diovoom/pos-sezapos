@@ -1552,6 +1552,8 @@ export type Database = {
         Row: {
           amount_tendered: number | null
           cashier_id: string | null
+          card_price_adjustment: number
+          cash_base_total: number
           change_due: number | null
           created_at: string
           customer_email: string | null
@@ -1559,7 +1561,9 @@ export type Database = {
           customer_name: string | null
           customer_phone: string | null
           discount: number
+          estimated_merchant_net: number | null
           external_order_ref: string | null
+          final_amount_charged: number
           guest_count: number | null
           id: string
           idempotency_key: string | null
@@ -1567,7 +1571,10 @@ export type Database = {
           notes: string | null
           offline_created_at: string | null
           order_type: string
+          merchant_net_amount: number | null
           payment_method: Database["public"]["Enums"]["payment_method"]
+          processing_fee_estimate: number | null
+          processor_fee_amount: number | null
           receipt_number: number | null
           refund_status: string
           refunded_amount: number
@@ -1584,6 +1591,8 @@ export type Database = {
         Insert: {
           amount_tendered?: number | null
           cashier_id?: string | null
+          card_price_adjustment?: number
+          cash_base_total?: number
           change_due?: number | null
           created_at?: string
           customer_email?: string | null
@@ -1591,7 +1600,9 @@ export type Database = {
           customer_name?: string | null
           customer_phone?: string | null
           discount?: number
+          estimated_merchant_net?: number | null
           external_order_ref?: string | null
+          final_amount_charged?: number
           guest_count?: number | null
           id?: string
           idempotency_key?: string | null
@@ -1599,7 +1610,10 @@ export type Database = {
           notes?: string | null
           offline_created_at?: string | null
           order_type?: string
+          merchant_net_amount?: number | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          processing_fee_estimate?: number | null
+          processor_fee_amount?: number | null
           receipt_number?: number | null
           refund_status?: string
           refunded_amount?: number
@@ -1616,6 +1630,8 @@ export type Database = {
         Update: {
           amount_tendered?: number | null
           cashier_id?: string | null
+          card_price_adjustment?: number
+          cash_base_total?: number
           change_due?: number | null
           created_at?: string
           customer_email?: string | null
@@ -1623,7 +1639,9 @@ export type Database = {
           customer_name?: string | null
           customer_phone?: string | null
           discount?: number
+          estimated_merchant_net?: number | null
           external_order_ref?: string | null
+          final_amount_charged?: number
           guest_count?: number | null
           id?: string
           idempotency_key?: string | null
@@ -1631,7 +1649,10 @@ export type Database = {
           notes?: string | null
           offline_created_at?: string | null
           order_type?: string
+          merchant_net_amount?: number | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          processing_fee_estimate?: number | null
+          processor_fee_amount?: number | null
           receipt_number?: number | null
           refund_status?: string
           refunded_amount?: number
@@ -1840,6 +1861,8 @@ export type Database = {
           business_hours: Json | null
           business_type: string | null
           business_verification_status: string
+          card_processing_fixed_fee: number
+          card_processing_percent: number
           city: string | null
           country: string | null
           country_code: string | null
@@ -1864,6 +1887,7 @@ export type Database = {
           receipt_footer: string | null
           receipt_header: string | null
           receipt_logo_url: string | null
+          recover_card_processing_costs: boolean
           region_code: string | null
           return_policy: string | null
           setup_completed_at: string | null
@@ -1897,6 +1921,8 @@ export type Database = {
           business_hours?: Json | null
           business_type?: string | null
           business_verification_status?: string
+          card_processing_fixed_fee?: number
+          card_processing_percent?: number
           city?: string | null
           country?: string | null
           country_code?: string | null
@@ -1921,6 +1947,7 @@ export type Database = {
           receipt_footer?: string | null
           receipt_header?: string | null
           receipt_logo_url?: string | null
+          recover_card_processing_costs?: boolean
           region_code?: string | null
           return_policy?: string | null
           setup_completed_at?: string | null
@@ -1954,6 +1981,8 @@ export type Database = {
           business_hours?: Json | null
           business_type?: string | null
           business_verification_status?: string
+          card_processing_fixed_fee?: number
+          card_processing_percent?: number
           city?: string | null
           country?: string | null
           country_code?: string | null
@@ -1978,6 +2007,7 @@ export type Database = {
           receipt_footer?: string | null
           receipt_header?: string | null
           receipt_logo_url?: string | null
+          recover_card_processing_costs?: boolean
           region_code?: string | null
           return_policy?: string | null
           setup_completed_at?: string | null
@@ -2363,6 +2393,14 @@ export type Database = {
       finalize_pos_sale: {
         Args: { p_items: Json; p_payments?: Json; p_sale: Json }
         Returns: Json
+      }
+      set_recover_card_processing_costs: {
+        Args: { p_enabled: boolean }
+        Returns: {
+          card_processing_fixed_fee: number
+          card_processing_percent: number
+          recover_card_processing_costs: boolean
+        }[]
       }
       generate_employee_id: { Args: never; Returns: string }
       generate_store_code: { Args: never; Returns: string }

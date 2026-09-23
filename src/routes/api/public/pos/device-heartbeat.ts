@@ -95,7 +95,7 @@ export const Route = createFileRoute("/api/public/pos/device-heartbeat")({
         const { data: storeConfig } = await admin
           .from("stores")
           .select(
-            "id,name,tax_rate,currency,plan_tier,plan_status,plan_period_end,plan_cancel_at_period_end,logo_url,receipt_logo_url,receipt_header,receipt_footer,return_policy,thank_you_message,customer_display_settings,language,time_zone,date_format,updated_at",
+            "id,name,tax_rate,currency,recover_card_processing_costs,card_processing_percent,card_processing_fixed_fee,plan_tier,plan_status,plan_period_end,plan_cancel_at_period_end,logo_url,receipt_logo_url,receipt_header,receipt_footer,return_policy,thank_you_message,customer_display_settings,language,time_zone,date_format,updated_at",
           )
           .eq("id", storeId)
           .maybeSingle();

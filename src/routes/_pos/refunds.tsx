@@ -64,6 +64,9 @@ type SaleRow = {
   id: string;
   receipt_number: number | string | null;
   total: number;
+  cash_base_total?: number | null;
+  card_price_adjustment?: number | null;
+  final_amount_charged?: number | null;
   subtotal: number;
   tax: number;
   discount?: number | null;
@@ -88,7 +91,7 @@ type SaleRow = {
 };
 
 const SALE_SELECT =
-  "id,receipt_number,total,subtotal,tax,discount,amount_tendered,change_due,refunded_amount,refund_status,status,payment_method,created_at,customer_name,terminal_ref,sale_items(id,product_id,product_name,quantity,unit_price,line_total)";
+  "id,receipt_number,total,cash_base_total,card_price_adjustment,final_amount_charged,subtotal,tax,discount,amount_tendered,change_due,refunded_amount,refund_status,status,payment_method,created_at,customer_name,terminal_ref,sale_items(id,product_id,product_name,quantity,unit_price,line_total)";
 
 const REASONS = [
   { v: "damaged", l: "Damaged" },
@@ -113,6 +116,9 @@ function offlineToSaleRow(sale: OfflineSale): SaleRow {
     receipt_number:
       sale.local_receipt_number || sale.server_receipt_number || String(sale.local_seq),
     total: Number(sale.total || 0),
+    cash_base_total: Number(sale.total || 0),
+    card_price_adjustment: 0,
+    final_amount_charged: Number(sale.total || 0),
     subtotal: Number(sale.subtotal || 0),
     tax: Number(sale.tax || 0),
     discount: Number(sale.discount || 0),
@@ -158,6 +164,9 @@ function receiptDataFromSale(
     tax: Number(sale.tax),
     discount: Number(sale.discount || 0),
     total: Number(sale.total),
+    cashBaseTotal: Number(sale.cash_base_total ?? sale.total),
+    cardPriceAdjustment: Number(sale.card_price_adjustment ?? 0),
+    finalAmountCharged: Number(sale.final_amount_charged ?? sale.total),
     paymentMethod: sale.payment_method,
     amountTendered: sale.amount_tendered ?? null,
     changeDue: sale.change_due ?? null,
@@ -323,7 +332,9 @@ export function RefundsPage() {
                         status={sale.refund_status === "none" ? sale.status : `refund: ${sale.refund_status}`}
                       />
                     </TableCell>
-                    <TableCell className="text-right font-mono">{fmtCurrency(Number(sale.total), cur)}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {fmtCurrency(Number(sale.final_amount_charged ?? sale.total), cur)}
+                    </TableCell>
                     <TableCell className="text-right font-mono text-destructive">
                       {Number(sale.refunded_amount) > 0
                         ? `-${fmtCurrency(Number(sale.refunded_amount), cur)}`
@@ -453,10 +464,25 @@ function RefundDialog({
   );
   const taxRatio = sale && Number(sale.subtotal) > 0 ? Number(sale.tax) / Number(sale.subtotal) : 0;
   const refundTax = Math.round(refundSubtotal * taxRatio * 100) / 100;
+  const saleCashBaseTotal = Number(sale?.cash_base_total ?? sale?.total ?? 0);
+  const saleCardAdjustment = Math.max(0, Number(sale?.card_price_adjustment ?? 0));
+  const saleFinalAmount = Number(
+    sale?.final_amount_charged ?? saleCashBaseTotal + saleCardAdjustment,
+  );
+  const alreadyRefunded = Math.max(0, Number(sale?.refunded_amount ?? 0));
+  const remainingRefundable = Math.max(0, Math.round((saleFinalAmount - alreadyRefunded) * 100) / 100);
+  const partialBaseRefund = Math.round((refundSubtotal + refundTax) * 100) / 100;
+  const partialCardAdjustment =
+    saleCashBaseTotal > 0 && saleCardAdjustment > 0
+      ? Math.round((partialBaseRefund * saleCardAdjustment * 100) / saleCashBaseTotal) / 100
+      : 0;
   const refundTotal =
     type === "full" || type === "void"
-      ? Number(sale?.total ?? 0) - Number(sale?.refunded_amount ?? 0)
-      : Math.round((refundSubtotal + refundTax) * 100) / 100;
+      ? remainingRefundable
+      : Math.min(
+          remainingRefundable,
+          Math.round((partialBaseRefund + partialCardAdjustment) * 100) / 100,
+        );
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -581,7 +607,7 @@ function RefundDialog({
         <DialogHeader>
           <DialogTitle>Refund receipt #{sale?.receipt_number}</DialogTitle>
           <DialogDescription>
-            Sale total {sale && fmtCurrency(Number(sale.total), currency)} · Already refunded{" "}
+            Sale total {sale && fmtCurrency(Number(sale.final_amount_charged ?? sale.total), currency)} · Already refunded{" "}
             {sale && fmtCurrency(Number(sale.refunded_amount), currency)}
           </DialogDescription>
         </DialogHeader>

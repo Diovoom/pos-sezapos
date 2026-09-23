@@ -373,7 +373,7 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
       const [salesRes, refundRes] = await Promise.all([
         sb
           .from("sales")
-          .select("id, total, payment_method, status")
+          .select("id, total, card_price_adjustment, payment_method, status")
           .eq("register_session_id", session.id),
         sb
           .from("refunds")
@@ -418,12 +418,10 @@ function OpenSessionCard({ session, onChanged }: { session: Session; onChanged: 
       const cardSales = sales.reduce((sum: number, sale: any) => {
         const rows = paymentsBySale.get(String(sale.id));
         if (rows?.length) {
-          return (
-            sum +
-            rows
-              .filter((row: any) => String(row.method).toLowerCase() !== "cash")
-              .reduce((part: number, row: any) => part + Number(row.amount || 0), 0)
-          );
+          const cardTender = rows
+            .filter((row: any) => String(row.method).toLowerCase() !== "cash")
+            .reduce((part: number, row: any) => part + Number(row.amount || 0), 0);
+          return sum + Math.max(0, cardTender - Number(sale.card_price_adjustment || 0));
         }
         return sum + (sale.payment_method !== "cash" ? Number(sale.total || 0) : 0);
       }, 0);

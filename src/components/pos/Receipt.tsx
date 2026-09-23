@@ -44,6 +44,9 @@ export type ReceiptData = {
   tax: number;
   discount?: number;
   total: number;
+  cashBaseTotal?: number;
+  cardPriceAdjustment?: number;
+  finalAmountCharged?: number;
   paymentMethod: string;
   amountTendered?: number | null;
   changeDue?: number | null;
@@ -110,9 +113,18 @@ export const Receipt = forwardRef<HTMLDivElement, { data: ReceiptData }>(functio
       <Row l="Subtotal" r={fmtCurrency(data.subtotal, cur)} />
       {!!data.discount && <Row l="Discount" r={`-${fmtCurrency(data.discount, cur)}`} />}
       <Row l="Tax" r={fmtCurrency(data.tax, cur)} />
+      {(data.cardPriceAdjustment ?? 0) > 0 && (
+        <>
+          <Row l="Cash Price" r={fmtCurrency(data.cashBaseTotal ?? data.total, cur)} />
+          <Row
+            l="Card Price Adjustment"
+            r={fmtCurrency(data.cardPriceAdjustment ?? 0, cur)}
+          />
+        </>
+      )}
       <div className="flex justify-between font-bold text-[14px] mt-1">
-        <span>TOTAL</span>
-        <span>{fmtCurrency(data.total, cur)}</span>
+        <span>{(data.cardPriceAdjustment ?? 0) > 0 ? "CARD TOTAL" : data.paymentMethod === "cash" ? "CASH TOTAL" : "TOTAL"}</span>
+        <span>{fmtCurrency(data.finalAmountCharged ?? data.total, cur)}</span>
       </div>
 
       <Divider />

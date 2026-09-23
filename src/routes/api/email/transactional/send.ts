@@ -200,7 +200,7 @@ export const Route = createFileRoute("/api/email/transactional/send")({
           const { data: sale, error: saleError } = await supabase
             .from("sales")
             .select(
-              "id, store_id, receipt_number, created_at, subtotal, tax, discount, total, payment_method, amount_tendered, change_due, customer_name, terminal_ref",
+              "id, store_id, receipt_number, created_at, subtotal, tax, discount, total, cash_base_total, card_price_adjustment, final_amount_charged, payment_method, amount_tendered, change_due, customer_name, terminal_ref",
             )
             .eq("id", saleId)
             .eq("store_id", callerProfile.store_id)
@@ -245,6 +245,9 @@ export const Route = createFileRoute("/api/email/transactional/send")({
             tax: Number(sale.tax ?? 0),
             discount: Number(sale.discount ?? 0),
             total: Number(sale.total ?? 0),
+            cashBaseTotal: Number(sale.cash_base_total ?? sale.total ?? 0),
+            cardPriceAdjustment: Number(sale.card_price_adjustment ?? 0),
+            finalAmountCharged: Number(sale.final_amount_charged ?? sale.total ?? 0),
             paymentMethod: sale.payment_method ?? "cash",
             amountTendered: sale.amount_tendered ?? null,
             changeDue: sale.change_due ?? null,

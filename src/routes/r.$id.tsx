@@ -122,9 +122,24 @@ function PublicReceiptPage() {
             <Row l="Subtotal" r={fmtCurrency(data.subtotal, cur)} />
             {data.discount > 0 && <Row l="Discount" r={`-${fmtCurrency(data.discount, cur)}`} />}
             <Row l="Tax" r={fmtCurrency(data.tax, cur)} />
+            {data.cardPriceAdjustment > 0 && (
+              <>
+                <Row l="Cash Price" r={fmtCurrency(data.cashBaseTotal, cur)} />
+                <Row
+                  l="Card Price Adjustment"
+                  r={fmtCurrency(data.cardPriceAdjustment, cur)}
+                />
+              </>
+            )}
             <div className="flex justify-between text-base font-bold pt-2">
-              <span>TOTAL</span>
-              <span>{fmtCurrency(data.total, cur)}</span>
+              <span>
+                {data.cardPriceAdjustment > 0
+                  ? "CARD TOTAL"
+                  : data.paymentMethod === "cash"
+                    ? "CASH TOTAL"
+                    : "TOTAL"}
+              </span>
+              <span>{fmtCurrency(data.finalAmountCharged, cur)}</span>
             </div>
           </div>
 

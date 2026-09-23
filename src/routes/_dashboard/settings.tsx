@@ -62,6 +62,7 @@ import { HardwareCard } from "@/components/settings/HardwareCard";
 import { logAudit } from "@/lib/audit-log";
 import { getActiveProvider } from "@/lib/pos/payment-terminal";
 import { PaymentTerminalsPanel } from "@/components/settings/PaymentTerminalsPanel";
+import { RecoverCardProcessingCostsPanel } from "@/components/settings/RecoverCardProcessingCostsPanel";
 import { SmsSettingsPanel } from "@/components/settings/SmsSettingsPanel";
 import { BusinessBrandingPanel } from "@/components/settings/BusinessBrandingPanel";
 import { useServerFn } from "@tanstack/react-start";
@@ -127,6 +128,7 @@ const GROUPS: Group[] = [
     id: "operations",
     labelKey: "settings.operations_group",
     items: [
+      { id: "payments", labelKey: "Payments", icon: Wallet },
       { id: "terminal", labelKey: "settings.terminal", icon: CreditCard },
       { id: "hardware_setup", labelKey: "settings.hardware", icon: HardDrive },
       { id: "register", labelKey: "settings.cash_rules", icon: Banknote },
@@ -174,15 +176,20 @@ export function SettingsPage() {
   const lowStockAlertsEnabled = planGate.canFeature("low_stock_alerts");
   const me = useMe();
   const roles = me.data?.roles ?? [];
+  const isOwner = roles.includes("owner");
   const isManagerLike =
     isSuper || roles.some((role) => ["owner", "admin", "manager"].includes(role));
   const nativeRegister = isNativeMode();
   const canEditSettings = isManagerLike && (isSuper || has("settings.edit"));
   const canEditRoles = isSuper;
   const cashierAllowed = new Set(["appearance", "hardware_setup", "terminal", "support_contact"]);
+  const roleVisibleGroups = GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => item.id !== "payments" || isOwner),
+  })).filter((group) => group.items.length > 0);
   const groups = isManagerLike
-    ? GROUPS
-    : GROUPS.map((group) => ({
+    ? roleVisibleGroups
+    : roleVisibleGroups.map((group) => ({
         ...group,
         items: group.items.filter((item) => cashierAllowed.has(item.id)),
       })).filter((group) => group.items.length > 0);
@@ -279,6 +286,11 @@ export function SettingsPage() {
                 <PlanFeatureGate feature="team_permissions" label="Custom roles and permissions">
                   <RolePermissionsPanel canEdit={canEditRoles} />
                 </PlanFeatureGate>
+              </TabsContent>
+            )}
+            {isOwner && (
+              <TabsContent value="payments" className="mt-0">
+                <RecoverCardProcessingCostsPanel />
               </TabsContent>
             )}
             <TabsContent value="terminal" className="mt-0">

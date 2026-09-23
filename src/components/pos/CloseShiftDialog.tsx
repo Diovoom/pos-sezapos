@@ -222,7 +222,7 @@ export function CloseShiftDialog({
       const [salesRes, refundRes, movRes, noSaleRes] = await Promise.all([
         sb
           .from("sales")
-          .select("id, total, tax, subtotal, discount, payment_method, status")
+          .select("id, total, tax, subtotal, discount, card_price_adjustment, payment_method, status")
           .eq("register_session_id", session.id),
         sb
           .from("refunds")
@@ -297,12 +297,10 @@ export function CloseShiftDialog({
       const cardSales = completed.reduce((sum, sale) => {
         const rows = paymentsBySale.get(String(sale.id));
         if (rows?.length) {
-          return (
-            sum +
-            rows
-              .filter((row) => String(row.method).toLowerCase() !== "cash")
-              .reduce((part, row) => part + Number(row.amount || 0), 0)
-          );
+          const cardTender = rows
+            .filter((row) => String(row.method).toLowerCase() !== "cash")
+            .reduce((part, row) => part + Number(row.amount || 0), 0);
+          return sum + Math.max(0, cardTender - Number(sale.card_price_adjustment || 0));
         }
         return sum + (sale.payment_method !== "cash" ? Number(sale.total || 0) : 0);
       }, 0);

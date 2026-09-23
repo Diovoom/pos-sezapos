@@ -18,6 +18,9 @@ export type PublicReceipt = {
   tax: number;
   discount: number;
   total: number;
+  cashBaseTotal: number;
+  cardPriceAdjustment: number;
+  finalAmountCharged: number;
   paymentMethod: string;
   amountTendered: number | null;
   changeDue: number | null;
@@ -46,7 +49,7 @@ export const getPublicReceipt = createServerFn({ method: "GET" })
     const { data: sale, error } = await supabaseAdmin
       .from("sales")
       .select(
-        "id, receipt_number, created_at, status, subtotal, tax, discount, total, payment_method, amount_tendered, change_due, customer_name, store_id, cashier_id",
+        "id, receipt_number, created_at, status, subtotal, tax, discount, total, cash_base_total, card_price_adjustment, final_amount_charged, payment_method, amount_tendered, change_due, customer_name, store_id, cashier_id",
       )
       .eq("id", data.id)
       .maybeSingle();
@@ -83,6 +86,9 @@ export const getPublicReceipt = createServerFn({ method: "GET" })
       tax: Number(sale.tax),
       discount: Number(sale.discount),
       total: Number(sale.total),
+      cashBaseTotal: Number(sale.cash_base_total ?? sale.total),
+      cardPriceAdjustment: Number(sale.card_price_adjustment ?? 0),
+      finalAmountCharged: Number(sale.final_amount_charged ?? sale.total),
       paymentMethod: sale.payment_method,
       amountTendered: sale.amount_tendered != null ? Number(sale.amount_tendered) : null,
       changeDue: sale.change_due != null ? Number(sale.change_due) : null,

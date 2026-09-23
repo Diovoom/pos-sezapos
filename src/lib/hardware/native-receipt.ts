@@ -136,7 +136,9 @@ export function receiptDataToPayload(
     subtotal: d.subtotal,
     tax: d.tax,
     discount: d.discount,
-    total: d.total,
+    cashBaseTotal: d.cashBaseTotal ?? d.total,
+    cardPriceAdjustment: d.cardPriceAdjustment ?? 0,
+    total: d.finalAmountCharged ?? d.total,
     tender:
       d.amountTendered != null
         ? { method: d.paymentMethod.replaceAll("_", " ").toUpperCase(), amount: d.amountTendered }

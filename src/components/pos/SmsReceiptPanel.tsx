@@ -76,7 +76,7 @@ export function SmsReceiptPanel({
   const sms = buildReceiptSms({
     storeName: data.store.name ?? "our store",
     receiptNumber: data.receiptNumber,
-    total: fmtCurrency(data.total, cur),
+    total: fmtCurrency(data.finalAmountCharged ?? data.total, cur),
     paymentMethod: data.paymentMethod.replace("_", " ").toUpperCase(),
     date: new Date(data.createdAt).toLocaleString(),
     link: receiptUrl,
