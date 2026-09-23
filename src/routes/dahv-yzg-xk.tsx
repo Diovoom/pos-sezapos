@@ -47,16 +47,7 @@ function SectionBadge({ children }: { children: ReactNode }) {
   return <span className="dahv-badge">{children}</span>;
 }
 
-function GalleryCard({ src, alt, caption }: { src: string; alt: string; caption: string }) {
-  return (
-    <figure className="dahv-gallery-card">
-      <img src={src} alt={alt} className="dahv-gallery-image" />
-      <figcaption>{caption}</figcaption>
-    </figure>
-  );
-}
-
-export function KeyyBeautyGuide() {
+function KeyyBeautyGuide() {
   return (
     <main className="dahv-page">
       <section className="dahv-hero-section">
@@ -66,25 +57,22 @@ export function KeyyBeautyGuide() {
 
         <div className="dahv-shell dahv-hero-grid">
           <div className="relative z-10 dahv-hero-copy">
-            <SectionBadge>KEYY BEAUTY • GID KOLABORASYON</SectionBadge>
+            <SectionBadge>KEYY BEAUTY • BESTIE GUIDE</SectionBadge>
 
             <h1 className="dahv-display mt-7">
               Kijan pou resevwa
               <br />
-              cheve pou
-              <br />
-              kolaborasyon
+              cheve gratis
             </h1>
 
             <p className="dahv-lead mt-7 max-w-2xl">
-              Premye bagay la se ekri seller yo ak mesaj mwen te ba ou a. Gid sa a
-              ap ede w konprann etap yo, orè pou ekri yo, epi kijan yo konn esplike
-              policy yo apre yo verifye pwofil ou.
+              Tout sa ou bezwen konnen pou kontakte seller yo, prezante tèt ou byen,
+              epi suiv etap kolaborasyon an san w pa konfonn.
             </p>
 
             <div className="mt-8 inline-flex items-center gap-3 rounded-full bg-white px-5 py-3 shadow-sm">
-              <span className="text-2xl">🎀</span>
-              <span className="font-semibold text-pink-700">Pa: Keyy Beauty</span>
+              <span className="text-2xl">💗</span>
+              <span className="font-semibold text-pink-700">By: Keyy Beauty</span>
             </div>
           </div>
 
@@ -96,22 +84,22 @@ export function KeyyBeautyGuide() {
         </div>
       </section>
 
-      <section className="dahv-section dahv-section-white">
-        <div className="dahv-shell max-w-5xl text-center">
-          <SectionBadge>ENTWODIKSYON</SectionBadge>
-          <h2 className="dahv-heading mt-5">Byenvini nan gid la 💗</h2>
-          <p className="dahv-body mx-auto mt-6 max-w-4xl">
-            Paj sa a mete tout bagay ansanm nan yon sèl plas pou w ka li l fasil.
-            Ou ka pran mesaj la, voye li bay seller yo, tann repons yo, epi suiv
-            etap yo selon policy seller la ap ba ou.
-          </p>
-          <div className="dahv-note mt-8 text-left">
-            <p className="font-bold text-pink-800">Ti rapèl:</p>
-            <p className="mt-2">
-              Seller yo konn mande plis detay sou pwofil ou, sou fason w ap travay,
-              ak sou pwodwi w ap chèche a. Se poutèt sa li bon pou w li tout etap yo
-              anvan ou kòmanse.
+      <section className="dahv-lookbook">
+        <div className="dahv-shell">
+          <div className="dahv-lookbook-heading">
+            <div>
+              <SectionBadge>KEYY BEAUTY</SectionBadge>
+              <h2 className="dahv-heading mt-5">Bèl cheve. Bèl kontni. Bèl kolaborasyon.</h2>
+            </div>
+            <p className="dahv-body">
+              Lè w prezante tèt ou byen epi w suiv etap seller la, tout bagay vin pi fasil.
             </p>
+          </div>
+          <div className="dahv-editorial-grid mt-10">
+            <img src={blondeImage} alt="Cheve blond ondile" />
+            <img src={middlePartImage} alt="Cheve nwa ak raie nan mitan" />
+            <img src={curlyImage} alt="Cheve nwa boukle" />
+            <img src={volumeCurlsImage} alt="Cheve ak gwo boukl" />
           </div>
         </div>
       </section>
@@ -186,24 +174,19 @@ export function KeyyBeautyGuide() {
         </div>
       </section>
 
-      <section className="dahv-section dahv-section-pink">
-        <div className="dahv-shell max-w-6xl">
-          <div className="text-center">
-            <SectionBadge>DESIGN AK FOTO YO</SectionBadge>
-            <h2 className="dahv-heading mt-5">Kèk style ak foto pou fè paj la bèl</h2>
-            <p className="dahv-body mx-auto mt-5 max-w-3xl">
-              Men kèk imaj yo mete nan paj la pou nenpòt moun ki antre sou li wè style yo touswit.
-            </p>
+      <section className="dahv-visual-break">
+        <div className="dahv-shell dahv-visual-break-grid">
+          <div className="dahv-collage">
+            <img className="dahv-collage-main" src={curlyFrontalImage} alt="Cheve nwa boukle ak frontal" />
+            <img className="dahv-collage-small dahv-collage-small-one" src={straightImage} alt="Cheve long dwat" />
+            <img className="dahv-collage-small dahv-collage-small-two" src={heroImage} alt="Cheve woz" />
           </div>
-
-          <div className="dahv-gallery-grid mt-10">
-            <GalleryCard src={heroImage} alt="Perik woz" caption="Style woz" />
-            <GalleryCard src={blondeImage} alt="Perik blond" caption="Blond glam" />
-            <GalleryCard src={middlePartImage} alt="Middle part" caption="Raie nan mitan" />
-            <GalleryCard src={curlyImage} alt="Curly side part" caption="Boukl sou kote" />
-            <GalleryCard src={straightImage} alt="Straight pony style" caption="Style dwat" />
-            <GalleryCard src={curlyFrontalImage} alt="Perik nwa boukle ak frontal" caption="Frontal boukle" />
-            <GalleryCard src={volumeCurlsImage} alt="Perik nwa ak gwo boukl" caption="Gwo boukl" />
+          <div className="dahv-visual-copy">
+            <span className="dahv-script">Bestie, sonje sa ♡</span>
+            <h2 className="dahv-heading mt-4">Toujou verifye pwodwi a anvan ou pase kòmann lan.</h2>
+            <p className="dahv-body mt-6">
+              Lè seller la voye keyword la, chèche cheve a sou Amazon epi voye foto oswa lyen an ba li pou li konfime se bon pwodwi a.
+            </p>
           </div>
         </div>
       </section>
@@ -212,16 +195,16 @@ export function KeyyBeautyGuide() {
         <div className="dahv-shell max-w-6xl">
           <div className="text-center">
             <SectionBadge>KONDISYON</SectionBadge>
-            <h2 className="dahv-heading mt-5">Sa seller la ka esplike w sou kondisyon yo</h2>
+            <h2 className="dahv-heading mt-5">Li kondisyon seller la byen anvan ou kontinye</h2>
             <p className="dahv-body mx-auto mt-5 max-w-4xl">
-              Men yon fason pou eksplike kondisyon yo jan seller yo konn fè sa. Mwen kite l fasil pou w li.
+              Chak seller ka gen fason pa li pou fè kolaborasyon an. Men sa pou w veye pandan konvèsasyon an.
             </p>
           </div>
 
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
             <article className="dahv-policy-card dahv-policy-good">
               <div className="text-3xl">💗</div>
-              <h3>Sa yo konn voye ba ou</h3>
+              <h3>Sa seller la ka mande</h3>
               <ul>
                 <li>Yo verifye pwofil Amazon ou anvan yo deside si yo ka kolabore avè w.</li>
                 <li>Yo ka voye mo kle a (keyword) pou w chèche pwodwi a.</li>
@@ -233,7 +216,7 @@ export function KeyyBeautyGuide() {
 
             <article className="dahv-policy-card dahv-policy-bad">
               <div className="text-3xl">🎀</div>
-              <h3>Sa ou dwe sonje</h3>
+              <h3>Sa pou w sonje</h3>
               <ul>
                 <li>Li mesaj seller la byen pou w ka konprann kondisyon li bay yo.</li>
                 <li>Toujou voye pwodwi a tounen ba li nan chat la pou verifye si se menm cheve a.</li>

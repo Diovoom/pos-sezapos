@@ -271,3 +271,139 @@
 @media (prefers-reduced-motion: reduce) {
   .dahv-float { animation: none; }
 }
+
+/* Keyy Beauty editorial redesign */
+.dahv-lookbook {
+  position: relative;
+  overflow: hidden;
+  padding-block: clamp(72px, 8vw, 110px);
+  background: linear-gradient(180deg, #fff 0%, #fff5fa 100%);
+}
+
+.dahv-lookbook-heading {
+  display: grid;
+  gap: 24px;
+  align-items: end;
+}
+
+@media (min-width: 900px) {
+  .dahv-lookbook-heading { grid-template-columns: 1.35fr .65fr; }
+}
+
+.dahv-editorial-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dahv-editorial-grid img {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 24px;
+  box-shadow: 0 18px 45px rgb(116 24 70 / 12%);
+}
+
+@media (min-width: 760px) {
+  .dahv-editorial-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+  .dahv-editorial-grid img:nth-child(2), .dahv-editorial-grid img:nth-child(4) { transform: translateY(26px); }
+}
+
+.dahv-visual-break {
+  position: relative;
+  overflow: hidden;
+  padding-block: clamp(82px, 10vw, 140px);
+  background: radial-gradient(circle at 10% 20%, #ffd7e8 0, transparent 28rem), linear-gradient(135deg, #fff8fb 0%, #ffe9f3 100%);
+}
+
+.dahv-visual-break-grid {
+  display: grid;
+  gap: clamp(48px, 8vw, 96px);
+  align-items: center;
+}
+
+@media (min-width: 960px) {
+  .dahv-visual-break-grid { grid-template-columns: 1.05fr .95fr; }
+}
+
+.dahv-collage {
+  position: relative;
+  min-height: 560px;
+}
+
+.dahv-collage img {
+  object-fit: cover;
+  border: 7px solid #fff;
+  box-shadow: 0 26px 70px rgb(104 30 65 / 18%);
+}
+
+.dahv-collage-main {
+  position: absolute;
+  inset: 0 auto auto 5%;
+  width: 68%;
+  height: 86%;
+  border-radius: 38px;
+}
+
+.dahv-collage-small {
+  position: absolute;
+  width: 38%;
+  aspect-ratio: 4 / 5;
+  border-radius: 28px;
+}
+
+.dahv-collage-small-one { right: 1%; top: 4%; transform: rotate(4deg); }
+.dahv-collage-small-two { right: 7%; bottom: 0; transform: rotate(-4deg); }
+
+.dahv-script {
+  display: inline-block;
+  color: var(--pink-600);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  font-style: italic;
+}
+
+.dahv-visual-copy {
+  max-width: 580px;
+}
+
+.dahv-message {
+  position: relative;
+  overflow: hidden;
+  border-color: #f6bfd8;
+  background: linear-gradient(145deg, #fff, #fff7fb);
+}
+
+.dahv-message::before {
+  content: "“";
+  position: absolute;
+  right: 22px;
+  top: -30px;
+  color: rgb(240 96 164 / 12%);
+  font-family: Georgia, serif;
+  font-size: 12rem;
+  line-height: 1;
+}
+
+.dahv-step-card:nth-child(even) { transform: translateX(min(2vw, 18px)); }
+
+.dahv-finale::before {
+  content: "KEYY BEAUTY";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: rgb(240 96 164 / 5%);
+  font-family: Georgia, serif;
+  font-size: clamp(5rem, 18vw, 15rem);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .dahv-editorial-grid img { border-radius: 18px; }
+  .dahv-collage { min-height: 430px; }
+  .dahv-collage-main { width: 72%; height: 82%; border-radius: 28px; }
+  .dahv-collage-small { width: 42%; border-radius: 20px; }
+  .dahv-step-card:nth-child(even) { transform: none; }
+}
