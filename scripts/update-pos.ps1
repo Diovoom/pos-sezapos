@@ -7,7 +7,10 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $AndroidSdk = "F:\Android\Sdk"
 $Adb = Join-Path $AndroidSdk "platform-tools\adb.exe"
-$Keystore = "$env:USERPROFILE\.android\debug.keystore"
+$LegacyDebugKeystore = "$env:USERPROFILE\.android\debug.keystore"
+$SigningDir = Join-Path $ProjectRoot ".seza-signing"
+$PinnedKeystore = Join-Path $SigningDir "seza-pos-update.keystore"
+$Keystore = $null
 
 $WorkflowApiBase = "https://api.github.com/repos/Diovoom/pos-sezapos/actions/workflows/android-build.yml/runs"
 $ArtifactName = "SEZA-POS-APK"
@@ -21,10 +24,6 @@ $SignedApk = Join-Path $UpdateDir "SEZA-POS-update.apk"
 
 if (!(Test-Path $Adb)) {
     throw "ADB not found at $Adb"
-}
-
-if (!(Test-Path $Keystore)) {
-    throw "SEZA signing key not found at $Keystore"
 }
 
 $Curl = (Get-Command curl.exe -ErrorAction SilentlyContinue).Source
@@ -239,13 +238,15 @@ if (Test-Path $DownloadedApk) {
     Remove-Item $DownloadedApk -Force
 }
 
+$ArtifactDownloadUrl = "https://api.github.com/repos/Diovoom/pos-sezapos/actions/artifacts/$($Artifact.id)/zip"
+
 & $Curl -L --fail --show-error --retry 5 --retry-delay 2 --connect-timeout 20 `
-    -H "Accept: application/octet-stream" `
+    -H "Accept: application/vnd.github+json" `
     -H "Authorization: Bearer $GitHubToken" `
     -H "X-GitHub-Api-Version: 2022-11-28" `
     -H "User-Agent: SEZA-POS-Updater" `
     --output $ArtifactZip `
-    $Artifact.archive_download_url
+    $ArtifactDownloadUrl
 
 if ($LASTEXITCODE -ne 0) {
     throw "Could not download the GitHub APK artifact."
@@ -280,43 +281,288 @@ if (Test-Path $SignedApk) {
     Remove-Item $SignedApk -Force
 }
 
-Write-Host "Signing APK with the existing SEZA POS key..."
+function Invoke-SezaNative {
+    param(
+        [Parameter(Mandatory = $true)][string]$Exe,
+        [Parameter(Mandatory = $true)][string[]]$Args
+    )
 
-& $ApkSigner sign `
-    --ks $Keystore `
-    --ks-key-alias androiddebugkey `
-    --ks-pass pass:android `
-    --key-pass pass:android `
-    --out $SignedApk `
-    $DownloadedApk
+    $PreviousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $Output = @(& $Exe @Args 2>&1 | ForEach-Object { "$_" })
+        $ExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $PreviousErrorActionPreference
+    }
 
-if ($LASTEXITCODE -ne 0) {
-    throw "APK signing failed."
+    return [pscustomobject]@{
+        ExitCode = $ExitCode
+        Output = $Output
+        Text = ($Output -join "`n")
+    }
 }
 
-& $ApkSigner verify $SignedApk
-if ($LASTEXITCODE -ne 0) {
-    throw "APK signature verification failed."
+function Get-ApkSignerDigest {
+    param([Parameter(Mandatory = $true)][string]$ApkPath)
+
+    if (!(Test-Path $ApkPath)) {
+        return $null
+    }
+
+    $Verify = Invoke-SezaNative -Exe $ApkSigner -Args @("verify", "--print-certs", $ApkPath)
+    foreach ($Line in $Verify.Output) {
+        if ($Line -match "SHA-256 digest:\s*([0-9A-Fa-f]+)") {
+            return $Matches[1].ToLowerInvariant()
+        }
+    }
+
+    return $null
+}
+
+function Sign-SezaApk {
+    param(
+        [Parameter(Mandatory = $true)][string]$InputApk,
+        [Parameter(Mandatory = $true)][string]$OutputApk,
+        [Parameter(Mandatory = $true)][string]$KeyPath
+    )
+
+    if (Test-Path $OutputApk) {
+        Remove-Item $OutputApk -Force
+    }
+
+    $Sign = Invoke-SezaNative -Exe $ApkSigner -Args @(
+        "sign",
+        "--ks", $KeyPath,
+        "--ks-key-alias", "androiddebugkey",
+        "--ks-pass", "pass:android",
+        "--key-pass", "pass:android",
+        "--out", $OutputApk,
+        $InputApk
+    )
+
+    if ($Sign.ExitCode -ne 0) {
+        return $false
+    }
+
+    $Verify = Invoke-SezaNative -Exe $ApkSigner -Args @("verify", $OutputApk)
+    return ($Verify.ExitCode -eq 0)
+}
+
+function Get-InstalledSezaApk {
+    $PackageResult = Invoke-SezaNative -Exe $Adb -Args @("shell", "pm", "path", "com.sezapos.app")
+    if ($PackageResult.ExitCode -ne 0) {
+        return $null
+    }
+
+    $PackagePath = $PackageResult.Output |
+        Where-Object { "$_" -like "package:*base.apk*" } |
+        Select-Object -First 1
+
+    if (-not $PackagePath) {
+        $PackagePath = $PackageResult.Output |
+            Where-Object { "$_" -like "package:*" } |
+            Select-Object -First 1
+    }
+
+    if (-not $PackagePath) {
+        return $null
+    }
+
+    $RemoteApk = ("$PackagePath").Trim() -replace "^package:", ""
+    if (-not $RemoteApk) {
+        return $null
+    }
+
+    $InstalledApk = Join-Path $UpdateDir "SEZA-POS-installed.apk"
+    if (Test-Path $InstalledApk) {
+        Remove-Item $InstalledApk -Force
+    }
+
+    $Pull = Invoke-SezaNative -Exe $Adb -Args @("pull", $RemoteApk, $InstalledApk)
+    if ($Pull.ExitCode -ne 0 -or !(Test-Path $InstalledApk)) {
+        return $null
+    }
+
+    return $InstalledApk
+}
+
+function Get-CandidateSignerDigest {
+    param([Parameter(Mandatory = $true)][string]$KeyPath)
+
+    if (!(Test-Path $KeyPath)) {
+        return $null
+    }
+
+    $CandidateApk = Join-Path $UpdateDir "signer-check.apk"
+    try {
+        if (-not (Sign-SezaApk -InputApk $DownloadedApk -OutputApk $CandidateApk -KeyPath $KeyPath)) {
+            return $null
+        }
+        return Get-ApkSignerDigest -ApkPath $CandidateApk
+    } finally {
+        if (Test-Path $CandidateApk) {
+            Remove-Item $CandidateApk -Force
+        }
+    }
 }
 
 Write-Host ""
 Write-Host "Connecting to POS at $Device..."
-& $Adb connect $Device | Out-Host
+$Connect = Invoke-SezaNative -Exe $Adb -Args @("connect", $Device)
+$Connect.Output | Out-Host
 
-$Connected = & $Adb devices
-if (($Connected -join "`n") -notmatch ([regex]::Escape($Device) + "\s+device")) {
+$Devices = Invoke-SezaNative -Exe $Adb -Args @("devices")
+if ($Devices.Text -notmatch ([regex]::Escape($Device) + "\s+device")) {
     throw "POS is not connected over ADB at $Device"
+}
+
+# Pin the signing key that matches the APK already installed on the POS.
+# This prevents Android update signature mismatches if the normal debug
+# keystore is later regenerated or replaced.
+New-Item -ItemType Directory -Force $SigningDir | Out-Null
+
+$InstalledApk = Get-InstalledSezaApk
+$InstalledDigest = if ($InstalledApk) { Get-ApkSignerDigest -ApkPath $InstalledApk } else { $null }
+
+$CandidateKeys = @()
+if (Test-Path $PinnedKeystore) {
+    $CandidateKeys += $PinnedKeystore
+}
+if (Test-Path $LegacyDebugKeystore) {
+    $LegacyResolved = (Resolve-Path $LegacyDebugKeystore).Path
+    $AlreadyIncluded = $CandidateKeys | Where-Object {
+        (Resolve-Path $_).Path -eq $LegacyResolved
+    }
+    if (-not $AlreadyIncluded) {
+        $CandidateKeys += $LegacyDebugKeystore
+    }
+}
+
+$ProjectDebugKeystore = Join-Path $ProjectRoot "android\app\debug.keystore"
+if (Test-Path $ProjectDebugKeystore) {
+    $ProjectResolved = (Resolve-Path $ProjectDebugKeystore).Path
+    $AlreadyIncluded = $CandidateKeys | Where-Object {
+        (Resolve-Path $_).Path -eq $ProjectResolved
+    }
+    if (-not $AlreadyIncluded) {
+        $CandidateKeys += $ProjectDebugKeystore
+    }
+}
+
+if ($InstalledDigest) {
+    Write-Host "Installed SEZA signer: $InstalledDigest"
+
+    foreach ($CandidateKey in $CandidateKeys) {
+        $CandidateDigest = Get-CandidateSignerDigest -KeyPath $CandidateKey
+        if ($CandidateDigest -and $CandidateDigest -eq $InstalledDigest) {
+            $Keystore = $CandidateKey
+            break
+        }
+    }
+
+    if (-not $Keystore) {
+        throw @"
+The installed SEZA POS is signed with a key that is not available on this laptop.
+
+Installed signer SHA-256: $InstalledDigest
+
+The updater did NOT uninstall SEZA POS and did NOT erase any app data.
+To preserve seamless updates, the original signing key used for the installed app must be restored once.
+"@
+    }
+
+    # Once the matching key is found, preserve a dedicated copy for all future
+    # SEZA updates instead of depending on Android's replaceable debug.keystore.
+    if ((Resolve-Path $Keystore).Path -ne $PinnedKeystore) {
+        Copy-Item -LiteralPath $Keystore -Destination $PinnedKeystore -Force
+        $Keystore = $PinnedKeystore
+        Write-Host "Pinned the matching SEZA signing key for future updates."
+    }
+} else {
+    if (Test-Path $PinnedKeystore) {
+        $Keystore = $PinnedKeystore
+    } elseif (Test-Path $LegacyDebugKeystore) {
+        Copy-Item -LiteralPath $LegacyDebugKeystore -Destination $PinnedKeystore -Force
+        $Keystore = $PinnedKeystore
+        Write-Host "Pinned the SEZA signing key for future updates."
+    } else {
+        throw "No SEZA signing key is available. Expected $PinnedKeystore or $LegacyDebugKeystore"
+    }
+}
+
+Write-Host "Signing APK with the pinned SEZA POS key..."
+
+if (-not (Sign-SezaApk -InputApk $DownloadedApk -OutputApk $SignedApk -KeyPath $Keystore)) {
+    throw "APK signing or signature verification failed."
+}
+
+$UpdateDigest = Get-ApkSignerDigest -ApkPath $SignedApk
+if (-not $UpdateDigest) {
+    throw "Could not read the signer from the newly signed SEZA APK."
+}
+
+Write-Host "Update SEZA signer:    $UpdateDigest"
+
+if ($InstalledDigest -and $UpdateDigest -ne $InstalledDigest) {
+    throw "Signing preflight failed: installed and update APK signatures do not match. Installation was not attempted."
+}
+
+function Invoke-SezaAdbInstall {
+    param([Parameter(Mandatory = $true)][string[]]$InstallArgs)
+
+    return Invoke-SezaNative -Exe $Adb -Args $InstallArgs
 }
 
 Write-Host ""
 Write-Host "Installing SEZA POS update..."
 
-$InstallOutput = & $Adb install -r $SignedApk 2>&1
-$InstallOutput | Out-Host
+# Stop the running process before replacement. This does not clear application
+# data and makes package replacement more reliable on older Android POS images.
+$null = Invoke-SezaNative -Exe $Adb -Args @("shell", "am", "force-stop", "com.sezapos.app")
 
-if ($LASTEXITCODE -ne 0 -or ($InstallOutput -join "`n") -notmatch "Success") {
-    throw "SEZA POS update failed."
+$Install = Invoke-SezaAdbInstall -InstallArgs @("install", "--no-streaming", "-r", $SignedApk)
+$Install.Output | Out-Host
+
+if ($Install.ExitCode -ne 0 -or $Install.Text -notmatch "Success") {
+    if ($Install.Text -match "Unknown option: --no-streaming|unknown option --no-streaming") {
+        Write-Host "This ADB target does not support --no-streaming. Retrying normally..." -ForegroundColor Yellow
+        $Install = Invoke-SezaAdbInstall -InstallArgs @("install", "-r", $SignedApk)
+        $Install.Output | Out-Host
+    }
+}
+
+if ($Install.ExitCode -ne 0 -or $Install.Text -notmatch "Success") {
+    if ($Install.Text -match "INSTALL_FAILED_VERSION_DOWNGRADE") {
+        Write-Host "Installed POS has a higher version code. Retrying while preserving app data..." -ForegroundColor Yellow
+        $Install = Invoke-SezaAdbInstall -InstallArgs @("install", "--no-streaming", "-r", "-d", $SignedApk)
+        if ($Install.Text -match "Unknown option: --no-streaming|unknown option --no-streaming") {
+            $Install = Invoke-SezaAdbInstall -InstallArgs @("install", "-r", "-d", $SignedApk)
+        }
+        $Install.Output | Out-Host
+    }
+}
+
+if ($Install.ExitCode -ne 0 -or $Install.Text -notmatch "Success") {
+    if ($Install.Text -match "device offline|no devices|closed|connection reset") {
+        Write-Host "ADB connection dropped. Reconnecting once and retrying..." -ForegroundColor Yellow
+        $null = Invoke-SezaNative -Exe $Adb -Args @("disconnect", $Device)
+        Start-Sleep -Seconds 2
+        $Reconnect = Invoke-SezaNative -Exe $Adb -Args @("connect", $Device)
+        $Reconnect.Output | Out-Host
+        $Install = Invoke-SezaAdbInstall -InstallArgs @("install", "--no-streaming", "-r", $SignedApk)
+        if ($Install.Text -match "Unknown option: --no-streaming|unknown option --no-streaming") {
+            $Install = Invoke-SezaAdbInstall -InstallArgs @("install", "-r", $SignedApk)
+        }
+        $Install.Output | Out-Host
+    }
+}
+
+if ($Install.ExitCode -ne 0 -or $Install.Text -notmatch "Success") {
+    throw "SEZA POS update failed. Android/ADB said:`n$($Install.Text)"
 }
 
 Write-Host ""
 Write-Host "SEZA POS updated successfully."
+Write-Host "Signing key pinned at: $PinnedKeystore"
+

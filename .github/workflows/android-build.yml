@@ -74,13 +74,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish latest SEZA POS APK
+      # The workflow artifact above is the authoritative updater input.
+      # Publishing a convenience GitHub Release must never turn a valid APK
+      # build red or block the POS updater.
+      - name: Publish latest SEZA POS APK (best effort)
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           if gh release view seza-pos-latest >/dev/null 2>&1; then
-            gh release upload seza-pos-latest SEZA-POS-latest.apk --clobber
+            gh release delete-asset seza-pos-latest SEZA-POS-latest.apk --yes >/dev/null 2>&1 || true
+            gh release upload seza-pos-latest SEZA-POS-latest.apk
           else
             gh release create seza-pos-latest SEZA-POS-latest.apk               --target "${GITHUB_SHA}"               --title "SEZA POS Latest"               --notes "Latest successful SEZA POS Android build from main."
           fi

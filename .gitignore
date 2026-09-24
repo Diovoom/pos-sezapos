@@ -66,3 +66,7 @@ SEZA-POS-v1.3.0-PRODUCTION-PATCH/
 
 # Local APK build outputs
 release/
+
+# Local SEZA updater state and pinned signing key
+.seza-update/
+.seza-signing/
