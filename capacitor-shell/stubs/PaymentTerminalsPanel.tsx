@@ -20,7 +20,7 @@ import { deviceControl } from "@/lib/device-control";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const SEZA_PAYMENT_SETUP_URL = "https://dashboard.sezapos.com/settings?section=terminal";
+const SEZA_PAYMENT_SETUP_URL = "https://dashboard.sezapos.com/settings?section=payments";
 const READER_DRIVER = "stripe-m2" as const;
 
 function connectionMethod(terminal: StripeTerminalRecord): "usb" | "bluetooth" {

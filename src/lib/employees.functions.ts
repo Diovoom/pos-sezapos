@@ -883,7 +883,7 @@ export const adminResetPin = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
     await assertOwnerAdminOrManager(ctx);
-    await assertCanManage(ctx, data.user_id);
+    await assertCanManage(ctx, data.user_id, { allowSelf: true });
     const reason = (data.reason ?? "").trim();
     if (reason.length < 4) throw new Error("A reason of at least 4 characters is required");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -1063,7 +1063,7 @@ export const updateEmployeePay = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as unknown as { supabase: SupabaseCtx; userId: string };
     await assertOwnerAdminOrManager(ctx);
-    await assertCanManage(ctx, data.user_id);
+    await assertCanManage(ctx, data.user_id, { allowSelf: true });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const admin: any = supabaseAdmin;

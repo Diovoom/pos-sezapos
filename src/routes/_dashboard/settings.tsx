@@ -18,7 +18,6 @@ import {
   Store,
   Users,
   Shield,
-  CreditCard,
   Printer,
   Scan,
   Camera,
@@ -129,7 +128,6 @@ const GROUPS: Group[] = [
     labelKey: "settings.operations_group",
     items: [
       { id: "payments", labelKey: "Payments", icon: Wallet },
-      { id: "terminal", labelKey: "settings.terminal", icon: CreditCard },
       { id: "hardware_setup", labelKey: "settings.hardware", icon: HardDrive },
       { id: "register", labelKey: "settings.cash_rules", icon: Banknote },
       { id: "reports", labelKey: "settings.reports", icon: BarChart3 },
@@ -164,13 +162,14 @@ const GROUPS: Group[] = [
 export function SettingsPage() {
   const { t } = useTranslation();
   const search = Route.useSearch();
-  const [tab, setTab] = useState(search.section ?? "general");
+  const requestedSection = search.section === "terminal" ? "payments" : search.section;
+  const [tab, setTab] = useState(requestedSection ?? "general");
   useEffect(() => {
-    if (search.section && search.section !== tab) setTab(search.section);
+    if (requestedSection && requestedSection !== tab) setTab(requestedSection);
     if (search.checkout === "success") {
       toast.success("Subscription updated  -  welcome aboard!");
     }
-  }, [search.section, search.checkout]);
+  }, [requestedSection, search.checkout]);
   const { has, isSuper } = usePermissions();
   const planGate = usePlanGate();
   const lowStockAlertsEnabled = planGate.canFeature("low_stock_alerts");
@@ -180,13 +179,10 @@ export function SettingsPage() {
   const isManagerLike =
     isSuper || roles.some((role) => ["owner", "admin", "manager"].includes(role));
   const nativeRegister = isNativeMode();
-  const canEditSettings = isManagerLike && (isSuper || has("settings.edit"));
+  const canEditSettings = isOwner || (isManagerLike && (isSuper || has("settings.edit")));
   const canEditRoles = isSuper;
-  const cashierAllowed = new Set(["appearance", "hardware_setup", "terminal", "support_contact"]);
-  const roleVisibleGroups = GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => item.id !== "payments" || isOwner),
-  })).filter((group) => group.items.length > 0);
+  const cashierAllowed = new Set(["appearance", "hardware_setup", "payments", "support_contact"]);
+  const roleVisibleGroups = GROUPS;
   const groups = isManagerLike
     ? roleVisibleGroups
     : roleVisibleGroups.map((group) => ({
@@ -288,13 +284,11 @@ export function SettingsPage() {
                 </PlanFeatureGate>
               </TabsContent>
             )}
-            {isOwner && (
-              <TabsContent value="payments" className="mt-0">
-                <RecoverCardProcessingCostsPanel />
-              </TabsContent>
-            )}
-            <TabsContent value="terminal" className="mt-0">
-              <TerminalPanel canEdit={canEditSettings} />
+            <TabsContent value="payments" className="mt-0">
+              <div className="space-y-4">
+                <TerminalPanel canEdit={canEditSettings} />
+                {isOwner && <RecoverCardProcessingCostsPanel />}
+              </div>
             </TabsContent>
             <TabsContent value="receipt" className="mt-0">
               <UnifiedReceiptPanel />

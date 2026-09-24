@@ -74,7 +74,7 @@ export function PaymentTerminalPage() {
                       </p>
                       <Button asChild size="sm" variant="outline" className="h-8 text-xs">
                         <a
-                          href="https://dashboard.sezapos.com/settings?section=terminal"
+                          href="https://dashboard.sezapos.com/settings?section=payments"
                           target="_blank"
                           rel="noreferrer"
                         >

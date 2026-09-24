@@ -580,8 +580,8 @@ export const startStripeConnectOnboarding = createServerFn({ method: "POST" })
           type: "account_onboarding",
           account_onboarding: {
             configurations: ["merchant"],
-            return_url: `${DASHBOARD_URL}/settings?section=terminal&stripe=return`,
-            refresh_url: `${DASHBOARD_URL}/settings?section=terminal&stripe=refresh`,
+            return_url: `${DASHBOARD_URL}/settings?section=payments&stripe=return`,
+            refresh_url: `${DASHBOARD_URL}/settings?section=payments&stripe=refresh`,
           },
         },
       });

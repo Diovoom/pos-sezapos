@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/select";
 
 const sb = supabase as any;
-const OWNER_PAYMENT_SETUP_URL = "https://dashboard.sezapos.com/settings?section=terminal";
+const OWNER_PAYMENT_SETUP_URL = "https://dashboard.sezapos.com/settings?section=payments";
 
 type Terminal = {
   id: string;

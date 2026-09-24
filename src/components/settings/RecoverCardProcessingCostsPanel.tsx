@@ -129,6 +129,10 @@ export function RecoverCardProcessingCostsPanel() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" /> Loading payment pricing…
             </div>
+          ) : pricing.isError ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              {userFacingError(pricing.error, "Payment pricing could not be loaded. Please refresh and try again.")}
+            </div>
           ) : (
             <>
               <div className="flex items-center justify-between gap-4 rounded-xl border p-4">
