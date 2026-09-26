@@ -51,6 +51,12 @@ if (Number(publicVersion.build) !== gradleBuild) {
   failures.push(`Build mismatch: public=${publicVersion.build}, Android=${gradleBuild}`);
 }
 
+const healthRoute = read("src/routes/api/public/health.ts");
+const healthVersion = healthRoute.match(/version:\s*["']([^"']+)["']/)?.[1];
+if (healthVersion !== pkg.version) {
+  failures.push(`Health version mismatch: package=${pkg.version}, health=${healthVersion || "missing"}`);
+}
+
 function trackedFiles(rel) {
   try {
     const output = execFileSync("git", ["ls-files", "--cached", "--", rel], {

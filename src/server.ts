@@ -77,6 +77,87 @@ function applySearchIndexPolicy(request: Request, response: Response): Response 
   });
 }
 
+const EDGE_ALLOWED_ORIGINS = new Set([
+  "https://sezapos.com",
+  "https://www.sezapos.com",
+  "https://dashboard.sezapos.com",
+  "https://admin.sezapos.com",
+  "https://pos.sezapos.com",
+  "capacitor://localhost",
+  "http://localhost",
+  "https://localhost",
+]);
+
+function configuredAllowedOrigins(): Set<string> {
+  const origins = new Set(EDGE_ALLOWED_ORIGINS);
+  const configured = process.env.SEZA_ALLOWED_ORIGINS || process.env.ALLOWED_ORIGINS || "";
+  for (const raw of configured.split(",")) {
+    const origin = raw.trim().replace(/\/$/, "");
+    if (origin) origins.add(origin);
+  }
+  return origins;
+}
+
+function appendVary(headers: Headers, value: string) {
+  const current = headers.get("Vary");
+  if (!current) {
+    headers.set("Vary", value);
+    return;
+  }
+  const values = current
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  if (!values.includes(value.toLowerCase())) {
+    headers.set("Vary", `${current}, ${value}`);
+  }
+}
+
+function applyEdgeSecurityPolicy(request: Request, response: Response): Response {
+  const url = new URL(request.url);
+  const hostname = url.hostname.toLowerCase();
+  const headers = new Headers(response.headers);
+
+  if (
+    url.protocol === "https:" &&
+    (hostname === "sezapos.com" || hostname.endsWith(".sezapos.com"))
+  ) {
+    headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+
+  const contentType = headers.get("content-type") ?? "";
+  const sensitiveHtmlHost =
+    hostname === "dashboard.sezapos.com" ||
+    hostname === "admin.sezapos.com" ||
+    hostname === "pos.sezapos.com";
+
+  if (url.pathname.startsWith("/api/") || (sensitiveHtmlHost && contentType.includes("text/html"))) {
+    headers.set("Cache-Control", "no-store");
+  }
+
+  // Several route handlers still emit Access-Control-Allow-Origin: *.
+  // Tighten that at the Cloudflare Worker boundary so browsers can only read
+  // those API responses from SEZA's known web/native origins.
+  if (headers.get("Access-Control-Allow-Origin") === "*") {
+    const origin = request.headers.get("Origin")?.replace(/\/$/, "") ?? "";
+    if (origin && configuredAllowedOrigins().has(origin)) {
+      headers.set("Access-Control-Allow-Origin", origin);
+      appendVary(headers, "Origin");
+    } else {
+      headers.delete("Access-Control-Allow-Origin");
+    }
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
@@ -84,13 +165,18 @@ export default {
       const routedRequest = rewriteKeyyBeautyHtmlRequest(request);
       const response = await handler.fetch(routedRequest, env, ctx);
       const normalized = await normalizeCatastrophicSsrResponse(response);
-      return applySearchIndexPolicy(request, normalized);
+      const indexed = applySearchIndexPolicy(request, normalized);
+      return applyEdgeSecurityPolicy(request, indexed);
     } catch (error) {
       console.error(error);
-      return new Response(renderErrorPage(), {
+      const errorResponse = new Response(renderErrorPage(), {
         status: 500,
         headers: { "content-type": "text/html; charset=utf-8" },
       });
+      return applyEdgeSecurityPolicy(
+        request,
+        applySearchIndexPolicy(request, errorResponse),
+      );
     }
   },
 };
