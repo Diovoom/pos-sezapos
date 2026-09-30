@@ -167,13 +167,13 @@ export function AdminScreenViewer({
 
         if (message?.t === "meta" && typeof message.id === "string") {
           const total = Number(message.n);
-          if (!Number.isFinite(total) || total < 1 || total > 64) return;
+          if (!Number.isInteger(total) || total < 1 || total > 64) return;
           frameAssemblies.set(message.id, {
             n: total,
             w: Number(message.w) || 0,
             h: Number(message.h) || 0,
             at: Number(message.at) || Date.now(),
-            parts: new Array(total),
+            parts: Array<string | undefined>(total).fill(undefined),
             createdAt: Date.now(),
           });
           pruneFrameAssemblies();
@@ -191,13 +191,13 @@ export function AdminScreenViewer({
         let assembly = frameAssemblies.get(message.id);
         if (!assembly) {
           const total = Number(message.n);
-          if (!Number.isFinite(total) || total < 1 || total > 128) return;
+          if (!Number.isInteger(total) || total < 1 || total > 128) return;
           assembly = {
             n: total,
             w: Number(message.w) || 0,
             h: Number(message.h) || 0,
             at: Number(message.at) || Date.now(),
-            parts: new Array(total),
+            parts: Array<string | undefined>(total).fill(undefined),
             createdAt: Date.now(),
           };
           frameAssemblies.set(message.id, assembly);

@@ -35,7 +35,7 @@ export const verifyManagerOverride = createServerFn({ method: "POST" })
     // and PINs for staff at unrelated stores via the distinct error messages.
     const { data: caller } = await admin
       .from("profiles")
-      .select("store_id")
+      .select("store_id,status")
       .eq("id", ctx.userId)
       .maybeSingle();
     const callerStoreId = caller?.store_id ?? null;
@@ -55,7 +55,7 @@ export const verifyManagerOverride = createServerFn({ method: "POST" })
       throw new Error(reason);
     };
 
-    if (!callerStoreId) return deny("No employee found with that ID");
+    if (!callerStoreId || caller?.status !== "active") return deny("No employee found with that ID");
 
     const { data: profile } = await admin
       .from("profiles")
@@ -117,13 +117,13 @@ export const verifyManagerPin = createServerFn({ method: "POST" })
 
     const { data: caller } = await admin
       .from("profiles")
-      .select("store_id")
+      .select("store_id,status")
       .eq("id", ctx.userId)
       .maybeSingle();
     const storeId = caller?.store_id ?? null;
+    if (!storeId || caller?.status !== "active") throw new Error("Active store membership required");
 
-    const rolesQ = admin.from("user_roles").select("user_id, role").in("role", MANAGER_ROLES);
-    if (storeId) rolesQ.eq("store_id", storeId);
+    const rolesQ = admin.from("user_roles").select("user_id, role").in("role", MANAGER_ROLES).eq("store_id", storeId);
     const { data: roleRows } = await rolesQ;
     const managerIds = Array.from(
       new Set(((roleRows ?? []) as { user_id: string }[]).map((r) => r.user_id)),
@@ -145,6 +145,7 @@ export const verifyManagerPin = createServerFn({ method: "POST" })
       .from("profiles")
       .select("id, full_name, first_name, last_name, email, status, pin_hash, employee_id")
       .in("id", managerIds)
+      .eq("store_id", storeId)
       .eq("status", "active");
 
     const { verifyPin } = await import("./pin.server");
@@ -166,7 +167,9 @@ export const verifyManagerPin = createServerFn({ method: "POST" })
       },
     });
 
+    const { issuePosGrant } = await import("@/lib/pos/authorization.server");
     return {
+      approval_token: issuePosGrant("manager", { actorId: ctx.userId, storeId, managerId: match.id, action: data.action, details: data.details ?? {} }, 600),
       manager_id: match.id as string,
       manager_name:
         (match.full_name as string) ||

@@ -38,28 +38,25 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-re
           return json({ error: "Invalid JSON" }, 400);
         }
         const reference = typeof body.reference === "string" ? body.reference.trim() : "";
-        const status = body.status === "completed" ? "completed" : "failed";
-        const message = typeof body.message === "string" ? body.message.slice(0, 500) : null;
         if (!reference.startsWith("pi_")) return json({ error: "Invalid payment reference" }, 400);
 
         const auth = request.headers.get("authorization") ?? "";
         const bearerToken = auth.startsWith("Bearer ") ? auth.slice(7) : "";
         try {
           const {
-            resolveStripeTerminalCaller,
             resolveStripeTerminalMerchant,
             createTerminalStripeClient,
           } = await import("@/lib/stripe-terminal.server");
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-          if (body.action === "status") {
+          {
             const merchant = await resolveStripeTerminalMerchant({
               bearerToken,
               nativeAuth: body.nativeAuth,
               requireActiveTerminal: false,
             });
             const stripe = createTerminalStripeClient(merchant.environment);
-            const intent = await stripe.paymentIntents.retrieve(reference, {
+            const intent = await stripe.paymentIntents.retrieve(reference, {}, {
               stripeAccount: merchant.stripeAccountId,
             });
             if (String(intent.metadata?.seza_store_id || "") !== merchant.storeId) {
@@ -97,14 +94,6 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-re
             });
           }
 
-          const caller = await resolveStripeTerminalCaller({ bearerToken, nativeAuth: body.nativeAuth });
-          const { error } = await (supabaseAdmin.from as any)("payment_attempts")
-            .update({ status, message })
-            .eq("store_id", caller.storeId)
-            .eq("reference", reference)
-            .eq("provider", "stripe_terminal");
-          if (error) throw error;
-          return json({ ok: true });
         } catch (error) {
           return json({ error: userFacingError(error, "Could not update payment result.") }, 400);
         }

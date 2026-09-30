@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { createMerchantSupportCase, merchantReplySupportCase } from "@/lib/support.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,6 +78,8 @@ function priorityVariant(priority: string) {
 
 export function MerchantLiveSupport({ identity }: { identity: SupportIdentity }) {
   const qc = useQueryClient();
+  const createCase = useServerFn(createMerchantSupportCase);
+  const replyCase = useServerFn(merchantReplySupportCase);
   const backTo = identity.roles.includes("owner") ? "/dashboard" : "/pos";
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
@@ -180,30 +184,9 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
   const createTicket = useMutation({
     mutationFn: async () => {
       if (!subject.trim()) throw new Error("Subject is required");
-      const { data: ticket, error } = await (supabase.from as any)("support_tickets")
-        .insert({
-          store_id: identity.storeId,
-          requester_id: identity.userId,
-          requester_email: identity.email,
-          subject: subject.trim(),
-          category: "general",
-          priority,
-          status: "open",
-          chat_status: "waiting",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      if (openingMessage.trim()) {
-        const { error: noteError } = await (supabase.from as any)("support_ticket_notes").insert({
-          ticket_id: ticket.id,
-          author_id: identity.userId,
-          author_email: identity.email,
-          body: openingMessage.trim(),
-          internal: false,
-        });
-        if (noteError) throw noteError;
-      }
+      const ticket = await createCase({ data: {
+        subject: subject.trim(), body: openingMessage.trim(), priority, category: "other",
+      } });
       return ticket.id as string;
     },
     onSuccess: (ticketId) => {
@@ -221,16 +204,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
   const sendReply = useMutation({
     mutationFn: async () => {
       if (!selectedTicket || !reply.trim()) return;
-      if (selectedTicket.status === "closed")
-        throw new Error("This case is closed. Create a new case for a new problem.");
-      const { error } = await (supabase.from as any)("support_ticket_notes").insert({
-        ticket_id: selectedTicket.id,
-        author_id: identity.userId,
-        author_email: identity.email,
-        body: reply.trim(),
-        internal: false,
-      });
-      if (error) throw error;
+      await replyCase({ data: { ticketId: selectedTicket.id, body: reply.trim() } });
     },
     onSuccess: () => {
       setReply("");
@@ -439,13 +413,8 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
                   )}
                 </div>
 
-                {selectedTicket.status === "closed" ? (
-                  <div className="rounded-lg bg-muted p-4 text-sm">
-                    This case is closed. Report a new problem if help is still needed.
-                  </div>
-                ) : (
                   <div className="space-y-2">
-                    {selectedTicket.chat_status === "ended" && (
+                    {(selectedTicket.chat_status === "ended" || selectedTicket.status === "closed" || selectedTicket.status === "resolved") && (
                       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
                         The previous live session ended. Sending a new message reactivates the
                         conversation in SEZA Admin.
@@ -469,7 +438,6 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
                       Send live message
                     </Button>
                   </div>
-                )}
               </CardContent>
             </>
           )}

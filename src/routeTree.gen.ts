@@ -54,6 +54,7 @@ import { Route as PosTimeclockRouteImport } from './routes/_pos/timeclock'
 import { Route as PosRegisterRouteImport } from './routes/_pos/register'
 import { Route as PosRefundsRouteImport } from './routes/_pos/refunds'
 import { Route as PosPosRouteImport } from './routes/_pos/pos'
+import { Route as PosPendingSyncRouteImport } from './routes/_pos/pending-sync'
 import { Route as PosManagerToolsRouteImport } from './routes/_pos/manager-tools'
 import { Route as DashboardTrainingRouteImport } from './routes/_dashboard/training'
 import { Route as DashboardStripeConnectRouteImport } from './routes/_dashboard/stripe-connect'
@@ -344,6 +345,11 @@ const PosRefundsRoute = PosRefundsRouteImport.update({
 const PosPosRoute = PosPosRouteImport.update({
   id: '/pos',
   path: '/pos',
+  getParentRoute: () => PosRouteRoute,
+} as any)
+const PosPendingSyncRoute = PosPendingSyncRouteImport.update({
+  id: '/pending-sync',
+  path: '/pending-sync',
   getParentRoute: () => PosRouteRoute,
 } as any)
 const PosManagerToolsRoute = PosManagerToolsRouteImport.update({
@@ -763,6 +769,7 @@ export interface FileRoutesByFullPath {
   '/stripe-connect': typeof DashboardStripeConnectRoute
   '/training': typeof DashboardTrainingRoute
   '/manager-tools': typeof PosManagerToolsRoute
+  '/pending-sync': typeof PosPendingSyncRoute
   '/pos': typeof PosPosRoute
   '/refunds': typeof PosRefundsRoute
   '/register': typeof PosRegisterRoute
@@ -876,6 +883,7 @@ export interface FileRoutesByTo {
   '/stripe-connect': typeof DashboardStripeConnectRoute
   '/training': typeof DashboardTrainingRoute
   '/manager-tools': typeof PosManagerToolsRoute
+  '/pending-sync': typeof PosPendingSyncRoute
   '/pos': typeof PosPosRoute
   '/refunds': typeof PosRefundsRoute
   '/register': typeof PosRegisterRoute
@@ -993,6 +1001,7 @@ export interface FileRoutesById {
   '/_dashboard/stripe-connect': typeof DashboardStripeConnectRoute
   '/_dashboard/training': typeof DashboardTrainingRoute
   '/_pos/manager-tools': typeof PosManagerToolsRoute
+  '/_pos/pending-sync': typeof PosPendingSyncRoute
   '/_pos/pos': typeof PosPosRoute
   '/_pos/refunds': typeof PosRefundsRoute
   '/_pos/register': typeof PosRegisterRoute
@@ -1108,6 +1117,7 @@ export interface FileRouteTypes {
     | '/stripe-connect'
     | '/training'
     | '/manager-tools'
+    | '/pending-sync'
     | '/pos'
     | '/refunds'
     | '/register'
@@ -1221,6 +1231,7 @@ export interface FileRouteTypes {
     | '/stripe-connect'
     | '/training'
     | '/manager-tools'
+    | '/pending-sync'
     | '/pos'
     | '/refunds'
     | '/register'
@@ -1337,6 +1348,7 @@ export interface FileRouteTypes {
     | '/_dashboard/stripe-connect'
     | '/_dashboard/training'
     | '/_pos/manager-tools'
+    | '/_pos/pending-sync'
     | '/_pos/pos'
     | '/_pos/refunds'
     | '/_pos/register'
@@ -1790,6 +1802,13 @@ declare module '@tanstack/react-router' {
       path: '/pos'
       fullPath: '/pos'
       preLoaderRoute: typeof PosPosRouteImport
+      parentRoute: typeof PosRouteRoute
+    }
+    '/_pos/pending-sync': {
+      id: '/_pos/pending-sync'
+      path: '/pending-sync'
+      fullPath: '/pending-sync'
+      preLoaderRoute: typeof PosPendingSyncRouteImport
       parentRoute: typeof PosRouteRoute
     }
     '/_pos/manager-tools': {
@@ -2404,6 +2423,7 @@ const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
 
 interface PosRouteRouteChildren {
   PosManagerToolsRoute: typeof PosManagerToolsRoute
+  PosPendingSyncRoute: typeof PosPendingSyncRoute
   PosPosRoute: typeof PosPosRoute
   PosRefundsRoute: typeof PosRefundsRoute
   PosRegisterRoute: typeof PosRegisterRoute
@@ -2412,6 +2432,7 @@ interface PosRouteRouteChildren {
 
 const PosRouteRouteChildren: PosRouteRouteChildren = {
   PosManagerToolsRoute: PosManagerToolsRoute,
+  PosPendingSyncRoute: PosPendingSyncRoute,
   PosPosRoute: PosPosRoute,
   PosRefundsRoute: PosRefundsRoute,
   PosRegisterRoute: PosRegisterRoute,

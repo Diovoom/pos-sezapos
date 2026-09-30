@@ -44,7 +44,7 @@ export const Route = createFileRoute("/api/public/pos/verify-manager-pin")({
 
         let body: {
           pin?: unknown; action?: unknown; details?: unknown;
-          store_id?: unknown; device_id?: unknown; device_secret?: unknown; caller_id?: unknown;
+          store_id?: unknown; device_id?: unknown; device_secret?: unknown; caller_id?: unknown; actor_token?: unknown;
         };
         try {
           body = await request.json();
@@ -63,54 +63,14 @@ export const Route = createFileRoute("/api/public/pos/verify-manager-pin")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const admin: any = supabaseAdmin;
 
-        let callerId: string | null = null;
-        let storeId: string | null = null;
-
-        if (token) {
-          const { data: userRes, error: userErr } = await supabaseAdmin.auth.getUser(token);
-          if (!userErr && userRes.user) callerId = userRes.user.id;
-        }
-
-        if (callerId) {
-          const { data: caller } = await admin
-            .from("profiles")
-            .select("store_id,status")
-            .eq("id", callerId)
-            .maybeSingle();
-          if (caller?.status === "active") storeId = caller.store_id ?? null;
-        }
-
-        // Native register fallback: authenticate the machine with its paired
-        // device secret and the locally-selected cashier identity. This keeps
-        // manager approval working even when a Supabase user session could not
-        // be refreshed, without weakening store isolation.
-        if (!callerId || !storeId) {
-          const bodyStoreId = typeof body.store_id === "string" ? body.store_id : "";
-          const deviceId = typeof body.device_id === "string" ? body.device_id : "";
-          const deviceSecret = typeof body.device_secret === "string" ? body.device_secret : "";
-          const bodyCallerId = typeof body.caller_id === "string" ? body.caller_id : "";
-          if (!bodyStoreId || !deviceId || !deviceSecret || !bodyCallerId) {
-            return json({ error: "Unauthorized" }, 401);
-          }
-          const { verifyDeviceSecret } = await import("@/lib/pos/device.server");
-          const { data: dev } = await admin
-            .from("device_registrations")
-            .select("id,store_id,status,secret_hash")
-            .eq("id", deviceId)
-            .maybeSingle();
-          if (!dev || dev.status !== "active" || dev.store_id !== bodyStoreId || !verifyDeviceSecret(deviceSecret, dev.secret_hash)) {
-            return json({ error: "Unauthorized" }, 401);
-          }
-          const { data: caller } = await admin
-            .from("profiles")
-            .select("id,store_id,status")
-            .eq("id", bodyCallerId)
-            .eq("store_id", bodyStoreId)
-            .maybeSingle();
-          if (!caller || caller.status !== "active") return json({ error: "Unauthorized" }, 401);
-          callerId = bodyCallerId;
-          storeId = bodyStoreId;
-        }
+        let callerId: string;
+        let storeId: string;
+        try {
+          const { resolveStripeTerminalCaller } = await import("@/lib/stripe-terminal.server");
+          const caller = await resolveStripeTerminalCaller({ bearerToken: token, nativeAuth: body });
+          callerId = caller.userId;
+          storeId = caller.storeId;
+        } catch { return json({ error: "Unauthorized" }, 401); }
 
         const deny = async (reason: string) => {
           try {
@@ -138,6 +98,7 @@ export const Route = createFileRoute("/api/public/pos/verify-manager-pin")({
           .from("profiles")
           .select("id, full_name, first_name, last_name, email, status, pin_hash, employee_id")
           .in("id", managerIds)
+          .eq("store_id", storeId)
           .eq("status", "active");
 
         const { verifyPin } = await import("@/lib/pin.server");
@@ -163,7 +124,9 @@ export const Route = createFileRoute("/api/public/pos/verify-manager-pin")({
           /* ignore */
         }
 
+        const { issuePosGrant } = await import("@/lib/pos/authorization.server");
         return json({
+          approval_token: issuePosGrant("manager", { actorId: callerId, storeId, managerId: match.id, action, details }, 600),
           manager_id: match.id as string,
           manager_name:
             (match.full_name as string) ||

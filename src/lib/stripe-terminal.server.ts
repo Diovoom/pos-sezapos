@@ -7,6 +7,7 @@ export type NativeTerminalAuth = {
   device_id?: unknown;
   device_secret?: unknown;
   caller_id?: unknown;
+  actor_token?: unknown;
 };
 
 export type StripeTerminalCaller = {
@@ -82,6 +83,10 @@ export async function resolveStripeTerminalCaller(input: {
   ) {
     throw new Error("Unauthorized");
   }
+
+  const { verifyPosGrant } = await import("@/lib/pos/authorization.server");
+  const grant = verifyPosGrant(nativeAuth.actor_token, "employee");
+  if (grant.userId !== callerId || grant.storeId !== storeId || grant.deviceId !== deviceId) throw new Error("Unauthorized");
 
   return { userId: callerId, storeId, deviceId };
 }

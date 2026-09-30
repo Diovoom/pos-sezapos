@@ -8,13 +8,13 @@ export type TimeClockRequest = {
   idempotencyKey?: string;
 };
 
-export async function postTimeClockAction(input: TimeClockRequest): Promise<{
+export async function postTimeClockAction(input: TimeClockRequest, accessToken?: string): Promise<{
   ok: true;
   entry: any | null;
   alreadyApplied?: boolean;
 }> {
   const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
+  const token = accessToken ?? data.session?.access_token;
   if (!token) throw new Error("Your session has expired. Sign in again.");
   const base = isNativeMode() ? "https://sezapos.com" : "";
   const request = isNativeMode()

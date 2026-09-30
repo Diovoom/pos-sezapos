@@ -12,6 +12,7 @@ type NativeAuth = {
   device_id: string;
   device_secret: string;
   caller_id: string;
+  actor_token: string | null;
 };
 
 export type StripeTerminalRecord = {
@@ -146,6 +147,7 @@ async function nativeAuth(): Promise<NativeAuth | null> {
     device_id: pairing.deviceId,
     device_secret: pairing.deviceSecret,
     caller_id: callerId,
+    actor_token: await readMeta<string>(`actor_token:${callerId}`) ?? null,
   };
 }
 
@@ -166,6 +168,8 @@ async function callApi<T>(path: string, body: Record<string, unknown> = {}): Pro
     if (!auth) throw new Error("The register session is unavailable. Enter the employee PIN again.");
     request = (await import("../../../capacitor-shell/lib/nativeHttp")).nativeFetch;
     payload = { ...body, nativeAuth: auth };
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.user.id === auth.caller_id) headers.authorization = `Bearer ${data.session.access_token}`;
   } else {
     headers.authorization = `Bearer ${await bearer()}`;
   }
@@ -212,15 +216,10 @@ export async function updateStripeTerminal(
 }
 
 export async function refundStripeSale(input: {
-  saleId: string;
-  amountCents: number;
-  idempotencyId: string;
+  request: { id: string; sale_id: string; type: string; reason: string; notes: string | null; restock: boolean; items: Array<{ sale_item_id: string; quantity: number }> };
+  approvalToken?: string;
 }) {
-  return callApi<{ id: string; status: string | null }>("/api/public/pos/stripe-terminal/refund", {
-    saleId: input.saleId,
-    amount: input.amountCents,
-    idempotencyId: input.idempotencyId,
-  });
+  return callApi<{ refund: { id: string; total: number; status: string; created_at: string }; effectiveItems: Array<{ sale_item_id: string; quantity: number }> }>("/api/public/pos/stripe-terminal/refund", input);
 }
 
 async function fetchConnectionToken() {
@@ -268,21 +267,19 @@ async function reconcilePaymentIntent(reference: string) {
 async function confirmCollectedPayment(mod: StripeModule, reference: string) {
   let confirmedListener: { remove: () => Promise<void> } | null = null;
 
-  const confirmedEvent = new Promise<void>((resolve) => {
-    void (async () => {
-      try {
-        confirmedListener = await mod.StripeTerminal.addListener(
-          mod.TerminalEventsEnum.ConfirmedPaymentIntent,
-          () => resolve(),
-        );
-      } catch {
-        // The native confirmation promise remains the primary completion signal.
-      }
-    })();
-  });
-
+  let resolveConfirmed!: () => void;
+  const confirmedEvent = new Promise<void>((resolve) => { resolveConfirmed = resolve; });
+  try {
+    confirmedListener = await mod.StripeTerminal.addListener(
+      mod.TerminalEventsEnum.ConfirmedPaymentIntent,
+      () => resolveConfirmed(),
+    );
+  } catch {
+    // The native confirmation promise remains the primary completion signal.
+  }
+  let timeoutId: number | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    window.setTimeout(() => reject(new Error("Stripe Terminal confirmation timed out.")), 15_000);
+    timeoutId = window.setTimeout(() => reject(new Error("Stripe Terminal confirmation timed out.")), 15_000);
   });
 
   try {
@@ -298,6 +295,7 @@ async function confirmCollectedPayment(mod: StripeModule, reference: string) {
     if (status?.last_payment_error) throw new Error(status.last_payment_error);
     throw error;
   } finally {
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId);
     await confirmedListener?.remove().catch(() => undefined);
   }
 }
@@ -617,11 +615,12 @@ async function ensureReaderInternal(configuration: TerminalConfiguration, onStat
     // Keep Stripe discovery alive until connectReader receives the selected
     // Reader object. Cancelling discovery first can invalidate a mobile reader
     // connection attempt on some Android/USB stacks.
-    await mod.StripeTerminal.connectReader({
+    const connectionOptions = {
       reader,
       locationId: configuration.locationId,
       autoReconnectOnUnexpectedDisconnect: true,
-    });
+    };
+    await mod.StripeTerminal.connectReader(connectionOptions);
   } catch (error) {
     throw terminalError(error, "CONNECT_READER_NATIVE");
   } finally {

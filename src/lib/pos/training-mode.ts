@@ -41,7 +41,7 @@ export function useTrainingMode() {
     const listener = () => setValue(enabled);
     listeners.add(listener);
     syncBanner();
-    return () => listeners.delete(listener);
+    return () => { listeners.delete(listener); };
   }, []);
   return value;
 }

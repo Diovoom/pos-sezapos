@@ -974,10 +974,7 @@ export function PosPage() {
         p_payments: paymentRows,
       });
       if (saleErr || !sale?.id) {
-        if (payment.method === "cash" && isConnectivityFailure(saleErr)) {
-          return queueOfflineCashSale(payment);
-        }
-        const isStock = /stock|inventory|negative/i.test(saleErr?.message ?? "");
+                const isStock = /stock|inventory|negative/i.test(saleErr?.message ?? "");
         throw new SaleError(
           isStock ? "inventory" : "sale_insert",
           isStock

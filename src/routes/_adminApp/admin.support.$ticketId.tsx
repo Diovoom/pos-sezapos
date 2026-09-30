@@ -760,7 +760,7 @@ function SupportCasePage() {
                     <Link to="/admin/businesses/$storeId" params={{ storeId: store.id }}>Manage merchant & POS</Link>
                   </Button>
                 )}
-                <Button asChild variant="outline" size="sm"><Link to="/admin/devices">POS devices</Link></Button>
+                <Button asChild variant="outline" size="sm"><Link to="/admin/devices" search={{ q: "", filter: "all", provider: "all", sortBy: "last_seen_at", sortDir: "desc", page: 1, pageSize: 25 }}>POS devices</Link></Button>
                 <Button asChild variant="outline" size="sm"><Link to="/admin/offline-sync">Offline sync</Link></Button>
                 <Button asChild variant="outline" size="sm"><Link to="/admin/payments">Merchant payments</Link></Button>
                 <Button asChild variant="outline" size="sm"><Link to="/admin/audit-logs">Audit logs</Link></Button>

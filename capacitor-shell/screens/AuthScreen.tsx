@@ -1,3 +1,4 @@
+import { userFacingError } from "@/lib/errors/user-facing";
 import { nativeFetch, userSafeNetworkMessage } from "../lib/nativeHttp";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
@@ -206,6 +207,7 @@ export function AuthScreen() {
         user_id?: string;
         email?: string | null;
         token_hash?: string | null;
+        actor_token?: string;
         error?: string;
         message?: string;
         bootstrap?: {
@@ -353,6 +355,7 @@ export function AuthScreen() {
 
       await Promise.all([
         cacheMeta("authenticated_me_current_user", userId),
+        cacheMeta(`actor_token:${userId}`, data.actor_token ?? null),
         cacheMeta(`authenticated_me:${userId}`, meSnapshot),
         cacheMeta(`profile:${userId}`, profile),
         cacheMeta("profile", profile),

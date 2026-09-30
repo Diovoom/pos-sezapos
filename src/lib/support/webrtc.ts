@@ -63,7 +63,7 @@ export function openSignalingChannel(
   onMessage: (msg: SignalPayload) => void,
 ): { channel: RealtimeChannel; send: (msg: SignalPayload) => Promise<void>; close: () => void } {
   const channel = client.channel(supportChannelName(channelToken), {
-    config: { broadcast: { self: false, ack: false } },
+    config: { private: true, broadcast: { self: false, ack: true } },
   });
 
   channel.on("broadcast", { event: "signal" }, (payload) => {
@@ -82,15 +82,15 @@ export function openSignalingChannel(
     });
   });
 
+  // Mark subscription failures as handled even if capture fails before the first send.
+  void subscribed.catch(() => {});
+
   return {
     channel,
     send: async (msg) => {
-      try {
-        await subscribed;
-      } catch {
-        // If subscribe failed, we let the send below fail as well.
-      }
-      await channel.send({ type: "broadcast", event: "signal", payload: msg });
+      await subscribed;
+      const result = await channel.send({ type: "broadcast", event: "signal", payload: msg });
+      if (result !== "ok") throw new Error(`Support signaling failed: ${result}`);
     },
     close: () => {
       try {

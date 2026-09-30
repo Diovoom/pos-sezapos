@@ -95,7 +95,8 @@ export const Route = createFileRoute("/api/public/pos/device-bootstrap")({
             admin.from("user_roles").select("role").eq("user_id", userId),
           ]);
           if (p?.status === "active") {
-            profile = p;
+            const { pin_hash: _hash, pin_fingerprint: _fingerprint, ...safeProfile } = p;
+            profile = safeProfile;
             roles = (r ?? []).map((row: { role: string }) => row.role);
           }
         }
@@ -109,8 +110,9 @@ export const Route = createFileRoute("/api/public/pos/device-bootstrap")({
           /* heartbeat is best-effort */
         }
 
+        const { admin_notes: _notes, ...safeStore } = storeResult.data;
         return json({
-          store: storeResult.data,
+          store: safeStore,
           products: productsResult.data ?? [],
           categories: categoriesResult.data ?? [],
           employees: employeesResult.data ?? [],

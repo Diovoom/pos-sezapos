@@ -376,7 +376,12 @@ function EmployeesPage() {
         </Card>
       </div>
 
-      <CreateEmployeeDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateEmployeeDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        actorId={me.data?.user.id ?? null}
+        storeId={storeId ?? null}
+      />
 
       <Dialog open={!!resetInfo} onOpenChange={(v) => !v && setResetInfo(null)}>
         <DialogContent>
@@ -414,9 +419,13 @@ function CopyBtn({ value }: { value: string }) {
 function CreateEmployeeDialog({
   open,
   onOpenChange,
+  actorId,
+  storeId,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  actorId: string | null;
+  storeId: string | null;
 }) {
   const qc = useQueryClient();
   const create = useServerFn(createEmployee);
@@ -436,6 +445,9 @@ function CreateEmployeeDialog({
     setBusy(true);
     try {
       if (!isOnlineNow()) {
+        if (!actorId || !storeId) {
+          throw new Error("Your owner session is not available. Reconnect and sign in before adding an employee offline.");
+        }
         const localId = `local-employee-${crypto.randomUUID()}`;
         const queuedAt = new Date().toISOString();
         const localEmployee: CachedEmployee = {
@@ -457,8 +469,8 @@ function CreateEmployeeDialog({
           id: `employee-create:${localId}`,
           idempotency_key: `employee-create:${localId}`,
           kind: "employee_create",
-          store_id: null,
-          user_id: "local-first",
+          store_id: storeId,
+          user_id: actorId,
           payload: { local_id: localId, ...form },
           local_created_at: queuedAt,
           status: "pending",

@@ -140,7 +140,7 @@ export function createDecodedStream(): {
   };
   canvas.width = 720;
   canvas.height = 1280;
-  const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true } as any);
+  const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
   if (!ctx) return null;
   ctx.fillStyle = "#111827";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -196,7 +196,7 @@ export function createDecodedStream(): {
       if (closed) return;
       const sps = codec.sps ? base64ToBytes(codec.sps) : new Uint8Array();
       const pps = codec.pps ? base64ToBytes(codec.pps) : new Uint8Array();
-      configPrefix = concatBytes(sps, pps);
+      configPrefix = new Uint8Array(concatBytes(sps, pps));
       const codecString = codec.sps ? toAvcCodecString(codec.sps) : "avc1.42e01f";
       try {
         if (codec.width > 0 && codec.height > 0) {

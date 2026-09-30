@@ -69,7 +69,7 @@ function scheduleBackoff(attempts: number): string {
   return new Date(Date.now() + base + jitter).toISOString();
 }
 
-async function syncSale(sale: OfflineSale): Promise<void> {
+async function syncSale(sale: OfflineSale, accessToken: string): Promise<void> {
   const nowIso = new Date().toISOString();
   const attempts = sale.attempts + 1;
   await updateOfflineSale(sale.id, {
@@ -122,7 +122,7 @@ async function syncSale(sale: OfflineSale): Promise<void> {
     },
     p_items: items,
     p_payments: payments,
-  });
+  }).setHeader("Authorization", `Bearer ${accessToken}`);
 
   if (error) {
     const permanent = isPermanent(error);
@@ -159,7 +159,7 @@ async function syncSale(sale: OfflineSale): Promise<void> {
   });
 }
 
-async function syncCashMovement(m: OfflineCashMovement): Promise<void> {
+async function syncCashMovement(m: OfflineCashMovement, accessToken: string): Promise<void> {
   const attempts = m.attempts + 1;
   await updateOfflineCashMovement(m.id, {
     status: "syncing",
@@ -179,7 +179,7 @@ async function syncCashMovement(m: OfflineCashMovement): Promise<void> {
     reason: m.reason,
     notes: m.notes,
     idempotency_key: m.idempotency_key,
-  });
+  }).setHeader("Authorization", `Bearer ${accessToken}`);
   const dup = error?.code === "23505";
   if (error && !dup) {
     const permanent = isPermanent(error);
@@ -199,7 +199,7 @@ async function syncCashMovement(m: OfflineCashMovement): Promise<void> {
   });
 }
 
-async function syncAction(action: OfflineAction): Promise<void> {
+async function syncAction(action: OfflineAction, accessToken: string): Promise<void> {
   const attempts = action.attempts + 1;
   await updateOfflineAction(action.id, { status: "syncing", attempts, last_error: null });
   try {
@@ -210,7 +210,7 @@ async function syncAction(action: OfflineAction): Promise<void> {
         action: clockAction,
         occurredAt: String(action.payload.occurredAt ?? action.local_created_at),
         idempotencyKey: action.idempotency_key,
-      });
+      }, accessToken);
 
       // Replace the temporary local-time-* entry with the canonical server
       // row after sync. This prevents a later render from bouncing between
@@ -314,6 +314,8 @@ async function syncAction(action: OfflineAction): Promise<void> {
       };
       const result = await createEmployee({
         data: {
+          expectedActorId: action.user_id,
+          expectedStoreId: action.store_id,
           first_name: payload.first_name,
           last_name: payload.last_name,
           email: payload.email,
@@ -375,13 +377,36 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
     if (!u.user) {
       return { synced: 0, failed: 0, skipped: "no-session" };
     }
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("store_id,status")
+      .eq("id", u.user.id)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    if (!profile?.store_id || profile.status !== "active") {
+      return { synced: 0, failed: 0, skipped: "inactive-or-unassigned" };
+    }
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session?.user.id !== u.user.id) return { synced: 0, failed: 0, skipped: "session-changed" };
+    const accessToken = sessionData.session.access_token;
+    const sameActor = async () => (await supabase.auth.getSession()).data.session?.user.id === u.user!.id;
 
     // Recover any records the previous run left mid-flight.
     await recoverStaleSyncing();
 
-    const pendingSales = await getPendingSales();
-    const pendingCash = await getPendingCashMovements();
-    const pendingActions = await getPendingOfflineActions();
+    // The RPC derives cashier_id from the current session. Never replay
+    // another employee's records as this cashier or exhaust their retry budget.
+    const pendingSales = (await getPendingSales()).filter(
+      (row) => row.store_id === profile.store_id && row.cashier_id === u.user!.id,
+    );
+    const pendingCash = (await getPendingCashMovements()).filter(
+      (row) => row.store_id === profile.store_id && row.user_id === u.user!.id,
+    );
+    const pendingActions = (await getPendingOfflineActions()).filter((row) => {
+      if (row.kind === "catalog_mutation" && row.user_id === "local-first") return row.store_id === profile.store_id;
+      return row.user_id === u.user!.id && (!row.store_id || row.store_id === profile.store_id);
+    });
     const allActions = await getAllOfflineActions();
     // Any locally-created register session that is not server-confirmed blocks
     // dependent sales/cash/close operations. Otherwise a temporary register
@@ -421,9 +446,10 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
     );
 
     for (const action of registerOpenActions) {
+      if (!await sameActor()) return { synced, failed, skipped: "session-changed" };
       const sessionId = String(action.payload.id ?? "");
       try {
-        await syncAction(action);
+        await syncAction(action, accessToken);
         if (sessionId) blockedSessionIds.delete(sessionId);
         synced++;
       } catch (e) {
@@ -434,8 +460,9 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
       emitSync({ type: "progress" });
     }
     for (const action of timeClockActions) {
+      if (!await sameActor()) return { synced, failed, skipped: "session-changed" };
       try {
-        await syncAction(action);
+        await syncAction(action, accessToken);
         synced++;
       } catch (e) {
         failed++;
@@ -447,8 +474,9 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
     // reference a newly-created local product. Employee provisioning is also
     // safe to perform before financial records.
     for (const action of [...catalogUpserts, ...employeeCreates]) {
+      if (!await sameActor()) return { synced, failed, skipped: "session-changed" };
       try {
-        await syncAction(action);
+        await syncAction(action, accessToken);
         synced++;
       } catch (e) {
         failed++;
@@ -457,6 +485,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
       emitSync({ type: "progress" });
     }
     for (const sale of pendingSales) {
+      if (!await sameActor()) return { synced, failed, skipped: "session-changed" };
       if (sale.register_session_id && blockedSessionIds.has(sale.register_session_id)) {
         if (import.meta.env.DEV)
           console.info("[sync] sale deferred until local register session syncs", sale.id);
@@ -464,7 +493,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
         continue;
       }
       try {
-        await syncSale(sale);
+        await syncSale(sale, accessToken);
         synced++;
       } catch (e) {
         failed++;
@@ -473,6 +502,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
       emitSync({ type: "progress" });
     }
     for (const movement of pendingCash) {
+      if (!await sameActor()) return { synced, failed, skipped: "session-changed" };
       if (movement.register_session_id && blockedSessionIds.has(movement.register_session_id)) {
         if (import.meta.env.DEV)
           console.info(
@@ -483,7 +513,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
         continue;
       }
       try {
-        await syncCashMovement(movement);
+        await syncCashMovement(movement, accessToken);
         synced++;
       } catch (e) {
         failed++;
@@ -492,8 +522,9 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
       emitSync({ type: "progress" });
     }
     for (const action of catalogDeletes) {
+      if (!await sameActor()) return { synced, failed, skipped: "session-changed" };
       try {
-        await syncAction(action);
+        await syncAction(action, accessToken);
         synced++;
       } catch (e) {
         failed++;
@@ -502,8 +533,9 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
       emitSync({ type: "progress" });
     }
     for (const action of auditActions) {
+      if (!await sameActor()) return { synced, failed, skipped: "session-changed" };
       try {
-        await syncAction(action);
+        await syncAction(action, accessToken);
         synced++;
       } catch (e) {
         failed++;
@@ -516,6 +548,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
     // SMS stores saleId directly.
     const currentSales = await getAllOfflineSales();
     for (const action of receiptActions) {
+      if (!await sameActor()) return { synced, failed, skipped: "session-changed" };
       const payload = action.payload;
       const templateData =
         payload.templateData && typeof payload.templateData === "object"
@@ -532,7 +565,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
         continue;
       }
       try {
-        await syncAction(action);
+        await syncAction(action, accessToken);
         synced++;
       } catch (e) {
         failed++;
@@ -546,6 +579,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
     // and leave the action pending while anything for that session remains.
     const currentCash = await getAllOfflineCashMovements();
     for (const action of registerCloseActions) {
+      if (!await sameActor()) return { synced, failed, skipped: "session-changed" };
       const sessionId = String(action.payload.id ?? "");
       const hasUnsyncedDependency =
         blockedSessionIds.has(sessionId) ||
@@ -562,7 +596,7 @@ export async function syncNow(): Promise<{ synced: number; failed: number; skipp
         continue;
       }
       try {
-        await syncAction(action);
+        await syncAction(action, accessToken);
         synced++;
       } catch (e) {
         failed++;

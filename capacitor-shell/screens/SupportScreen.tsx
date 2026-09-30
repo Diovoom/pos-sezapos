@@ -767,9 +767,8 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
   // than expected") whenever the ticket query resolved after loading.
   const closeTicket = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc("merchant_update_support_ticket", {
+      const { error } = await supabase.rpc("merchant_close_support_case", {
         _ticket_id: id,
-        _status: "resolved",
       });
       if (error) throw error;
     },
@@ -782,7 +781,7 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
   });
 
   async function onSend() {
-    if (sending || !reply.trim() || closed) return;
+    if (sending || !reply.trim()) return;
     if (!online) { toast.error("You're offline — can't send yet."); return; }
     setSending(true);
     sendReply.mutate();
@@ -855,12 +854,11 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
       </div>
 
       <div className="border-t bg-background p-3 space-y-2 pb-6">
-        {closed ? (
+        {closed && (
           <div className="text-xs text-muted-foreground text-center py-2">
-            This ticket is {STATUS_LABEL[t.status]?.toLowerCase() ?? t.status}. Open a new ticket to continue.
+            This ticket is {STATUS_LABEL[t.status]?.toLowerCase() ?? t.status}. Sending a reply will reopen it.
           </div>
-        ) : (
-          <>
+        )}
             <Textarea
               rows={2}
               value={reply}
@@ -879,8 +877,6 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
                 Send
               </Button>
             </div>
-          </>
-        )}
       </div>
     </div>
   );

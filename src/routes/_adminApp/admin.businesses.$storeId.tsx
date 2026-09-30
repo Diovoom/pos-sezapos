@@ -252,7 +252,7 @@ function BusinessWorkspace() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Button asChild variant="ghost" size="sm" className="mb-2 -ml-3">
-            <Link to="/admin/businesses">
+            <Link to="/admin/businesses" search={{ q: "", filter: "all", sortBy: "created_at", sortDir: "desc", page: 1, pageSize: 25 }}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Businesses
             </Link>
           </Button>

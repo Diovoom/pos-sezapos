@@ -15,7 +15,7 @@ import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/user-error";
 
-export type ManagerOverrideResult = { manager_id: string; manager_name: string };
+export type ManagerOverrideResult = { manager_id: string; manager_name: string; approval_token?: string };
 
 export function ManagerOverrideDialog({
   open,

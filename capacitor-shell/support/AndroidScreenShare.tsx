@@ -44,14 +44,16 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
   const [tick, setTick] = useState(0);
   const startedAtRef = useRef<number>(Date.now());
   const endedRef = useRef(false);
+  const onEndedRef = useRef(onEnded);
+  onEndedRef.current = onEnded;
 
   const end = useCallback(
     (reason: string) => {
       if (endedRef.current) return;
       endedRef.current = true;
-      onEnded(reason);
+      onEndedRef.current(reason);
     },
-    [onEnded],
+    [],
   );
 
   useEffect(() => {
@@ -72,6 +74,8 @@ export function AndroidScreenShare({ sessionId, channelToken, expiresAtIso, onEn
 
   useEffect(() => {
     let disposed = false;
+    endedRef.current = false;
+    startedAtRef.current = Date.now();
 
     if (!isNativeAppViewCaptureAvailable()) {
       end("unsupported_platform");

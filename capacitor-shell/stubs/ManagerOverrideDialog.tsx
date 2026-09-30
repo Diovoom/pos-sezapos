@@ -40,7 +40,7 @@ import { readMeta } from "@/lib/offline/db";
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import { userFacingError } from "@/lib/errors/user-facing";
 
-export type ManagerOverrideResult = { manager_id: string; manager_name: string };
+export type ManagerOverrideResult = { manager_id: string; manager_name: string; approval_token?: string };
 
 // Client-side rate limit: min gap between submissions + hard cap on
 // consecutive failures per dialog session. Server-side rate limiting on
@@ -172,6 +172,7 @@ export function ManagerOverrideDialog({
                   device_id: pairing.deviceId,
                   device_secret: pairing.deviceSecret,
                   caller_id: cachedCallerId,
+                  actor_token: await readMeta<string>(`actor_token:${cachedCallerId}`),
                 }
               : {}),
           }),
@@ -181,7 +182,7 @@ export function ManagerOverrideDialog({
         clearTimeout(timeout);
       }
 
-      let data: { manager_id?: string; manager_name?: string; error?: string } = {};
+      let data: { manager_id?: string; manager_name?: string; approval_token?: string; error?: string } = {};
       try { data = await res.json(); } catch { /* non-JSON */ }
 
       if (res.status === 401) {
@@ -223,6 +224,7 @@ export function ManagerOverrideDialog({
       onApprove({
         manager_id: data.manager_id,
         manager_name: data.manager_name ?? "Manager",
+        approval_token: data.approval_token,
       });
       onOpenChange(false);
       setPin("");

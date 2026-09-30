@@ -328,7 +328,7 @@ function TerminalPanel() {
   const [readers, setReaders] = useState<Array<{ id: string; label: string }> | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
-  const [connected, setConnected] = useState<TerminalDriverId | null>(() => stripeTerminal.connectedReader());
+  const [connected, setConnected] = useState<string | null>(() => stripeTerminal.connectedReader());
   const [lastError, setLastError] = useState<string>(() => window.localStorage.getItem(LS.terminalLastError) ?? "");
   const [testing, setTesting] = useState(false);
 
@@ -653,7 +653,7 @@ function HardwareStatusPanel() {
   const [busy, setBusy] = useState<"print" | "drawer" | null>(null);
   const [scannerLast, setScannerLast] = useState<string>(() => loadScannerConfig().lastScanAt ?? "");
   const [terminalCap, setTerminalCap] = useState<{ pluginOk: boolean | null; tapToPay: boolean | null }>({ pluginOk: null, tapToPay: null });
-  const [connected, setConnected] = useState<TerminalDriverId | null>(() => stripeTerminal.connectedReader());
+  const [connected, setConnected] = useState<string | null>(() => stripeTerminal.connectedReader());
   const [copyingDiag, setCopyingDiag] = useState(false);
   const scannerCfg = useMemo(() => loadScannerConfig(), []);
   const activeTerminal = getActiveTerminal();

@@ -438,17 +438,7 @@ function RefundDialog({
   const { has, isSuper } = usePermissions();
   const canCreate = isSuper || has("refunds.create");
   const canApprove = isSuper || has("refunds.approve");
-  const requireApproval = (() => {
-    try {
-      const raw = localStorage.getItem("pos.pref.refunds");
-      if (!raw) return true;
-      const p = JSON.parse(raw) as Record<string, string>;
-      return p.manager_approval !== "false";
-    } catch {
-      return true;
-    }
-  })();
-  const needsOverride = (!canCreate || (requireApproval && !canApprove)) && !override;
+  const needsOverride = (!canCreate || !canApprove) && !override;
   const authorizedToCreate = canCreate || Boolean(override);
 
   const itemsToRefund = sale
@@ -471,7 +461,8 @@ function RefundDialog({
   );
   const alreadyRefunded = Math.max(0, Number(sale?.refunded_amount ?? 0));
   const remainingRefundable = Math.max(0, Math.round((saleFinalAmount - alreadyRefunded) * 100) / 100);
-  const partialBaseRefund = Math.round((refundSubtotal + refundTax) * 100) / 100;
+  const refundDiscount = sale && Number(sale.subtotal) > 0 ? Math.round(Number(sale.discount) * refundSubtotal / Number(sale.subtotal) * 100) / 100 : 0;
+  const partialBaseRefund = Math.max(0, Math.round((refundSubtotal - refundDiscount + refundTax) * 100) / 100);
   const partialCardAdjustment =
     saleCashBaseTotal > 0 && saleCardAdjustment > 0
       ? Math.round((partialBaseRefund * saleCardAdjustment * 100) / saleCashBaseTotal) / 100
@@ -488,8 +479,6 @@ function RefundDialog({
     mutationFn: async () => {
       if (!authorizedToCreate) throw new Error("Manager approval is required to issue this refund");
       if (!sale) return null;
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not signed in");
 
       const effectiveItems =
         type === "full" || type === "void"
@@ -505,66 +494,19 @@ function RefundDialog({
 
       if (effectiveItems.length === 0) throw new Error("Select at least one item and quantity");
 
-      const processorRefund =
-        ["card", "tap", "apple_pay", "google_pay"].includes(String(sale.payment_method)) &&
-        type !== "store_credit" &&
-        type !== "exchange";
-      if (processorRefund) {
-        if (!String(sale.terminal_ref || "").startsWith("pi_")) {
-          throw new Error("This card sale is not linked to a Stripe payment. Refund it through the original processor.");
-        }
-        await refundStripeSale({
-          saleId: sale.id,
-          amountCents: Math.round(refundTotal * 100),
-          idempotencyId: refundAttemptId,
-        });
-      }
-
-      const { data: refund, error } = await supabase
-        .from("refunds")
-        .insert({
-          sale_id: sale.id,
-          store_id: (store as { id?: string } | null)?.id ?? null,
-          cashier_id: u.user.id,
-          refund_type: type,
-          reason,
-          notes: notes || null,
-          subtotal: type === "full" || type === "void" ? Number(sale.subtotal) : refundSubtotal,
-          tax: type === "full" || type === "void" ? Number(sale.tax) : refundTax,
-          total: refundTotal,
-          payment_method: sale.payment_method as
-            | "cash"
-            | "card"
-            | "tap"
-            | "apple_pay"
-            | "google_pay"
-            | "gift_card"
-            | "split"
-            | "store_credit",
-          status: "completed",
-        })
-        .select()
-        .single();
-      if (error) throw error;
-
-      const rows = effectiveItems.map(({ item, qty }) => ({
-        refund_id: refund.id,
-        sale_item_id: item.id,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        quantity: qty,
-        unit_price: Number(item.unit_price),
-        line_total: Math.round(qty * Number(item.unit_price) * 100) / 100,
-        restock,
-      }));
-      const { error: ie } = await supabase.from("refund_items").insert(rows);
-      if (ie) throw ie;
-
-      return { refund, effectiveItems };
+      const result = await refundStripeSale({
+        request: { id: refundAttemptId, sale_id: sale.id, type, reason, notes: notes || null, restock,
+          items: effectiveItems.map(({ item, qty }) => ({ sale_item_id: item.id, quantity: qty })) },
+        approvalToken: override?.approval_token,
+      });
+      if (result.refund.status !== "completed") throw new Error("Refund submitted and awaiting the processor. Retry this same refund to check completion.");
+      const refund = result.refund;
+      const completedItems = result.effectiveItems.map((line) => ({ item: sale.sale_items.find((item) => item.id === line.sale_item_id)!, qty: Number(line.quantity) }));
+      return { refund, effectiveItems: completedItems };
     },
     onSuccess: (payload) => {
       if (!payload || !sale) return;
-      toast.success(`Refund issued · ${fmtCurrency(refundTotal, currency)}`);
+      toast.success(`Refund issued · ${fmtCurrency(Number(payload?.refund.total ?? refundTotal), currency)}`);
       void import("@/lib/audit-log").then((m) =>
         m.logAudit({
           action: "refund.create",
@@ -758,7 +700,7 @@ function RefundDialog({
         onOpenChange={setOverrideOpen}
         action={type === "void" ? "sales.void" : "refunds.approve"}
         description={`Approve ${type} refund of ${fmtCurrency(refundTotal, currency)} on receipt #${sale?.receipt_number ?? ""}`}
-        details={{ sale_id: sale?.id, amount: refundTotal, type }}
+        details={{ sale_id: sale?.id, amount: refundTotal, type, refund_attempt_id: refundAttemptId }}
         onApprove={(r) => {
           setOverride(r);
           setNotes((n) =>

@@ -501,31 +501,49 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          last_visit_at: string | null
+          loyalty_points: number
+          marketing_email: boolean
+          marketing_sms: boolean
           name: string
           notes: string | null
           phone: string | null
           store_id: string
+          total_spent: number
           updated_at: string
+          visit_count: number
         }
         Insert: {
           created_at?: string
           email?: string | null
           id?: string
+          last_visit_at?: string | null
+          loyalty_points?: number
+          marketing_email?: boolean
+          marketing_sms?: boolean
           name: string
           notes?: string | null
           phone?: string | null
           store_id: string
+          total_spent?: number
           updated_at?: string
+          visit_count?: number
         }
         Update: {
           created_at?: string
           email?: string | null
           id?: string
+          last_visit_at?: string | null
+          loyalty_points?: number
+          marketing_email?: boolean
+          marketing_sms?: boolean
           name?: string
           notes?: string | null
           phone?: string | null
           store_id?: string
+          total_spent?: number
           updated_at?: string
+          visit_count?: number
         }
         Relationships: [
           {
@@ -919,9 +937,16 @@ export type Database = {
           location: string | null
           provider: string
           serial: string | null
+          setup_source: string | null
+          setup_status: string
           status: string
           store_id: string
+          stripe_connected_account_id: string | null
+          stripe_reader_id: string | null
+          stripe_terminal_location_id: string | null
           updated_at: string
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           config?: Json
@@ -932,9 +957,16 @@ export type Database = {
           location?: string | null
           provider?: string
           serial?: string | null
+          setup_source?: string | null
+          setup_status?: string
           status?: string
           store_id: string
+          stripe_connected_account_id?: string | null
+          stripe_reader_id?: string | null
+          stripe_terminal_location_id?: string | null
           updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           config?: Json
@@ -945,9 +977,16 @@ export type Database = {
           location?: string | null
           provider?: string
           serial?: string | null
+          setup_source?: string | null
+          setup_status?: string
           status?: string
           store_id?: string
+          stripe_connected_account_id?: string | null
+          stripe_reader_id?: string | null
+          stripe_terminal_location_id?: string | null
           updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: [
           {
@@ -1012,6 +1051,42 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      pos_sale_requests: {
+        Row: {
+          created_at: string
+          request_payload: Json
+          sale_id: string
+          store_id: string
+        }
+        Insert: {
+          created_at?: string
+          request_payload: Json
+          sale_id: string
+          store_id: string
+        }
+        Update: {
+          created_at?: string
+          request_payload?: Json
+          sale_id?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sale_requests_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: true
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sale_requests_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {
@@ -1270,49 +1345,70 @@ export type Database = {
           approver_id: string | null
           cashier_id: string | null
           created_at: string
+          failure_message: string | null
           id: string
+          idempotency_key: string | null
           notes: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
+          processor: string | null
+          processor_refund_id: string | null
+          processor_refund_status: string | null
           reason: string
           refund_type: string
+          request_payload: Json | null
           sale_id: string
           status: string
           store_id: string | null
           subtotal: number
           tax: number
           total: number
+          updated_at: string
         }
         Insert: {
           approver_id?: string | null
           cashier_id?: string | null
           created_at?: string
+          failure_message?: string | null
           id?: string
+          idempotency_key?: string | null
           notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          processor?: string | null
+          processor_refund_id?: string | null
+          processor_refund_status?: string | null
           reason?: string
           refund_type?: string
+          request_payload?: Json | null
           sale_id: string
           status?: string
           store_id?: string | null
           subtotal?: number
           tax?: number
           total?: number
+          updated_at?: string
         }
         Update: {
           approver_id?: string | null
           cashier_id?: string | null
           created_at?: string
+          failure_message?: string | null
           id?: string
+          idempotency_key?: string | null
           notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          processor?: string | null
+          processor_refund_id?: string | null
+          processor_refund_status?: string | null
           reason?: string
           refund_type?: string
+          request_payload?: Json | null
           sale_id?: string
           status?: string
           store_id?: string | null
           subtotal?: number
           tax?: number
           total?: number
+          updated_at?: string
         }
         Relationships: [
           {
@@ -1407,6 +1503,13 @@ export type Database = {
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "register_sessions_terminal_id_fkey"
+            columns: ["terminal_id"]
+            isOneToOne: false
+            referencedRelation: "payment_terminals"
             referencedColumns: ["id"]
           },
         ]
@@ -1551,9 +1654,9 @@ export type Database = {
       sales: {
         Row: {
           amount_tendered: number | null
-          cashier_id: string | null
           card_price_adjustment: number
           cash_base_total: number
+          cashier_id: string | null
           change_due: number | null
           created_at: string
           customer_email: string | null
@@ -1568,10 +1671,10 @@ export type Database = {
           id: string
           idempotency_key: string | null
           kitchen_status: string
+          merchant_net_amount: number | null
           notes: string | null
           offline_created_at: string | null
           order_type: string
-          merchant_net_amount: number | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           processing_fee_estimate: number | null
           processor_fee_amount: number | null
@@ -1590,9 +1693,9 @@ export type Database = {
         }
         Insert: {
           amount_tendered?: number | null
-          cashier_id?: string | null
           card_price_adjustment?: number
           cash_base_total?: number
+          cashier_id?: string | null
           change_due?: number | null
           created_at?: string
           customer_email?: string | null
@@ -1607,10 +1710,10 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           kitchen_status?: string
+          merchant_net_amount?: number | null
           notes?: string | null
           offline_created_at?: string | null
           order_type?: string
-          merchant_net_amount?: number | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           processing_fee_estimate?: number | null
           processor_fee_amount?: number | null
@@ -1629,9 +1732,9 @@ export type Database = {
         }
         Update: {
           amount_tendered?: number | null
-          cashier_id?: string | null
           card_price_adjustment?: number
           cash_base_total?: number
+          cashier_id?: string | null
           change_due?: number | null
           created_at?: string
           customer_email?: string | null
@@ -1646,10 +1749,10 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           kitchen_status?: string
+          merchant_net_amount?: number | null
           notes?: string | null
           offline_created_at?: string | null
           order_type?: string
-          merchant_net_amount?: number | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           processing_fee_estimate?: number | null
           processor_fee_amount?: number | null
@@ -1689,6 +1792,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      seza_migration_staging: {
+        Row: {
+          created_at: string
+          id: number
+          rows: Json
+          table_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          rows: Json
+          table_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          rows?: Json
+          table_name?: string
+        }
+        Relationships: []
       }
       signup_risk_events: {
         Row: {
@@ -1869,6 +1993,7 @@ export type Database = {
           created_at: string
           currency: string
           currency_symbol: string | null
+          customer_display_settings: Json
           date_format: string | null
           email: string | null
           id: string
@@ -1897,6 +2022,11 @@ export type Database = {
           starting_cash_float: number
           state: string | null
           store_code: string | null
+          stripe_card_payments_status: string | null
+          stripe_connect_status: string
+          stripe_connected_account_id: string | null
+          stripe_onboarding_completed_at: string | null
+          stripe_terminal_location_id: string | null
           suspended_at: string | null
           suspended_reason: string | null
           tax_id: string | null
@@ -1929,6 +2059,7 @@ export type Database = {
           created_at?: string
           currency?: string
           currency_symbol?: string | null
+          customer_display_settings?: Json
           date_format?: string | null
           email?: string | null
           id?: string
@@ -1957,6 +2088,11 @@ export type Database = {
           starting_cash_float?: number
           state?: string | null
           store_code?: string | null
+          stripe_card_payments_status?: string | null
+          stripe_connect_status?: string
+          stripe_connected_account_id?: string | null
+          stripe_onboarding_completed_at?: string | null
+          stripe_terminal_location_id?: string | null
           suspended_at?: string | null
           suspended_reason?: string | null
           tax_id?: string | null
@@ -1989,6 +2125,7 @@ export type Database = {
           created_at?: string
           currency?: string
           currency_symbol?: string | null
+          customer_display_settings?: Json
           date_format?: string | null
           email?: string | null
           id?: string
@@ -2017,6 +2154,11 @@ export type Database = {
           starting_cash_float?: number
           state?: string | null
           store_code?: string | null
+          stripe_card_payments_status?: string | null
+          stripe_connect_status?: string
+          stripe_connected_account_id?: string | null
+          stripe_onboarding_completed_at?: string | null
+          stripe_terminal_location_id?: string | null
           suspended_at?: string | null
           suspended_reason?: string | null
           tax_id?: string | null
@@ -2108,6 +2250,7 @@ export type Database = {
           created_at: string
           id: string
           internal: boolean
+          sender_kind: string | null
           ticket_id: string
         }
         Insert: {
@@ -2117,6 +2260,7 @@ export type Database = {
           created_at?: string
           id?: string
           internal?: boolean
+          sender_kind?: string | null
           ticket_id: string
         }
         Update: {
@@ -2126,6 +2270,7 @@ export type Database = {
           created_at?: string
           id?: string
           internal?: boolean
+          sender_kind?: string | null
           ticket_id?: string
         }
         Relationships: [
@@ -2149,6 +2294,7 @@ export type Database = {
           closed_at: string | null
           created_at: string
           first_response_at: string | null
+          guest_token_hash: string | null
           id: string
           last_admin_read_at: string | null
           last_merchant_read_at: string | null
@@ -2160,11 +2306,15 @@ export type Database = {
           resolution_code: string | null
           resolution_summary: string | null
           resolved_at: string | null
+          source: string | null
           status: string
           store_id: string | null
           subject: string
           ticket_number: number
           updated_at: string
+          visitor_ip_hash: string | null
+          visitor_name: string | null
+          visitor_phone: string | null
         }
         Insert: {
           assigned_admin_id?: string | null
@@ -2176,6 +2326,7 @@ export type Database = {
           closed_at?: string | null
           created_at?: string
           first_response_at?: string | null
+          guest_token_hash?: string | null
           id?: string
           last_admin_read_at?: string | null
           last_merchant_read_at?: string | null
@@ -2187,11 +2338,15 @@ export type Database = {
           resolution_code?: string | null
           resolution_summary?: string | null
           resolved_at?: string | null
+          source?: string | null
           status?: string
           store_id?: string | null
           subject: string
           ticket_number?: number
           updated_at?: string
+          visitor_ip_hash?: string | null
+          visitor_name?: string | null
+          visitor_phone?: string | null
         }
         Update: {
           assigned_admin_id?: string | null
@@ -2203,6 +2358,7 @@ export type Database = {
           closed_at?: string | null
           created_at?: string
           first_response_at?: string | null
+          guest_token_hash?: string | null
           id?: string
           last_admin_read_at?: string | null
           last_merchant_read_at?: string | null
@@ -2214,11 +2370,15 @@ export type Database = {
           resolution_code?: string | null
           resolution_summary?: string | null
           resolved_at?: string | null
+          source?: string | null
           status?: string
           store_id?: string | null
           subject?: string
           ticket_number?: number
           updated_at?: string
+          visitor_ip_hash?: string | null
+          visitor_name?: string | null
+          visitor_phone?: string | null
         }
         Relationships: [
           {
@@ -2257,6 +2417,7 @@ export type Database = {
       time_entries: {
         Row: {
           approved_by: string | null
+          break_end: string | null
           break_minutes: number
           break_start: string | null
           clock_in: string
@@ -2272,6 +2433,7 @@ export type Database = {
         }
         Insert: {
           approved_by?: string | null
+          break_end?: string | null
           break_minutes?: number
           break_start?: string | null
           clock_in?: string
@@ -2287,6 +2449,7 @@ export type Database = {
         }
         Update: {
           approved_by?: string | null
+          break_end?: string | null
           break_minutes?: number
           break_start?: string | null
           clock_in?: string
@@ -2362,6 +2525,14 @@ export type Database = {
         Returns: boolean
       }
       cleanup_api_rate_limit_buckets: { Args: never; Returns: number }
+      complete_pos_refund: {
+        Args: {
+          p_processor_refund_id?: string
+          p_processor_status?: string
+          p_refund_id: string
+        }
+        Returns: Json
+      }
       consume_api_rate_limit: {
         Args: {
           p_block_seconds?: number
@@ -2376,38 +2547,42 @@ export type Database = {
           retry_after_seconds: number
         }[]
       }
+      consume_pos_pairing_code: {
+        Args: {
+          _code_hash: string
+          _fallback_label?: string
+          _platform?: string
+          _secret_hash: string
+        }
+        Returns: {
+          device_id: string
+          label: string
+          store_id: string
+        }[]
+      }
       current_store_id: { Args: never; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
-      email_for_employee_id: {
-        Args: { p_employee_id: string }
-        Returns: string
-      }
-      email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      fail_pos_refund: {
+        Args: {
+          p_failure_message?: string
+          p_processor_status?: string
+          p_refund_id: string
+        }
+        Returns: Json
       }
       finalize_pos_sale: {
         Args: { p_items: Json; p_payments?: Json; p_sale: Json }
         Returns: Json
       }
-      set_recover_card_processing_costs: {
-        Args: { p_enabled: boolean }
-        Returns: {
-          card_processing_fixed_fee: number
-          card_processing_percent: number
-          recover_card_processing_costs: boolean
-        }[]
-      }
       generate_employee_id: { Args: never; Returns: string }
       generate_store_code: { Args: never; Returns: string }
-      has_active_plan: {
-        Args: { _min_tier?: string; _store_id: string }
-        Returns: boolean
-      }
       has_admin_permission: {
         Args: { _permission: string; _user_id: string }
         Returns: boolean
@@ -2432,15 +2607,13 @@ export type Database = {
       }
       is_last_owner: { Args: { _user_id: string }; Returns: boolean }
       is_platform_staff: { Args: { _user_id: string }; Returns: boolean }
-      is_read_only: { Args: { _store_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
-      merchant_update_support_ticket: {
-        Args: {
-          _priority?: string
-          _status?: string
-          _subject?: string
-          _ticket_id: string
-        }
+      merchant_close_support_case: {
+        Args: { _ticket_id: string }
+        Returns: undefined
+      }
+      merchant_close_support_ticket: {
+        Args: { _ticket_id: string }
         Returns: {
           assigned_admin_id: string | null
           category: string
@@ -2451,6 +2624,7 @@ export type Database = {
           closed_at: string | null
           created_at: string
           first_response_at: string | null
+          guest_token_hash: string | null
           id: string
           last_admin_read_at: string | null
           last_merchant_read_at: string | null
@@ -2462,11 +2636,15 @@ export type Database = {
           resolution_code: string | null
           resolution_summary: string | null
           resolved_at: string | null
+          source: string | null
           status: string
           store_id: string | null
           subject: string
           ticket_number: number
           updated_at: string
+          visitor_ip_hash: string | null
+          visitor_name: string | null
+          visitor_phone: string | null
         }
         SetofOptions: {
           from: "*"
@@ -2474,6 +2652,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      merchant_mark_support_read: {
+        Args: { _ticket_id: string }
+        Returns: undefined
       }
       move_to_dlq: {
         Args: {
@@ -2505,6 +2687,19 @@ export type Database = {
         Args: { _exclude_user: string; _fingerprint: string; _store_id: string }
         Returns: boolean
       }
+      prepare_pos_refund: {
+        Args: { p_items?: Json; p_refund: Json }
+        Returns: Json
+      }
+      provision_invited_employee: {
+        Args: {
+          p_fields: Json
+          p_role: string
+          p_store_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -2514,6 +2709,10 @@ export type Database = {
         }[]
       }
       recompute_store_plan: { Args: { _store_id: string }; Returns: undefined }
+      recompute_store_plan_for_environment: {
+        Args: { _environment: string; _store_id: string }
+        Returns: undefined
+      }
       record_legal_acceptance: {
         Args: {
           p_accepted_at?: string
@@ -2523,10 +2722,22 @@ export type Database = {
         }
         Returns: string
       }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
-      simulate_trial_expiry: { Args: { _store_id: string }; Returns: undefined }
-      tier_rank: { Args: { _tier: string }; Returns: number }
+      set_recover_card_processing_costs: {
+        Args: { p_enabled: boolean }
+        Returns: {
+          card_processing_fixed_fee: number
+          card_processing_percent: number
+          recover_card_processing_costs: boolean
+        }[]
+      }
+      seza_bulk_import: {
+        Args: { p_rows: Json; p_table: string }
+        Returns: number
+      }
+      seza_migration_import: {
+        Args: { p_rows: Json; p_table: string; p_token: string }
+        Returns: number
+      }
     }
     Enums: {
       app_role:

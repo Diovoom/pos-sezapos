@@ -257,14 +257,20 @@ export const Route = createFileRoute("/api/public/pos/verify-pin")({
           /* ignore */
         }
 
+        const { issuePosGrant } = await import("@/lib/pos/authorization.server");
+        const actorToken = issuePosGrant("employee", { userId: chosen.id, storeId, deviceId }, 12 * 60 * 60);
+        // PIN verifiers and internal platform notes are not register display data.
+        const { pin_hash: _hash, pin_fingerprint: _fingerprint, ...safeProfile } = profileResult.data;
+        const { admin_notes: _notes, ...safeStore } = storeResult.data;
         return json({
+          actor_token: actorToken,
           user_id: chosen.id,
           email: chosen.email,
           token_hash: tokenHash,
           bootstrap: {
-            profile: profileResult.data,
+            profile: safeProfile,
             roles: (rolesResult.data ?? []).map((row: { role: string }) => row.role),
-            store: storeResult.data,
+            store: safeStore,
             products: productsResult.data ?? [],
             categories: categoriesResult.data ?? [],
             employees: employeesResult.data ?? [],

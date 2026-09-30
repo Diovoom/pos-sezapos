@@ -438,9 +438,9 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 <Link to="/legal" className="hover:text-white">Legal center</Link>,{" "}
                 <Link to="/legal/terms" className="hover:text-white">Terms</Link>,{" "}
                 <Link to="/legal/privacy" className="hover:text-white">Privacy</Link>,{" "}
-                <Link to="/legal/cookies" className="hover:text-white">Cookies</Link>,{" "}
+                <Link to="/legal/$slug" params={{ slug: "cookies" }} className="hover:text-white">Cookies</Link>,{" "}
                 <Link to="/legal/refund" className="hover:text-white">Refunds</Link>,{" "}
-                <Link to="/legal/accessibility" className="hover:text-white">Accessibility</Link>
+                <Link to="/legal/$slug" params={{ slug: "accessibility" }} className="hover:text-white">Accessibility</Link>
               </p>
             </div>
           </div>

@@ -1,3 +1,4 @@
+import { collectExportRows } from "@/lib/paginated-export";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,7 +96,7 @@ export const Route = createFileRoute("/_dashboard/settings")({
       },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { section?: string; checkout?: string } => ({
     section: typeof search.section === "string" ? search.section : undefined,
     checkout: typeof search.checkout === "string" ? search.checkout : undefined,
   }),
@@ -1348,27 +1349,27 @@ function CameraPanel() {
 /* ================= Backup / Integrations / Appearance / About ================= */
 
 function BackupPanel() {
+  const me = useMe();
+  const [exporting, setExporting] = useState(false);
   const doExport = async () => {
-    const [stores, products, categories, sales, sale_items, refunds, refund_items] =
-      await Promise.all([
-        supabase.from("stores").select("*"),
-        supabase.from("products").select("*"),
-        supabase.from("categories").select("*"),
-        supabase.from("sales").select("*"),
-        supabase.from("sale_items").select("*"),
-        supabase.from("refunds").select("*"),
-        supabase.from("refund_items").select("*"),
-      ]);
-    const dump = {
-      exported_at: new Date().toISOString(),
-      stores: stores.data,
-      products: products.data,
-      categories: categories.data,
-      sales: sales.data,
-      sale_items: sale_items.data,
-      refunds: refunds.data,
-      refund_items: refund_items.data,
-    };
+    const storeId = me.data?.store?.id;
+    if (!storeId) return toast.error("Store is unavailable. Please sign in again.");
+    setExporting(true);
+    try {
+    const exportedAt = new Date().toISOString();
+    const tables = ["stores", "products", "categories", "sales", "sale_items", "sale_payments", "refunds", "refund_items"] as const;
+    const entries = await Promise.all(tables.map(async (table) => {
+      const parent = table === "sale_items" ? "sales" : table === "refund_items" ? "refunds" : null;
+      const rows = await collectExportRows<Record<string, unknown> & { id: string }>((after) => {
+        let query = (supabase.from as any)(table).select(parent ? `*,${parent}!inner(store_id)` : "*")
+          .lte("created_at", exportedAt).order("id").limit(1000);
+        query = query.eq(parent ? `${parent}.store_id` : table === "stores" ? "id" : "store_id", storeId);
+        if (after) query = query.gt("id", after);
+        return query;
+      });
+      return [table, rows.map((row) => { if (!parent) return row; const copy = { ...row }; delete copy[parent]; return copy; })];
+    }));
+    const dump = { exported_at: exportedAt, store_id: storeId, ...Object.fromEntries(entries) };
     const blob = new Blob([JSON.stringify(dump, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1381,6 +1382,9 @@ function BackupPanel() {
       entity: "backup",
       details: { type: "manual_export" },
     });
+    } catch (error) {
+      toast.error(userFacingError(error, "Export failed. No partial backup was downloaded."));
+    } finally { setExporting(false); }
   };
   return (
     <Card className="max-w-2xl">
@@ -1395,11 +1399,11 @@ function BackupPanel() {
         <div className="rounded-md border p-3 text-sm bg-surface/40 space-y-1">
           <div className="font-medium">Included in this export</div>
           <div className="text-muted-foreground">
-            Store settings, products, categories, sales, sale items, refunds, and refund items
+            Store settings, products, categories, sales, sale items, payment records, refunds, and refund items
             available to your account.
           </div>
         </div>
-        <Button onClick={doExport}>Download store data</Button>
+        <Button onClick={doExport} disabled={exporting}>{exporting ? "Preparing export…" : "Download store data"}</Button>
       </CardContent>
     </Card>
   );

@@ -487,7 +487,6 @@ export async function purgeIfStoreChanged(
     // Products are a disposable cache. Financial queues are not. Previous
     // versions erased pending sales, drawer movements, and shift actions here,
     // which could permanently lose money records during re-pairing.
-    await db.clear("products");
     const preservedUnsyncedRecords = await countUnsyncedFinancialRecords();
     if (preservedUnsyncedRecords > 0) {
       // Never silently reassign a terminal while financial records from its
@@ -508,6 +507,8 @@ export async function purgeIfStoreChanged(
         preservedUnsyncedRecords,
       };
     }
+    await db.clear("products");
+    await db.clear("employees");
     await cacheMeta("store_id", storeId);
     await cacheMeta("store_switch_conflict", null);
     return {

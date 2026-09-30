@@ -225,6 +225,8 @@ export const createEmployee = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator(
     (data: {
+      expectedActorId?: string;
+      expectedStoreId?: string | null;
       first_name: string;
       last_name: string;
       email: string;
@@ -249,6 +251,7 @@ export const createEmployee = createServerFn({ method: "POST" })
       .eq("id", (context as { userId: string }).userId)
       .maybeSingle();
     if (!ownerProfile?.store_id) throw new Error("You are not assigned to a store");
+    if ((data.expectedActorId && data.expectedActorId !== (context as { userId: string }).userId) || (data.expectedStoreId && data.expectedStoreId !== ownerProfile.store_id)) throw new Error("Employee session changed. Sign in as the owner who queued this invitation.");
 
     const admin: any = supabaseAdmin;
     const { assertStoreResourceLimit, getStorePlanUsage } = await import(
@@ -280,35 +283,22 @@ export const createEmployee = createServerFn({ method: "POST" })
       throw new Error(createErr?.message || "Failed to create user");
     }
 
-    // handle_new_user() trigger already created a profile + a `cashier`
-    // user_role. Update the profile with the extra fields and, if the
-    // caller wanted `manager`, overwrite the role.
-
-    const { error: profileErr } = await admin
-      .from("profiles")
-      .update({
+    // Signup creates an unassigned profile. Only this authorized server path
+    // can attach an invitation to the owner's store, together with its role.
+    const { error: provisionError } = await admin.rpc("provision_invited_employee", {
+      p_user_id: created.user.id,
+      p_store_id: ownerProfile.store_id,
+      p_role: data.role,
+      p_fields: {
         first_name: data.first_name,
         last_name: data.last_name,
-        full_name: `${data.first_name} ${data.last_name}`.trim(),
         phone: data.phone || null,
         hire_date: data.hire_date || null,
-        must_change_password: true,
-        status: "active",
-        store_id: ownerProfile?.store_id ?? null,
-      })
-      .eq("id", created.user.id);
-    if (profileErr) throw new Error(profileErr.message);
-
-    // The auth trigger may provision a non-merchant user against a fallback
-    // store before this server function finishes. Always repair both the role
-    // and tenant id so the employee belongs to the owner's actual store.
-    const { error: roleErr } = await admin
-      .from("user_roles")
-      .update({ role: data.role, store_id: ownerProfile.store_id })
-      .eq("user_id", created.user.id);
-    if (roleErr) {
+      },
+    });
+    if (provisionError) {
       await supabaseAdmin.auth.admin.deleteUser(created.user.id).catch(() => undefined);
-      throw new Error(roleErr.message);
+      throw new Error(provisionError.message);
     }
 
     const { data: profile } = await admin
@@ -522,7 +512,8 @@ export const completeFirstLogin = createServerFn({ method: "POST" })
           .eq("status", "active")
           .neq("id", ctx.userId);
         if (readError) throw new Error("Employee PINs could not be checked right now");
-        conflict = (activeProfiles ?? []).some(
+        const requestedPin = data.pin;
+      conflict = (activeProfiles ?? []).some(
           (row: { pin_hash?: string | null }) =>
             !!row.pin_hash && verifyPin(data.pin!, row.pin_hash),
         );
@@ -615,9 +606,10 @@ export const setMyPin = createServerFn({ method: "POST" })
         .eq("status", "active")
         .neq("id", ctx.userId);
       if (readError) throw new Error("Employee PINs could not be checked right now");
+      const requestedPin = data.pin;
       conflict = (activeProfiles ?? []).some(
         (row: { pin_hash?: string | null }) =>
-          !!row.pin_hash && verifyPin(data.pin, row.pin_hash),
+          !!row.pin_hash && verifyPin(requestedPin, row.pin_hash),
       );
     }
 
@@ -773,17 +765,14 @@ export const updateEmployee = createServerFn({ method: "POST" })
     }
 
     if (data.role) {
-      const { data: existing } = await admin
-        .from("user_roles")
-        .select("id")
-        .eq("user_id", data.user_id)
-        .limit(1)
-        .maybeSingle();
-      if (existing) {
-        await admin.from("user_roles").update({ role: data.role }).eq("user_id", data.user_id);
-      } else {
-        await admin.from("user_roles").insert({ user_id: data.user_id, role: data.role });
-      }
+      const { data: target, error: profileError } = await admin.from("profiles").select("store_id").eq("id", data.user_id).single();
+      if (profileError || !target?.store_id) throw new Error("Employee store is unavailable");
+      const { data: existing, error: readError } = await admin.from("user_roles").select("id").eq("user_id", data.user_id).eq("store_id", target.store_id);
+      if (readError) throw readError;
+      const result = existing?.length
+        ? await admin.from("user_roles").update({ role: data.role }).eq("user_id", data.user_id).eq("store_id", target.store_id)
+        : await admin.from("user_roles").insert({ user_id: data.user_id, store_id: target.store_id, role: data.role });
+      if (result.error) throw result.error;
     }
 
     const correlationId = await auditMerchant(ctx.userId, {
@@ -939,6 +928,7 @@ export const adminResetPin = createServerFn({ method: "POST" })
         .eq("status", "active")
         .neq("id", data.user_id);
       if (readError) throw new Error("Employee PINs could not be checked right now");
+      const requestedPin = data.pin;
       conflict = (activeProfiles ?? []).some(
         (row: { pin_hash?: string | null }) => !!row.pin_hash && verifyPin(pin, row.pin_hash),
       );

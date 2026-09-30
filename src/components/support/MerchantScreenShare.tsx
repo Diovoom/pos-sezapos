@@ -24,6 +24,7 @@ export function MerchantScreenShare({
 
   useEffect(() => {
     let disposed = false;
+    endedRef.current = false;
     let seenAdminHello = false;
     let makingOffer = false;
     const pc = new RTCPeerConnection(RTC_CONFIG);
@@ -61,7 +62,7 @@ export function MerchantScreenShare({
     }
 
     async function sendOffer() {
-      if (makingOffer || disposed || pc.signalingState === "closed") return;
+      if (makingOffer || disposed || pc.signalingState !== "stable") return;
       makingOffer = true;
       try {
         const offer = await pc.createOffer();

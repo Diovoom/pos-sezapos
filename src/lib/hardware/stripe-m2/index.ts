@@ -12,6 +12,7 @@ type NativeAuth = {
   device_id: string;
   device_secret: string;
   caller_id: string;
+  actor_token: string | null;
 };
 
 export type StripeTerminalRecord = {
@@ -119,6 +120,7 @@ async function nativeAuth(): Promise<NativeAuth | null> {
     device_id: pairing.deviceId,
     device_secret: pairing.deviceSecret,
     caller_id: callerId,
+    actor_token: await readMeta<string>(`actor_token:${callerId}`) ?? null,
   };
 }
 
@@ -139,6 +141,8 @@ async function callApi<T>(path: string, body: Record<string, unknown> = {}): Pro
     if (!auth) throw new Error("The register session is unavailable. Enter the employee PIN again.");
     request = (await import("../../../../capacitor-shell/lib/nativeHttp")).nativeFetch;
     payload = { ...body, nativeAuth: auth };
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.user.id === auth.caller_id) headers.authorization = `Bearer ${data.session.access_token}`;
   } else {
     headers.authorization = `Bearer ${await bearer()}`;
   }
@@ -501,11 +505,12 @@ async function ensureReader(configuration: TerminalConfiguration, onStatus?: (me
     // Keep Stripe discovery alive until connectReader receives the selected
     // Reader object. Cancelling discovery first can invalidate a mobile reader
     // connection attempt on some Android/USB stacks.
-    await mod.StripeTerminal.connectReader({
+    const connectionOptions = {
       reader,
       locationId: configuration.locationId,
       autoReconnectOnUnexpectedDisconnect: true,
-    });
+    };
+    await mod.StripeTerminal.connectReader(connectionOptions);
   } catch (error) {
     throw terminalError(error, "CONNECT_READER_NATIVE");
   } finally {

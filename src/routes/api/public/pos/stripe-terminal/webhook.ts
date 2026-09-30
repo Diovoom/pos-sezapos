@@ -72,7 +72,7 @@ async function paymentIntentFromDispute(event: any, dispute: any): Promise<strin
 
   const { createStripeClient } = await import("@/lib/stripe.server");
   const stripe = createStripeClient("live");
-  const charge = await stripe.charges.retrieve(chargeId, {
+  const charge = await stripe.charges.retrieve(chargeId, {}, {
     stripeAccount: connectedAccountId,
   });
   return objectId((charge as any).payment_intent);
@@ -128,10 +128,12 @@ async function handleEvent(event: any) {
     }
 
     case "charge.refunded": {
+      const { reconcileRefundedCharge } = await import("@/lib/pos/refunds.server");
+      await reconcileRefundedCharge(event);
       await updateAttempt(
         objectId(object?.payment_intent),
-        "refunded",
-        "Stripe Terminal payment refunded",
+        object.refunded ? "refunded" : "completed",
+        object.refunded ? "Stripe Terminal payment refunded" : "Stripe Terminal payment partially refunded",
       );
       return;
     }

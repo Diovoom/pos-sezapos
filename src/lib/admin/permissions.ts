@@ -72,11 +72,15 @@ export function useAdminPermissions() {
           hasAny: () => false,
         };
       }
-      const [{ data: roles }, { data: rows }] = await Promise.all([
+      const [rolesResult, permissionsResult] = await Promise.all([
         supabaseAdminAuth.from("user_roles").select("role").eq("user_id", uid),
 
         (supabaseAdminAuth.from as any)("admin_permissions").select("role, permission"),
       ]);
+      if (rolesResult.error) throw rolesResult.error;
+      if (permissionsResult.error) throw permissionsResult.error;
+      const roles = rolesResult.data;
+      const rows = permissionsResult.data;
       const myRoles = (roles ?? [])
         .map((r) => r.role as string)
         .filter((r) => (PLATFORM_ROLES as readonly string[]).includes(r));

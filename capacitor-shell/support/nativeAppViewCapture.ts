@@ -50,7 +50,7 @@ async function drawJpeg(
   frame: AppViewFrame,
 ): Promise<void> {
   const bytes = base64ToBytes(frame.data);
-  const blob = new Blob([bytes], { type: "image/jpeg" });
+  const blob = new Blob([new Uint8Array(bytes)], { type: "image/jpeg" });
 
   if (typeof createImageBitmap === "function") {
     const image = await createImageBitmap(blob);
@@ -128,8 +128,8 @@ export function createAppViewCaptureBridge(): {
   canvas.style.pointerEvents = "none";
   canvas.style.zIndex = "-1";
   document.body?.appendChild(canvas);
-  const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true } as any);
-  if (!ctx) return null;
+  const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
+  if (!ctx) { canvas.remove(); return null; }
   ctx.fillStyle = "#111827";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 

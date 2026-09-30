@@ -34,7 +34,7 @@ export const Route = createFileRoute("/_dashboard/shifts")({
       },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { id?: string; session?: string } => ({
     id: (s.id as string | undefined) ?? undefined,
     session: (s.session as string | undefined) ?? undefined,
   }),
