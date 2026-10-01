@@ -37,6 +37,9 @@ import {
   type PaymentAllocation,
 } from "@/components/pos/PaymentDialog";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
+import { TerminalRecoveryNotice } from "@/components/pos/TerminalRecoveryNotice";
+import { recoverStripeCheckout } from "@/lib/hardware/terminal-stripe";
+import type { TerminalCheckout } from "@/lib/pos/terminal-checkout";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import {
   AgeVerificationDialog,
@@ -237,6 +240,7 @@ export function PosPage() {
 
   const [tender, setTender] = useState<PaymentMethod>("card");
   const [payOpen, setPayOpen] = useState(false);
+  const finalizingRef = useRef(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [displayCompletion, setDisplayCompletion] = useState<CustomerDisplayPayload | null>(null);
@@ -846,6 +850,33 @@ export function PosPage() {
     };
   };
 
+  // Freeze the original actor, register, prices, basket and split allocation
+  // before the reader can charge. The payment endpoint persists this snapshot.
+  const prepareTerminalPayment = async (payment: CompletedPayment,id: string): Promise<TerminalCheckout> => {
+    if(!store?.id || !activeUserId || storeSwitchBlocked) throw new Error("Checkout identity is unavailable");
+    const {data:register,error}=await (supabase.from as any)("register_sessions").select("id")
+      .eq("store_id",store.id).eq("status","open").order("opened_at",{ascending:false}).limit(1).maybeSingle();
+    if(error) throw error;
+    const allocations=payment.allocations?.length ? payment.allocations : [{method:payment.method,amount:payment.finalAmountCharged??selectedTenderTotal}];
+    return {
+      actor_id:activeUserId,
+      sale:{id,idempotency_key:id,store_id:store.id,subtotal,tax,discount:discountAmount,total,
+        cash_base_total:payment.cashBaseTotal??total,card_price_adjustment:payment.cardPriceAdjustment??0,
+        final_amount_charged:payment.finalAmountCharged??selectedTenderTotal,
+        processing_fee_estimate:payment.estimatedProcessorFee??null,estimated_merchant_net:payment.estimatedMerchantNet??null,
+        payment_method:payment.method,amount_tendered:payment.amountTendered,change_due:payment.changeDue,
+        terminal_ref:null,register_session_id:register?.id??null,status:"completed",synced_from_offline:false},
+      items:cart.map(l=>({product_id:l.product.id.startsWith("custom-")?null:l.product.id,product_name:l.product.name,
+        quantity:l.qty,unit_price:l.product.price,line_total:Math.round(l.product.price*l.qty*100)/100})),
+      payments:allocations.filter(p=>p.amount>0).map(p=>({method:p.method==="tap"?"tap_to_pay":["apple_pay","google_pay"].includes(p.method)?"card":p.method,
+        amount:p.amount,provider:p.method==="cash"?null:"stripe_terminal",provider_reference:null,status:"completed",
+        metadata:{cash_base_total:payment.cashBaseTotal??total,card_price_adjustment:payment.cardPriceAdjustment??0,
+          final_amount_charged:payment.finalAmountCharged??selectedTenderTotal,
+          processing_fee_estimate:payment.estimatedProcessorFee??null,estimated_merchant_net:payment.estimatedMerchantNet??null,
+          pricing_percent:cardPricing.percentRate,pricing_fixed_fee:cardPricing.fixedFee}})),
+    };
+  };
+
   // Sale is written ONLY after payment is confirmed.
   const finalize = useMutation({
     // React Query's default online network mode pauses mutations while the
@@ -853,6 +884,13 @@ export function PosPage() {
     // persisted immediately and the receipt can be shown without internet.
     networkMode: "always",
     mutationFn: async (payment: CompletedPayment) => {
+      if(payment.checkoutId) {
+        const result=await recoverStripeCheckout("recover",payment.checkoutId);
+        const recovered=result.checkouts[0];
+        if(recovered?.status!=="saved" || !recovered.sale?.id)
+          throw new SaleError("sale_insert","Payment needs recovery. Do not charge again.");
+        return {sale:recovered.sale,payment};
+      }
       if (storeSwitchBlocked) {
         throw new SaleError(
           "auth",
@@ -1100,6 +1138,9 @@ export function PosPage() {
       }
       clearCart();
       setPayOpen(false);
+      if(payment.checkoutId) void recoverStripeCheckout("acknowledge",payment.checkoutId).catch(()=>{
+        toast.info("Sale saved. Reconnect to acknowledge the recovered checkout.");
+      });
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["products"] });
@@ -1670,16 +1711,19 @@ export function PosPage() {
         </SheetContent>
       </Sheet>
 
+      <TerminalRecoveryNotice enabled={isNativeMode() && !payOpen} actorId={activeUserId} storeId={store?.id}
+        onResolved={()=>{clearCart();void qc.invalidateQueries({queryKey:["products"]});void qc.invalidateQueries({queryKey:["sales"]});}} />
       <PaymentDialog
+        prepareTerminalPayment={prepareTerminalPayment}
         open={payOpen}
         onOpenChange={(open) => {
           setPayOpen(open);
           if (!open && !finalize.isPending && cart.length > 0) {
-            setDisplayStatus({
+            setDisplayStatus((current) => current?.phase === "complete" ? current : {
               phase: "cancelled",
               message: "Payment was cancelled at the register.",
             });
-            window.setTimeout(() => setDisplayStatus(null), 2_500);
+            window.setTimeout(() => setDisplayStatus(current => current?.phase === "complete" ? current : null), 2_500);
           }
         }}
         method={tender}
@@ -1687,7 +1731,11 @@ export function PosPage() {
         baseTotal={total}
         cardPricing={cardPricing}
         currency={currency}
-        onComplete={(p) => finalize.mutate(p)}
+        onComplete={(p) => {
+          if(finalizingRef.current)return;
+          finalizingRef.current=true;
+          finalize.mutate(p,{onSettled:()=>{finalizingRef.current=false;}});
+        }}
         onPaymentEvent={(event) => {
           if (
             event.status === "payment_requested" ||

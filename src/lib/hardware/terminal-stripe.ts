@@ -3,6 +3,7 @@ import { isNativeMode } from "@/lib/native";
 import { supabase } from "@/integrations/supabase/client";
 import { readMeta } from "@/lib/offline/db";
 import { userFacingError } from "@/lib/errors/user-facing";
+import type { TerminalCheckout } from "@/lib/pos/terminal-checkout";
 
 const REMOTE_API = "https://sezapos.com";
 
@@ -186,6 +187,11 @@ async function callApi<T>(path: string, body: Record<string, unknown> = {}): Pro
   return result as T;
 }
 
+export function recoverStripeCheckout(action: "recover" | "acknowledge" | "abandon" = "recover", checkoutId?: string) {
+  return callApi<{checkouts: {checkoutId: string; status: string; sale?: any; message?: string}[]}>(
+    "/api/public/pos/stripe-terminal/payment-result",{action,checkoutId});
+}
+
 export async function getStripeTerminalContext(): Promise<StripeTerminalContext> {
   return callApi<StripeTerminalContext>("/api/public/pos/stripe-terminal/context");
 }
@@ -305,11 +311,12 @@ async function createPaymentIntent(
   currency: string,
   description?: string,
   idempotencyId?: string,
+  checkout?: TerminalCheckout,
 ) {
   const startedAt = Date.now();
-  const request = callApi<{ id: string; client_secret: string }>(
+  const request = callApi<{ id: string; client_secret: string; status?: string }>(
     "/api/public/pos/stripe-terminal/payment-intent",
-    { amount: amountCents, currency, description, idempotencyId },
+    { amount: amountCents, currency, description, idempotencyId, checkout },
   );
 
   const timeout = new Promise<never>((_, reject) => {
@@ -769,7 +776,7 @@ async function cancelNativeCollection() {
 
 export async function charge(
   driver: TerminalDriverId,
-  input: { amountCents: number; currency: string; description?: string; idempotencyId?: string },
+  input: { amountCents: number; currency: string; description?: string; idempotencyId?: string; checkout?: TerminalCheckout },
   onStatus?: (message: string) => void,
   signal?: AbortSignal,
 ): Promise<{ ok: true; ref: string } | { ok: false; error: string; cancelled?: boolean }> {
@@ -834,8 +841,15 @@ export async function charge(
     const { mod } = await ensureReader(configuration, onStatus);
     throwIfCancelled();
     onStatus?.("Creating secure card-present payment…");
-    const intent = await createPaymentIntent(input.amountCents, input.currency, input.description, input.idempotencyId);
+    const intent = await createPaymentIntent(input.amountCents, input.currency, input.description, input.idempotencyId,input.checkout);
     paymentIntentId = intent.id;
+    if (intent.status === "succeeded") {
+      onStatus?.("Payment approved");
+      void recordPaymentResult(intent.id,"completed","Recovered previously approved payment");
+      return {ok:true,ref:intent.id};
+    }
+    if (intent.status && !["requires_payment_method","requires_confirmation"].includes(intent.status))
+      throw new Error("Payment is still being reconciled. Do not charge again.");
     throwIfCancelled();
     onStatus?.("Ask the customer to tap, insert, or swipe…");
     runtime.paymentStage = "collecting";

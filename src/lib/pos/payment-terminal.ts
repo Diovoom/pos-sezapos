@@ -17,6 +17,7 @@ import {
   cancelActivePayment as cancelStripeTerminalPayment,
 } from "@/lib/hardware/terminal-stripe";
 import { finixTerminalProvider } from "@/lib/finix/terminal";
+import type { TerminalCheckout } from "./terminal-checkout";
 
 export type PaymentStatus =
   | "idle"
@@ -43,6 +44,7 @@ export type PaymentEvent = {
 export type PaymentMethodKind = "card" | "tap" | "apple_pay" | "google_pay" | "gift_card";
 
 export type PaymentRequest = {
+  checkout?: TerminalCheckout;
   amount: number;
   currency: string;
   method: PaymentMethodKind;
@@ -94,6 +96,7 @@ const stripeTerminalProvider: PaymentProvider = {
         currency: req.currency.toLowerCase(),
         description: `SEZA POS ${req.method.replaceAll("_", " ")} sale`,
         idempotencyId: req.idempotencyId,
+        checkout: req.checkout,
       },
       (message) => {
         const lower = message.toLowerCase();

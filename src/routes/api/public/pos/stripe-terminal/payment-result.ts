@@ -38,7 +38,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-re
           return json({ error: "Invalid JSON" }, 400);
         }
         const reference = typeof body.reference === "string" ? body.reference.trim() : "";
-        if (!reference.startsWith("pi_")) return json({ error: "Invalid payment reference" }, 400);
+        if (!reference.startsWith("pi_") && !["recover","acknowledge","abandon"].includes(body.action)) return json({ error: "Invalid payment reference" }, 400);
 
         const auth = request.headers.get("authorization") ?? "";
         const bearerToken = auth.startsWith("Bearer ") ? auth.slice(7) : "";
@@ -48,6 +48,14 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-re
             createTerminalStripeClient,
           } = await import("@/lib/stripe-terminal.server");
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+          if (["recover","acknowledge","abandon"].includes(body.action)) {
+            const { resolveStripeTerminalCaller } = await import("@/lib/stripe-terminal.server");
+            const { checkoutAction } = await import("@/lib/pos/terminal-checkout.server");
+            const caller=await resolveStripeTerminalCaller({bearerToken,nativeAuth:body.nativeAuth});
+            if(body.action!=="recover" && !body.checkoutId) return json({error:"Checkout ID required"},400);
+            return json(await checkoutAction(caller,body.action,body.checkoutId));
+          }
 
           {
             const merchant = await resolveStripeTerminalMerchant({
@@ -66,6 +74,12 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-re
               return json({ error: "Stripe payment environment mismatch." }, 409);
             }
             const lastError = intent.last_payment_error?.message || null;
+            let recoveryPending = false;
+            if(intent.status === "succeeded" && intent.metadata?.seza_checkout_id) {
+              const { checkoutAction } = await import("@/lib/pos/terminal-checkout.server");
+              try { await checkoutAction(merchant,"recover",intent.metadata.seza_checkout_id); }
+              catch { recoveryPending = true; }
+            }
             const auditStatus =
               intent.status === "succeeded" || intent.status === "requires_capture"
                 ? "completed"
@@ -91,6 +105,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-re
               last_payment_error: lastError,
               environment: merchant.environment,
               livemode: Boolean(intent.livemode),
+              recovery_pending: recoveryPending,
             });
           }
 

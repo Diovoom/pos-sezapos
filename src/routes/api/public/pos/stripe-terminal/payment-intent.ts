@@ -24,7 +24,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
           limit: 30,
           windowSeconds: 60,
           blockSeconds: 300,
-          maxBodyBytes: 32768,
+          maxBodyBytes: 262144,
           allowMissingOrigin: true,
           skipOriginCheck: false,
         });
@@ -62,23 +62,32 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
             requireActiveTerminal: true,
           });
           const stripe = createTerminalStripeClient(merchant.environment);
-          const intentRequest = stripe.paymentIntents.create(
+          const { prepareTerminalCheckout, bindCheckoutIntent } = await import("@/lib/pos/terminal-checkout.server");
+          const checkout = body.checkout ? await prepareTerminalCheckout(merchant,body.checkout,amount,currency) : null;
+          // A mapped PI is always retrieved, never recreated, even after Stripe's
+          // idempotency-key retention window has elapsed.
+          if(checkout && !checkout.payment_intent_id && Date.now()-Date.parse(checkout.created_at)>20*60*60*1000)
+            throw new Error("Interrupted payment preparation needs review; do not create another charge.");
+          const intentRequest = checkout?.payment_intent_id
+            ? stripe.paymentIntents.retrieve(checkout.payment_intent_id,{}, {stripeAccount:checkout.stripe_account_id})
+            : stripe.paymentIntents.create(
             {
               amount,
               currency,
               payment_method_types: ["card_present"],
               capture_method: "automatic",
-              description,
+              description: checkout ? "SEZA POS checkout" : description,
               metadata: {
                 seza_store_id: merchant.storeId,
                 seza_cashier_id: merchant.userId,
-                seza_terminal_id: merchant.terminalId ?? "",
+                seza_terminal_id: checkout ? "" : merchant.terminalId ?? "",
                 seza_channel: "android_pos",
+                ...(checkout ? {seza_checkout_id:checkout.id} : {}),
               },
             },
             {
               stripeAccount: merchant.stripeAccountId,
-              ...(idempotencyId ? { idempotencyKey: `seza-pos-${idempotencyId}` } : {}),
+              ...(checkout ? {idempotencyKey:`seza-checkout-${checkout.id}`} : idempotencyId ? { idempotencyKey: `seza-pos-${idempotencyId}` } : {}),
             },
           );
 
@@ -94,6 +103,9 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
           if (Boolean(intent.livemode) !== expectedLiveMode) {
             throw new Error("Stripe card processing environment mismatch. Refresh Stripe setup before retrying.");
           }
+          // Do not release a client secret to the reader until the durable
+          // payment association is confirmed in the database.
+          if(checkout) await bindCheckoutIntent(checkout,intent,merchant.stripeAccountId);
 
           const auditWrite = (supabaseAdmin.from as any)("payment_attempts").insert({
             store_id: merchant.storeId,
@@ -118,6 +130,8 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/payment-in
             client_secret: intent.client_secret,
             environment: merchant.environment,
             livemode: Boolean(intent.livemode),
+            status: intent.status,
+            checkoutId: checkout?.id,
           });
         } catch (error) {
           return json({ error: "Stripe payment failed" }, 400);

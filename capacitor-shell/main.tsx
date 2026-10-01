@@ -81,6 +81,8 @@ function ShellApp() {
     void (async () => {
       try {
         await initAndroidLifecycle(router, queryClient);
+        // Cleanup may have run while native lifecycle initialization was pending.
+        if (!alive) return;
         stopHeartbeat = startDeviceHeartbeat();
       } catch (error) {
         console.warn("[SEZA POS] Android lifecycle startup deferred", error);

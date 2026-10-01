@@ -34,6 +34,7 @@ import { isOnlineNow } from "@/lib/offline/useOnline";
 import { ManagerOverrideDialog } from "@/components/pos/ManagerOverrideDialog";
 import { isNativeMode } from "@/lib/native";
 import { userFacingError } from "@/lib/errors/user-facing";
+import type { TerminalCheckout } from "@/lib/pos/terminal-checkout";
 import { useTrainingMode } from "@/lib/pos/training-mode";
 import {
   estimatedProcessingFee,
@@ -55,6 +56,7 @@ export type PaymentAllocation = {
 };
 
 export type CompletedPayment = {
+  checkoutId?: string;
   method: PaymentMethod;
   amountTendered: number;
   changeDue: number;
@@ -70,6 +72,7 @@ export type CompletedPayment = {
 };
 
 type Props = {
+  prepareTerminalPayment?: (payment: CompletedPayment, id: string) => Promise<TerminalCheckout>;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   method: PaymentMethod;
@@ -140,6 +143,7 @@ export function PaymentDialog({
   onComplete,
   onPaymentEvent,
   bypassCancelApproval = false,
+  prepareTerminalPayment,
 }: Props) {
   const trainingMode = useTrainingMode();
   const resolvedBaseTotal = baseTotal ?? total;
@@ -200,6 +204,7 @@ export function PaymentDialog({
             />
           ) : isSplit ? (
             <SplitPanel
+              prepareTerminalPayment={prepareTerminalPayment}
               total={resolvedBaseTotal}
               currency={currency}
               pricing={cardPricing}
@@ -214,6 +219,7 @@ export function PaymentDialog({
             />
           ) : (
             <TerminalPanel
+              prepareTerminalPayment={prepareTerminalPayment}
               key={String(open)}
               method={method}
               total={total}
@@ -569,12 +575,14 @@ function CashPanel({
 /* -------- Split cash + card -------- */
 
 function SplitPanel({
+  prepareTerminalPayment,
   total,
   currency,
   pricing,
   onComplete,
   onCancel,
 }: {
+  prepareTerminalPayment?: Props["prepareTerminalPayment"];
   total: number;
   currency: string;
   pricing?: CardProcessingPricing;
@@ -590,6 +598,9 @@ function SplitPanel({
   const [result, setResult] = useState<PaymentResult | null>(null);
   const [charging, setCharging] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const checkoutRef = useRef<TerminalCheckout | null>(null);
+  const splitAttemptRef = useRef(crypto.randomUUID());
+  const splitStartingRef = useRef(false);
   const effectivePricing: CardProcessingPricing = pricing ?? {
     enabled: false,
     percentRate: 0,
@@ -605,7 +616,7 @@ function SplitPanel({
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const chargeRemaining = async () => {
-    if (cardCharge <= 0 || !provider || charging) return;
+    if (cardCharge <= 0 || !provider || charging || splitStartingRef.current) return;
     if (!isOnlineNow()) {
       setEvent({
         status: "network_error",
@@ -614,17 +625,31 @@ function SplitPanel({
       return;
     }
     const controller = new AbortController();
+    splitStartingRef.current = true;
     abortRef.current = controller;
     setCharging(true);
     setResult(null);
     try {
+      if (provider.id === "stripe-terminal") {
+        if (!prepareTerminalPayment) throw new Error("Checkout recovery is unavailable. Reopen the register.");
+        checkoutRef.current ??= await prepareTerminalPayment({
+          method:"split",amountTendered:finalAmount,changeDue:0,
+          cashBaseTotal:total,cardPriceAdjustment:roundMoney(finalAmount-total),finalAmountCharged:finalAmount,
+          estimatedProcessorFee:cardQuote.estimatedProcessingFee,
+          estimatedMerchantNet:roundMoney(cash+cardQuote.estimatedMerchantNet),
+          allocations:[...(cash>0?[{method:"cash" as const,amount:cash}]:[]),{method:"card",amount:cardCharge,provider:"stripe_terminal"}],
+        },splitAttemptRef.current);
+      }
       const paymentResult = await provider.charge(
-        { amount: cardCharge, currency, method: "card" },
+        { amount: cardCharge, currency, method: "card",idempotencyId:splitAttemptRef.current,checkout:checkoutRef.current??undefined },
         (next) => setEvent(next),
         controller.signal,
       );
       setResult(paymentResult);
+    } catch(error) {
+      setEvent({status:"error",message:userFacingError(error,"Payment needs recovery. Do not charge again.")});
     } finally {
+      splitStartingRef.current = false;
       setCharging(false);
     }
   };
@@ -645,6 +670,7 @@ function SplitPanel({
     }
     onComplete({
       method: "split",
+      checkoutId:checkoutRef.current?.sale.id,
       amountTendered: finalAmount,
       changeDue: 0,
       reference: result?.reference,
@@ -708,7 +734,7 @@ function SplitPanel({
           </div>
         )}
 
-        <div className="space-y-2">
+        <fieldset disabled={charging || !!checkoutRef.current} className="space-y-2">
           <Label>Cash amount</Label>
           <div
             role="textbox"
@@ -754,7 +780,7 @@ function SplitPanel({
               setEvent({ status: "idle", message: "Ready" });
             }}
           />
-        </div>
+        </fieldset>
 
         {cardCharge > 0 && (
           <div className="rounded-2xl border p-4">
@@ -803,6 +829,7 @@ function SplitPanel({
 /* -------- Terminal -------- */
 
 function TerminalPanel({
+  prepareTerminalPayment,
   method,
   total,
   baseTotal,
@@ -813,6 +840,7 @@ function TerminalPanel({
   onCancel,
   onCancelNoApproval,
 }: {
+  prepareTerminalPayment?: Props["prepareTerminalPayment"];
   method: PaymentMethod;
   total: number;
   baseTotal: number;
@@ -832,9 +860,12 @@ function TerminalPanel({
   const [result, setResult] = useState<PaymentResult | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const attemptIdRef = useRef<string>(crypto.randomUUID());
+  const checkoutRef = useRef<TerminalCheckout | null>(null);
+  const startingRef = useRef(false);
 
   const start = () => {
-    if (!provider) return;
+    if (!provider || startingRef.current) return;
+    startingRef.current = true;
     setResult(null);
     const ac = new AbortController();
     abortRef.current = ac;
@@ -848,13 +879,22 @@ function TerminalPanel({
       message: "Payment requested",
     });
 
-    void provider
-      .charge(
+    void (async () => {
+      if(provider.id === "stripe-terminal") {
+        if(!prepareTerminalPayment) throw new Error("Checkout recovery is unavailable. Reopen the register.");
+        checkoutRef.current ??= await prepareTerminalPayment({
+          method,amountTendered:total,changeDue:0,cashBaseTotal:baseTotal,
+          cardPriceAdjustment,finalAmountCharged:total,estimatedProcessorFee:processorFeeEstimate,
+          estimatedMerchantNet:merchantNetEstimate,
+        },attemptIdRef.current);
+      }
+      return provider.charge(
         {
           amount: total,
           currency,
           method: method as Exclude<PaymentMethod, "cash" | "split">,
           idempotencyId: attemptIdRef.current,
+          checkout:checkoutRef.current??undefined,
         },
         (e) => {
           const safeEvent = {
@@ -874,7 +914,8 @@ function TerminalPanel({
           });
         },
         ac.signal,
-      )
+      );
+    })()
       .then((r) => {
         const safeResult = {
           ...r,
@@ -890,7 +931,9 @@ function TerminalPanel({
           message: safeResult.message,
           reference: safeResult.reference ?? null,
         });
-      });
+      }).catch((error) => {
+        setEvent({status:"error",message:userFacingError(error,"Payment needs recovery. Do not charge again.")});
+      }).finally(()=>{startingRef.current=false;});
   };
 
   const startedProviderRef = useRef<string | null>(null);
@@ -1026,7 +1069,7 @@ function TerminalPanel({
             <Button
               className="flex-1"
               onClick={() => {
-                if (status !== "network_error") attemptIdRef.current = crypto.randomUUID();
+                if (!checkoutRef.current && status !== "network_error") attemptIdRef.current = crypto.randomUUID();
                 start();
               }}
             >
@@ -1041,6 +1084,7 @@ function TerminalPanel({
             onClick={() =>
               onComplete({
                 method,
+                checkoutId:checkoutRef.current?.sale.id,
                 amountTendered: total,
                 changeDue: 0,
                 reference: result.reference,

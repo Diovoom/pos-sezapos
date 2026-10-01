@@ -4,7 +4,7 @@
 // - Single-flight: only one sync worker runs at a time.
 // - Auth-gated: never syncs without an authenticated session.
 // - Idempotent: sales.idempotency_key + cash_movements.idempotency_key are
-//   UNIQUE on the server. A 23505 duplicate is treated as already-accepted.
+//   UNIQUE on the server. Duplicate cash/register inserts must match the original payload.
 // - Recovery: stale "syncing" records are recovered on module init so a
 //   crash / process kill never strands a queued sale.
 // - Backoff: temporary failures schedule a next_retry_at with exponential
@@ -169,7 +169,7 @@ async function syncCashMovement(m: OfflineCashMovement, accessToken: string): Pr
     last_error_code: null,
   });
 
-  const { error } = await (supabase.from as any)("cash_movements").insert({
+  let { error } = await (supabase.from as any)("cash_movements").insert({
     id: m.id,
     store_id: m.store_id,
     register_session_id: m.register_session_id,
@@ -180,8 +180,23 @@ async function syncCashMovement(m: OfflineCashMovement, accessToken: string): Pr
     notes: m.notes,
     idempotency_key: m.idempotency_key,
   }).setHeader("Authorization", `Bearer ${accessToken}`);
-  const dup = error?.code === "23505";
-  if (error && !dup) {
+  if (error?.code === "23505") {
+    const { data: existing, error: lookupError } = await (supabase.from as any)("cash_movements")
+      .select("id,store_id,register_session_id,user_id,type,amount,reason,notes,idempotency_key")
+      .eq("id", m.id)
+      .eq("store_id", m.store_id)
+      .setHeader("Authorization", `Bearer ${accessToken}`)
+      .maybeSingle();
+    const same = existing &&
+      ["id", "store_id", "register_session_id", "user_id", "type", "reason", "notes", "idempotency_key"]
+        .every((key) => (existing[key] ?? null) === ((m as any)[key] ?? null)) &&
+      Number(existing.amount) === Number(m.amount);
+    error = lookupError ?? (same ? null : {
+      code: "23514",
+      message: "Cash movement reference conflicts with an existing record; review required.",
+    });
+  }
+  if (error) {
     const permanent = isPermanent(error);
     await updateOfflineCashMovement(m.id, {
       status: permanent || attempts >= 8 ? "needs_attention" : "failed",
@@ -224,23 +239,39 @@ async function syncAction(action: OfflineAction, accessToken: string): Promise<v
     } else if (action.kind === "register_open") {
       const row = action.payload;
 
-      const { error } = await (supabase.from as any)("register_sessions").upsert(
-        {
-          id: row.id,
-          store_id: action.store_id,
-          opened_by: action.user_id,
-          opened_at: row.opened_at ?? action.local_created_at,
-          opening_cash: row.opening_cash ?? 0,
-          notes: row.notes ?? null,
-          status: "open",
-        },
-        { onConflict: "id" },
-      );
-      if (error && error.code !== "23505") throw error;
+      const original = {
+        id: row.id,
+        store_id: action.store_id,
+        opened_by: action.user_id,
+        opened_at: row.opened_at ?? action.local_created_at,
+        opening_cash: row.opening_cash ?? 0,
+        notes: row.notes ?? null,
+        status: "open",
+      };
+      // A lost INSERT response must never turn a later closed session back into
+      // an open one. Accept only this session's original immutable attribution.
+      const { error } = await (supabase.from as any)("register_sessions")
+        .insert(original)
+        .setHeader("Authorization", `Bearer ${accessToken}`);
+      if (error?.code === "23505") {
+        const { data: existing, error: lookupError } = await (supabase.from as any)("register_sessions")
+          .select("id,store_id,opened_by,opened_at,opening_cash")
+          .eq("id", original.id)
+          .eq("store_id", action.store_id)
+          .setHeader("Authorization", `Bearer ${accessToken}`)
+          .maybeSingle();
+        if (lookupError) throw lookupError;
+        if (!existing || existing.id !== original.id || existing.store_id !== original.store_id ||
+            existing.opened_by !== original.opened_by ||
+            Date.parse(existing.opened_at) !== Date.parse(String(original.opened_at)) ||
+            Number(existing.opening_cash) !== Number(original.opening_cash)) {
+          throw { code: "23514", message: "Register opening conflicts with an existing session; review required." };
+        }
+      } else if (error) throw error;
     } else if (action.kind === "register_close") {
       const row = action.payload;
 
-      const { error } = await (supabase.from as any)("register_sessions")
+      const { data: closed, error } = await (supabase.from as any)("register_sessions")
         .update({
           status: "closed",
           closed_at: row.closed_at ?? action.local_created_at,
@@ -251,8 +282,13 @@ async function syncAction(action: OfflineAction, accessToken: string): Promise<v
           safe_drop_amount: row.safe_drop_amount ?? 0,
           close_notes: row.close_notes ?? null,
         })
-        .eq("id", row.id);
+        .eq("id", row.id)
+        .eq("store_id", action.store_id)
+        .select("id")
+        .setHeader("Authorization", `Bearer ${accessToken}`)
+        .maybeSingle();
       if (error) throw error;
+      if (!closed?.id) throw { code: "23514", message: "Register session was not closed; review required." };
     } else if (action.kind === "audit_event") {
       // The queued row has a client-generated UUID, making retries
       // idempotent even if the first response was lost after commit.
@@ -290,7 +326,7 @@ async function syncAction(action: OfflineAction, accessToken: string): Promise<v
           .delete()
           .eq("id", productId)
           .eq("store_id", action.store_id);
-        if (error && error.code !== "23503") throw error;
+        if (error) throw error;
       } else {
         throw new Error("Unknown catalog mutation operation");
       }
@@ -362,14 +398,14 @@ async function syncAction(action: OfflineAction, accessToken: string): Promise<v
 
 export async function syncNow(): Promise<{ synced: number; failed: number; skipped?: string }> {
   if (syncing) return { synced: 0, failed: 0, skipped: "already-running" };
-  const { isOnlineNow } = await import("./useOnline");
-  if (!isOnlineNow()) {
-    return { synced: 0, failed: 0, skipped: "offline" };
-  }
+  // Acquire before the first await: reconnect/resume/heartbeat can all call
+  // this in the same turn. The finally block releases even on early returns.
   syncing = true;
   let synced = 0;
   let failed = 0;
   try {
+    const { isOnlineNow } = await import("./useOnline");
+    if (!isOnlineNow()) return { synced: 0, failed: 0, skipped: "offline" };
     // Verify authenticated session  -  never sync without one. This prevents
     // the shell from posting queued sales as an anonymous user after a
     // sign-out or session expiry.

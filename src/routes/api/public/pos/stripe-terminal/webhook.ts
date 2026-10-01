@@ -104,6 +104,8 @@ async function handleEvent(event: any) {
 
   switch (event.type) {
     case "payment_intent.succeeded": {
+      const { recoverTerminalWebhook } = await import("@/lib/pos/terminal-checkout.server");
+      await recoverTerminalWebhook(event);
       await updateAttempt(
         objectId(object),
         "completed",
