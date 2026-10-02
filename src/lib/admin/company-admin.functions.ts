@@ -1057,6 +1057,22 @@ async function auditSupportBestEffort(
   }
 }
 
+async function optionalSupportRead(query: any, label: string) {
+  try {
+    const result = await query;
+    if (result?.error) {
+      console.warn("Optional support context unavailable", {
+        label,
+        error: result.error?.message ?? String(result.error),
+      });
+    }
+    return result ?? { data: null, count: 0 };
+  } catch (error) {
+    console.warn("Optional support context unavailable", { label, error });
+    return { data: null, count: 0, error };
+  }
+}
+
 export const adminGetSupportCase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { ticketId: string }) => data)
@@ -1083,38 +1099,53 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
         .select("*")
         .eq("ticket_id", data.ticketId)
         .order("created_at", { ascending: true }),
-      (supabaseAdmin.from as any)("support_ticket_events")
-        .select("*")
-        .eq("ticket_id", data.ticketId)
-        .order("created_at", { ascending: true }),
-      ticket.store_id
-        ? supabaseAdmin
-            .from("stores")
-            .select("id,name,email,phone,store_code,plan_tier,plan_status")
-            .eq("id", ticket.store_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      ticket.assigned_admin_id
-        ? supabaseAdmin
-            .from("profiles")
-            .select("id,email,full_name")
-            .eq("id", ticket.assigned_admin_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      ticket.requester_id
-        ? supabaseAdmin
-            .from("profiles")
-            .select("id,email,full_name,employee_id,status")
-            .eq("id", ticket.requester_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      ticket.device_registration_id
-        ? supabaseAdmin
-            .from("device_registrations")
-            .select("id,label,status,platform,last_seen_at")
-            .eq("id", ticket.device_registration_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
+      optionalSupportRead(
+        (supabaseAdmin.from as any)("support_ticket_events")
+          .select("*")
+          .eq("ticket_id", data.ticketId)
+          .order("created_at", { ascending: true }),
+        "case events",
+      ),
+      optionalSupportRead(
+        ticket.store_id
+          ? supabaseAdmin
+              .from("stores")
+              .select("id,name,email,phone,store_code,plan_tier,plan_status")
+              .eq("id", ticket.store_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        "store context",
+      ),
+      optionalSupportRead(
+        ticket.assigned_admin_id
+          ? supabaseAdmin
+              .from("profiles")
+              .select("id,email,full_name")
+              .eq("id", ticket.assigned_admin_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        "assignee context",
+      ),
+      optionalSupportRead(
+        ticket.requester_id
+          ? supabaseAdmin
+              .from("profiles")
+              .select("id,email,full_name,employee_id,status")
+              .eq("id", ticket.requester_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        "requester context",
+      ),
+      optionalSupportRead(
+        ticket.device_registration_id
+          ? supabaseAdmin
+              .from("device_registrations")
+              .select("id,label,status,platform,last_seen_at")
+              .eq("id", ticket.device_registration_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        "attached device",
+      ),
     ]);
 
     if (notesError) throw new Error(notesError.message);
@@ -1168,7 +1199,7 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
         supportSessionsRes,
         subscriptionsRes,
         auditRes,
-      ] = await Promise.all([
+      ] = (await Promise.allSettled([
         supabaseAdmin
           .from("device_registrations")
           .select("id,label,status,platform,last_seen_at,status_snapshot,app_version,last_sync_at,updated_at")
@@ -1227,7 +1258,11 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
           .eq("store_id", ticket.store_id)
           .order("created_at", { ascending: false })
           .limit(20),
-      ]);
+      ])).map((result) =>
+        result.status === "fulfilled"
+          ? result.value
+          : { data: null, count: 0, error: result.reason },
+      ) as any[];
 
       const devices = devicesRes.data ?? [];
       if (resolvedDevice?.id) {
@@ -1416,6 +1451,14 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
         } as Record<string, string>
       )[String(ticket.status)] ?? String(ticket.status);
 
+    if (
+      ["open", "investigating", "waiting_for_merchant"].includes(currentStatus) &&
+      ticket.assigned_admin_id &&
+      ticket.assigned_admin_id !== context.userId
+    ) {
+      throw new Error("This active case is already assigned to another admin");
+    }
+
     const allowedTransitions: Record<string, string[]> = {
       open: ["investigating", "waiting_for_merchant", "resolved", "closed"],
       investigating: ["open", "waiting_for_merchant", "resolved", "closed"],
@@ -1497,6 +1540,8 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
         reason: reason || null,
         resolution_summary: patch.resolution_summary ?? null,
         resolution_code: patch.resolution_code ?? null,
+        assigned_admin_id: patch.assigned_admin_id ?? ticket.assigned_admin_id ?? null,
+        investigation_started_at: data.status === "investigating" ? (patch.claimed_at ?? now) : null,
       },
     );
     await auditSupportBestEffort(supabaseAdmin, context, identity, {

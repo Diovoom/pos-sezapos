@@ -142,6 +142,8 @@ function SupportCasePage() {
   const query = useQuery({
     queryKey: ["admin_support_case", ticketId],
     queryFn: () => getCase({ data: { ticketId } }),
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1_000, 250 * 2 ** attempt),
     refetchInterval: 60_000,
   });
   const readThrough = query.data?.messages.at(-1)?.created_at;
@@ -272,12 +274,21 @@ function SupportCasePage() {
     try {
       await transition({ data: { ticketId, status, reason: statusReason, ...extras } as any });
       toast.success(
-        status === "resolved"
-          ? "Case resolved"
-          : status === "closed"
-            ? "Case closed"
-            : `Case moved to ${STATUS_LABELS[status] ?? status}`,
+        status === "investigating"
+          ? "Investigation started — live diagnostics and conversation are ready below"
+          : status === "resolved"
+            ? "Case resolved"
+            : status === "closed"
+              ? "Case closed"
+              : `Case moved to ${STATUS_LABELS[status] ?? status}`,
       );
+      if (status === "investigating") {
+        window.requestAnimationFrame(() => {
+          document
+            .getElementById("investigation-workspace")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
       setStatusReason("");
       setResolveOpen(false);
       refresh();
@@ -329,10 +340,23 @@ function SupportCasePage() {
   if (query.isLoading)
     return <div className="text-sm text-muted-foreground">Loading support case…</div>;
   if (query.isError || !data)
-    return <div className="text-sm text-destructive">Could not load this support case.</div>;
+    return (
+      <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+        <div className="text-sm font-medium text-destructive">Could not load this support case.</div>
+        <div className="text-xs text-muted-foreground">
+          The case may still exist. Retry the read without leaving the workspace.
+        </div>
+        <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
+          <RefreshCw className="mr-2 h-4 w-4" /> Retry case
+        </Button>
+      </div>
+    );
 
   const { ticket, messages, internal_notes, events, store, requester, assignee, device, diagnostics } = data;
   const isFinal = ticket.status === "resolved" || ticket.status === "closed";
+  const investigationActive = ["investigating", "waiting_support", "in_progress"].includes(
+    String(ticket.status),
+  );
   const chatEnded = ticket.chat_status === "ended" || isFinal;
   const assignedToMe = Boolean(adminUserId && ticket.assigned_admin_id === adminUserId);
   const assignedToOther = Boolean(ticket.assigned_admin_id && !assignedToMe);
@@ -461,7 +485,7 @@ function SupportCasePage() {
               <UserMinus className="mr-2 h-4 w-4" /> Release to queue
             </Button>
           )}
-          {!isFinal && assignedToMe && ticket.status !== "investigating" && (
+          {!isFinal && !assignedToOther && !investigationActive && (
             <Button variant="outline" onClick={() => changeStatus("investigating")} disabled={busy}>
               <SearchCheck className="mr-2 h-4 w-4" /> Start investigating
             </Button>
@@ -522,6 +546,67 @@ function SupportCasePage() {
         </div>
       </div>
 
+      {investigationActive && (
+        <Card className="border-blue-500/40 bg-blue-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <SearchCheck className="h-4 w-4 text-blue-600" /> Investigation in progress
+            </CardTitle>
+            <CardDescription>
+              This state is saved. Work the case from the live diagnostics and merchant conversation below.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="text-sm">
+              <span className="font-medium">Assigned to:</span>{" "}
+              {assignee?.full_name || assignee?.email || (assignedToMe ? "You" : "SEZA Support")}
+              {ticket.claimed_at ? (
+                <span className="text-muted-foreground">
+                  {" "}· started {formatDistanceToNow(new Date(ticket.claimed_at), { addSuffix: true })}
+                </span>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() =>
+                  document
+                    .getElementById("investigation-workspace")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+              >
+                <Database className="mr-2 h-4 w-4" /> Open investigation workspace
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  document
+                    .getElementById("merchant-conversation")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+              >
+                <Send className="mr-2 h-4 w-4" /> Open merchant conversation
+              </Button>
+              {store?.id && (
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/admin/businesses/$storeId" params={{ storeId: store.id }}>
+                    <MonitorCog className="mr-2 h-4 w-4" /> Manage merchant & POS
+                  </Link>
+                </Button>
+              )}
+              {!isFinal && !assignedToOther && store?.id && (
+                <Button type="button" size="sm" variant="outline" onClick={() => void requestScreen()} disabled={busy}>
+                  <MonitorUp className="mr-2 h-4 w-4" /> Request screen share
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="border-primary/30 bg-primary/5">
         <CardHeader>
           <CardTitle className="text-base">Problem reported by the merchant</CardTitle>
@@ -543,7 +628,7 @@ function SupportCasePage() {
         </CardContent>
       </Card>
 
-      <Card className="border-blue-500/30">
+      <Card id="investigation-workspace" className="scroll-mt-24 border-blue-500/30">
         <CardHeader className="flex flex-row items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -810,7 +895,7 @@ function SupportCasePage() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.8fr)]">
         <div className="space-y-4">
-          <Card>
+          <Card id="merchant-conversation" className="scroll-mt-24">
             <CardHeader className="flex flex-row items-start justify-between gap-3">
               <div>
                 <CardTitle>Live merchant conversation</CardTitle>

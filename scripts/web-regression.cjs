@@ -273,6 +273,29 @@ test('contact failed request stays visible without a marketing toast host; doubl
   assert.ok(nodes(render()).some(n => n.props?.role === 'alert'));
   assert.equal(h.state[formIndex].message, 'Test consultation request');
 });
+test('public marketing no longer advertises the APK download route', () => {
+  const shell = source('src/components/marketing/MarketingShell.tsx');
+  const devices = source('src/routes/_dashboard/devices.tsx');
+  const sitemap = source('src/routes/sitemap[.]xml.ts');
+  const download = source('src/routes/download.tsx');
+  assert.doesNotMatch(shell, /to:\s*["']\/download["']/);
+  assert.doesNotMatch(devices, /marketingUrl\(["']\/download["']\)/);
+  assert.doesNotMatch(sitemap, /path:\s*["']\/download["']/);
+  assert.match(download, /noindex, nofollow, noarchive, nosnippet/);
+});
+test('Admin support keeps optional context from blocking the core case read', () => {
+  const server = source('src/lib/admin/company-admin.functions.ts');
+  assert.match(server, /async function optionalSupportRead/);
+  assert.match(server, /Promise\.allSettled\(\[/);
+  assert.match(server, /This active case is already assigned to another admin/);
+});
+test('Admin investigation exposes a persisted visible workspace', () => {
+  const route = source('src/routes/_adminApp/admin.support.$ticketId.tsx');
+  assert.match(route, /Investigation in progress/);
+  assert.match(route, /id="investigation-workspace"/);
+  assert.match(route, /id="merchant-conversation"/);
+  assert.match(route, /retry:\s*2/);
+});
 test('public trial buttons leave marketing for owner signup, preserving each selected plan', () => {
   for (const file of ['src/routes/pricing.tsx', 'src/routes/features.tsx', 'src/routes/industries.tsx']) {
     const h = ui(file);

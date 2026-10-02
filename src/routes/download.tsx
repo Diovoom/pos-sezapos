@@ -14,12 +14,9 @@ export const Route = createFileRoute("/download")({
     meta: [
       { title: DOWNLOAD_TITLE },
       { name: "description", content: DOWNLOAD_DESCRIPTION },
-      { property: "og:title", content: DOWNLOAD_TITLE },
-      { property: "og:description", content: DOWNLOAD_DESCRIPTION },
-      { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://sezapos.com/download" },
+      { name: "robots", content: "noindex, nofollow, noarchive, nosnippet" },
+      { name: "googlebot", content: "noindex, nofollow, noarchive, nosnippet" },
     ],
-    links: [{ rel: "canonical", href: "https://sezapos.com/download" }],
   }),
   component: DownloadPage,
 });
