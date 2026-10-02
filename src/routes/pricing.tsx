@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
+import { dashboardUrl } from "@/lib/host";
 import { Check } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -92,7 +93,7 @@ function PricingPage() {
                   className="mt-6 w-full"
                   variant={plan.highlight ? "default" : "outline"}
                 >
-                  <Link to="/signup" search={{ plan: plan.id }}>{`Start ${plan.name} trial`}</Link>
+                  <a href={dashboardUrl(`/signup?plan=${encodeURIComponent(plan.id)}`)}>{`Start ${plan.name} trial`}</a>
                 </Button>
               </div>
             );

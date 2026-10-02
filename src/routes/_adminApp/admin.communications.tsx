@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   adminEndSupportChat,
   adminListCommunications,
@@ -57,8 +57,13 @@ function CommunicationsPage() {
     if (typeof window === "undefined") return null;
     return window.localStorage.getItem(ADMIN_ACTIVE_CHAT_KEY);
   });
-  const [message, setMessage] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const message = selectedId ? drafts[selectedId] ?? "" : "";
+  const setMessage = (value: string) => {
+    if (selectedId) setDrafts((current) => ({ ...current, [selectedId]: value }));
+  };
   const [busy, setBusy] = useState(false);
+  const sending = useRef(false);
 
   const listQuery = useQuery({
     queryKey: ["admin_communications", view, search],
@@ -73,16 +78,7 @@ function CommunicationsPage() {
       rememberAdminChat(rows[0].id);
       return;
     }
-    if (
-      selectedId &&
-      rows.length &&
-      !rows.some((row: any) => row.id === selectedId) &&
-      view !== "all"
-    ) {
-      const next = rows[0]?.id ?? null;
-      setSelectedId(next);
-      rememberAdminChat(next);
-    }
+    // Filtering/closing a case must not silently switch the reply recipient.
   }, [rows, selectedId, view]);
 
   useEffect(() => {
@@ -100,6 +96,8 @@ function CommunicationsPage() {
     qc.invalidateQueries({ queryKey: ["admin_communications"] });
     if (selectedId) qc.invalidateQueries({ queryKey: ["admin_support_case", selectedId] });
     qc.invalidateQueries({ queryKey: ["admin_operations_overview"] });
+    qc.invalidateQueries({ queryKey: ["admin_tickets"] });
+    qc.invalidateQueries({ queryKey: ["admin_ticket_counts"] });
   };
 
   useEffect(() => {
@@ -111,12 +109,12 @@ function CommunicationsPage() {
         { event: "*", schema: "public", table: "support_ticket_notes" },
         refresh,
       )
-      .subscribe();
+      .subscribe((status) => { if (status === "SUBSCRIBED") refresh(); });
     const tickets = supabaseAdminAuth
       .channel(`admin-communications-tickets-${suffix}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "support_tickets" },
+        { event: "*", schema: "public", table: "support_tickets" },
         refresh,
       )
       .subscribe();
@@ -127,11 +125,13 @@ function CommunicationsPage() {
   }, [selectedId]);
 
   useEffect(() => {
-    if (!selectedId) return;
-    void markRead({ data: { ticketId: selectedId } })
+    if (!selectedId || caseQuery.data?.ticket?.id !== selectedId) return;
+    const readThrough = caseQuery.data.messages.at(-1)?.created_at;
+    if (!readThrough) return;
+    void markRead({ data: { ticketId: selectedId, readThrough } })
       .then(refresh)
       .catch(() => undefined);
-  }, [selectedId, caseQuery.data?.ticket?.last_message_at]);
+  }, [selectedId, caseQuery.data?.messages.at(-1)?.created_at]);
 
   const selected = caseQuery.data;
   const firstProblem = useMemo(
@@ -140,7 +140,8 @@ function CommunicationsPage() {
   );
 
   async function sendReply() {
-    if (!selectedId || !message.trim()) return;
+    if (sending.current || !selectedId || !message.trim()) return;
+    sending.current = true;
     setBusy(true);
     try {
       await send({ data: { ticketId: selectedId, body: message, internal: false } });
@@ -149,6 +150,7 @@ function CommunicationsPage() {
     } catch (error: any) {
       toast.error(error?.message ?? "Could not send message");
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -253,6 +255,8 @@ function CommunicationsPage() {
           <div className="max-h-[570px] overflow-y-auto">
             {listQuery.isLoading ? (
               <div className="p-6 text-sm text-muted-foreground">Loading live conversations…</div>
+            ) : listQuery.isError ? (
+              <div role="alert" className="p-6 text-sm">Conversations could not be loaded. <Button variant="outline" onClick={() => void listQuery.refetch()}>Retry</Button></div>
             ) : rows.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
                 {view === "active"
@@ -312,6 +316,8 @@ function CommunicationsPage() {
               <div className="font-medium text-foreground">Select a merchant conversation</div>
               <div className="text-sm">Messages and case information will appear here.</div>
             </div>
+          ) : caseQuery.isError ? (
+            <div role="alert" className="p-8 text-sm">This conversation could not be loaded. <Button variant="outline" onClick={() => void caseQuery.refetch()}>Retry</Button></div>
           ) : caseQuery.isLoading || !selected ? (
             <div className="p-8 text-sm text-muted-foreground">Loading conversation…</div>
           ) : (

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { dashboardUrl } from "@/lib/host";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { Button } from "@/components/ui/button";
 import { Store, Wine, ShoppingBasket, Coffee, Package, Cigarette } from "lucide-react";
@@ -137,7 +138,7 @@ function IndustriesPage() {
         </p>
         <div className="mt-6 flex flex-wrap gap-3 justify-center">
           <Button asChild size="lg">
-            <Link to="/signup">Start free trial</Link>
+            <a href={dashboardUrl("/signup")}>Start free trial</a>
           </Button>
           <Button asChild size="lg" variant="outline">
             <Link to="/contact">Ask about your industry</Link>

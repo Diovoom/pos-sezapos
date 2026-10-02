@@ -76,8 +76,13 @@ export function AdminPersistentChat() {
 
   const [selectedId, setSelectedId] = useState<string | null>(() => readStoredTicket());
   const [open, setOpen] = useState(false);
-  const [message, setMessage] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const message = selectedId ? drafts[selectedId] ?? "" : "";
+  const setMessage = (value: string) => {
+    if (selectedId) setDrafts((current) => ({ ...current, [selectedId]: value }));
+  };
   const [busy, setBusy] = useState(false);
+  const sending = useRef(false);
   const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const [readVersion, setReadVersion] = useState(0);
   const lastPopupRef = useRef<string | null>(null);
@@ -123,14 +128,8 @@ export function AdminPersistentChat() {
   }, []);
 
   useEffect(() => {
-    if (onFullChatPage) return;
-    if (!activeRows.length) {
-      setSelectedId(null);
-      rememberAdminChat(null);
-      return;
-    }
-    const selectedStillActive = selectedId && activeRows.some((row: any) => row.id === selectedId);
-    if (selectedStillActive) return;
+    if (onFullChatPage || selectedId || !listQuery.isSuccess) return;
+    if (!activeRows.length) return;
     const next = unreadRows[0] ?? activeRows[0];
     setSelectedId(next.id);
     rememberAdminChat(next.id);
@@ -139,7 +138,7 @@ export function AdminPersistentChat() {
   const caseQuery = useQuery({
     queryKey: ["admin_support_case", selectedId],
     queryFn: () => getCase({ data: { ticketId: selectedId! } }),
-    enabled: Boolean(selectedId) && !onFullChatPage,
+    enabled: Boolean(selectedId) && open && !onFullChatPage,
     refetchInterval: open && !onFullChatPage ? 10_000 : false,
   });
 
@@ -204,21 +203,19 @@ export function AdminPersistentChat() {
   }, [adminUserId, onFullChatPage, selectedId]);
 
   useEffect(() => {
-    if (onFullChatPage || !open || !selectedId) return;
-    const latestAt =
-      caseQuery.data?.ticket?.last_message_at ??
-      caseQuery.data?.ticket?.updated_at ??
-      new Date().toISOString();
+    if (onFullChatPage || !open || !selectedId || caseQuery.data?.ticket?.id !== selectedId) return;
+    const latestAt = caseQuery.data.messages.at(-1)?.created_at;
+    if (!latestAt) return;
     rememberLocalRead(selectedId, latestAt);
     setReadVersion((value) => value + 1);
-    void markRead({ data: { ticketId: selectedId } })
+    void markRead({ data: { ticketId: selectedId, readThrough: latestAt } })
       .then(refresh)
       .catch(() => undefined);
-  }, [open, selectedId, caseQuery.data?.messages?.length]);
+  }, [open, selectedId, caseQuery.data?.messages.at(-1)?.created_at]);
 
   useEffect(() => {
     const next = unreadRows[0];
-    if (!next || onFullChatPage) return;
+    if (!next || onFullChatPage || open) return;
     const popupKey = `${next.id}:${next.last_message?.created_at ?? next.last_message_at ?? next.updated_at}`;
     if (lastPopupRef.current === popupKey) return;
     lastPopupRef.current = popupKey;
@@ -296,17 +293,18 @@ export function AdminPersistentChat() {
   }
 
   async function send() {
-    if (!selectedId || !message.trim()) return;
+    if (sending.current || !selectedId || !message.trim()) return;
+    sending.current = true;
     setBusy(true);
     try {
       await sendMessage({ data: { ticketId: selectedId, body: message, internal: false } });
       setMessage("");
-      rememberLocalRead(selectedId);
       setReadVersion((value) => value + 1);
       refresh();
     } catch (error: any) {
       toast.error(error?.message ?? "Could not send message");
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }

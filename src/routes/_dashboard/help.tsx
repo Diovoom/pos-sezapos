@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { PageHeader } from "@/components/pos/AppShell";
@@ -38,6 +38,7 @@ import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { marketingUrl } from "@/lib/host";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { useServerFn } from "@tanstack/react-start";
+import { useMe } from "@/hooks/useMe";
 import {
   createMerchantSupportCase,
   merchantDeleteSupportCase,
@@ -51,8 +52,13 @@ export const Route = createFileRoute("/_dashboard/help")({
       { name: "description", content: "Get help from the SEZA POS support team." },
     ],
   }),
-  component: HelpPage,
+  component: HelpRoute,
 });
+
+function HelpRoute() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  return /^\/help\/[^/]+\/?$/.test(pathname) ? <Outlet /> : <HelpPage />;
+}
 
 type Ticket = {
   id: string;
@@ -66,6 +72,8 @@ type Ticket = {
 type SupportCategory = "account" | "billing" | "inventory" | "register" | "payments" | "other";
 
 export function HelpPage() {
+  const { data: me } = useMe();
+  const storeId = me?.store?.id;
   const qc = useQueryClient();
   const navigate = useNavigate({ from: "/help" });
   const createCase = useServerFn(createMerchantSupportCase);
@@ -77,7 +85,8 @@ export function HelpPage() {
   const [priority, setPriority] = useState<"low" | "normal" | "high" | "urgent">("normal");
 
   const ticketsQuery = useQuery({
-    queryKey: ["my-support-tickets"],
+    queryKey: ["my-support-tickets", storeId, me?.user.id],
+    enabled: Boolean(storeId),
     queryFn: async (): Promise<Ticket[]> => (await listCases()) as Ticket[],
     refetchInterval: 30_000,
   });
@@ -275,7 +284,7 @@ export function HelpPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {ticketsQuery.isLoading ? (
+          {ticketsQuery.isPending ? (
             <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" /> Loading your conversations…
             </div>

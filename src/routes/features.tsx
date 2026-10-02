@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { dashboardUrl } from "@/lib/host";
 import {
   ScanBarcode,
   Package,
@@ -160,7 +161,7 @@ function FeaturesPage() {
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <Button asChild>
-            <Link to="/signup">Start free trial</Link>
+            <a href={dashboardUrl("/signup")}>Start free trial</a>
           </Button>
           <Button asChild variant="outline">
             <Link to="/pricing">View pricing</Link>

@@ -140,7 +140,8 @@ function DevicesPage() {
   const revoke = useServerFn(revokePosDevice);
 
   const devicesQ = useQuery({
-    queryKey: ["pos-devices"],
+    queryKey: ["pos-devices", storeId],
+    enabled: Boolean(storeId),
     queryFn: () => list(),
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
@@ -262,7 +263,7 @@ function DevicesPage() {
               onClick={() => createMut.mutate()}
               disabled={
                 createMut.isPending ||
-                devicesQ.isLoading ||
+                devicesQ.isPending ||
                 planGate.isLoading ||
                 !label.trim() ||
                 !canPairRegister
@@ -286,7 +287,7 @@ function DevicesPage() {
           </CardContent>
         </Card>
 
-        {devicesQ.isLoading ? (
+        {devicesQ.isPending ? (
           <Card>
             <CardContent className="p-10 text-center text-sm text-muted-foreground">
               <Loader2 className="size-5 animate-spin inline mr-2" />

@@ -51,6 +51,7 @@ import {
 import { isOnlineNow } from "@/lib/offline/useOnline";
 import { usePlanGate } from "@/hooks/useSubscription";
 import { formatPlanLimit } from "@/lib/plans";
+import { employeesForStore } from "@/lib/web/owner-employees";
 
 export const Route = createFileRoute("/_dashboard/employees")({
   head: () => ({
@@ -116,18 +117,23 @@ function EmployeesPage() {
   const employeeLimitReached = employeeLimit != null && staffCount >= employeeLimit;
   const canAddEmployee = !planGate.isReadOnly && !employeeLimitReached;
 
-  const { data: employees = [], isLoading } = useQuery<EmployeeRow[]>({
-    queryKey: ["employees"],
+  const { data: employees = [], isLoading, isError, refetch } = useQuery<EmployeeRow[]>({
+    queryKey: ["employees", storeId],
+    enabled: Boolean(storeId),
     retry: (count) => isOnlineNow() && count < 1,
     queryFn: async () => {
-      if (!isOnlineNow()) return (await loadCachedEmployees()) as EmployeeRow[];
+      if (!storeId) throw new Error("Store unavailable");
+      if (!isOnlineNow()) {
+        const cached = employeesForStore(await loadCachedEmployees(), storeId);
+        if (!cached.length) throw new Error("No employee cache for this store. Reconnect to load employees.");
+        return cached as EmployeeRow[];
+      }
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
+        .eq("store_id", storeId)
         .order("created_at", { ascending: false });
       if (error) {
-        const cached = await loadCachedEmployees();
-        if (cached.length) return cached as EmployeeRow[];
         throw error;
       }
       const rows = ((data as unknown as EmployeeRow[]) ?? []);
@@ -219,9 +225,14 @@ function EmployeesPage() {
         )}
         <Card>
           <CardContent className="p-0">
-            {isLoading ? (
+            {isLoading || !storeId ? (
               <div className="p-12 grid place-items-center">
                 <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : isError ? (
+              <div role="alert" className="p-6 text-sm">
+                Employees could not be loaded. Check your connection.
+                <Button variant="outline" className="ml-3" onClick={() => void refetch()}>Retry</Button>
               </div>
             ) : employees.length === 0 ? (
               <div className="p-10 text-center text-sm text-muted-foreground">
@@ -450,7 +461,8 @@ function CreateEmployeeDialog({
         }
         const localId = `local-employee-${crypto.randomUUID()}`;
         const queuedAt = new Date().toISOString();
-        const localEmployee: CachedEmployee = {
+        const localEmployee: CachedEmployee & { store_id: string } = {
+          store_id: storeId,
           id: localId,
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
@@ -477,7 +489,7 @@ function CreateEmployeeDialog({
           attempts: 0,
         });
         toast.success("Employee saved offline · account will be provisioned automatically when connected");
-        qc.setQueryData<EmployeeRow[]>(["employees"], (current = []) => [
+        qc.setQueryData<EmployeeRow[]>(["employees", storeId], (current = []) => [
           localEmployee as EmployeeRow,
           ...current.filter((row) => row.id !== localId),
         ]);
@@ -486,6 +498,7 @@ function CreateEmployeeDialog({
         const r = await create({ data: form });
         setResult({ employee_id: r.employee_id, email: r.email });
         await upsertCachedEmployee({
+          store_id: storeId,
           id: r.user_id,
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
@@ -498,7 +511,7 @@ function CreateEmployeeDialog({
           must_change_password: true,
           photo_url: null,
           pending_sync: false,
-        }).catch(() => {});
+        } as CachedEmployee & { store_id: string }).catch(() => {});
         qc.invalidateQueries({ queryKey: ["employees"] });
         qc.invalidateQueries({ queryKey: ["employee-plan-usage"] });
         qc.invalidateQueries({ queryKey: ["billing-plan-usage"] });

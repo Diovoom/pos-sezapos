@@ -1071,7 +1071,7 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
     if (!ticket) throw new Error("Support case not found");
 
     const [
-      { data: notes },
+      { data: notes, error: notesError },
       { data: events },
       { data: store },
       { data: assignee },
@@ -1117,6 +1117,7 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
         : Promise.resolve({ data: null }),
     ]);
 
+    if (notesError) throw new Error(notesError.message);
     const noteAuthorIds = Array.from(
       new Set((notes ?? []).map((note: any) => note.author_id).filter(Boolean)),
     );
@@ -1145,14 +1146,8 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
       };
     });
 
-    try {
-      await updateSupportTicketCompat(supabaseAdmin, data.ticketId, {
-        last_admin_read_at: new Date().toISOString(),
-      });
-    } catch {
-      // Reading a case must never fail because an optional read-marker column
-      // has not reached production yet.
-    }
+    // Fetching is side-effect free. Background bubble queries must not mark
+    // unseen messages read or generate another Realtime refetch.
 
     const publicMessages = enrichedNotes.filter((note: any) => !note.internal);
     const problemMessage =
@@ -1731,17 +1726,22 @@ export const adminListCommunications = createServerFn({ method: "POST" })
 
 export const adminMarkCommunicationRead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
-  .inputValidator((data: { ticketId: string }) => data)
+  .inputValidator((data: { ticketId: string; readThrough?: string }) => data)
   .handler(async ({ data, context }) => {
     await ensureSupportStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    try {
-      await updateSupportTicketCompat(supabaseAdmin, data.ticketId, {
-        last_admin_read_at: new Date().toISOString(),
-      });
-    } catch {
-      /* optional read marker */
-    }
+    // Old tabs without a displayed-message watermark cannot advance read state.
+    if (!data.readThrough) return { ok: true };
+    const stamp = new Date(data.readThrough);
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(data.readThrough)
+      || !Number.isFinite(stamp.getTime()) || stamp.getTime() > Date.now()) throw new Error("Invalid read marker");
+    // Preserve PostgreSQL microseconds; Date.toISOString() would round down.
+    const readThrough = data.readThrough;
+    const { error } = await (supabaseAdmin.from as any)("support_tickets")
+      .update({ last_admin_read_at: readThrough })
+      .eq("id", data.ticketId)
+      .or(`last_admin_read_at.is.null,last_admin_read_at.lt.${readThrough}`);
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 

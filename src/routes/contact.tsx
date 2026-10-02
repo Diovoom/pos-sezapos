@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Loader2, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,8 @@ type ConsultationForm = {
 function ContactPage() {
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
+  const [submitError, setSubmitError] = useState("");
   const [sent, setSent] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof ConsultationForm, string>>>({});
   const [form, setForm] = useState<ConsultationForm>({
@@ -91,8 +93,10 @@ function ContactPage() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!validateStep(3)) return;
+    if (submitting.current || !validateStep(3)) return;
 
+    submitting.current = true;
+    setSubmitError("");
     setBusy(true);
     try {
       const response = await fetch("/api/public/live-chat", {
@@ -117,8 +121,9 @@ function ContactPage() {
       setSent(true);
       toast.success("Your request was sent to SEZA.");
     } catch {
-      toast.error("We could not send that right now. Please call SEZA or try again shortly.");
+      setSubmitError("We could not send that right now. Your details are still here. Please call SEZA or try again shortly.");
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   };
@@ -127,6 +132,7 @@ function ContactPage() {
     <MarketingShell>
       <section id="message-us" className="scroll-mt-24 px-5 py-10 sm:py-16">
         <div className="mx-auto max-w-xl">
+          {submitError && <p role="alert" className="mb-4 rounded-lg border border-destructive/30 p-3 text-sm text-destructive">{submitError}</p>}
           <div className="text-center">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
               SEZA Sales

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   adminEndSupportChat,
   adminGetSupportCase,
@@ -10,6 +10,7 @@ import {
   adminTransitionSupportCase,
   adminDeleteSupportCase,
   adminSendSupportMessage,
+  adminMarkCommunicationRead,
 } from "@/lib/admin/company-admin.functions";
 import { adminStartSupportSession } from "@/lib/admin/admin.functions";
 import { supabaseAdminAuth } from "@/integrations/supabase/admin-client";
@@ -75,8 +76,13 @@ export const Route = createFileRoute("/_adminApp/admin/support/$ticketId")({
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
-  component: SupportCasePage,
+  component: SupportCaseRoute,
 });
+
+function SupportCaseRoute() {
+  const { ticketId } = Route.useParams();
+  return <SupportCasePage key={ticketId} />;
+}
 
 const STATUS_LABELS: Record<string, string> = {
   open: "New / open",
@@ -123,6 +129,7 @@ function parseProblemBody(body?: string | null): {
 function SupportCasePage() {
   const { ticketId } = Route.useParams();
   const getCase = useServerFn(adminGetSupportCase);
+  const markRead = useServerFn(adminMarkCommunicationRead);
   const claimCase = useServerFn(adminClaimSupportCase);
   const transition = useServerFn(adminTransitionSupportCase);
   const deleteCase = useServerFn(adminDeleteSupportCase);
@@ -137,11 +144,22 @@ function SupportCasePage() {
     queryFn: () => getCase({ data: { ticketId } }),
     refetchInterval: 60_000,
   });
+  const readThrough = query.data?.messages.at(-1)?.created_at;
+  useEffect(() => {
+    if (!readThrough || query.data?.ticket.id !== ticketId) return;
+    void markRead({ data: { ticketId, readThrough } })
+      .then(() => {
+        void qc.invalidateQueries({ queryKey: ["admin_communications"] });
+        void qc.invalidateQueries({ queryKey: ["admin_persistent_communications"] });
+      })
+      .catch(() => undefined);
+  }, [ticketId, readThrough, markRead, qc]);
 
   const [message, setMessage] = useState("");
   const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const [internalNote, setInternalNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const sending = useRef(false);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolutionSummary, setResolutionSummary] = useState("");
   const [resolutionCode, setResolutionCode] = useState("fixed");
@@ -179,7 +197,7 @@ function SupportCasePage() {
         },
         refresh,
       )
-      .subscribe();
+      .subscribe((status) => { if (status === "SUBSCRIBED") refresh(); });
     const ticket = supabaseAdminAuth
       .channel(`admin-support-ticket-${suffix}`)
       .on(
@@ -292,7 +310,8 @@ function SupportCasePage() {
   }
 
   async function send(body: string, internal: boolean) {
-    if (!body.trim()) return;
+    if (sending.current || !body.trim()) return;
+    sending.current = true;
     setBusy(true);
     try {
       await sendMessage({ data: { ticketId, body, internal } });
@@ -302,6 +321,7 @@ function SupportCasePage() {
     } catch (error: any) {
       toast.error(error?.message ?? "Could not send message");
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }

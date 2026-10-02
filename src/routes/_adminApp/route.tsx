@@ -24,6 +24,7 @@ import { useAdminPermissions } from "@/lib/admin/permissions";
 import { AdminScreenViewer } from "@/components/support/AdminScreenViewer";
 import { AdminDiagnosticsPanel } from "@/components/support/AdminDiagnosticsPanel";
 import { AdminPersistentChat } from "@/components/admin/AdminPersistentChat";
+import { AdminSessionBoundary } from "@/components/admin/AdminSessionBoundary";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 import {
@@ -77,8 +78,13 @@ export const Route = createFileRoute("/_adminApp")({
     }
     return { user: data.user };
   },
-  component: AdminLayout,
+  component: AdminRoute,
 });
+
+function AdminRoute() {
+  const { user } = Route.useRouteContext();
+  return <AdminSessionBoundary key={user.id} userId={user.id}><AdminLayout /></AdminSessionBoundary>;
+}
 
 type NavItem = {
   to: string;

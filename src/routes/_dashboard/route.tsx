@@ -28,6 +28,7 @@ import {
   rememberOwnerSessionIdentity,
 } from "@/lib/owner-session-lock";
 import { userFacingError } from "@/lib/errors/user-facing";
+import { subscribeOwnerWebUpdates } from "@/lib/web/owner-live";
 
 // Browser management surface for store owners only.
 // Employees use the paired Android POS app instead of the website.
@@ -136,6 +137,11 @@ function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const storeId = me.data?.store?.id as string | undefined;
+  useEffect(() => {
+    if (!storeId) return;
+    return subscribeOwnerWebUpdates(supabase, qc, storeId);
+  }, [qc, storeId]);
   const toastedRef = useRef(false);
   const checkoutSyncRef = useRef<string | null>(null);
   const syncCheckout = useServerFn(syncCompletedSubscriptionCheckout);

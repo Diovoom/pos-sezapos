@@ -230,7 +230,7 @@ export const merchantGetSupportCase = createServerFn({ method: "POST" })
         admin
           .from("support_tickets")
           .select(
-            "id,ticket_number,subject,status,priority,category,requester_id,requester_email,assigned_admin_id,chat_status,chat_ended_at,resolution_summary,resolution,created_at,updated_at,last_message_at",
+            "id,ticket_number,subject,status,priority,category,requester_id,requester_email,assigned_admin_id,chat_status,chat_ended_at,resolution_summary,resolution,created_at,updated_at,last_message_at,last_merchant_read_at",
           )
           .eq("id", ticketId)
           .eq("store_id", profile.store_id)
@@ -246,11 +246,18 @@ export const merchantGetSupportCase = createServerFn({ method: "POST" })
     if (notesError) throw notesError;
     if (!ticket) throw new Error("Support case not found.");
 
-    await admin
-      .from("support_tickets")
-      .update({ last_merchant_read_at: new Date().toISOString() })
-      .eq("id", ticketId)
-      .eq("store_id", profile.store_id);
+    // Mark only messages actually returned by this read. Advancing to "now"
+    // on every fetch both hides concurrent replies and creates a Realtime loop.
+    const latestRead = notes?.at(-1)?.created_at;
+    if (latestRead && (!ticket.last_merchant_read_at || latestRead > ticket.last_merchant_read_at)) {
+      const { error: readError } = await admin
+        .from("support_tickets")
+        .update({ last_merchant_read_at: latestRead })
+        .eq("id", ticketId)
+        .eq("store_id", profile.store_id)
+        .or(`last_merchant_read_at.is.null,last_merchant_read_at.lt.${latestRead}`);
+      if (readError) throw readError;
+    }
 
     return {
       ticket,

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/pos/AppShell";
@@ -12,6 +12,7 @@ import { ArrowLeft, Send, Loader2, MessageSquare, CheckCircle2, Archive, Trash2 
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
+import { useMe } from "@/hooks/useMe";
 import {
   merchantCloseSupportCase,
   merchantDeleteSupportCase,
@@ -26,11 +27,17 @@ export const Route = createFileRoute("/_dashboard/help/$ticketId")({
       { name: "description", content: "Chat live with SEZA POS support." },
     ],
   }),
-  component: MerchantSupportChat,
+  component: MerchantSupportRoute,
 });
+
+function MerchantSupportRoute() {
+  const { ticketId } = Route.useParams();
+  return <MerchantSupportChat key={ticketId} />;
+}
 
 function MerchantSupportChat() {
   const { ticketId } = Route.useParams();
+  const { data: me } = useMe();
   const qc = useQueryClient();
   const navigate = useNavigate({ from: Route.fullPath });
   const getCase = useServerFn(merchantGetSupportCase);
@@ -39,14 +46,20 @@ function MerchantSupportChat() {
   const deleteSupportCase = useServerFn(merchantDeleteSupportCase);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const sending = useRef(false);
 
   const query = useQuery({
-    queryKey: ["merchant-support-chat", ticketId],
+    queryKey: ["merchant-support-chat", ticketId, me?.store?.id, me?.user.id],
+    enabled: Boolean(me?.store?.id),
     queryFn: () => getCase({ data: { ticketId } }),
     refetchInterval: 30_000,
   });
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ["merchant-support-chat", ticketId] });
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["my-support-tickets"] });
+    void qc.invalidateQueries({ queryKey: ["owner-support-unread"] });
+    return qc.invalidateQueries({ queryKey: ["merchant-support-chat", ticketId] });
+  };
 
   useEffect(() => {
     const suffix = `${ticketId}-${crypto.randomUUID()}`;
@@ -62,7 +75,7 @@ function MerchantSupportChat() {
         },
         refresh,
       )
-      .subscribe();
+      .subscribe((status) => { if (status === "SUBSCRIBED") refresh(); });
     const ticket = supabase
       .channel(`merchant-support-ticket-${suffix}`)
       .on(
@@ -83,7 +96,8 @@ function MerchantSupportChat() {
   }, [ticketId]);
 
   async function sendMessage() {
-    if (!message.trim() || !query.data) return;
+    if (sending.current || !message.trim() || !query.data) return;
+    sending.current = true;
     setBusy(true);
     try {
       const result = await replyCase({ data: { ticketId, body: message.trim() } });
@@ -98,6 +112,7 @@ function MerchantSupportChat() {
         ),
       );
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -138,7 +153,7 @@ function MerchantSupportChat() {
     }
   }
 
-  if (query.isLoading) {
+  if (query.isPending) {
     return (
       <div className="mx-auto max-w-4xl p-6 text-sm text-muted-foreground">
         <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading support chat…
@@ -240,17 +255,10 @@ function MerchantSupportChat() {
             })
           )}
 
-          {closed ? (
-            <div className="rounded-lg bg-muted p-4 text-sm">
-              This case is closed. Open a new ticket if you need help with a different or recurring
-              problem.
-            </div>
-          ) : (
             <div className="space-y-2 border-t pt-4">
-              {ended && (
+              {(ended || closed) && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-                  SEZA ended the previous live session. Sending a new message will reactivate the
-                  conversation.
+                  This conversation has ended. Sending a new message will reopen this case.
                 </div>
               )}
               <Textarea
@@ -268,7 +276,6 @@ function MerchantSupportChat() {
                 Send message
               </Button>
             </div>
-          )}
         </CardContent>
       </Card>
     </div>
