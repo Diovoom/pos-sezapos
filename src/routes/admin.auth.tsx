@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "sonner";
 import { Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
+import { AuthTrustPanel } from "@/components/auth/AuthTrustPanel";
 import { useServerFn } from "@tanstack/react-start";
 import { secureAdminPasswordSignIn, securePasswordReset } from "@/lib/auth/auth.functions";
 import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/auth";
@@ -179,8 +180,9 @@ function AdminAuthPage() {
               <Label htmlFor="admin-email">Email</Label>
               <Input
                 id="admin-email"
+                name="username"
                 type="email"
-                autoComplete="email"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -194,6 +196,7 @@ function AdminAuthPage() {
                 <div className="relative">
                   <Input
                     id="admin-password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required
@@ -252,6 +255,7 @@ function AdminAuthPage() {
           </p>
         </CardContent>
       </Card>
+      <AuthTrustPanel portal="admin" />
     </div>
   );
 }

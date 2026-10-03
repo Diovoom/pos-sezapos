@@ -12,6 +12,7 @@ import { Loader2, Mail, CheckCircle2, RefreshCw, Check } from "lucide-react";
 import { z } from "zod";
 import { marketingUrl } from "@/lib/host";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
+import { AuthTrustPanel } from "@/components/auth/AuthTrustPanel";
 import { secureMerchantSignUp, secureResendVerification } from "@/lib/auth/auth.functions";
 import { AuthTurnstile, authCaptchaEnabled, useAuthCooldown } from "@/features/auth";
 import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "@/lib/security/disposable-email";
@@ -218,6 +219,7 @@ function SignupPage() {
                   <Label htmlFor="email">Business email</Label>
                   <Input
                     id="email"
+                    name="email"
                     type="email"
                     value={form.email}
                     onChange={(e) => update("email", e.target.value)}
@@ -230,6 +232,7 @@ function SignupPage() {
                   <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
+                    name="new-password"
                     type="password"
                     value={form.password}
                     onChange={(e) => update("password", e.target.value)}
@@ -316,6 +319,9 @@ function SignupPage() {
               14-day free trial. No credit card required. Cancel anytime.
             </p>
           </aside>
+        </div>
+        <div className="mx-auto max-w-2xl">
+          <AuthTrustPanel portal="owner" />
         </div>
       </div>
     </div>

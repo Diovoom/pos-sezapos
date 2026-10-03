@@ -296,6 +296,31 @@ test('Admin investigation exposes a persisted visible workspace', () => {
   assert.match(route, /id="merchant-conversation"/);
   assert.match(route, /retry:\s*2/);
 });
+test('owner password login stays on the SEZA same-origin server path', () => {
+  const auth = source('src/routes/auth.tsx');
+  assert.doesNotMatch(auth, /supabase\.auth\.signInWithPassword/);
+  assert.match(auth, /secureOwnerPasswordSignIn/);
+  assert.match(auth, /AuthTrustPanel portal="owner"/);
+});
+test('credential pages identify the official SEZA portal', () => {
+  const trust = source('src/components/auth/AuthTrustPanel.tsx');
+  assert.match(trust, /Official SEZA Technologies Inc/);
+  assert.match(trust, /sezapos\.com/);
+  for (const file of ['src/routes/auth.tsx', 'src/routes/signup.tsx', 'src/routes/reset-password.tsx', 'src/routes/admin.auth.tsx']) {
+    assert.match(source(file), /AuthTrustPanel/);
+  }
+});
+test('sensitive SEZA HTML cannot be framed by another origin', () => {
+  const server = source('src/server.ts');
+  assert.match(server, /X-Frame-Options["'], ["']DENY/);
+  assert.match(server, /frame-ancestors 'none'/);
+});
+test('dashboard, Admin and POS hosts are fully excluded from robots crawling', () => {
+  const robots = source('src/routes/robots[.]txt.ts');
+  assert.match(robots, /Account, Admin and POS hosts are intentionally excluded/);
+  const tail = robots.slice(robots.indexOf('Account, Admin and POS hosts'));
+  assert.doesNotMatch(tail, /Allow: \//);
+});
 test('public trial buttons leave marketing for owner signup, preserving each selected plan', () => {
   for (const file of ['src/routes/pricing.tsx', 'src/routes/features.tsx', 'src/routes/industries.tsx']) {
     const h = ui(file);

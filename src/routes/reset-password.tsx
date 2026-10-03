@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "sonner";
 import { AlertCircle, KeyRound, Loader2 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
+import { AuthTrustPanel } from "@/components/auth/AuthTrustPanel";
 import { userFacingError } from "@/lib/errors/user-facing";
 
 export const Route = createFileRoute("/reset-password")({
@@ -287,6 +288,7 @@ function ResetPasswordPage() {
                   <Label htmlFor="pw">New password</Label>
                   <Input
                     id="pw"
+                    name="new-password"
                     type="password"
                     autoComplete="new-password"
                     value={password}
@@ -300,6 +302,7 @@ function ResetPasswordPage() {
                   <Label htmlFor="pw2">Confirm password</Label>
                   <Input
                     id="pw2"
+                    name="new-password-confirmation"
                     type="password"
                     autoComplete="new-password"
                     value={confirm}
@@ -320,6 +323,10 @@ function ResetPasswordPage() {
             )}
           </CardContent>
         </Card>
+        <AuthTrustPanel
+          portal="recovery"
+          hostname={adminRecovery ? "admin.sezapos.com" : "dashboard.sezapos.com"}
+        />
       </div>
     </div>
   );

@@ -138,6 +138,22 @@ function applyEdgeSecurityPolicy(request: Request, response: Response): Response
     headers.set("Cache-Control", "no-store");
   }
 
+  // Account, Admin and POS pages must never be framed by another site. This
+  // removes a common credential-overlay / clickjacking path without changing
+  // scripts, OAuth redirects, APIs or native POS networking.
+  if (sensitiveHtmlHost && contentType.includes("text/html")) {
+    headers.set("X-Frame-Options", "DENY");
+    const currentCsp = headers.get("Content-Security-Policy")?.trim();
+    if (!currentCsp) {
+      headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+    } else if (!/\bframe-ancestors\b/i.test(currentCsp)) {
+      headers.set(
+        "Content-Security-Policy",
+        `${currentCsp.replace(/;?\s*$/, "")}; frame-ancestors 'none'`,
+      );
+    }
+  }
+
   // Several route handlers still emit Access-Control-Allow-Origin: *.
   // Tighten that at the Cloudflare Worker boundary so browsers can only read
   // those API responses from SEZA's known web/native origins.

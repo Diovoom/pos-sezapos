@@ -50,9 +50,9 @@ export const Route = createFileRoute("/robots.txt")({
               ]
             : [
                 "User-agent: *",
-                "Allow: /",
+                "Disallow: /",
                 "",
-                "# This host is excluded from search by X-Robots-Tag and page-level noindex.",
+                "# Account, Admin and POS hosts are intentionally excluded from search indexing.",
                 "",
               ];
 

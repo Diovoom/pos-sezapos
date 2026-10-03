@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { Fingerprint, KeyRound, Loader2, LogIn } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
+import { AuthTrustPanel } from "@/components/auth/AuthTrustPanel";
 import { hasAnyPlatformRole } from "@/lib/platform-roles";
 import { marketingUrl } from "@/lib/host";
 import { userFacingError } from "@/lib/errors/user-facing";
@@ -38,7 +39,7 @@ const PLATFORM_STAFF_MSG = "Platform administrators cannot sign in here. Use adm
 const OWNER_ONLY_MSG =
   "The SEZA website is for store owners. Employees use the paired SEZA POS Android app.";
 
-const OWNER_SIGN_IN_TIMEOUT_MS = 12_000;
+const OWNER_SIGN_IN_TIMEOUT_MS = 20_000;
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -231,6 +232,7 @@ function OwnerAuthPage() {
             </Link>
           </div>
         </Card>
+        <AuthTrustPanel portal="owner" />
       </div>
     </div>
   );
@@ -276,23 +278,10 @@ function OwnerEmailLogin() {
       } catch (error) {
         if (!(error instanceof Error) || error.message !== "OWNER_SIGN_IN_TIMEOUT") throw error;
 
-        // Cloudflare/server-function cold starts must not leave the owner on an
-        // endless spinner. Fall back to Supabase Auth directly, then run the
-        // exact same owner/store authorization check before entering dashboard.
-        const { data: direct, error: directError } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-          options: captchaToken ? { captchaToken } : undefined,
-        });
-        if (directError || !direct.user || !direct.session) {
-          clearOwnerLoginIntent();
-          toast.error("Invalid email or password.");
-          return;
-        }
-
-        rememberOwnerSessionIdentity(direct.user);
+        // Keep password submission same-origin. Do not fall back to a browser-side
+        // third-party auth request when the server is cold or slow.
         clearOwnerLoginIntent();
-        await finishSignIn(direct.user.id);
+        toast.error("SEZA sign in took too long. Please try again.");
         return;
       }
 
