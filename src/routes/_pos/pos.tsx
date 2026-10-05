@@ -39,6 +39,8 @@ import {
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import { TerminalRecoveryNotice } from "@/components/pos/TerminalRecoveryNotice";
 import { recoverStripeCheckout } from "@/lib/hardware/terminal-stripe";
+import { logPaymentAttempt } from "@/lib/pos/payment-terminal";
+import { isTrainingMode } from "@/lib/pos/training-mode";
 import type { TerminalCheckout } from "@/lib/pos/terminal-checkout";
 import { BarcodeScanner } from "@/components/pos/BarcodeScanner";
 import {
@@ -1208,6 +1210,64 @@ export function PosPage() {
     setPayOpen(true);
   };
 
+  const completeFastCash = () => {
+    if (finalizingRef.current || finalize.isPending) return;
+    if (storeSwitchBlocked) {
+      toast.error("Checkout is locked until the previous store's unsynced records are recovered.");
+      return;
+    }
+    if (!canCreateSale) {
+      toast.error("You do not have permission to create sales.");
+      return;
+    }
+    if (cart.length === 0) {
+      toast.error("Cart is empty");
+      return;
+    }
+    if (total <= 0) {
+      toast.error("Fast Cash requires a positive total.");
+      return;
+    }
+    if (needsAgeVerification) {
+      setAgeOpen(true);
+      return;
+    }
+
+    // Training mode must never create a real sale. Keep using the existing
+    // training payment surface instead of bypassing its safety boundary.
+    if (isTrainingMode()) {
+      setTender("cash");
+      setPayOpen(true);
+      return;
+    }
+
+    const payment: CompletedPayment = {
+      method: "cash",
+      amountTendered: total,
+      changeDue: 0,
+      cashBaseTotal: total,
+      cardPriceAdjustment: 0,
+      finalAmountCharged: total,
+    };
+
+    setTender("cash");
+    void logPaymentAttempt({
+      provider: null,
+      method: "cash",
+      amount: total,
+      currency,
+      status: "completed",
+      message: `Fast Cash exact tender ${total.toFixed(2)}, change 0.00`,
+    });
+
+    finalizingRef.current = true;
+    finalize.mutate(payment, {
+      onSettled: () => {
+        finalizingRef.current = false;
+      },
+    });
+  };
+
   // Auto-open verification whenever restricted items enter an unverified cart
   useEffect(() => {
     if (needsAgeVerification && !ageOpen) setAgeOpen(true);
@@ -1398,17 +1458,6 @@ export function PosPage() {
             <span>{dualPricingActive ? "Cash Price" : t("pos.total")}</span>
             <span className="font-mono">{fmtCurrency(total, currency)}</span>
           </div>
-          {dualPricingActive && (
-            <div className="mt-2 rounded-lg border border-blue-500/25 bg-blue-500/5 px-3 py-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">Card Price</span>
-                <span className="font-mono font-bold">{fmtCurrency(cardQuote.cardPrice, currency)}</span>
-              </div>
-              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                Cash customers receive the lower cash price. The card price is set before the card is presented.
-              </p>
-            </div>
-          )}
           {loyaltyEnabled && loyalty && loyaltyEarn > 0 && (
             <div className="flex justify-between text-[11px] text-muted-foreground">
               <span>Loyalty · {loyalty.identifier}</span>
@@ -1480,21 +1529,39 @@ export function PosPage() {
             )}
           </div>
         )}
-        <Button
-          onClick={openPayment}
-          disabled={cart.length === 0 || finalize.isPending || !canCreateSale || storeSwitchBlocked}
-          className="w-full h-12 text-base font-bold rounded-xl shadow-[var(--shadow-charge)]"
-        >
-          {finalize.isPending ? (
-            <Loader2 className="size-5 animate-spin" />
-          ) : needsAgeVerification ? (
-            <>Verify Age to Charge {fmtCurrency(selectedTenderTotal, currency)}</>
-          ) : (
-            <>
-              {t("pos.charge")} {fmtCurrency(selectedTenderTotal, currency)}
-            </>
-          )}
-        </Button>
+        <div className="grid grid-cols-[0.9fr_1.35fr] gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={completeFastCash}
+            disabled={cart.length === 0 || finalize.isPending || !canCreateSale || storeSwitchBlocked}
+            className="h-12 rounded-xl text-sm font-bold"
+            title="Complete an exact-cash sale in one tap"
+          >
+            {finalize.isPending ? (
+              <Loader2 className="size-5 animate-spin" />
+            ) : (
+              <>
+                <Banknote className="mr-1.5 size-4" /> Fast Cash
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={openPayment}
+            disabled={cart.length === 0 || finalize.isPending || !canCreateSale || storeSwitchBlocked}
+            className="h-12 text-base font-bold rounded-xl shadow-[var(--shadow-charge)]"
+          >
+            {finalize.isPending ? (
+              <Loader2 className="size-5 animate-spin" />
+            ) : needsAgeVerification ? (
+              <>Verify Age to Charge {fmtCurrency(selectedTenderTotal, currency)}</>
+            ) : (
+              <>
+                {t("pos.charge")} {fmtCurrency(selectedTenderTotal, currency)}
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </>
   );
@@ -1540,7 +1607,7 @@ export function PosPage() {
       )}
 
       <div className="min-h-0 flex-1 flex flex-col md:flex-row overflow-hidden">
-        <section className="flex-1 md:basis-[76%] flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
+        <section className="flex-1 md:basis-[71%] flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
           <div className="p-3 flex flex-col gap-2">
             <div className="flex min-w-0 items-stretch gap-2">
               <div className="relative min-w-0 flex-1">
@@ -1677,7 +1744,7 @@ export function PosPage() {
           </div>
         </section>
 
-        <section className="hidden md:flex md:basis-[24%] min-w-[290px] max-w-[390px] flex-none flex-col bg-card">
+        <section className="hidden md:flex md:basis-[29%] min-w-[305px] max-w-[430px] flex-none flex-col bg-card">
           {cartPanel}
         </section>
       </div>

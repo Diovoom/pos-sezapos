@@ -317,13 +317,38 @@ test('owner support badge refreshes immediately after a conversation is read', (
   assert.match(shared, /merchant_mark_support_read/);
   assert.match(shared, /invalidateQueries\(\{ queryKey: \["owner-support-unread"\] \}\)/);
 });
-test('owner support bubble can be hidden per page and returns after navigation', () => {
+test('owner support bubble stays hidden across dashboard navigation until a hard reload', () => {
   const shell = source('src/components/pos/AppShell.tsx');
-  assert.match(shell, /supportBubbleDismissedPath/);
-  assert.match(shell, /setSupportBubbleDismissedPath\(pathname\)/);
-  assert.match(shell, /supportBubbleDismissedPath !== pathname/);
-  assert.match(shell, /Hide support button for this page/);
-  assert.match(shell, /setSupportBubbleDismissedPath\(null\)/);
+  assert.match(shell, /supportBubbleDismissed, setSupportBubbleDismissed/);
+  assert.match(shell, /!supportBubbleDismissed &&/);
+  assert.match(shell, /setSupportBubbleDismissed\(true\)/);
+  assert.match(shell, /Hide support button until reload/);
+  assert.doesNotMatch(shell, /supportBubbleDismissedPath/);
+  assert.doesNotMatch(shell, /setSupportBubbleDismissed\(false\)/);
+});
+test('POS offers one-tap exact Fast Cash and a five-point wider cart without the cashier pricing prompt', () => {
+  const pos = source('src/routes/_pos/pos.tsx');
+  assert.match(pos, /const completeFastCash = \(\) =>/);
+  assert.match(pos, /method: "cash",[\s\S]*amountTendered: total,[\s\S]*changeDue: 0/);
+  assert.match(pos, /Fast Cash exact tender/);
+  assert.match(pos, /> Fast Cash/);
+  assert.match(pos, /md:basis-\[71%\]/);
+  assert.match(pos, /md:basis-\[29%\]/);
+  assert.match(pos, /min-w-\[305px\] max-w-\[430px\]/);
+  assert.doesNotMatch(pos, /Cash customers receive the lower cash price\. The card price is set before the card is presented\./);
+  assert.match(pos, /if \(isTrainingMode\(\)\)/);
+});
+test('terminal recovery silently clears definitely unpaid canceled checkouts', () => {
+  const recovery = source('src/components/pos/TerminalRecoveryNotice.tsx');
+  assert.match(recovery, /const DEFINITELY_UNPAID = new Set/);
+  assert.match(recovery, /"requires_payment_method"/);
+  assert.match(recovery, /"requires_confirmation"/);
+  assert.match(recovery, /"canceled"/);
+  assert.match(recovery, /"unprepared"/);
+  assert.match(recovery, /recoverStripeCheckout\("abandon", row\.checkoutId\)/);
+  assert.match(recovery, /loadVisibleRecoveryRows/);
+  assert.match(recovery, /Checking…/);
+  assert.doesNotMatch(recovery, /Cancel unpaid checkout/);
 });
 test('merchant close RPC is revoked from authenticated clients', () => {
   const migration = source('supabase/migrations/20261003073000_support_admin_only_case_closure.sql');

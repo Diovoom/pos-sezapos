@@ -179,14 +179,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const activeMobileIndex = pathname === "/dashboard" ? 0 : pathname.startsWith("/employees") ? 1 : 2;
   const [dragMobileIndex, setDragMobileIndex] = useState<number | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [supportBubbleDismissedPath, setSupportBubbleDismissedPath] = useState<string | null>(null);
+  // Dismiss for the lifetime of this dashboard shell. Client-side navigation
+  // keeps the bubble hidden; a hard reload/new dashboard session brings it back.
+  const [supportBubbleDismissed, setSupportBubbleDismissed] = useState(false);
   const mobileNavRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    if (supportBubbleDismissedPath && supportBubbleDismissedPath !== pathname) {
-      setSupportBubbleDismissedPath(null);
-    }
-  }, [pathname, supportBubbleDismissedPath]);
 
   const mobileIndexFromPointer = (event: PointerEvent<HTMLElement>) => {
     const bounds = mobileNavRef.current?.getBoundingClientRect();
@@ -393,7 +389,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </DropdownMenu>
         </nav>
 
-        {supportBubbleDismissedPath !== pathname && (
+        {!supportBubbleDismissed && (
           <div
             ref={supportBubbleRef}
             style={supportBubbleStyle}
@@ -422,10 +418,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
             <button
               type="button"
-              onClick={() => setSupportBubbleDismissedPath(pathname)}
+              onClick={() => setSupportBubbleDismissed(true)}
               className="grid min-h-11 w-9 shrink-0 place-items-center rounded-r-full border-l border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label="Hide support button for this page"
-              title="Hide for this page"
+              aria-label="Hide support button until reload"
+              title="Hide until reload"
             >
               <X className="size-4" />
             </button>
