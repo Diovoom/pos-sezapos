@@ -32,7 +32,6 @@ import {
   MessageSquareText,
   Phone,
   Send,
-  Trash2,
 } from "lucide-react";
 import { LEGAL_CONFIG } from "@/lib/legal/config";
 import { marketingUrl } from "@/lib/host";
@@ -41,7 +40,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMe } from "@/hooks/useMe";
 import {
   createMerchantSupportCase,
-  merchantDeleteSupportCase,
   merchantListSupportCases,
 } from "@/lib/support.functions";
 
@@ -78,7 +76,6 @@ export function HelpPage() {
   const navigate = useNavigate({ from: "/help" });
   const createCase = useServerFn(createMerchantSupportCase);
   const listCases = useServerFn(merchantListSupportCases);
-  const deleteCase = useServerFn(merchantDeleteSupportCase);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState<SupportCategory>("other");
@@ -123,16 +120,6 @@ export function HelpPage() {
       ),
   });
 
-  const removeConversation = useMutation({
-    mutationFn: async (ticketId: string) => deleteCase({ data: { ticketId } }),
-    onSuccess: async () => {
-      toast.success("Conversation deleted");
-      await qc.invalidateQueries({ queryKey: ["my-support-tickets"] });
-    },
-    onError: (error) =>
-      toast.error(userFacingError(error, "This conversation could not be deleted.")),
-  });
-
   const tickets = ticketsQuery.data ?? [];
 
   return (
@@ -168,7 +155,7 @@ export function HelpPage() {
         <SupportOption
           icon={MessageSquareText}
           title="Your conversations"
-          description="Read messages, reply to SEZA, close solved cases, and delete completed conversations."
+          description="Read messages and reply to SEZA. SEZA Support resolves and closes completed cases."
           action="Open conversations"
           href="#support-conversations"
         />
@@ -280,7 +267,7 @@ export function HelpPage() {
             <MessageSquareText className="size-5 text-primary" /> Your conversations
           </CardTitle>
           <CardDescription>
-            Open a conversation to read and reply. Close a solved case, then delete it when you no longer need the transcript.
+            Open a conversation to read and reply. SEZA Support controls case resolution and closure so the support history stays intact.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -318,20 +305,7 @@ export function HelpPage() {
                         <MessageSquareText className="mr-2 size-4" /> Open conversation
                       </Link>
                     </Button>
-                    {ticket.status === "closed" && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        disabled={removeConversation.isPending}
-                        onClick={() => {
-                          if (!window.confirm("Permanently delete this closed support conversation and its messages?")) return;
-                          removeConversation.mutate(ticket.id);
-                        }}
-                      >
-                        <Trash2 className="mr-2 size-4" /> Delete
-                      </Button>
-                    )}
+
                   </div>
                 </li>
               ))}

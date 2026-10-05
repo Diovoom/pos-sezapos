@@ -23,16 +23,6 @@ async function merchantIdentity(userId: string) {
   return { admin, profile };
 }
 
-async function canManageSupportCase(admin: any, userId: string, requesterId: string | null | undefined) {
-  if (requesterId && requesterId === userId) return true;
-  const { data: roles } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .in("role", ["owner", "manager"]);
-  return Boolean(roles?.length);
-}
-
 async function notifySupport(input: {
   ticketId: string;
   ticketNumber?: number | null;
@@ -270,108 +260,15 @@ export const merchantGetSupportCase = createServerFn({ method: "POST" })
 export const merchantCloseSupportCase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { ticketId: string }) => data)
-  .handler(async ({ data, context }) => {
-    const ticketId = clean(data.ticketId, 80);
-    if (!ticketId) throw new Error("Support case not found.");
-
-    const { admin, profile } = await merchantIdentity(context.userId);
-    const { data: ticket, error: readError } = await admin
-      .from("support_tickets")
-      .select("id,ticket_number,subject,status,store_id,requester_id")
-      .eq("id", ticketId)
-      .eq("store_id", profile.store_id)
-      .maybeSingle();
-    if (readError) throw readError;
-    if (!ticket) throw new Error("Support case not found.");
-    if (!(await canManageSupportCase(admin, context.userId, ticket.requester_id))) {
-      throw new Error("Only the case requester, owner, or manager can close this conversation.");
-    }
-    if (ticket.status === "closed") return { ok: true };
-
-    const now = new Date().toISOString();
-    const { error } = await admin
-      .from("support_tickets")
-      .update({
-        status: "closed",
-        chat_status: "ended",
-        chat_ended_at: now,
-        chat_ended_by: context.userId,
-        closed_at: now,
-        updated_at: now,
-        last_message_at: now,
-        last_merchant_read_at: now,
-      })
-      .eq("id", ticketId)
-      .eq("store_id", profile.store_id);
-    if (error) throw error;
-
-    try {
-      await admin.from("audit_log").insert({
-        actor_id: context.userId,
-        actor_email: profile.email ?? null,
-        store_id: profile.store_id,
-        action: "merchant.support.close",
-        entity: "support_ticket",
-        entity_id: ticketId,
-        details: { ticket_number: ticket.ticket_number, previous_status: ticket.status },
-      });
-    } catch {
-      // Closing support must not fail because optional audit logging is unavailable.
-    }
-
-    return { ok: true };
+  .handler(async ({ context }) => {
+    await merchantIdentity(context.userId);
+    throw new Error("Only SEZA Support can resolve or close support cases.");
   });
 
 export const merchantDeleteSupportCase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth, authenticatedWriteRateLimit])
   .inputValidator((data: { ticketId: string }) => data)
-  .handler(async ({ data, context }) => {
-    const ticketId = clean(data.ticketId, 80);
-    if (!ticketId) throw new Error("Support case not found.");
-
-    const { admin, profile } = await merchantIdentity(context.userId);
-    const { data: ticket, error: readError } = await admin
-      .from("support_tickets")
-      .select("id,ticket_number,subject,status,store_id,requester_id")
-      .eq("id", ticketId)
-      .eq("store_id", profile.store_id)
-      .maybeSingle();
-    if (readError) throw readError;
-    if (!ticket) return { ok: true };
-    if (!(await canManageSupportCase(admin, context.userId, ticket.requester_id))) {
-      throw new Error("Only the case requester, owner, or manager can delete this conversation.");
-    }
-    if (ticket.status !== "closed") {
-      throw new Error("Close this support case before deleting the conversation.");
-    }
-
-    // Keep a minimal audit marker with no conversation text, then permanently
-    // remove the case. support_ticket_notes cascade with the ticket.
-    try {
-      await admin.from("audit_log").insert({
-        actor_id: context.userId,
-        actor_email: profile.email ?? null,
-        store_id: profile.store_id,
-        action: "merchant.support.delete",
-        entity: "support_ticket",
-        entity_id: ticketId,
-        details: { ticket_number: ticket.ticket_number, subject: ticket.subject },
-      });
-    } catch {
-      // Deletion is still allowed if the optional audit insert is unavailable.
-    }
-
-    try {
-      await (admin.from as any)("support_ticket_events").delete().eq("ticket_id", ticketId);
-    } catch {
-      // Some deployments may not have this optional lifecycle table.
-    }
-
-    const { error } = await admin
-      .from("support_tickets")
-      .delete()
-      .eq("id", ticketId)
-      .eq("store_id", profile.store_id);
-    if (error) throw error;
-    return { ok: true };
+  .handler(async ({ context }) => {
+    await merchantIdentity(context.userId);
+    throw new Error("Only SEZA Support can delete support conversations.");
   });

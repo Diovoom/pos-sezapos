@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -8,14 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Send, Loader2, MessageSquare, CheckCircle2, Archive, Trash2 } from "lucide-react";
+import { ArrowLeft, Send, Loader2, MessageSquare, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { useMe } from "@/hooks/useMe";
 import {
-  merchantCloseSupportCase,
-  merchantDeleteSupportCase,
   merchantGetSupportCase,
   merchantReplySupportCase,
 } from "@/lib/support.functions";
@@ -39,11 +37,8 @@ function MerchantSupportChat() {
   const { ticketId } = Route.useParams();
   const { data: me } = useMe();
   const qc = useQueryClient();
-  const navigate = useNavigate({ from: Route.fullPath });
   const getCase = useServerFn(merchantGetSupportCase);
   const replyCase = useServerFn(merchantReplySupportCase);
-  const closeSupportCase = useServerFn(merchantCloseSupportCase);
-  const deleteSupportCase = useServerFn(merchantDeleteSupportCase);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
@@ -60,6 +55,15 @@ function MerchantSupportChat() {
     void qc.invalidateQueries({ queryKey: ["owner-support-unread"] });
     return qc.invalidateQueries({ queryKey: ["merchant-support-chat", ticketId] });
   };
+
+  const latestVisibleMessageAt = query.data?.messages.at(-1)?.created_at;
+  useEffect(() => {
+    if (!latestVisibleMessageAt) return;
+    // merchantGetSupportCase advances the server-side read watermark before
+    // returning. Refresh the shell badge immediately instead of waiting for
+    // its polling interval or a later Realtime event.
+    void qc.invalidateQueries({ queryKey: ["owner-support-unread"] });
+  }, [latestVisibleMessageAt, qc]);
 
   useEffect(() => {
     const suffix = `${ticketId}-${crypto.randomUUID()}`;
@@ -117,42 +121,6 @@ function MerchantSupportChat() {
     }
   }
 
-  async function closeCase() {
-    if (!query.data || query.data.ticket.status === "closed") return;
-    const confirmed = window.confirm("Mark this support case solved and close it?");
-    if (!confirmed) return;
-    setBusy(true);
-    try {
-      await closeSupportCase({ data: { ticketId } });
-      toast.success("Support case closed");
-      refresh();
-      await qc.invalidateQueries({ queryKey: ["my-support-tickets"] });
-    } catch (error) {
-      toast.error(userFacingError(error, "This support case could not be closed. Try again."));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function deleteConversation() {
-    if (!query.data || query.data.ticket.status !== "closed") return;
-    const confirmed = window.confirm(
-      "Permanently delete this closed support conversation and all of its messages?",
-    );
-    if (!confirmed) return;
-    setBusy(true);
-    try {
-      await deleteSupportCase({ data: { ticketId } });
-      toast.success("Conversation deleted");
-      await qc.invalidateQueries({ queryKey: ["my-support-tickets"] });
-      navigate({ to: "/help" });
-    } catch (error) {
-      toast.error(userFacingError(error, "This conversation could not be deleted."));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (query.isPending) {
     return (
       <div className="mx-auto max-w-4xl p-6 text-sm text-muted-foreground">
@@ -191,15 +159,9 @@ function MerchantSupportChat() {
         <Badge variant={ended ? "secondary" : "default"}>
           {ended ? "Chat ended" : "Live chat"}
         </Badge>
-        {!closed ? (
-          <Button className="ml-auto" size="sm" variant="outline" onClick={() => void closeCase()} disabled={busy}>
-            <Archive className="mr-2 h-4 w-4" /> Mark solved & close
-          </Button>
-        ) : (
-          <Button className="ml-auto" size="sm" variant="destructive" onClick={() => void deleteConversation()} disabled={busy}>
-            <Trash2 className="mr-2 h-4 w-4" /> Delete conversation
-          </Button>
-        )}
+        <span className="ml-auto text-xs text-muted-foreground">
+          SEZA Support controls resolution and closure.
+        </span>
       </div>
 
       {ticket.resolution_summary || ticket.resolution ? (

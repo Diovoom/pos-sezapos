@@ -761,25 +761,6 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
     onSettled: () => setSending(false),
   });
 
-  // IMPORTANT: this useMutation MUST be declared before any early return so the
-  // hook order stays stable across loading → error → success renders. Placing
-  // it below the early returns caused React error #310 ("Rendered fewer hooks
-  // than expected") whenever the ticket query resolved after loading.
-  const closeTicket = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.rpc("merchant_close_support_case", {
-        _ticket_id: id,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Ticket closed");
-      qc.invalidateQueries({ queryKey: ["shell", "support", "ticket", id] });
-      if (storeId) qc.invalidateQueries({ queryKey: ["shell", "support", "tickets", storeId] });
-    },
-    onError: () => toast.error("Support request could not be closed. Please try again."),
-  });
-
   async function onSend() {
     if (sending || !reply.trim()) return;
     if (!online) { toast.error("You're offline — can't send yet."); return; }
@@ -825,17 +806,9 @@ function TicketDetail({ id, onBack }: { id: string; onBack: () => void }) {
           <div className="font-medium truncate">{t.subject}</div>
         </div>
         <Badge variant={statusVariant(t.status)}>{STATUS_LABEL[t.status] ?? t.status}</Badge>
-        {!closed && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="min-h-9"
-            onClick={() => closeTicket.mutate()}
-            disabled={closeTicket.isPending}
-          >
-            {closeTicket.isPending ? <Loader2 className="size-3 animate-spin" /> : "Close"}
-          </Button>
-        )}
+        <span className="text-[11px] text-muted-foreground">
+          SEZA Support closes resolved cases
+        </span>
       </div>
 
       <div className="p-3 md:p-4 space-y-3">

@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Archive, LifeBuoy, Loader2, MessageSquare, Plus, RefreshCw, Send } from "lucide-react";
+import { ArrowLeft, LifeBuoy, Loader2, MessageSquare, Plus, RefreshCw, Send } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
@@ -129,6 +129,7 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
       await (supabase.rpc as any)("merchant_mark_support_read", { _ticket_id: selectedId }).catch(
         () => undefined,
       );
+      void qc.invalidateQueries({ queryKey: ["owner-support-unread"] });
       return (data ?? []) as Message[];
     },
     refetchInterval: 60_000,
@@ -211,21 +212,6 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
       refreshAll();
     },
     onError: (error: unknown) => toast.error(userFacingError(error, "Could not send message.")),
-  });
-
-  const closeCase = useMutation({
-    mutationFn: async () => {
-      if (!selectedTicket) return;
-      const { error } = await (supabase.rpc as any)("merchant_close_support_case", {
-        _ticket_id: selectedTicket.id,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Support case closed");
-      refreshAll();
-    },
-    onError: (error: unknown) => toast.error(userFacingError(error, "Could not close support case.")),
   });
 
   return (
@@ -346,19 +332,9 @@ export function MerchantLiveSupport({ identity }: { identity: SupportIdentity })
                     >
                       {selectedTicket.chat_status === "ended" ? "Chat ended" : "Live chat"}
                     </Badge>
-                    {selectedTicket.status !== "closed" && (
-                      <Button
-                        className="ml-1"
-                        size="sm"
-                        variant="outline"
-                        disabled={closeCase.isPending}
-                        onClick={() => {
-                          if (window.confirm("Mark this support case solved and close it?")) closeCase.mutate();
-                        }}
-                      >
-                        <Archive className="mr-1 h-4 w-4" /> Close case
-                      </Button>
-                    )}
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      SEZA Support controls resolution and closure.
+                    </span>
                   </div>
                 </div>
               </CardHeader>

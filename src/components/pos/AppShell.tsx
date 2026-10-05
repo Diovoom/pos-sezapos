@@ -20,6 +20,7 @@ import {
   UserPlus,
   UserRound,
   Users,
+  X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
@@ -178,7 +179,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const activeMobileIndex = pathname === "/dashboard" ? 0 : pathname.startsWith("/employees") ? 1 : 2;
   const [dragMobileIndex, setDragMobileIndex] = useState<number | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [supportBubbleDismissedPath, setSupportBubbleDismissedPath] = useState<string | null>(null);
   const mobileNavRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (supportBubbleDismissedPath && supportBubbleDismissedPath !== pathname) {
+      setSupportBubbleDismissedPath(null);
+    }
+  }, [pathname, supportBubbleDismissedPath]);
 
   const mobileIndexFromPointer = (event: PointerEvent<HTMLElement>) => {
     const bounds = mobileNavRef.current?.getBoundingClientRect();
@@ -385,33 +393,44 @@ export function AppShell({ children }: { children: ReactNode }) {
           </DropdownMenu>
         </nav>
 
-        <div
-          ref={supportBubbleRef}
-          style={supportBubbleStyle}
-          className="fixed bottom-[calc(5.55rem_+_env(safe-area-inset-bottom))] right-4 z-40 flex items-center rounded-full bg-background shadow-lg ring-1 ring-border md:bottom-5"
-        >
-          <button
-            type="button"
-            {...supportDragHandleProps}
-            className="grid min-h-11 w-8 shrink-0 place-items-center rounded-l-full text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Move support button"
-            title="Drag to move"
+        {supportBubbleDismissedPath !== pathname && (
+          <div
+            ref={supportBubbleRef}
+            style={supportBubbleStyle}
+            className="fixed bottom-[calc(5.55rem_+_env(safe-area-inset-bottom))] right-4 z-40 flex items-center rounded-full bg-background shadow-lg ring-1 ring-border md:bottom-5"
           >
-            <GripVertical className="size-4" />
-          </button>
-          <Link
-            to="/help"
-            aria-label={unreadSupportCount ? `${unreadSupportCount} unread support message${unreadSupportCount === 1 ? "" : "s"}` : "Contact Support"}
-            className="inline-flex min-h-11 items-center gap-2 rounded-l-none rounded-r-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
-          >
-            <span className="relative">
-              <LifeBuoy className="size-4" />
-              {unreadSupportCount > 0 && <span className="absolute -right-2 -top-2 size-3 rounded-full border-2 border-primary bg-red-500" />}
-            </span>
-            <span className="hidden sm:inline">Contact Support</span>
-            {unreadSupportCount > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-red-500 px-1.5 text-[10px] text-white">{Math.min(unreadSupportCount, 99)}</span>}
-          </Link>
-        </div>
+            <button
+              type="button"
+              {...supportDragHandleProps}
+              className="grid min-h-11 w-8 shrink-0 place-items-center rounded-l-full text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Move support button"
+              title="Drag to move"
+            >
+              <GripVertical className="size-4" />
+            </button>
+            <Link
+              to="/help"
+              aria-label={unreadSupportCount ? `${unreadSupportCount} unread support message${unreadSupportCount === 1 ? "" : "s"}` : "Contact Support"}
+              className="inline-flex min-h-11 items-center gap-2 bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              <span className="relative">
+                <LifeBuoy className="size-4" />
+                {unreadSupportCount > 0 && <span className="absolute -right-2 -top-2 size-3 rounded-full border-2 border-primary bg-red-500" />}
+              </span>
+              <span className="hidden sm:inline">Contact Support</span>
+              {unreadSupportCount > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-red-500 px-1.5 text-[10px] text-white">{Math.min(unreadSupportCount, 99)}</span>}
+            </Link>
+            <button
+              type="button"
+              onClick={() => setSupportBubbleDismissedPath(pathname)}
+              className="grid min-h-11 w-9 shrink-0 place-items-center rounded-r-full border-l border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Hide support button for this page"
+              title="Hide for this page"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );

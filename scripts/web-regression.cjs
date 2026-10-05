@@ -296,6 +296,39 @@ test('Admin investigation exposes a persisted visible workspace', () => {
   assert.match(route, /id="merchant-conversation"/);
   assert.match(route, /retry:\s*2/);
 });
+test('merchant support cannot resolve close or delete cases', () => {
+  const help = source('src/routes/_dashboard/help.tsx');
+  const detail = source('src/routes/_dashboard/help.$ticketId.tsx');
+  const shared = source('src/components/support/MerchantLiveSupport.tsx');
+  const android = source('capacitor-shell/screens/SupportScreen.tsx');
+  const server = source('src/lib/support.functions.ts');
+  assert.doesNotMatch(help, /Delete conversation|Permanently delete this closed support conversation|merchantDeleteSupportCase/);
+  assert.doesNotMatch(detail, /Mark solved & close|Delete conversation|window\.confirm/);
+  assert.doesNotMatch(shared, /merchant_close_support_case|Close case|window\.confirm\("Mark this support case/);
+  assert.doesNotMatch(android, /merchant_close_support_case|closeTicket\.mutate/);
+  assert.match(server, /Only SEZA Support can resolve or close support cases/);
+  assert.match(server, /Only SEZA Support can delete support conversations/);
+});
+test('owner support badge refreshes immediately after a conversation is read', () => {
+  const detail = source('src/routes/_dashboard/help.$ticketId.tsx');
+  const shared = source('src/components/support/MerchantLiveSupport.tsx');
+  assert.match(detail, /latestVisibleMessageAt/);
+  assert.match(detail, /invalidateQueries\(\{ queryKey: \["owner-support-unread"\] \}\)/);
+  assert.match(shared, /merchant_mark_support_read/);
+  assert.match(shared, /invalidateQueries\(\{ queryKey: \["owner-support-unread"\] \}\)/);
+});
+test('owner support bubble can be hidden per page and returns after navigation', () => {
+  const shell = source('src/components/pos/AppShell.tsx');
+  assert.match(shell, /supportBubbleDismissedPath/);
+  assert.match(shell, /setSupportBubbleDismissedPath\(pathname\)/);
+  assert.match(shell, /supportBubbleDismissedPath !== pathname/);
+  assert.match(shell, /Hide support button for this page/);
+  assert.match(shell, /setSupportBubbleDismissedPath\(null\)/);
+});
+test('merchant close RPC is revoked from authenticated clients', () => {
+  const migration = source('supabase/migrations/20261003073000_support_admin_only_case_closure.sql');
+  assert.match(migration, /REVOKE EXECUTE ON FUNCTION public\.merchant_close_support_case\(uuid\) FROM authenticated/);
+});
 test('owner password login stays on the SEZA same-origin server path', () => {
   const auth = source('src/routes/auth.tsx');
   assert.doesNotMatch(auth, /supabase\.auth\.signInWithPassword/);
