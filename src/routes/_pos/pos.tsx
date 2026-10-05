@@ -236,11 +236,13 @@ export function PosPage() {
   const [customOpen, setCustomOpen] = useState(false);
   const [discountOpen, setDiscountOpen] = useState(false);
   const [discount, setDiscount] = useState<DiscountValue | null>(null);
+  const [selectedDiscountProductId, setSelectedDiscountProductId] = useState<string | null>(null);
+  const [discountTargetProductId, setDiscountTargetProductId] = useState<string | null>(null);
   const [loyaltyOpen, setLoyaltyOpen] = useState(false);
   const [loyalty, setLoyalty] = useState<LoyaltyCustomer | null>(null);
   const [loyaltyRedemption, setLoyaltyRedemption] = useState(0);
 
-  const [tender, setTender] = useState<PaymentMethod>("card");
+  const [tender, setTender] = useState<PaymentMethod>("cash");
   const [payOpen, setPayOpen] = useState(false);
   const finalizingRef = useRef(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -682,6 +684,8 @@ export function PosPage() {
     if (store?.id) void deleteMeta(`cart_draft:${store.id}:${activeUserId ?? "anonymous"}`);
     setAgeVerification(null);
     setDiscount(null);
+    setSelectedDiscountProductId(null);
+    setDiscountTargetProductId(null);
     setLoyalty(null);
     setLoyaltyRedemption(0);
     setCartOpen(false);
@@ -707,7 +711,11 @@ export function PosPage() {
       age_category: null,
     };
     setCart((cur) => [...cur, { product: p, qty: 1 }]);
-    toast.success(`Added ${item.name} · ${fmtCurrency(item.price, currency)}`);
+    toast.success(`Added ${item.name} · ${fmtCurrency(item.price, currency)}`, {
+      id: "pos-item-added",
+      position: "bottom-center",
+      duration: 650,
+    });
   };
 
   const restrictedItems: RestrictedItem[] = useMemo(
@@ -725,26 +733,70 @@ export function PosPage() {
   const needsAgeVerification =
     ageSettings.enabled && restrictedItems.length > 0 && !ageVerification;
 
+  useEffect(() => {
+    if (selectedDiscountProductId && !cart.some((line) => line.product.id === selectedDiscountProductId)) {
+      setSelectedDiscountProductId(null);
+    }
+    if (discountTargetProductId && !cart.some((line) => line.product.id === discountTargetProductId)) {
+      setDiscount(null);
+      setDiscountTargetProductId(null);
+    }
+  }, [cart, selectedDiscountProductId, discountTargetProductId]);
+
   const removeAllRestricted = () => {
     setCart((cur) => cur.filter((l) => !l.product.age_restricted));
   };
 
   const subtotal = Math.round(cart.reduce((s, l) => s + l.product.price * l.qty, 0) * 100) / 100;
+  const selectedDiscountLine = selectedDiscountProductId
+    ? cart.find((line) => line.product.id === selectedDiscountProductId) ?? null
+    : null;
+  const discountTargetLine = discountTargetProductId
+    ? cart.find((line) => line.product.id === discountTargetProductId) ?? null
+    : null;
+  const discountBase = discountTargetLine
+    ? Math.round(discountTargetLine.product.price * discountTargetLine.qty * 100) / 100
+    : subtotal;
   const manualDiscount = !discount
     ? 0
     : discount.mode === "percent"
-      ? Math.min(subtotal, Math.round(subtotal * discount.value) / 100)
-      : Math.min(subtotal, Math.round(discount.value * 100) / 100);
+      ? Math.min(discountBase, Math.round(discountBase * discount.value) / 100)
+      : Math.min(discountBase, Math.round(discount.value * 100) / 100);
   const effectiveLoyaltyRedemption = loyaltyEnabled
     ? Math.min(Math.max(0, subtotal - manualDiscount), loyaltyRedemption)
     : 0;
   const discountAmount = Math.round((manualDiscount + effectiveLoyaltyRedemption) * 100) / 100;
-  const discountRatio = subtotal > 0 ? discountAmount / subtotal : 0;
   const taxableBase = cart.reduce(
     (s, l) => s + (l.product.taxable ? l.product.price * l.qty : 0),
     0,
   );
-  const taxableAfterDiscount = Math.max(0, taxableBase * (1 - discountRatio));
+  const manualTaxableDiscount = Math.min(
+    taxableBase,
+    discountTargetLine
+      ? discountTargetLine.product.taxable
+        ? manualDiscount
+        : 0
+      : subtotal > 0
+        ? Math.round(manualDiscount * (taxableBase / subtotal) * 100) / 100
+        : 0,
+  );
+  const taxableAfterManualDiscount = Math.max(0, taxableBase - manualTaxableDiscount);
+  const subtotalAfterManualDiscount = Math.max(0, subtotal - manualDiscount);
+  const loyaltyTaxableDiscount =
+    subtotalAfterManualDiscount > 0
+      ? Math.min(
+          taxableAfterManualDiscount,
+          Math.round(
+            effectiveLoyaltyRedemption *
+              (taxableAfterManualDiscount / subtotalAfterManualDiscount) *
+              100,
+          ) / 100,
+        )
+      : 0;
+  const taxableAfterDiscount = Math.max(
+    0,
+    taxableAfterManualDiscount - loyaltyTaxableDiscount,
+  );
   const tax = Math.round(taxableAfterDiscount * taxRate * 100) / 100;
   const total = Math.max(0, Math.round((subtotal - discountAmount + tax) * 100) / 100);
   const cardPricing = useMemo(
@@ -1211,7 +1263,7 @@ export function PosPage() {
   };
 
   const completeFastCash = () => {
-    if (finalizingRef.current || finalize.isPending) return;
+    if (finalizingRef.current || finalize.isPending || tender !== "cash") return;
     if (storeSwitchBlocked) {
       toast.error("Checkout is locked until the previous store's unsynced records are recovered.");
       return;
@@ -1368,53 +1420,94 @@ export function PosPage() {
             {t("pos.cart_empty")}
           </div>
         ) : (
-          cart.map((line) => (
-            <div
-              key={line.product.id}
-              className="flex items-start gap-2 rounded-lg border bg-background px-3 py-2 group"
-            >
-              <div className="size-8 rounded-md bg-muted grid place-items-center text-xs font-mono font-bold shrink-0">
-                {line.qty}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate">{line.product.name}</p>
-                <p className="text-[10px] text-muted-foreground font-mono">
-                  {fmtCurrency(Number(line.product.price), currency)} ea
-                </p>
-                <div className="flex items-center gap-1 mt-1">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="size-6"
-                    onClick={() => setQty(line.product.id, line.qty - 1)}
-                  >
-                    <Minus className="size-3" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="size-6"
-                    onClick={() => setQty(line.product.id, line.qty + 1)}
-                  >
-                    <Plus className="size-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 px-2 ml-1 text-destructive hover:bg-destructive/10 text-[11px] font-semibold"
-                    onClick={() => removeLine(line.product.id)}
-                    title="Remove item from current cart"
-                    aria-label={`Remove ${line.product.name} from cart`}
-                  >
-                    <Trash2 className="size-3 mr-1" /> Remove
-                  </Button>
+          cart.map((line) => {
+            const selectedForDiscount = selectedDiscountProductId === line.product.id;
+            const hasLineDiscount =
+              discountTargetProductId === line.product.id && discount && manualDiscount > 0;
+            return (
+              <div
+                key={line.product.id}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selectedForDiscount}
+                onClick={() =>
+                  setSelectedDiscountProductId((current) =>
+                    current === line.product.id ? null : line.product.id,
+                  )
+                }
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedDiscountProductId((current) =>
+                      current === line.product.id ? null : line.product.id,
+                    );
+                  }
+                }}
+                className={cn(
+                  "flex cursor-pointer items-start gap-2 rounded-lg border bg-background px-3 py-2 group transition-colors",
+                  selectedForDiscount && "border-primary bg-primary/5 ring-1 ring-primary/20",
+                )}
+              >
+                <div className="size-8 rounded-md bg-muted grid place-items-center text-xs font-mono font-bold shrink-0">
+                  {line.qty}
                 </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">{line.product.name}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">
+                    {fmtCurrency(Number(line.product.price), currency)} ea
+                  </p>
+                  {selectedForDiscount && (
+                    <p className="mt-0.5 text-[10px] font-semibold text-primary">Selected for discount</p>
+                  )}
+                  {hasLineDiscount && (
+                    <p className="mt-0.5 text-[10px] font-semibold text-success">
+                      Promo − {fmtCurrency(manualDiscount, currency)}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-1 mt-1">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="size-6"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setQty(line.product.id, line.qty - 1);
+                      }}
+                    >
+                      <Minus className="size-3" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="size-6"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setQty(line.product.id, line.qty + 1);
+                      }}
+                    >
+                      <Plus className="size-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 ml-1 text-destructive hover:bg-destructive/10 text-[11px] font-semibold"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        removeLine(line.product.id);
+                      }}
+                      title="Remove item from current cart"
+                      aria-label={`Remove ${line.product.name} from cart`}
+                    >
+                      <Trash2 className="size-3 mr-1" /> Remove
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-sm font-mono font-semibold">
+                  {fmtCurrency(line.product.price * line.qty, currency)}
+                </p>
               </div>
-              <p className="text-sm font-mono font-semibold">
-                {fmtCurrency(line.product.price * line.qty, currency)}
-              </p>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -1429,9 +1522,14 @@ export function PosPage() {
               <button
                 className="underline underline-offset-2 disabled:no-underline disabled:opacity-50"
                 disabled={!canDiscount}
-                onClick={() => canDiscount && setDiscountOpen(true)}
+                onClick={() => {
+                  if (!canDiscount) return;
+                  setSelectedDiscountProductId(discountTargetProductId);
+                  setDiscountOpen(true);
+                }}
               >
-                Discount{discount.code ? ` (${discount.code})` : ""} (
+                Discount{discountTargetLine ? ` · ${discountTargetLine.product.name}` : ""}
+                {discount.code ? ` (${discount.code})` : ""} (
                 {discount.mode === "percent"
                   ? `${discount.value}%`
                   : fmtCurrency(discount.value, currency)}
@@ -1534,9 +1632,19 @@ export function PosPage() {
             type="button"
             variant="outline"
             onClick={completeFastCash}
-            disabled={cart.length === 0 || finalize.isPending || !canCreateSale || storeSwitchBlocked}
+            disabled={
+              tender !== "cash" ||
+              cart.length === 0 ||
+              finalize.isPending ||
+              !canCreateSale ||
+              storeSwitchBlocked
+            }
             className="h-12 rounded-xl text-sm font-bold"
-            title="Complete an exact-cash sale in one tap"
+            title={
+              tender === "cash"
+                ? "Complete an exact-cash sale in one tap"
+                : "Select Cash to use Fast Cash"
+            }
           >
             {finalize.isPending ? (
               <Loader2 className="size-5 animate-spin" />
@@ -1607,7 +1715,7 @@ export function PosPage() {
       )}
 
       <div className="min-h-0 flex-1 flex flex-col md:flex-row overflow-hidden">
-        <section className="flex-1 md:basis-[71%] flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
+        <section className="flex-1 md:basis-[67%] flex flex-col md:border-r bg-surface/40 min-w-0 min-h-0">
           <div className="p-3 flex flex-col gap-2">
             <div className="flex min-w-0 items-stretch gap-2">
               <div className="relative min-w-0 flex-1">
@@ -1669,7 +1777,11 @@ export function PosPage() {
                 title={canDiscount ? undefined : "Discount permission required"}
               >
                 <Percent className="mr-1.5 size-4" />
-                {discount ? "Edit discount" : "Discount"}
+                {selectedDiscountLine
+                  ? `Discount · ${selectedDiscountLine.product.name}`
+                  : discount
+                    ? "Edit discount"
+                    : "Discount"}
               </Button>
 
               {loyaltyEnabled && (
@@ -1744,7 +1856,7 @@ export function PosPage() {
           </div>
         </section>
 
-        <section className="hidden md:flex md:basis-[29%] min-w-[305px] max-w-[430px] flex-none flex-col bg-card">
+        <section className="hidden md:flex md:basis-[33%] min-w-[340px] max-w-[500px] flex-none flex-col bg-card">
           {cartPanel}
         </section>
       </div>
@@ -1920,10 +2032,20 @@ export function PosPage() {
       <DiscountDialog
         open={discountOpen}
         onOpenChange={setDiscountOpen}
-        subtotal={subtotal}
+        subtotal={
+          selectedDiscountLine
+            ? Math.round(selectedDiscountLine.product.price * selectedDiscountLine.qty * 100) / 100
+            : subtotal
+        }
         currency={currency}
-        current={discount}
-        onApply={setDiscount}
+        targetLabel={selectedDiscountLine?.product.name ?? null}
+        current={
+          discountTargetProductId === selectedDiscountProductId ? discount : null
+        }
+        onApply={(nextDiscount) => {
+          setDiscount(nextDiscount);
+          setDiscountTargetProductId(nextDiscount ? selectedDiscountProductId : null);
+        }}
       />
 
       {loyaltyEnabled && (

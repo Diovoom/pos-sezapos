@@ -25,6 +25,7 @@ type Props = {
   subtotal: number;
   currency: string;
   current: DiscountValue | null;
+  targetLabel?: string | null;
   onApply: (d: DiscountValue | null) => void;
 };
 
@@ -41,6 +42,7 @@ export function DiscountDialog({
   subtotal,
   currency,
   current,
+  targetLabel,
   onApply,
 }: Props) {
   const [mode, setMode] = useState<"percent" | "amount">(current?.mode ?? "percent");
@@ -88,7 +90,9 @@ export function DiscountDialog({
         <DialogHeader>
           <DialogTitle>Apply discount</DialogTitle>
           <DialogDescription>
-            Percentage, amount, or coupon code. Applies to the cart subtotal.
+            {targetLabel
+              ? `Percentage, amount, or coupon code. Applies only to ${targetLabel}.`
+              : "Percentage, amount, or coupon code. Applies to the cart subtotal."}
           </DialogDescription>
         </DialogHeader>
 

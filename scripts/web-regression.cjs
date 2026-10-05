@@ -326,17 +326,33 @@ test('owner support bubble stays hidden across dashboard navigation until a hard
   assert.doesNotMatch(shell, /supportBubbleDismissedPath/);
   assert.doesNotMatch(shell, /setSupportBubbleDismissed\(false\)/);
 });
-test('POS offers one-tap exact Fast Cash and a five-point wider cart without the cashier pricing prompt', () => {
+test('POS keeps Fast Cash visible but safe, defaults to cash, and gives the cart more room', () => {
   const pos = source('src/routes/_pos/pos.tsx');
+  assert.match(pos, /useState<PaymentMethod>\("cash"\)/);
   assert.match(pos, /const completeFastCash = \(\) =>/);
+  assert.match(pos, /finalize\.isPending \|\| tender !== "cash"/);
   assert.match(pos, /method: "cash",[\s\S]*amountTendered: total,[\s\S]*changeDue: 0/);
   assert.match(pos, /Fast Cash exact tender/);
-  assert.match(pos, /> Fast Cash/);
-  assert.match(pos, /md:basis-\[71%\]/);
-  assert.match(pos, /md:basis-\[29%\]/);
-  assert.match(pos, /min-w-\[305px\] max-w-\[430px\]/);
+  assert.match(pos, /tender !== "cash" \|\|[\s\S]*Select Cash to use Fast Cash/);
+  assert.match(pos, /md:basis-\[67%\]/);
+  assert.match(pos, /md:basis-\[33%\]/);
+  assert.match(pos, /min-w-\[340px\] max-w-\[500px\]/);
   assert.doesNotMatch(pos, /Cash customers receive the lower cash price\. The card price is set before the card is presented\./);
   assert.match(pos, /if \(isTrainingMode\(\)\)/);
+  assert.match(pos, /id: "pos-item-added"[\s\S]*position: "bottom-center"[\s\S]*duration: 650/);
+});
+test('POS can target a manual discount to the selected cart line without changing other items', () => {
+  const pos = source('src/routes/_pos/pos.tsx');
+  const dialog = source('src/components/pos/DiscountDialog.tsx');
+  assert.match(pos, /selectedDiscountProductId/);
+  assert.match(pos, /discountTargetProductId/);
+  assert.match(pos, /Selected for discount/);
+  assert.match(pos, /Promo −/);
+  assert.match(pos, /setDiscountTargetProductId\(nextDiscount \? selectedDiscountProductId : null\)/);
+  assert.match(pos, /discountBase = discountTargetLine/);
+  assert.match(pos, /discountTargetLine\.product\.taxable/);
+  assert.match(dialog, /targetLabel/);
+  assert.match(dialog, /Applies only to/);
 });
 test('terminal recovery silently clears definitely unpaid canceled checkouts', () => {
   const recovery = source('src/components/pos/TerminalRecoveryNotice.tsx');
