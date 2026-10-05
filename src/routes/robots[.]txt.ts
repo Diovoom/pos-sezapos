@@ -59,7 +59,9 @@ export const Route = createFileRoute("/robots.txt")({
         return new Response(lines.join("\n"), {
           headers: {
             "Content-Type": "text/plain; charset=utf-8",
-            "Cache-Control": "public, max-age=3600",
+            // Marketing robots can be cached. Account/Admin/POS/Keyy host policy
+            // changes should become visible immediately after deployment.
+            "Cache-Control": isMarketing ? "public, max-age=3600" : "no-store",
           },
         });
       },
