@@ -250,6 +250,7 @@ export function SmsSettingsPanel() {
             <div>
               <Label className="text-xs">Twilio Auth Token</Label>
               <Input
+                name="twilio-auth-token"
                 type="password"
                 value={authToken}
                 onChange={(e) => setAuthToken(e.target.value)}
@@ -283,6 +284,7 @@ export function SmsSettingsPanel() {
             <div>
               <Label className="text-xs">API Secret</Label>
               <Input
+                name="vonage-api-secret"
                 type="password"
                 value={apiSecret}
                 onChange={(e) => setApiSecret(e.target.value)}

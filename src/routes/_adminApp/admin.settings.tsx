@@ -310,7 +310,9 @@ function SettingsPage() {
           <div className="space-y-3">
             <Field label="New Admin password">
               <Input
+                name="new-password"
                 type="password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="At least 10 characters"

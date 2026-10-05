@@ -76,8 +76,10 @@ export function ManagerOverrideDialog({
           <div className="space-y-1">
             <Label>Manager PIN</Label>
             <Input
+              name="manager-override-pin"
               type="password"
               inputMode="numeric"
+              autoComplete="off"
               maxLength={8}
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}

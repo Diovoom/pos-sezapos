@@ -588,8 +588,10 @@ function ChangePinPanel() {
         <div className="space-y-2">
           <Label>New PIN</Label>
           <Input
+            name="new-pin"
             type="password"
             inputMode="numeric"
+            autoComplete="off"
             maxLength={6}
             value={pin}
             onChange={(e) => setPinVal(e.target.value.replace(/\D/g, ""))}
@@ -598,8 +600,10 @@ function ChangePinPanel() {
         <div className="space-y-2">
           <Label>Confirm PIN</Label>
           <Input
+            name="confirm-pin"
             type="password"
             inputMode="numeric"
+            autoComplete="off"
             maxLength={6}
             value={confirm}
             onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ""))}
@@ -637,12 +641,21 @@ function ChangePasswordPanel() {
       <CardContent className="space-y-3">
         <div className="space-y-2">
           <Label>New password</Label>
-          <Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} minLength={8} />
+          <Input
+            name="new-password"
+            type="password"
+            autoComplete="new-password"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            minLength={8}
+          />
         </div>
         <div className="space-y-2">
           <Label>Confirm password</Label>
           <Input
+            name="new-password-confirmation"
             type="password"
+            autoComplete="new-password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             minLength={8}

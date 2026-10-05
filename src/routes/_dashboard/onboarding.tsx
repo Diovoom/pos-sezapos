@@ -72,6 +72,7 @@ export function OnboardingPage() {
               <div className="space-y-2">
                 <Label>New password</Label>
                 <Input
+                  name="new-password"
                   type="password"
                   value={password}
                   minLength={8}
@@ -83,6 +84,7 @@ export function OnboardingPage() {
               <div className="space-y-2">
                 <Label>Confirm password</Label>
                 <Input
+                  name="new-password-confirmation"
                   type="password"
                   value={confirm}
                   minLength={8}
@@ -97,8 +99,10 @@ export function OnboardingPage() {
                   <span className="text-muted-foreground font-normal">(optional, 6 digits)</span>
                 </Label>
                 <Input
+                  name="setup-pin"
                   type="password"
                   inputMode="numeric"
+                  autoComplete="off"
                   pattern="\d{6}"
                   maxLength={6}
                   value={pin}

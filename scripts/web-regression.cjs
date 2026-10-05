@@ -310,6 +310,34 @@ test('credential pages identify the official SEZA portal', () => {
     assert.match(source(file), /AuthTrustPanel/);
   }
 });
+test('web password fields declare explicit password-manager semantics', () => {
+  const files = [
+    'src/routes/auth.tsx',
+    'src/routes/signup.tsx',
+    'src/routes/reset-password.tsx',
+    'src/routes/admin.auth.tsx',
+    'src/routes/_dashboard/onboarding.tsx',
+    'src/routes/_dashboard/settings.tsx',
+    'src/routes/_adminApp/admin.settings.tsx',
+    'src/components/pos/ManagerOverrideDialog.tsx',
+    'src/components/settings/SmsSettingsPanel.tsx',
+  ];
+  for (const file of files) {
+    const text = source(file);
+    const inputs = [...text.matchAll(/<Input\b[\s\S]*?\/>/g)].map((match) => match[0]);
+    const passwordInputs = inputs.filter((input) => /type=(?:["']password["']|\{[^}]*["']password["'][^}]*\})/.test(input));
+    assert.ok(passwordInputs.length > 0, `${file} should contain a password-like input`);
+    for (const input of passwordInputs) assert.match(input, /autoComplete=/, `${file} password input missing autoComplete`);
+  }
+  assert.match(source('src/routes/auth.tsx'), /autoComplete="current-password"/);
+  assert.match(source('src/routes/admin.auth.tsx'), /autoComplete="current-password"/);
+  for (const file of ['src/routes/signup.tsx', 'src/routes/reset-password.tsx', 'src/routes/_dashboard/onboarding.tsx', 'src/routes/_dashboard/settings.tsx', 'src/routes/_adminApp/admin.settings.tsx']) {
+    assert.match(source(file), /autoComplete="new-password"/);
+  }
+  for (const file of ['src/components/pos/ManagerOverrideDialog.tsx', 'src/components/settings/SmsSettingsPanel.tsx']) {
+    assert.match(source(file), /autoComplete="off"/);
+  }
+});
 test('sensitive SEZA HTML cannot be framed by another origin', () => {
   const server = source('src/server.ts');
   assert.match(server, /X-Frame-Options["'], ["']DENY/);
