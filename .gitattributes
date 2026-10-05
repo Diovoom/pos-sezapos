@@ -1,0 +1,19 @@
+* text=auto eol=lf
+
+# Windows-native scripts may keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets must never be line-ending normalized.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.apk binary
+*.aab binary
+*.zip binary
+*.keystore binary
+*.jks binary
