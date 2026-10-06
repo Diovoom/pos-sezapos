@@ -130,6 +130,75 @@ export function clearStripeReaderConnectionMethod(terminalId: string) {
   localStorage.removeItem(`${CONNECTION_METHOD_PREFIX}${terminalId}`);
 }
 
+/**
+ * Reset native Stripe Terminal account state before this Android install is
+ * paired to a different SEZA merchant. Stripe caches account credentials in
+ * the native Terminal singleton, which can outlive JS/WebView and store
+ * pairing changes. Disconnect first, clear the SDK credentials, then let the
+ * next discovery request a token for the newly paired merchant.
+ */
+export async function resetStripeTerminalForMerchantSwitch(): Promise<void> {
+  if (!isNativeMode()) return;
+
+  const runtime = stripeRuntime();
+  try {
+    const mod = await loadModule();
+    // Finish any token delivery already requested under the previous pairing
+    // before clearing the SDK cache, otherwise an old token could land after
+    // the clear and contaminate the new merchant session.
+    await runtime.tokenDeliveryQueue.catch(() => undefined);
+    const existing = await probeNativeReader(mod);
+    if (existing) {
+      await mod.StripeTerminal.disconnectReader().catch(() => undefined);
+    }
+
+    const clearCachedCredentials = (mod.StripeTerminal as any).clearCachedCredentials;
+    if (typeof clearCachedCredentials === "function") {
+      await clearCachedCredentials.call(mod.StripeTerminal);
+    }
+  } catch (error) {
+    // Pairing the register itself must remain usable even if an older APK or
+    // plugin cannot clear Stripe state. The new build exposes this native call;
+    // logging here preserves diagnostics without trapping the device in pairing.
+    if (import.meta.env.DEV) {
+      console.warn("[SEZA Terminal] merchant-switch credential reset deferred", error);
+    }
+  } finally {
+    runtime.connected = null;
+    runtime.readerConnectPromise = null;
+    runtime.paymentInFlight = false;
+    runtime.cancelRequestedFor = null;
+    runtime.paymentStage = "idle";
+    runtime.paymentSettledPromise = null;
+    runtime.resolvePaymentSettled = null;
+
+    if (typeof localStorage !== "undefined") {
+      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+        const key = localStorage.key(index);
+        if (key?.startsWith(CONNECTION_METHOD_PREFIX)) localStorage.removeItem(key);
+      }
+      localStorage.removeItem("pos.terminal.connectedAt");
+      localStorage.removeItem("pos.terminal.lastError");
+      localStorage.removeItem("pos.terminal.rawError");
+    }
+
+    try {
+      const [{ setActiveTerminal }, { setActivePaymentProvider }] = await Promise.all([
+        import("./index"),
+        import("@/lib/pos/payment-terminal"),
+      ]);
+      setActiveTerminal("none");
+      setActivePaymentProvider(null);
+    } catch {
+      // The pairing screen can run before the full POS hardware bundle loads.
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("seza:device-config-changed"));
+    }
+  }
+}
+
 function apiBase() {
   if (typeof window === "undefined") return REMOTE_API;
   return isNativeMode() ? REMOTE_API : window.location.origin;

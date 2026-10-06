@@ -19,6 +19,7 @@ const pluginRoot = path.join(
 
 const tokenProviderPath = path.join(pluginRoot, "TokenProvider.kt");
 const terminalPath = path.join(pluginRoot, "StripeTerminal.kt");
+const pluginPath = path.join(pluginRoot, "StripeTerminalPlugin.kt");
 
 function readRequired(file) {
   if (!fs.existsSync(file)) {
@@ -68,8 +69,37 @@ const tokenChanged = writeIfChanged(tokenProviderPath, tokenOriginal, tokenProvi
 
 let terminal = readRequired(terminalPath);
 const terminalOriginal = terminal;
+let plugin = readRequired(pluginPath);
+const pluginOriginal = plugin;
 
-// 2) Null-safe Bluetooth adapter. USB-only POS hardware can have no adapter.
+// 2) Expose Stripe Android SDK credential clearing through the Capacitor
+// wrapper. This is required when the same physical Reader M2 moves from one
+// SEZA merchant/connected account to another.
+if (!plugin.includes("SEZA_PATCH_CLEAR_CACHED_CREDENTIALS")) {
+  const wrapper = /(\n\s*@PluginMethod\s*\n\s*fun\s+disconnectReader\s*\(call:\s*PluginCall\)\s*\{\s*\n\s*implementation\.disconnectReader\(call\)\s*\n\s*\}\s*\n)/m;
+  if (wrapper.test(plugin)) {
+    plugin = plugin.replace(
+      wrapper,
+      `$1\n    // SEZA_PATCH_CLEAR_CACHED_CREDENTIALS\n    @PluginMethod\n    fun clearCachedCredentials(call: PluginCall) {\n        implementation.clearCachedCredentials(call)\n    }\n`,
+    );
+  } else {
+    throw new Error("Stripe Terminal plugin wrapper changed; clearCachedCredentials could not be installed safely.");
+  }
+}
+
+if (!terminal.includes("SEZA_PATCH_CLEAR_CACHED_CREDENTIALS")) {
+  const beforeReaderConnectors = /\n\s*private\s+fun\s+connectTapToPayReader\s*\(call:\s*PluginCall\)\s*\{/m;
+  if (beforeReaderConnectors.test(terminal)) {
+    terminal = terminal.replace(
+      beforeReaderConnectors,
+      `\n    // SEZA_PATCH_CLEAR_CACHED_CREDENTIALS\n    fun clearCachedCredentials(call: PluginCall) {\n        if (!isInitialized()) {\n            call.resolve()\n            return\n        }\n        if (Terminal.getInstance().connectedReader != null) {\n            call.reject("Disconnect the Stripe reader before clearing cached credentials.")\n            return\n        }\n        try {\n            Terminal.getInstance().clearCachedCredentials()\n            call.resolve()\n        } catch (ex: Exception) {\n            call.reject(ex.message ?: "Could not clear Stripe Terminal cached credentials.", ex)\n        }\n    }\n\n    private fun connectTapToPayReader(call: PluginCall) {`,
+    );
+  } else {
+    throw new Error("Stripe Terminal implementation changed; clearCachedCredentials could not be installed safely.");
+  }
+}
+
+// 3) Null-safe Bluetooth adapter. USB-only POS hardware can have no adapter.
 if (!terminal.includes("SEZA_PATCH_SAFE_BLUETOOTH_ADAPTER")) {
   if (/bluetooth\s*!=\s*null\s*&&\s*!bluetooth\.isEnabled/.test(terminal)) {
     console.log("[SEZA] Bluetooth adapter guard already present.");
@@ -174,7 +204,8 @@ if (!terminal.includes("SEZA_PATCH_PAYMENT_CANCEL_RACE")) {
 }
 
 const terminalChanged = writeIfChanged(terminalPath, terminalOriginal, terminal);
+const pluginChanged = writeIfChanged(pluginPath, pluginOriginal, plugin);
 
 console.log(
-  `[SEZA] Stripe Terminal Android safety patch ${tokenChanged || terminalChanged ? "applied" : "already satisfied"}.`,
+  `[SEZA] Stripe Terminal Android safety patch ${tokenChanged || terminalChanged || pluginChanged ? "applied" : "already satisfied"}.`,
 );

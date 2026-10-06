@@ -6,6 +6,7 @@ import { API_BASE_URL } from "../supabase";
 import { setPairing } from "../lib/pairing";
 import { cacheMeta, cacheProducts } from "@/lib/offline/db";
 import { userFacingError } from "@/lib/errors/user-facing";
+import { resetStripeTerminalForMerchantSwitch } from "@/lib/hardware/terminal-stripe";
 
 export function PairDeviceScreen() {
   const navigate = useNavigate();
@@ -37,6 +38,11 @@ export function PairDeviceScreen() {
       if (!res.ok || !data.device_id || !data.device_secret || !data.store_id) {
         setErr(userFacingError(data.error, "Could not pair this device. Check the code and try again.")); return;
       }
+      // A physical M2 can be reused by another merchant, but Stripe Terminal
+      // keeps native account credentials across WebView/store pairing changes.
+      // Reset that old merchant session before this install adopts the new one.
+      await resetStripeTerminalForMerchantSwitch();
+
       await setPairing({
         deviceId: data.device_id,
         deviceSecret: data.device_secret,

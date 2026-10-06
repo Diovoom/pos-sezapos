@@ -365,6 +365,8 @@ test('Quick Keys are owner-managed products, first on POS, ordered, offline-cach
   assert.match(pos, /useState<string>\("quick"\)/);
   assert.match(pos, /activeCategory === "quick"/);
   assert.match(pos, /Quick Keys[\s\S]*pos\.favorites/);
+  assert.doesNotMatch(pos, /setActiveCategory\("fav"\);[\s\S]{0,120}hasQuickKeys/);
+  assert.match(pos, /activeCategory === "quick" \? \([\s\S]*aria-label="Quick Keys"/);
   assert.match(pos, /quick_key_order/);
   assert.match(pos, /table: "products"/);
   assert.match(pos, /refreshDeviceBootstrap\(true\)/);
@@ -382,6 +384,20 @@ test('Quick Keys are owner-managed products, first on POS, ordered, offline-cach
   assert.match(bootstrap, /is_quick_key,quick_key_order,track_inventory/);
   assert.match(migration, /ADD COLUMN IF NOT EXISTS is_quick_key boolean NOT NULL DEFAULT false/);
   assert.match(migration, /idx_products_store_quick_keys/);
+});
+
+test('re-pairing an Android register resets Stripe merchant credentials before adopting the new store', () => {
+  const pair = source('capacitor-shell/screens/PairDeviceScreen.tsx');
+  const terminal = source('src/lib/hardware/terminal-stripe.ts');
+  const patch = source('scripts/patch-stripe-terminal.mjs');
+  assert.match(pair, /resetStripeTerminalForMerchantSwitch\(\)[\s\S]*setPairing\(/);
+  assert.match(terminal, /resetStripeTerminalForMerchantSwitch/);
+  assert.match(terminal, /disconnectReader\(\)/);
+  assert.match(terminal, /clearCachedCredentials/);
+  assert.match(terminal, /setActiveTerminal\("none"\)/);
+  assert.match(terminal, /setActivePaymentProvider\(null\)/);
+  assert.match(patch, /SEZA_PATCH_CLEAR_CACHED_CREDENTIALS/);
+  assert.match(patch, /Terminal\.getInstance\(\)\.clearCachedCredentials\(\)/);
 });
 
 test('terminal recovery silently clears definitely unpaid canceled checkouts', () => {

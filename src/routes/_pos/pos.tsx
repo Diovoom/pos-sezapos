@@ -564,16 +564,6 @@ export function PosPage() {
     };
   }, [store?.id, online, qc]);
 
-  const hasQuickKeys = useMemo(
-    () => products.some((product) => product.is_quick_key),
-    [products],
-  );
-
-  useEffect(() => {
-    if (productsLoading || activeCategory !== "quick" || hasQuickKeys) return;
-    setActiveCategory("fav");
-  }, [productsLoading, activeCategory, hasQuickKeys]);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const rows = products.filter((p) => {
@@ -1900,14 +1890,18 @@ export function PosPage() {
                 <Loader2 className="size-5 animate-spin" />
               </div>
             ) : filtered.length === 0 ? (
-              <div className="grid place-items-center h-full text-center text-sm text-muted-foreground">
-                <div>
-                  <p className="mb-2">No products yet.</p>
-                  <a href="/products" className="text-primary font-medium">
-                    Add your first product →
-                  </a>
+              activeCategory === "quick" ? (
+                <div className="h-full" aria-label="Quick Keys" />
+              ) : (
+                <div className="grid place-items-center h-full text-center text-sm text-muted-foreground">
+                  <div>
+                    <p className="mb-2">No products yet.</p>
+                    <a href="/products" className="text-primary font-medium">
+                      Add your first product →
+                    </a>
+                  </div>
                 </div>
-              </div>
+              )
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2">
                 {filtered.map((p) => (
