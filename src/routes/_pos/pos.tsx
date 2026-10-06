@@ -177,6 +177,9 @@ type Product = {
   taxable: boolean;
   category_id: string | null;
   is_favorite: boolean;
+  is_quick_key?: boolean;
+  quick_key_order?: number;
+  track_inventory?: boolean;
   store_id: string | null;
   image_url: string | null;
   age_restricted?: boolean | null;
@@ -230,7 +233,7 @@ export function PosPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string>("fav");
+  const [activeCategory, setActiveCategory] = useState<string>("quick");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
@@ -519,7 +522,7 @@ export function PosPage() {
         const { data, error } = await supabase
           .from("products")
           .select(
-            "id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category",
+            "id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,is_quick_key,quick_key_order,track_inventory,store_id,image_url,age_restricted,min_age,age_category",
           )
           .eq("status", "active")
           .order("name");
@@ -534,9 +537,47 @@ export function PosPage() {
     },
   });
 
+  useEffect(() => {
+    if (!store?.id || !online) return;
+    const storeId = String(store.id);
+    const channel = supabase
+      .channel(`pos-catalog:${storeId}:${Math.random().toString(36).slice(2)}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products", filter: `store_id=eq.${storeId}` },
+        async () => {
+          if (isNativeMode()) {
+            try {
+              const { refreshDeviceBootstrap } = await import("../../../capacitor-shell/lib/deviceBootstrap");
+              await refreshDeviceBootstrap(true);
+            } catch {
+              // Realtime is an accelerator; the normal bootstrap remains the fallback.
+            }
+          }
+          void qc.invalidateQueries({ queryKey: ["products", storeId] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [store?.id, online, qc]);
+
+  const hasQuickKeys = useMemo(
+    () => products.some((product) => product.is_quick_key),
+    [products],
+  );
+
+  useEffect(() => {
+    if (productsLoading || activeCategory !== "quick" || hasQuickKeys) return;
+    setActiveCategory("fav");
+  }, [productsLoading, activeCategory, hasQuickKeys]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return products.filter((p) => {
+    const rows = products.filter((p) => {
+      if (activeCategory === "quick" && !p.is_quick_key) return false;
       if (activeCategory === "fav" && !q && !p.is_favorite) return false;
       if (activeCategory.startsWith("dept:")) {
         const department = RETAIL_DEPARTMENTS.find((item) => item.id === activeCategory);
@@ -544,6 +585,7 @@ export function PosPage() {
         const haystack = normalizeRetailText(`${categoryName} ${p.name} ${p.sku ?? ""} ${p.age_category ?? ""}`);
         if (department && !department.terms.some((term) => haystack.includes(normalizeRetailText(term)))) return false;
       } else if (
+        activeCategory !== "quick" &&
         activeCategory !== "fav" &&
         activeCategory !== "all" &&
         p.category_id !== activeCategory
@@ -557,6 +599,13 @@ export function PosPage() {
         p.barcode?.toLowerCase().includes(q)
       );
     });
+
+    if (activeCategory !== "quick") return rows;
+    return [...rows].sort(
+      (a, b) =>
+        Number(a.quick_key_order ?? 0) - Number(b.quick_key_order ?? 0) ||
+        a.name.localeCompare(b.name),
+    );
   }, [products, categories, activeCategory, search]);
 
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -636,9 +685,10 @@ export function PosPage() {
 
   const addToCart = (p: Product) => {
     const isCustomItem = p.id.startsWith("custom-");
+    const tracksInventory = p.track_inventory !== false;
     const availableStock = Math.max(0, Number(p.stock ?? 0));
 
-    if (!isCustomItem && availableStock <= 0) {
+    if (!isCustomItem && tracksInventory && availableStock <= 0) {
       toast.error(`${p.name} is sold out. Restock it in Inventory before adding it to a sale.`);
       return;
     }
@@ -647,7 +697,7 @@ export function PosPage() {
       const idx = cur.findIndex((l) => l.product.id === p.id);
       if (idx >= 0) {
         const currentQty = cur[idx].qty;
-        if (!isCustomItem && currentQty >= availableStock) {
+        if (!isCustomItem && tracksInventory && currentQty >= availableStock) {
           toast.error(`Only ${availableStock} ${p.name} available.`);
           return cur;
         }
@@ -669,8 +719,9 @@ export function PosPage() {
       cur.map((line) => {
         if (line.product.id !== id) return line;
         const isCustomItem = line.product.id.startsWith("custom-");
+        const tracksInventory = line.product.track_inventory !== false;
         const availableStock = Math.max(0, Number(line.product.stock ?? 0));
-        if (!isCustomItem && qty > availableStock) {
+        if (!isCustomItem && tracksInventory && qty > availableStock) {
           toast.error(`Only ${availableStock} ${line.product.name} available.`);
           return line;
         }
@@ -704,6 +755,9 @@ export function PosPage() {
       taxable: item.taxable,
       category_id: null,
       is_favorite: false,
+      is_quick_key: false,
+      quick_key_order: 0,
+      track_inventory: false,
       store_id: store?.id ?? null,
       image_url: null,
       age_restricted: false,
@@ -882,13 +936,18 @@ export function PosPage() {
     // so local checkout never waits on inventory network writes.
     await Promise.all(
       cart
-        .filter((line) => !line.product.id.startsWith("custom-"))
+        .filter(
+          (line) =>
+            !line.product.id.startsWith("custom-") && line.product.track_inventory !== false,
+        )
         .map((line) => adjustCachedProductStock(line.product.id, -line.qty).catch(() => undefined)),
     );
     qc.setQueryData<Product[]>(["products", offlineStoreId], (current) =>
       (current ?? []).map((product) => {
         const line = cart.find((item) => item.product.id === product.id);
-        return line ? { ...product, stock: Math.max(0, Number(product.stock ?? 0) - line.qty) } : product;
+        return line && product.track_inventory !== false
+          ? { ...product, stock: Math.max(0, Number(product.stock ?? 0) - line.qty) }
+          : product;
       }),
     );
 
@@ -1456,9 +1515,6 @@ export function PosPage() {
                   <p className="text-[10px] text-muted-foreground font-mono">
                     {fmtCurrency(Number(line.product.price), currency)} ea
                   </p>
-                  {selectedForDiscount && (
-                    <p className="mt-0.5 text-[10px] font-semibold text-primary">Selected for discount</p>
-                  )}
                   {hasLineDiscount && (
                     <p className="mt-0.5 text-[10px] font-semibold text-success">
                       Promo − {fmtCurrency(manualDiscount, currency)}
@@ -1797,6 +1853,12 @@ export function PosPage() {
             </div>
 
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              <CategoryChip
+                active={activeCategory === "quick"}
+                onClick={() => setActiveCategory("quick")}
+              >
+                Quick Keys
+              </CategoryChip>
               <CategoryChip
                 active={activeCategory === "fav"}
                 onClick={() => setActiveCategory("fav")}

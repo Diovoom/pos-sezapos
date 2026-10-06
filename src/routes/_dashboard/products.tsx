@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Star, Loader2, Camera, Wand2, Upload, X, ImageIcon, Pencil, Trash2, Power } from "lucide-react";
+import { Plus, Search, Star, Loader2, Camera, Wand2, Upload, X, ImageIcon, Pencil, Trash2, Power, Zap, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/errors/user-facing";
 import { fmtCurrency } from "@/lib/format";
@@ -63,6 +63,9 @@ type ProductRow = {
   stock: number;
   taxable: boolean;
   is_favorite: boolean;
+  is_quick_key: boolean;
+  quick_key_order: number;
+  track_inventory: boolean;
   image_url: string | null;
   age_restricted?: boolean | null;
   min_age?: number | null;
@@ -87,8 +90,20 @@ function ProductsPage() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [newProductSession, setNewProductSession] = useState(0);
+  const [quickKeyOpen, setQuickKeyOpen] = useState(false);
+  const [quickKeySession, setQuickKeySession] = useState(0);
   const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", sku: "", barcode: "", cost: "", price: "", stock: "" });
+  const [editForm, setEditForm] = useState({
+    name: "",
+    sku: "",
+    barcode: "",
+    cost: "",
+    price: "",
+    stock: "",
+    is_quick_key: false,
+    quick_key_order: "0",
+    track_inventory: true,
+  });
   const [draftTick, setDraftTick] = useState(0);
 
   const { data: store } = useQuery({
@@ -125,7 +140,7 @@ function ProductsPage() {
       const { data, error } = await supabase
         .from("products")
         .select(
-          "id,name,sku,barcode,price,cost,stock,taxable,is_favorite,image_url,age_restricted,min_age,age_category,status,category_id,store_id",
+          "id,name,sku,barcode,price,cost,stock,taxable,is_favorite,is_quick_key,quick_key_order,track_inventory,image_url,age_restricted,min_age,age_category,status,category_id,store_id",
         )
         .order("created_at", { ascending: false });
       if (error) {
@@ -145,6 +160,9 @@ function ProductsPage() {
         taxable: row.taxable !== false,
         category_id: row.category_id ?? null,
         is_favorite: Boolean(row.is_favorite),
+        is_quick_key: Boolean(row.is_quick_key),
+        quick_key_order: Number(row.quick_key_order ?? 0),
+        track_inventory: row.track_inventory !== false,
         store_id: row.store_id ?? store?.id ?? null,
         image_url: row.image_url ?? null,
         age_restricted: row.age_restricted ?? false,
@@ -158,6 +176,17 @@ function ProductsPage() {
 
   void draftTick;
   const draftedProducts = store?.id ? applyInventoryDrafts(products, loadInventoryDrafts(store.id)) : products;
+  const quickKeys = draftedProducts
+    .filter((product) => product.is_quick_key && product.status !== "inactive")
+    .sort(
+      (a, b) =>
+        Number(a.quick_key_order ?? 0) - Number(b.quick_key_order ?? 0) ||
+        a.name.localeCompare(b.name),
+    );
+  const nextQuickKeyOrder =
+    quickKeys.length > 0
+      ? Math.max(...quickKeys.map((product) => Number(product.quick_key_order ?? 0))) + 10
+      : 10;
 
   const filtered = draftedProducts.filter((p) => {
     const q = search.toLowerCase();
@@ -187,6 +216,51 @@ function ProductsPage() {
     },
   });
 
+  const setQuickKeyEnabled = (product: ProductRow, enabled: boolean) => {
+    if (!store?.id) return;
+    saveInventoryDraft(store.id, {
+      id: crypto.randomUUID(),
+      operation: "update",
+      productId: product.id,
+      original: product as any,
+      changes: {
+        is_quick_key: enabled,
+        quick_key_order: enabled
+          ? Number(product.quick_key_order ?? 0) > 0
+            ? Number(product.quick_key_order)
+            : nextQuickKeyOrder
+          : Number(product.quick_key_order ?? 0),
+      },
+      createdAt: new Date().toISOString(),
+    });
+    setDraftTick((value) => value + 1);
+  };
+
+  const moveQuickKey = (productId: string, direction: -1 | 1) => {
+    if (!store?.id) return;
+    const currentIndex = quickKeys.findIndex((product) => product.id === productId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= quickKeys.length) return;
+
+    const reordered = [...quickKeys];
+    const [moved] = reordered.splice(currentIndex, 1);
+    reordered.splice(nextIndex, 0, moved);
+
+    reordered.forEach((product, index) => {
+      const desiredOrder = (index + 1) * 10;
+      if (Number(product.quick_key_order ?? 0) === desiredOrder) return;
+      saveInventoryDraft(store.id, {
+        id: crypto.randomUUID(),
+        operation: "update",
+        productId: product.id,
+        original: product as any,
+        changes: { quick_key_order: desiredOrder },
+        createdAt: new Date().toISOString(),
+      });
+    });
+    setDraftTick((value) => value + 1);
+  };
+
   const startEdit = (product: ProductRow) => {
     setEditingProduct(product);
     setEditForm({
@@ -196,6 +270,9 @@ function ProductsPage() {
       cost: String(product.cost ?? 0),
       price: String(product.price ?? 0),
       stock: String(product.stock ?? 0),
+      is_quick_key: Boolean(product.is_quick_key),
+      quick_key_order: String(product.quick_key_order ?? 0),
+      track_inventory: product.track_inventory !== false,
     });
   };
 
@@ -203,13 +280,33 @@ function ProductsPage() {
     mutationFn: async () => {
       if (!editingProduct || !store?.id) throw new Error("No product selected");
       const price = Number(editForm.price), cost = Number(editForm.cost), stock = Number(editForm.stock);
+      const quickKeyOrder = Math.max(0, Math.floor(Number(editForm.quick_key_order) || 0));
       if (!editForm.name.trim()) throw new Error("Product name is required");
       if (![price, cost, stock].every(Number.isFinite) || price < 0 || cost < 0 || stock < 0) throw new Error("Enter valid non-negative numbers");
       const sku = editForm.sku.trim() || null;
       const barcode = editForm.barcode.trim() || null;
       const duplicate = draftedProducts.find((p) => p.id !== editingProduct.id && ((sku && p.sku?.toLowerCase() === sku.toLowerCase()) || (barcode && p.barcode === barcode)));
       if (duplicate) throw new Error(sku && duplicate.sku?.toLowerCase() === sku.toLowerCase() ? `SKU already belongs to ${duplicate.name}` : `Barcode already belongs to ${duplicate.name}`);
-      saveInventoryDraft(store.id, { id: crypto.randomUUID(), operation: "update", productId: editingProduct.id, original: editingProduct as any, changes: { name: editForm.name.trim(), sku, barcode, cost, price, stock }, createdAt: new Date().toISOString() });
+      saveInventoryDraft(store.id, {
+        id: crypto.randomUUID(),
+        operation: "update",
+        productId: editingProduct.id,
+        original: editingProduct as any,
+        changes: {
+          name: editForm.name.trim(),
+          sku,
+          barcode,
+          cost,
+          price,
+          stock,
+          is_quick_key: editForm.is_quick_key,
+          quick_key_order: editForm.is_quick_key
+            ? quickKeyOrder || Number(editingProduct.quick_key_order ?? 0) || nextQuickKeyOrder
+            : Number(editingProduct.quick_key_order ?? 0),
+          track_inventory: editForm.track_inventory,
+        },
+        createdAt: new Date().toISOString(),
+      });
     },
     onSuccess: () => { toast.success(isOnlineNow() ? "Saved · syncing automatically" : "Saved offline · will sync automatically"); setEditingProduct(null); setDraftTick((v) => v + 1); },
     onError: (error: Error) => toast.error(userFacingError(error, "Could not save product")),
@@ -236,30 +333,130 @@ function ProductsPage() {
         title="Products"
         subtitle={`${draftedProducts.length} items${store?.id ? ` · ${loadInventoryDrafts(store.id).length} unpublished` : ""}`}
         actions={
-          <Dialog
-            open={open}
-            onOpenChange={(next) => {
-              setOpen(next);
-              if (!next) setNewProductSession((value) => value + 1);
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="size-4 mr-1" /> New product
-              </Button>
-            </DialogTrigger>
-            <NewProductDialog
-              key={newProductSession}
-              onCreated={() => {
-                setOpen(false);
-                qc.invalidateQueries({ queryKey: ["products"] });
+          <div className="flex flex-wrap items-center gap-2">
+            <Dialog
+              open={quickKeyOpen}
+              onOpenChange={(next) => {
+                setQuickKeyOpen(next);
+                if (!next) setQuickKeySession((value) => value + 1);
               }}
-              storeId={store?.id}
-            />
-          </Dialog>
+            >
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Zap className="size-4 mr-1" /> New Quick Key
+                </Button>
+              </DialogTrigger>
+              <NewProductDialog
+                key={`quick-${quickKeySession}`}
+                initialQuickKey
+                initialQuickKeyOrder={nextQuickKeyOrder}
+                onCreated={() => {
+                  setQuickKeyOpen(false);
+                  setDraftTick((value) => value + 1);
+                  qc.invalidateQueries({ queryKey: ["products"] });
+                }}
+                storeId={store?.id}
+              />
+            </Dialog>
+
+            <Dialog
+              open={open}
+              onOpenChange={(next) => {
+                setOpen(next);
+                if (!next) setNewProductSession((value) => value + 1);
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="size-4 mr-1" /> New product
+                </Button>
+              </DialogTrigger>
+              <NewProductDialog
+                key={newProductSession}
+                initialQuickKeyOrder={nextQuickKeyOrder}
+                onCreated={() => {
+                  setOpen(false);
+                  setDraftTick((value) => value + 1);
+                  qc.invalidateQueries({ queryKey: ["products"] });
+                }}
+                storeId={store?.id}
+              />
+            </Dialog>
+          </div>
         }
       />
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <Card className="p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">Quick Keys</h2>
+              <p className="text-xs text-muted-foreground">
+                Checkout buttons for items that do not need a barcode.
+              </p>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => setQuickKeyOpen(true)}>
+              <Plus className="mr-1 size-3.5" /> Add Quick Key
+            </Button>
+          </div>
+
+          {quickKeys.length === 0 ? (
+            <div className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+              No Quick Keys yet.
+            </div>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {quickKeys.map((product, index) => (
+                <div
+                  key={product.id}
+                  className="flex items-center gap-3 rounded-lg border bg-background p-3"
+                >
+                  <ProductThumb path={product.image_url} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{product.name}</div>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {fmtCurrency(Number(product.price), cur)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-8"
+                      disabled={index === 0}
+                      onClick={() => moveQuickKey(product.id, -1)}
+                      aria-label={`Move ${product.name} up`}
+                    >
+                      <ArrowUp className="size-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-8"
+                      disabled={index === quickKeys.length - 1}
+                      onClick={() => moveQuickKey(product.id, 1)}
+                      aria-label={`Move ${product.name} down`}
+                    >
+                      <ArrowDown className="size-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-8"
+                      onClick={() => setQuickKeyEnabled(product, false)}
+                      aria-label={`Remove ${product.name} from Quick Keys`}
+                    >
+                      <X className="size-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
         <div className="relative max-w-md">
           <Search
             className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -278,7 +475,8 @@ function ProductsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10"></TableHead>
+                <TableHead className="w-10" title="Favorite"></TableHead>
+                <TableHead className="w-16">Quick</TableHead>
                 <TableHead className="w-12"></TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>SKU</TableHead>
@@ -293,13 +491,13 @@ function ProductsPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-10">
+                  <TableCell colSpan={11} className="text-center py-10">
                     <Loader2 className="size-5 animate-spin inline" />
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-10 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-10 text-muted-foreground">
                     No products yet - click "New product" to add one.
                   </TableCell>
                 </TableRow>
@@ -316,6 +514,16 @@ function ProductsPage() {
                           <Star
                             className={`size-4 ${p.is_favorite ? "fill-warning text-warning" : "text-muted-foreground"}`}
                           />
+                        </button>
+                      </TableCell>
+                      <TableCell>
+                        <button
+                          type="button"
+                          onClick={() => setQuickKeyEnabled(p, !p.is_quick_key)}
+                          aria-label={p.is_quick_key ? `Remove ${p.name} from Quick Keys` : `Add ${p.name} to Quick Keys`}
+                          className={p.is_quick_key ? "text-primary" : "text-muted-foreground"}
+                        >
+                          <Zap className={`size-4 ${p.is_quick_key ? "fill-primary/15" : ""}`} />
                         </button>
                       </TableCell>
                       <TableCell>
@@ -400,6 +608,23 @@ function ProductsPage() {
                 <Input id="product-edit-stock" type="number" min="0" step="1" value={editForm.stock} onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })} />
               </div>
             </div>
+
+            <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+              <Label htmlFor="product-edit-quick-key">Show as Quick Key</Label>
+              <Switch
+                id="product-edit-quick-key"
+                checked={editForm.is_quick_key}
+                onCheckedChange={(value) => setEditForm({ ...editForm, is_quick_key: value })}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+              <Label htmlFor="product-edit-track-inventory">Track inventory</Label>
+              <Switch
+                id="product-edit-track-inventory"
+                checked={editForm.track_inventory}
+                onCheckedChange={(value) => setEditForm({ ...editForm, track_inventory: value })}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingProduct(null)} disabled={updateProduct.isPending}>Cancel</Button>
@@ -413,7 +638,17 @@ function ProductsPage() {
   );
 }
 
-function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; storeId?: string }) {
+function NewProductDialog({
+  onCreated,
+  storeId,
+  initialQuickKey = false,
+  initialQuickKeyOrder = 10,
+}: {
+  onCreated: () => void;
+  storeId?: string;
+  initialQuickKey?: boolean;
+  initialQuickKeyOrder?: number;
+}) {
   const [form, setForm] = useState({
     name: "",
     sku: "",
@@ -423,6 +658,9 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
     stock: "0",
     taxable: true,
     is_favorite: false,
+    is_quick_key: initialQuickKey,
+    quick_key_order: initialQuickKeyOrder,
+    track_inventory: !initialQuickKey,
     age_restricted: false,
     min_age: "21",
     age_category: "alcohol",
@@ -492,7 +730,30 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
     const duplicate = (duplicates ?? []).find((p: any) => (sku && p.sku?.toLowerCase() === sku.toLowerCase()) || (barcode && p.barcode === barcode)) || allDrafts.find((d) => (sku && String(d.changes?.sku ?? "").toLowerCase() === sku.toLowerCase()) || (barcode && d.changes?.barcode === barcode));
     if (duplicate) { setBusy(false); return toast.error("That SKU or barcode already exists"); }
     const id = crypto.randomUUID();
-    saveInventoryDraft(storeId, { id: crypto.randomUUID(), operation: "create", productId: id, changes: { name: form.name.trim(), sku, barcode, price: Number(form.price) || 0, cost: Number(form.cost) || 0, stock: Number(form.stock) || 0, taxable: form.taxable, is_favorite: form.is_favorite, image_url: imagePath, age_restricted: form.age_restricted, min_age: form.age_restricted ? Number(form.min_age) || 21 : null, age_category: form.age_restricted ? form.age_category : null, status: "active" }, createdAt: new Date().toISOString() });
+    saveInventoryDraft(storeId, {
+      id: crypto.randomUUID(),
+      operation: "create",
+      productId: id,
+      changes: {
+        name: form.name.trim(),
+        sku,
+        barcode,
+        price: Number(form.price) || 0,
+        cost: Number(form.cost) || 0,
+        stock: Number(form.stock) || 0,
+        taxable: form.taxable,
+        is_favorite: form.is_favorite,
+        is_quick_key: form.is_quick_key,
+        quick_key_order: form.is_quick_key ? Number(form.quick_key_order) || initialQuickKeyOrder : 0,
+        track_inventory: form.track_inventory,
+        image_url: imagePath,
+        age_restricted: form.age_restricted,
+        min_age: form.age_restricted ? Number(form.min_age) || 21 : null,
+        age_category: form.age_restricted ? form.age_category : null,
+        status: "active",
+      },
+      createdAt: new Date().toISOString(),
+    });
     setBusy(false);
     toast.success(isOnlineNow() ? "Product saved · syncing automatically" : "Product saved offline · will sync automatically");
     setForm({
@@ -504,6 +765,9 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
       stock: "0",
       taxable: true,
       is_favorite: false,
+      is_quick_key: initialQuickKey,
+      quick_key_order: initialQuickKeyOrder,
+      track_inventory: !initialQuickKey,
       age_restricted: false,
       min_age: "21",
       age_category: "alcohol",
@@ -518,7 +782,7 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
   return (
     <DialogContent className="max-w-lg">
       <DialogHeader>
-        <DialogTitle>New product</DialogTitle>
+        <DialogTitle>{initialQuickKey ? "New Quick Key" : "New product"}</DialogTitle>
       </DialogHeader>
       <form onSubmit={submit} className="space-y-4">
         <div className="flex gap-3">
@@ -662,6 +926,28 @@ function NewProductDialog({ onCreated, storeId }: { onCreated: () => void; store
             id="fav"
             checked={form.is_favorite}
             onCheckedChange={(v) => setForm({ ...form, is_favorite: v })}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="quick-key">Show as Quick Key</Label>
+          <Switch
+            id="quick-key"
+            checked={form.is_quick_key}
+            onCheckedChange={(v) =>
+              setForm({
+                ...form,
+                is_quick_key: v,
+                quick_key_order: v ? form.quick_key_order || initialQuickKeyOrder : 0,
+              })
+            }
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="track-inventory">Track inventory</Label>
+          <Switch
+            id="track-inventory"
+            checked={form.track_inventory}
+            onCheckedChange={(v) => setForm({ ...form, track_inventory: v })}
           />
         </div>
         <div className="rounded-md border p-3 space-y-3 bg-surface/40">

@@ -1102,6 +1102,8 @@ export type Database = {
           image_url: string | null
           images: string[]
           is_favorite: boolean
+          is_quick_key: boolean
+          quick_key_order: number
           max_stock: number | null
           min_age: number | null
           min_stock: number
@@ -1130,6 +1132,8 @@ export type Database = {
           image_url?: string | null
           images?: string[]
           is_favorite?: boolean
+          is_quick_key?: boolean
+          quick_key_order?: number
           max_stock?: number | null
           min_age?: number | null
           min_stock?: number
@@ -1158,6 +1162,8 @@ export type Database = {
           image_url?: string | null
           images?: string[]
           is_favorite?: boolean
+          is_quick_key?: boolean
+          quick_key_order?: number
           max_stock?: number | null
           min_age?: number | null
           min_stock?: number

@@ -346,7 +346,7 @@ test('POS can target a manual discount to the selected cart line without changin
   const dialog = source('src/components/pos/DiscountDialog.tsx');
   assert.match(pos, /selectedDiscountProductId/);
   assert.match(pos, /discountTargetProductId/);
-  assert.match(pos, /Selected for discount/);
+  assert.doesNotMatch(pos, /Selected for discount/);
   assert.match(pos, /Promo −/);
   assert.match(pos, /setDiscountTargetProductId\(nextDiscount \? selectedDiscountProductId : null\)/);
   assert.match(pos, /discountBase = discountTargetLine/);
@@ -354,6 +354,36 @@ test('POS can target a manual discount to the selected cart line without changin
   assert.match(dialog, /targetLabel/);
   assert.match(dialog, /Applies only to/);
 });
+test('Quick Keys are owner-managed products, first on POS, ordered, offline-cached and inventory-aware', () => {
+  const pos = source('src/routes/_pos/pos.tsx');
+  const products = source('src/routes/_dashboard/products.tsx');
+  const cache = source('src/lib/offline/db.ts');
+  const drafts = source('src/lib/inventory-drafts.ts');
+  const bootstrap = source('src/routes/api/public/pos/device-bootstrap.ts');
+  const migration = source('supabase/migrations/20261005200000_product_quick_keys.sql');
+
+  assert.match(pos, /useState<string>\("quick"\)/);
+  assert.match(pos, /activeCategory === "quick"/);
+  assert.match(pos, /Quick Keys[\s\S]*pos\.favorites/);
+  assert.match(pos, /quick_key_order/);
+  assert.match(pos, /table: "products"/);
+  assert.match(pos, /refreshDeviceBootstrap\(true\)/);
+  assert.match(pos, /track_inventory !== false/);
+  assert.match(products, /New Quick Key/);
+  assert.match(products, /Add Quick Key/);
+  assert.match(products, /Show as Quick Key/);
+  assert.match(products, /moveQuickKey/);
+  assert.match(products, /is_quick_key/);
+  assert.match(products, /quick_key_order/);
+  assert.match(products, /track_inventory/);
+  assert.match(cache, /is_quick_key\?: boolean/);
+  assert.match(cache, /quick_key_order\?: number/);
+  assert.match(drafts, /is_quick_key: Boolean\(base\.is_quick_key\)/);
+  assert.match(bootstrap, /is_quick_key,quick_key_order,track_inventory/);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS is_quick_key boolean NOT NULL DEFAULT false/);
+  assert.match(migration, /idx_products_store_quick_keys/);
+});
+
 test('terminal recovery silently clears definitely unpaid canceled checkouts', () => {
   const recovery = source('src/components/pos/TerminalRecoveryNotice.tsx');
   assert.match(recovery, /const DEFINITELY_UNPAID = new Set/);

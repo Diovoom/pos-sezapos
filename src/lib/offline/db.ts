@@ -143,6 +143,9 @@ export type CachedProduct = {
   taxable: boolean;
   category_id: string | null;
   is_favorite: boolean;
+  is_quick_key?: boolean;
+  quick_key_order?: number;
+  track_inventory?: boolean;
   store_id: string | null;
   image_url: string | null;
   age_restricted?: boolean | null;
