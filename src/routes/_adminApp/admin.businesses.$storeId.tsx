@@ -639,30 +639,80 @@ function BusinessWorkspace() {
             </CardHeader>
             <CardContent className="space-y-3">
               {(devices ?? []).length ? (
-                devices.map((device: any) => (
-                  <div
-                    key={device.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
-                  >
-                    <div>
-                      <div className="font-medium">{device.label}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {device.platform ?? "Android"} · app {device.app_version ?? " - "}
+                devices.map((device: any) => {
+                  const diagnostic = device.diagnostic;
+                  const boolLabel = (value: unknown) =>
+                    value === true ? "Yes" : value === false ? "No" : "—";
+                  return (
+                    <div key={device.id} className="rounded-lg border p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="font-medium">{device.label}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {device.platform ?? "Android"} · app {device.app_version ?? " - "}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant={device.status === "active" ? "outline" : "destructive"}>
+                            {device.status}
+                          </Badge>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Last seen{" "}
+                            {device.last_seen_at
+                              ? new Date(device.last_seen_at).toLocaleString()
+                              : "never"}
+                          </div>
+                        </div>
                       </div>
+
+                      {diagnostic ? (
+                        <div className="mt-3 rounded-md bg-muted/40 p-3 text-xs">
+                          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                            <div className="font-medium">Admin-only card reader diagnostic</div>
+                            <Badge variant={diagnostic.status === "error" ? "destructive" : "outline"}>
+                              {diagnostic.status === "error"
+                                ? "Reader error"
+                                : diagnostic.status === "ok"
+                                  ? "Reader healthy"
+                                  : "Reader checking"}
+                            </Badge>
+                          </div>
+                          <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+                            <div>Subsystem: {diagnostic.subsystem ?? "Stripe Terminal"}</div>
+                            <div>Stage: {diagnostic.stage ?? "—"}</div>
+                            <div>Transport: {diagnostic.transport ?? "—"}</div>
+                            <div>Reader discovered: {boolLabel(diagnostic.reader_discovered)}</div>
+                            <div>Reader serial: {diagnostic.reader_serial ?? "—"}</div>
+                            <div>Stripe plugin: {boolLabel(diagnostic.stripe_plugin_linked)}</div>
+                            <div>Merchant ready: {boolLabel(diagnostic.merchant_ready)}</div>
+                            <div>Terminal location ready: {boolLabel(diagnostic.terminal_location_ready)}</div>
+                            <div>Connection token requested: {boolLabel(diagnostic.connection_token_requested)}</div>
+                            <div>Connection token delivered: {boolLabel(diagnostic.connection_token_delivered)}</div>
+                            <div>Native error code: {diagnostic.native_error_code ?? "—"}</div>
+                            <div>App: {diagnostic.app_version ?? device.app_version ?? "—"}</div>
+                            <div>POS device: {device.label}</div>
+                            <div>Store: {store.name}</div>
+                            <div>
+                              Time:{" "}
+                              {diagnostic.occurred_at
+                                ? new Date(diagnostic.occurred_at).toLocaleString()
+                                : "—"}
+                            </div>
+                          </div>
+                          {diagnostic.native_error && (
+                            <div className="mt-2 break-words rounded border bg-background p-2">
+                              Native error: {diagnostic.native_error}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mt-3 text-xs text-muted-foreground">
+                          No card-reader diagnostic has been reported by this POS yet.
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <Badge variant={device.status === "active" ? "outline" : "destructive"}>
-                        {device.status}
-                      </Badge>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Last seen{" "}
-                        {device.last_seen_at
-                          ? new Date(device.last_seen_at).toLocaleString()
-                          : "never"}
-                      </div>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="text-sm text-muted-foreground">No paired POS devices.</div>
               )}

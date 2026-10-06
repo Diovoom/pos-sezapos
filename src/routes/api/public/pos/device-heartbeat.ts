@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { sanitizeStripeTerminalDiagnostic } from "@/lib/hardware/terminal-diagnostics";
 
 type Body = {
   store_id?: unknown;
@@ -6,6 +7,7 @@ type Body = {
   device_secret?: unknown;
   app_version?: unknown;
   status_snapshot?: unknown;
+  device_diagnostic?: unknown;
 };
 
 const CORS: Record<string, string> = {
@@ -20,6 +22,32 @@ const json = (data: unknown, status = 200) =>
     status,
     headers: { "content-type": "application/json", ...CORS },
   });
+
+function sanitizeMerchantStatusSnapshot(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const snapshot = { ...(value as Record<string, unknown>) };
+  if (snapshot.terminal && typeof snapshot.terminal === "object" && !Array.isArray(snapshot.terminal)) {
+    const terminal = { ...(snapshot.terminal as Record<string, unknown>) };
+    // Merchant managers can read status_snapshot. Keep it operational only;
+    // native/Stripe internals belong exclusively in admin_device_diagnostics.
+    delete terminal.last_error;
+    delete terminal.raw_error;
+    delete terminal.native_error;
+    delete terminal.native_error_code;
+    delete terminal.connection_token;
+    delete terminal.connection_token_requested;
+    delete terminal.connection_token_delivered;
+    delete terminal.actor_token;
+    delete terminal.device_secret;
+    delete terminal.client_secret;
+    delete terminal.authorization;
+    delete terminal.account_id;
+    delete terminal.stripe_account_id;
+    delete terminal.stripe_connected_account_id;
+    snapshot.terminal = terminal;
+  }
+  return snapshot;
+}
 
 export const Route = createFileRoute("/api/public/pos/device-heartbeat")({
   server: {
@@ -49,10 +77,8 @@ export const Route = createFileRoute("/api/public/pos/device-heartbeat")({
         const deviceSecret = typeof body.device_secret === "string" ? body.device_secret : "";
         const appVersion =
           typeof body.app_version === "string" ? body.app_version.slice(0, 80) : null;
-        const snapshot =
-          body.status_snapshot && typeof body.status_snapshot === "object"
-            ? body.status_snapshot
-            : {};
+        const snapshot = sanitizeMerchantStatusSnapshot(body.status_snapshot);
+        const diagnostic = sanitizeStripeTerminalDiagnostic(body.device_diagnostic);
 
         if (!storeId || !deviceId || !deviceSecret) {
           return json({ error: "Device not paired" }, 401);
@@ -87,6 +113,38 @@ export const Route = createFileRoute("/api/public/pos/device-heartbeat")({
           })
           .eq("id", deviceId);
         if (error) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
+
+        if (diagnostic) {
+          const diagnosticRow = {
+            device_id: deviceId,
+            store_id: storeId,
+            subsystem: diagnostic.subsystem,
+            stage: diagnostic.stage,
+            status: diagnostic.status,
+            transport: diagnostic.transport,
+            reader_discovered: diagnostic.reader_discovered,
+            reader_serial: diagnostic.reader_serial,
+            stripe_plugin_linked: diagnostic.stripe_plugin_linked,
+            merchant_ready: diagnostic.merchant_ready,
+            terminal_location_ready: diagnostic.terminal_location_ready,
+            connection_token_requested: diagnostic.connection_token_requested,
+            connection_token_delivered: diagnostic.connection_token_delivered,
+            // CONNECTED/ok always writes null here, clearing a prior failure.
+            native_error_code: diagnostic.status === "ok" ? null : diagnostic.native_error_code,
+            native_error: diagnostic.status === "ok" ? null : diagnostic.native_error,
+            app_version: appVersion,
+            occurred_at: diagnostic.occurred_at,
+            updated_at: now,
+          };
+          const { error: diagnosticError } = await admin
+            .from("admin_device_diagnostics")
+            .upsert(diagnosticRow, { onConflict: "device_id" });
+          // Diagnostics are support telemetry and must never take the POS
+          // heartbeat/store-config channel down if their storage is unavailable.
+          if (diagnosticError && typeof console !== "undefined") {
+            console.error("[SEZA device diagnostics] persistence failed", diagnosticError.code ?? "unknown");
+          }
+        }
 
         // Return the small operating configuration on every acknowledged
         // heartbeat. This keeps an already-open Android register aligned with

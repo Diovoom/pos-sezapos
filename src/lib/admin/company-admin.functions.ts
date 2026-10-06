@@ -1860,6 +1860,7 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "GET" }
       storeResult,
       rolesResult,
       devicesResult,
+      diagnosticsResult,
       subscriptionsResult,
       ticketsResult,
       activityResult,
@@ -1893,6 +1894,15 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "GET" }
           )
           .eq("store_id", storeId)
           .order("paired_at", { ascending: false }),
+        emptyRows,
+        7000,
+      ),
+      withTimeout(
+        (supabaseAdmin.from as any)("admin_device_diagnostics")
+          .select(
+            "device_id,subsystem,stage,status,transport,reader_discovered,reader_serial,stripe_plugin_linked,merchant_ready,terminal_location_ready,connection_token_requested,connection_token_delivered,native_error_code,native_error,app_version,occurred_at,updated_at",
+          )
+          .eq("store_id", storeId),
         emptyRows,
         7000,
       ),
@@ -1958,7 +1968,13 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "GET" }
         )
       : emptyRows;
 
-    const devices = devicesResult.data ?? [];
+    const diagnosticByDevice = new Map<string, any>(
+      (diagnosticsResult.data ?? []).map((row: any) => [String(row.device_id), row]),
+    );
+    const devices = (devicesResult.data ?? []).map((device: any) => ({
+      ...device,
+      diagnostic: diagnosticByDevice.get(String(device.id)) ?? null,
+    }));
     const tickets = (ticketsResult.data ?? []).map((ticket: any) => ({
       ...ticket,
       chat_status: ["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active",

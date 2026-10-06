@@ -7,6 +7,7 @@ import { loadScannerConfig } from "./scannerConfig";
 import * as escposBle from "@/lib/hardware/escpos-ble";
 import * as escposUsb from "@/lib/hardware/escpos-usb";
 import * as stripeTerminal from "@/lib/hardware/terminal-stripe";
+import { getStripeTerminalDiagnosticForHeartbeat } from "@/lib/hardware/terminal-diagnostics";
 import { refreshDeviceBootstrap } from "./deviceBootstrap";
 import { isNetworkConnectedNow } from "@/lib/offline/useOnline";
 import { cacheMeta, readMeta } from "@/lib/offline/db";
@@ -276,7 +277,6 @@ async function buildSnapshot() {
         ? stripeTerminal.connectedReader() || "Stripe Reader M2"
         : null,
       last_connected_at: localStorage.getItem("pos.terminal.connectedAt"),
-      last_error: localStorage.getItem("pos.terminal.lastError"),
     },
   };
 }
@@ -301,6 +301,8 @@ export async function sendDeviceHeartbeat(force = false) {
     const now = Date.now();
     if (!force && key === lastSnapshotKey && now - lastSentAt < MAX_SILENCE_MS) return;
 
+    const version = await appVersion();
+    const deviceDiagnostic = getStripeTerminalDiagnosticForHeartbeat();
     const response = await nativeFetch(`${API_BASE_URL}/api/public/pos/device-heartbeat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -308,8 +310,9 @@ export async function sendDeviceHeartbeat(force = false) {
         store_id: pairing.storeId,
         device_id: pairing.deviceId,
         device_secret: pairing.deviceSecret,
-        app_version: await appVersion(),
+        app_version: version,
         status_snapshot: snapshot,
+        device_diagnostic: deviceDiagnostic,
       }),
     });
     if (response.ok) {
