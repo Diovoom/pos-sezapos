@@ -163,7 +163,8 @@ export function planLimit(
   tier: SezaEffectiveTier | null | undefined,
   key: keyof SezaPlanLimits,
 ): number | null {
-  return planForTier(tier)?.limits[key] ?? 0;
+  const plan = planForTier(tier);
+  return plan ? plan.limits[key] : 0;
 }
 
 export function formatPlanLimit(value: number | null): string {

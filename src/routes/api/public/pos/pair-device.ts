@@ -142,7 +142,7 @@ export const Route = createFileRoute("/api/public/pos/pair-device")({
           admin.from("stores").select("*").eq("id", dev.store_id).maybeSingle(),
           admin
             .from("products")
-            .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,store_id,image_url,age_restricted,min_age,age_category,status")
+            .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,is_quick_key,quick_key_order,track_inventory,store_id,image_url,age_restricted,min_age,age_category,status")
             .eq("store_id", dev.store_id)
             .eq("status", "active")
             .order("name"),
