@@ -10,6 +10,7 @@ import {
   getStripeReaderConnectionMethod,
   getStripeTerminalContext,
   isReady,
+  resetStripeTerminalForMerchantSwitch,
   saveStripeTerminal,
   setStripeReaderConnectionMethod,
   updateStripeTerminal,
@@ -36,7 +37,6 @@ function readerLabel(terminal: StripeTerminalRecord) {
   if (terminal.serial) return `Reader M2 · ${terminal.serial}`;
   return "Reader M2";
 }
-
 
 export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
   const qc = useQueryClient();
@@ -85,6 +85,16 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     requestedMethod?: "usb" | "bluetooth",
   ) => {
     const method = requestedMethod ?? connectionMethod(reader);
+
+    // Reader M2 is portable hardware. A USB connect is always treated as a
+    // fresh physical-reader adoption for the merchant currently paired to
+    // this POS. Disconnect any old reader and clear Stripe's cached account
+    // credentials first so a reader previously used by another SEZA merchant
+    // can immediately request a connection token for this merchant.
+    if (method === "usb") {
+      await resetStripeTerminalForMerchantSwitch();
+    }
+
     setStripeReaderConnectionMethod(reader.id, method);
     const permission = await deviceControl.requestTerminalPermissions(method);
     if (!permission.granted) {
