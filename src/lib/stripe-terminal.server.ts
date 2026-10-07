@@ -42,14 +42,14 @@ export async function resolveStripeTerminalCaller(input: {
 
   if (bearerToken && !input.nativeAuth) {
     const { data, error } = await supabaseAdmin.auth.getUser(bearerToken);
-    if (error || !data.user) throw new Error("Unauthorized");
+    if (error || !data.user) throw readerFailure("SESSION");
     const { data: profile, error: profileError } = await admin
       .from("profiles")
       .select("id,store_id,status")
       .eq("id", data.user.id)
       .maybeSingle();
     if (profileError) throw profileError;
-    if (!profile?.store_id || profile.status !== "active") throw new Error("Unauthorized");
+    if (!profile?.store_id || profile.status !== "active") throw readerFailure("SESSION");
     return { userId: data.user.id, storeId: profile.store_id, deviceId: null };
   }
 
@@ -58,7 +58,7 @@ export async function resolveStripeTerminalCaller(input: {
   const deviceId = value(nativeAuth.device_id);
   const deviceSecret = value(nativeAuth.device_secret);
   const callerId = value(nativeAuth.caller_id);
-  if (!storeId || !deviceId || !deviceSecret || !callerId) throw new Error("Unauthorized");
+  if (!storeId || !deviceId || !deviceSecret || !callerId) throw readerFailure("SESSION");
 
   const [{ data: device }, { data: profile }] = await Promise.all([
     admin
@@ -82,12 +82,23 @@ export async function resolveStripeTerminalCaller(input: {
     profile.status !== "active" ||
     profile.store_id !== storeId
   ) {
-    throw new Error("Unauthorized");
+    throw readerFailure("SESSION");
   }
 
   const { verifyPosGrant } = await import("@/lib/pos/authorization.server");
-  const grant = verifyPosGrant(nativeAuth.actor_token, "employee");
-  if (grant.userId !== callerId || grant.storeId !== storeId || grant.deviceId !== deviceId) throw new Error("Unauthorized");
+  try {
+    const grant = verifyPosGrant(nativeAuth.actor_token, "employee");
+    if (grant.userId !== callerId || grant.storeId !== storeId || grant.deviceId !== deviceId) throw readerFailure("SESSION");
+  } catch {
+    // An expired PIN grant must not invalidate a separately authenticated POS
+    // owner/manager. The pairing, active profile and exact actor still bind it.
+    if (!bearerToken) throw readerFailure("SESSION");
+    const { data, error } = await supabaseAdmin.auth.getUser(bearerToken);
+    if (error || data.user?.id !== callerId) throw readerFailure("SESSION");
+    const { data: roles, error: roleError } = await admin.from("user_roles")
+      .select("role").eq("user_id", callerId).eq("store_id", storeId);
+    if (roleError || !roles?.some((role: { role: string }) => ["owner", "manager"].includes(role.role))) throw readerFailure("SESSION");
+  }
 
   return { userId: callerId, storeId, deviceId };
 }

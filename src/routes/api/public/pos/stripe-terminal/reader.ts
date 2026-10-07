@@ -1,4 +1,4 @@
-import { readerMessage, READER_CONNECTION_MESSAGE } from "@/lib/hardware/reader-diagnostics";
+import { readerMessage, readerFailure } from "@/lib/hardware/reader-diagnostics";
 import { createFileRoute } from "@tanstack/react-router";
 
 const CORS: Record<string, string> = {
@@ -59,12 +59,18 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/reader")({
           const action = clean(body.action, 40);
           const terminalId = clean(body.terminalId, 80);
 
+          // Bind every mutation to this physical register, including disconnect.
+          if (terminalId) {
+            const { data: target, error } = await admin.from("payment_terminals").select("id,config")
+              .eq("id", terminalId).eq("store_id", caller.storeId).eq("provider", "stripe").maybeSingle();
+            if (error || !target || (caller.deviceId && target.config?.device_id && target.config.device_id !== caller.deviceId)) throw readerFailure("CONFIGURE");
+          }
           if (["save", "activate", "remove"].includes(action)) {
             await requireStripeTerminalManager(caller);
           }
 
           if (action === "save") {
-            if (!state.ready) throw new Error("Finish Stripe merchant setup before adding a reader.");
+            if (!state.ready) throw readerFailure(state.locationId ? "MERCHANT_SETUP" : "LOCATION");
             const label = clean(body.label, 100);
             const model = clean(body.model, 80);
             const serial = clean(body.serial, 100);
@@ -105,7 +111,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/reader")({
             const { data, error } = await admin
               .from("payment_terminals")
               .update({
-                status: "active",
+                status: "configured",
                 stripe_connected_account_id: state.accountId || null,
                 stripe_terminal_location_id: state.locationId || null,
               })
@@ -143,9 +149,11 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/reader")({
             if (error || !saved) throw new Error("Reader save failed.");
           } else if (action === "disconnected") {
             if (!terminalId) throw new Error("Reader not found.");
+            const { data: existing } = await admin.from("payment_terminals").select("config")
+              .eq("id", terminalId).eq("store_id", caller.storeId).maybeSingle();
             const { error } = await admin
               .from("payment_terminals")
-              .update({ status: "configured" })
+              .update({ status: "configured", config: { ...(existing?.config || {}), connected: false } })
               .eq("id", terminalId)
               .eq("store_id", caller.storeId)
               .eq("provider", "stripe");
@@ -166,9 +174,10 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/reader")({
           const terminals = await listStripeTerminals(caller.storeId);
           return json({ ok: true, terminals });
         } catch (error) {
-          return body.action === "connected"
-            ? json({ error: readerMessage("SAVE"), code: "SAVE" }, 400)
-            : json({ error: READER_CONNECTION_MESSAGE }, 400);
+          const known = (error as { code?: string })?.code;
+          const code = known === "SESSION" || known === "MERCHANT_SETUP" || known === "LOCATION" ? known
+            : body.action === "connected" ? "SAVE" : "CONFIGURE";
+          return json({ error: readerMessage(code), code }, code === "SESSION" ? 401 : 400);
         }
       },
     },

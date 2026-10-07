@@ -527,8 +527,8 @@ export function PaymentTerminalsPanel({
             <div className="rounded-lg border bg-background p-4">
               <div className="font-semibold">2. Pair the physical reader</div>
               <p className="mt-1 text-sm text-muted-foreground">
-                After Stripe is ready, choose Reader M2 or another supported model on this POS and
-                pair it. SEZA supplies the correct merchant and Terminal Location automatically.
+                After Stripe is ready, open Payment Terminal on the physical POS to scan and
+                connect the Reader M2. SEZA supplies the correct merchant and Terminal Location automatically.
               </p>
             </div>
           </div>
@@ -672,7 +672,7 @@ export function PaymentTerminalsPanel({
         </CardContent>
       </Card>
 
-      <Card>
+      {native && <Card>
         <CardHeader>
           <CardTitle>Prepared and connected terminals</CardTitle>
           <CardDescription>
@@ -743,16 +743,16 @@ export function PaymentTerminalsPanel({
             })
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
-      {!canEdit && canOperate && (
+      {native && !canEdit && canOperate && (
         <p className="text-xs text-muted-foreground">
           Store staff can reconnect an existing reader here. Adding, removing, or changing payment
           processing remains restricted to authorized managers or the owner.
         </p>
       )}
 
-      {canEdit && (
+      {native && canEdit && (
         <Card>
           <CardHeader>
             <CardTitle>Add or prepare a terminal</CardTitle>

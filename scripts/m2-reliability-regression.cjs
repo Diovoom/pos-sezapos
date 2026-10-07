@@ -3,7 +3,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 const root = path.join(__dirname, '..');
 function load(file, mocks = {}, extra = '') {
   const source = fs.readFileSync(path.join(root,file),'utf8') + extra;
-  const js = ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
+  const js = ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
   const m={exports:{}};
   new Function('require','module','exports',js)(key=>{if(!(key in mocks))throw Error(`Unexpected dependency ${key}`);return mocks[key]},m,m.exports);
   return m.exports;
@@ -34,13 +34,16 @@ function fixture() {
   };
   const mod={StripeTerminal:sdk,TerminalEventsEnum:events,TerminalConnectTypes:{Usb:'usb',Bluetooth:'bluetooth',Simulated:'simulated'}};
   const mocks={
-    './reader-diagnostics':d,'@/lib/native':{isNativeMode:()=>true},'@/integrations/supabase/client':{supabase:{auth:{getSession:async()=>({data:{session:null}})}}},
+    './reader-diagnostics':d,'@/lib/native':{isNativeMode:()=>true},'@/integrations/supabase/client':{supabase:{auth:{getSession:async()=>({data:{session:state.session||null}})}}},
     '@/lib/offline/db':{readMeta:async()=> 'employee'},'@/lib/errors/user-facing':{userFacingError:e=>e.message},
     '../../../capacitor-shell/lib/pairing':{getPairing:()=>({storeId:state.store,deviceId:'device',deviceSecret:'fixture'})},
     '../../../capacitor-shell/lib/nativeHttp':{nativeFetch:async(url,opts)=>{
-      const body=JSON.parse(opts.body);state.requests.push({url,body});
+      const body=JSON.parse(opts.body);state.requests.push({url,body,headers:opts.headers});
       let result={},status=200;
-      if(url.endsWith('/context'))result={ready:state.merchantReady,connectStatus:state.merchantReady?'ready':'pending',cardPaymentsStatus:'active',terminalLocationReady:state.locationReady,locationId:state.locationReady?`location-${state.store}`:null,terminals:[{id:`terminal-${state.store}`,store_id:state.store,status:'active',serial:state.savedSerial||null,config:{reader_type:'stripe-m2',connection_method:'usb'}}]};
+      if(url.endsWith('/context'))result={ready:state.merchantReady,connectStatus:state.merchantReady?'ready':'pending',cardPaymentsStatus:'active',terminalLocationReady:state.locationReady,locationId:state.locationReady?`location-${state.store}`:null,terminals:[{id:`terminal-${state.store}`,store_id:state.store,status:state.configured?'configured':'active',serial:state.savedSerial||null,config:{device_id:'device',reader_type:'stripe-m2',connection_method:'usb'}}]};
+      if(url.endsWith('/context')&&state.fresh)result.terminals=[];
+      if(url.endsWith('/context')&&state.contextError){status=503;result={code:'CONTEXT'}}
+      if(url.endsWith('/reader')&&body.action==='save'){state.fresh=false;state.configured=true;result={ok:true,terminals:[{id:'terminal-A',store_id:'A',status:'configured',serial:null,config:{device_id:'device',reader_type:'stripe-m2'}}]}}
       if(url.endsWith('/connection-token')){if(state.holdToken)await state.holdToken.promise;if(state.failToken){status=503;result={error:'network secret fixture'}}else result={secret:`token-${body.nativeAuth.store_id}`}}
       if(url.endsWith('/payment-intent'))result={id:'pi_fixture',client_secret:'pi_fixture_secret_fixture',status:state.approved?'succeeded':'requires_payment_method'};
       if(url.endsWith('/reader')&&state.failSave){status=503;result={error:'API secret fixture'}}
@@ -207,9 +210,10 @@ test('unexpected disconnect clears the connected state and manual reconnect scan
   await f.api.connectReader('stripe-m2');assert.equal(f.state.discoveries,2);assert.equal(f.state.connects,2);
 });
 function merchantServerFixture() {
-  const state={tokens:[],browserAuthReads:0,failed:false};
-  const admin={auth:{getUser:async()=>{state.browserAuthReads++;return {data:{user:{id:'browser-B'}}}}},from(table){
+  const state={tokens:[],browserAuthReads:0,failed:false,expired:false,browserId:'browser-B',roles:['owner']};
+  const admin={auth:{getUser:async()=>{state.browserAuthReads++;return {data:{user:{id:state.browserId}}}}},from(table){
     const filters={};const q=new Proxy({}, {get(_,key){
+      if(key==='then')return (resolve,reject)=>Promise.resolve({data:table==='user_roles'?state.roles.map(role=>({role})):[],error:null}).then(resolve,reject);
       if(key==='maybeSingle')return async()=>{
         let data=null;
         if(table==='device_registrations')data={id:'device-A',store_id:'store-A',status:'active',secret_hash:'valid'};
@@ -224,7 +228,7 @@ function merchantServerFixture() {
   const server=load('src/lib/stripe-terminal.server.ts',{
     '@/lib/hardware/reader-diagnostics':d,'@/integrations/supabase/client.server':{supabaseAdmin:admin},
     '@/lib/pos/device.server':{verifyDeviceSecret:(input)=>input==='valid'},
-    '@/lib/pos/authorization.server':{verifyPosGrant:()=>({userId:'employee-A',storeId:'store-A',deviceId:'device-A'})},
+    '@/lib/pos/authorization.server':{verifyPosGrant:()=>{if(state.expired)throw Error('expired');return {userId:'employee-A',storeId:'store-A',deviceId:'device-A'}}},
     '@/lib/stripe.server':{getStripeMode:()=> 'sandbox',createStripeClient:()=>({terminal:{connectionTokens:{create:async(body,options)=>{state.tokens.push(options.stripeAccount);if(state.failed)throw Error('sk_test_private acct_private');return {secret:'fixture-'+state.tokens.length}}}}})},
   });
   const nativeAuth={store_id:'store-A',device_id:'device-A',device_secret:'valid',caller_id:'employee-A',actor_token:'grant'};
@@ -284,6 +288,125 @@ test('diagnostics table rejects merchant reads; service role retains isolated st
     await db.exec('set role authenticated');await assert.rejects(db.query('select * from admin_device_diagnostics'),/permission denied/);await db.exec('reset role');
     const r=await db.query("select relrowsecurity from pg_class where relname='admin_device_diagnostics'");assert.equal(r.rows[0].relrowsecurity,true);
   } finally {await db.close()}
+});
+test('fresh POS pairing with no terminal row scans, connects and saves only a discovered serial',async()=>{
+  const f=fixture();f.state.fresh=true;
+  await f.api.connectReader('stripe-m2',undefined,{method:'usb'});
+  assert.equal(f.state.requests.filter(x=>x.body.action==='save').length,1);
+  assert.equal(f.state.requests.filter(x=>x.body.action==='activate').length,0);
+  assert.equal(f.state.connects,1);
+  assert.equal(f.state.requests.find(x=>x.body.action==='connected').body.serial,f.state.discovered.serialNumber);
+});
+test('fresh pairing double tap creates one setup and one native connection',async()=>{
+  const f=fixture();f.state.fresh=true;
+  await Promise.all([f.api.connectReader('stripe-m2',undefined,{method:'usb'}),f.api.connectReader('stripe-m2',undefined,{method:'usb'})]);
+  assert.equal(f.state.requests.filter(x=>x.body.action==='save').length,1);assert.equal(f.state.connects,1);
+});
+test('fresh setup with no USB remains configured and never claims connected',async()=>{
+  const f=fixture();f.state.fresh=true;f.state.usbPresent=false;
+  await assert.rejects(f.api.connectReader('stripe-m2',undefined,{method:'usb'}),e=>e.code==='USB_ABSENT');
+  assert.ok(f.state.configured);assert.equal(f.state.connects,0);assert.ok(!f.state.requests.some(x=>x.body.action==='connected'||x.body.action==='activate'));
+  assert.ok(f.state.requests.some(x=>x.body.action==='disconnected'));
+});
+test('native failure clears API connected state while preserving selected configuration',async()=>{
+  const f=fixture();f.state.fresh=true;f.state.failConnect=true;
+  await assert.rejects(f.api.connectReader('stripe-m2',undefined,{method:'usb'}));
+  assert.ok(f.state.requests.some(x=>x.body.action==='disconnected'));assert.equal(JSON.parse(localStorage.getItem('pos.stripe.readerSelection')).id,'terminal-A');
+});
+test('context failure is distinct from incomplete Stripe onboarding and stops before hardware',async()=>{
+  const f=fixture();f.state.contextError=true;
+  await assert.rejects(f.api.connectReader('stripe-m2',undefined,{method:'usb'}),e=>e.code==='CONTEXT');
+  assert.equal(f.state.connects,0);assert.equal(f.d.getReaderDiagnostic().failed_stage,'MERCHANT_CONTEXT');
+});
+test('matching POS session is sent alongside pairing; stale different actor session is not sent',async()=>{
+  const f=fixture();f.state.session={user:{id:'employee'},access_token:'session-fixture'};
+  await f.api.getStripeTerminalContext();assert.equal(f.state.requests.at(-1).headers.authorization,'Bearer session-fixture');
+  f.state.session.user.id='old-merchant';await f.api.getStripeTerminalContext();assert.equal(f.state.requests.at(-1).headers.authorization,undefined);
+});
+for(const role of ['owner','manager'])test(`expired PIN grant accepts independently verified same-actor ${role} session`,async()=>{
+  const f=merchantServerFixture();f.state.expired=true;f.state.browserId='employee-A';f.state.roles=[role];
+  const caller=await f.server.resolveStripeTerminalCaller({bearerToken:'valid-session',nativeAuth:f.nativeAuth});
+  assert.equal(caller.storeId,'store-A');assert.equal(caller.deviceId,'device-A');assert.equal(f.state.browserAuthReads,1);
+});
+test('expired PIN cannot use another merchant bearer, another actor, cashier session or pairing alone',async()=>{
+  const f=merchantServerFixture();f.state.expired=true;
+  await assert.rejects(f.server.resolveStripeTerminalCaller({bearerToken:'cached-B',nativeAuth:f.nativeAuth}),e=>e.code==='SESSION');
+  f.state.browserId='other-employee';await assert.rejects(f.server.resolveStripeTerminalCaller({bearerToken:'other',nativeAuth:f.nativeAuth}));
+  f.state.browserId='employee-A';f.state.roles=['cashier'];await assert.rejects(f.server.resolveStripeTerminalCaller({bearerToken:'cashier',nativeAuth:f.nativeAuth}));
+  await assert.rejects(f.server.resolveStripeTerminalCaller({nativeAuth:f.nativeAuth}));
+});
+test('hardware controls remain rendered for loading, API error, no row and incomplete account setup',()=>{
+  const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
+  const d=load('src/lib/hardware/reader-diagnostics.ts');
+  for(const context of [{isPending:true},{isError:true,error:d.readerFailure('CONTEXT')},{data:{ready:true,terminals:[]}},{data:{ready:false,terminalLocationReady:false,terminals:[]}}]){
+    const tag=({children})=>React.createElement('div',null,children);
+    const component=load('capacitor-shell/stubs/PaymentTerminalsPanel.tsx',{
+      'react':React,'react/jsx-runtime':require('react/jsx-runtime'),
+      '@tanstack/react-query':{useQuery:({queryKey})=>queryKey[0]==='stripe-terminal-context'?context:{},useMutation:()=>({isPending:false}),useQueryClient:()=>({})},
+      'lucide-react':Object.fromEntries(['CreditCard','Loader2','RefreshCw','Unplug','Wifi'].map(k=>[k,()=>null])),
+      'sonner':{toast:{}},'@/lib/hardware':{},'@/lib/hardware/terminal-stripe':{selectedStripeTerminal:()=>null},
+      '@/lib/hardware/reader-diagnostics':d,'@/lib/pos/payment-terminal':{},'@/lib/device-control':{},
+      '@/components/ui/button':{Button:tag},'@/components/ui/card':Object.fromEntries(['Card','CardContent','CardDescription','CardHeader','CardTitle'].map(k=>[k,tag])),
+    }).PaymentTerminalsPanel;
+    const html=renderToStaticMarkup(React.createElement(component,{canEdit:true}));
+    for(const label of ['Connect with USB','Connect with Bluetooth','Scan / connect','Test reader','Reconnect','Forget reader'])assert.ok(html.includes(label),label);
+    assert.ok(!html.includes('Finish setup on SEZA'));if(context.isError)assert.ok(!html.includes(d.READER_MESSAGES.MERCHANT_SETUP));
+  }
+});
+test('login note is plain text and orange test-mode banner is preserved',()=>{
+  const note=fs.readFileSync(path.join(root,'src/components/auth/AuthTrustPanel.tsx'),'utf8');
+  assert.ok(note.includes('<p className='));assert.ok(!/bg-|border-|<Card/.test(note));
+  const banner=fs.readFileSync(path.join(root,'src/components/PaymentTestModeBanner.tsx'),'utf8');assert.ok(banner.includes('bg-orange-100'));assert.ok(banner.includes('Stripe test mode'));
+  const panel=fs.readFileSync(path.join(root,'capacitor-shell/stubs/PaymentTerminalsPanel.tsx'),'utf8');assert.ok(!/\.charge\(|payment-intent/.test(panel));
+});
+function readerApiFixture() {
+  const rows=[];const state={rows,failWrite:false};const d=load('src/lib/hardware/reader-diagnostics.ts');
+  const admin={from(table){assert.equal(table,'payment_terminals');const filters=[];let patch,insert,remove=false;const q=new Proxy({}, {get(_,key){
+    const execute=()=>{
+      if(state.failWrite&&(patch||insert||remove))return {data:null,error:{message:'private failure'}};
+      const found=rows.filter(row=>filters.every(([k,v])=>k==='config->>device_id'?row.config?.device_id===v:row[k]===v));
+      if(insert){rows.push({...insert,id:'new-reader'});return {data:null,error:null}};
+      if(patch)for(const row of found)Object.assign(row,patch);
+      if(remove)for(const row of found)rows.splice(rows.indexOf(row),1);
+      return {data:found[0]||null,error:null};
+    };
+    if(key==='then')return (resolve,reject)=>Promise.resolve(execute()).then(resolve,reject);
+    if(key==='maybeSingle')return async()=>execute();
+    return (...args)=>{if(key==='eq')filters.push(args);if(key==='update')patch=args[0];if(key==='insert')insert=args[0];if(key==='delete')remove=true;return q};
+  }});return q}};
+  const route=load('src/routes/api/public/pos/stripe-terminal/reader.ts',{
+    '@/lib/hardware/reader-diagnostics':d,'@tanstack/react-router':{createFileRoute:()=>x=>x},
+    '@/lib/security/api-security.server':{guardApiRequest:async()=>null},'@/integrations/supabase/client.server':{supabaseAdmin:admin},
+    '@/lib/stripe-terminal.server':{resolveStripeTerminalCaller:async()=>({storeId:'A',deviceId:'device',userId:'owner'}),requireStripeTerminalManager:async()=>{},loadStripeTerminalStore:async()=>({ready:true,accountId:'acct_A',locationId:'tml_A'}),listStripeTerminals:async()=>rows},
+  }).Route;
+  return {state,send:body=>route.server.handlers.POST({request:new Request('https://fixture.invalid/reader',{method:'POST',body:JSON.stringify(body)})})};
+}
+test('reader API keeps setup configured, persists real connection, and clears disconnected flag',async()=>{
+  const f=readerApiFixture();
+  assert.equal((await f.send({action:'save',label:'Reader',model:'Reader M2',readerType:'stripe-m2'})).status,200);
+  const row=f.state.rows[0];assert.equal(row.status,'configured');assert.equal(row.serial,null);
+  await f.send({action:'activate',terminalId:row.id});assert.equal(row.status,'configured');
+  await f.send({action:'connected',terminalId:row.id,serial:'STRM2D606003633'});
+  assert.equal(row.status,'active');assert.equal(row.setup_status,'verified');assert.equal(row.serial,'STRM2D606003633');assert.ok(row.last_seen_at);assert.equal(row.config.connected,true);
+  await f.send({action:'disconnected',terminalId:row.id});assert.equal(row.status,'configured');assert.equal(row.config.connected,false);
+});
+test('reader API refuses cross-register changes and never marks a failed save active',async()=>{
+  const f=readerApiFixture();await f.send({action:'save',label:'Reader',model:'Reader M2',readerType:'stripe-m2'});
+  const row=f.state.rows[0];f.state.failWrite=true;
+  const failed=await f.send({action:'connected',terminalId:row.id,serial:'STRM2D606003633'});assert.equal((await failed.json()).code,'SAVE');assert.equal(row.status,'configured');
+  f.state.failWrite=false;row.config.device_id='another-register';
+  for(const action of ['activate','connected','disconnected','remove'])assert.equal((await f.send({action,terminalId:row.id,serial:'STRM2D606003633'})).status,400);
+  assert.equal(f.state.rows.length,1);assert.equal(row.status,'configured');
+});
+test('fresh setup clears old merchant SDK credentials before saving the new selection',async()=>{
+  const f=fixture();f.state.fresh=true;localStorage.setItem('pos.stripe.sdkMerchant','old-store');
+  await f.api.connectReader('stripe-m2',undefined,{method:'usb'});
+  assert.equal(JSON.parse(localStorage.getItem('pos.stripe.readerSelection')).store_id,'A');assert.equal(f.state.connects,1);
+});
+test('explicit reconnect preserves the selected configured reader for fresh discovery',async()=>{
+  const f=fixture();await f.api.connectReader('stripe-m2');f.state.configured=true;
+  await f.api.disconnect({preserveSelection:true});assert.equal(f.api.selectedStripeTerminal({terminals:[{id:'terminal-A',store_id:'A',status:'configured'}]}).id,'terminal-A');
+  await f.api.connectReader('stripe-m2');assert.equal(f.state.discoveries,2);
 });
 test('native patch forwards discovery failures and removes token logging',()=>{
   const base=path.join(root,'node_modules/@capacitor-community/stripe-terminal/android/src/main/java/com/getcapacitor/community/stripe/terminal');

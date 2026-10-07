@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { userFacingError } from "@/lib/errors/user-facing";
+import { readerMessage } from "@/lib/hardware/reader-diagnostics";
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -65,7 +65,8 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/context")(
             terminals,
           });
         } catch (error) {
-          return json({ error: userFacingError(error, "Payment setup is temporarily unavailable.") }, 401);
+          const code = (error as { code?: string })?.code === "SESSION" ? "SESSION" : "CONTEXT";
+          return json({ error: readerMessage(code), code }, code === "SESSION" ? 401 : 503);
         }
       },
     },

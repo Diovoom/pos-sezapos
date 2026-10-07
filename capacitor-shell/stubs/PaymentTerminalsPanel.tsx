@@ -1,371 +1,111 @@
-import { READER_CONNECTION_MESSAGE, safeReaderMessage, READER_MESSAGES } from "@/lib/hardware/reader-diagnostics";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, CreditCard, ExternalLink, Loader2, RefreshCw, Unplug, Wifi } from "lucide-react";
+import { CreditCard, Loader2, RefreshCw, Unplug, Wifi } from "lucide-react";
 import { toast } from "sonner";
 import { setActiveTerminal } from "@/lib/hardware";
 import {
-  clearStripeReaderConnectionMethod,
-  connectReader,
-  disconnect,
-  getStripeReaderConnectionMethod,
-  getStripeTerminalContext,
-  isReady,
-  saveStripeTerminal,
-  setStripeReaderConnectionMethod,
-  updateStripeTerminal,
-  type StripeTerminalRecord,
+  clearStripeReaderConnectionMethod, connectReader, disconnect,
+  getStripeReaderConnectionMethod, getStripeTerminalContext, isReady,
+  selectedStripeTerminal, updateStripeTerminal,
 } from "@/lib/hardware/terminal-stripe";
+import { safeReaderMessage, READER_MESSAGES } from "@/lib/hardware/reader-diagnostics";
 import { setActivePaymentProvider } from "@/lib/pos/payment-terminal";
 import { deviceControl } from "@/lib/device-control";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const SEZA_PAYMENT_SETUP_URL = "https://dashboard.sezapos.com/settings?section=payments";
-const READER_DRIVER = "stripe-m2" as const;
-
-function connectionMethod(terminal: StripeTerminalRecord): "usb" | "bluetooth" {
-  return (
-    getStripeReaderConnectionMethod(terminal.id) ??
-    (String(terminal.config?.connection_method || "usb").toLowerCase() === "bluetooth"
-      ? "bluetooth"
-      : "usb")
-  );
-}
-
-function readerLabel(terminal: StripeTerminalRecord) {
-  if (terminal.serial) return `Reader M2 · ${terminal.serial}`;
-  return "Reader M2";
-}
+const DRIVER = "stripe-m2" as const;
+type Action = "usb" | "bluetooth" | "test" | "reconnect" | "forget";
 
 export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
   const qc = useQueryClient();
-  const [readerStatus, setReaderStatus] = useState(() => localStorage.getItem("pos.terminal.lastError") ? safeReaderMessage(localStorage.getItem("pos.terminal.lastError")) : "");
-  useEffect(() => {
-    const update = () => setReaderStatus(localStorage.getItem("pos.terminal.lastError") ? safeReaderMessage(localStorage.getItem("pos.terminal.lastError")) : "");
-    update();
-    window.addEventListener("seza:device-config-changed", update);
-    return () => window.removeEventListener("seza:device-config-changed", update);
-  }, []);
-  const showReaderError = (error: unknown, fallback: string) => {
-    const message = safeReaderMessage(error);
-    setReaderStatus(message);
-    toast.error(message);
-  };
-
-  const connectivity = useQuery({
-    queryKey: ["android-connectivity"],
-    queryFn: () => deviceControl.getConnectivityState(),
-    retry: false,
-    staleTime: 5_000,
-  });
-
-  const context = useQuery({
-    queryKey: ["stripe-terminal-context"],
-    queryFn: getStripeTerminalContext,
-    retry: false,
-    refetchOnWindowFocus: true,
-  });
-
-  const stripeReady = Boolean(context.data?.ready && context.data?.locationId);
-  const terminals = context.data?.terminals ?? [];
-  const terminal = (terminals.find((item) => item.status === "active") ?? terminals[0]) as
-    | StripeTerminalRecord
-    | undefined;
-
-  const readerReady = useQuery({
-    queryKey: ["stripe-reader-ready", terminal?.id],
-    enabled: Boolean(stripeReady && terminal?.status === "active"),
-    queryFn: () => isReady(READER_DRIVER),
-    retry: false,
-    refetchInterval: 10_000,
-  });
-  const physicallyConnected = readerReady.data === true;
-
+  const actionLock = useRef(false);
+  const [status, setStatus] = useState("");
+  const context = useQuery({ queryKey: ["stripe-terminal-context"], queryFn: getStripeTerminalContext, retry: false, refetchOnWindowFocus: true });
+  const connectivity = useQuery({ queryKey: ["android-connectivity"], queryFn: () => deviceControl.getConnectivityState(), retry: false, staleTime: 5_000 });
+  const terminal = context.data && (selectedStripeTerminal(context.data) ?? context.data.terminals.find(item => item.status === "configured"));
+  const ready = useQuery({ queryKey: ["stripe-reader-ready", terminal?.id], queryFn: () => isReady(DRIVER), retry: false, refetchInterval: 10_000 });
+  const method = terminal ? getStripeReaderConnectionMethod(terminal.id) ?? (terminal.config?.connection_method === "bluetooth" ? "bluetooth" : "usb") : "usb";
   const refresh = async () => {
     await Promise.all([
       qc.invalidateQueries({ queryKey: ["stripe-terminal-context"] }),
       qc.invalidateQueries({ queryKey: ["stripe-reader-ready"] }),
     ]);
   };
+  useEffect(() => {
+    const update = () => {
+      const error = localStorage.getItem("pos.terminal.lastError");
+      if (error) setStatus(safeReaderMessage(error));
+      void qc.invalidateQueries({ queryKey: ["stripe-reader-ready"] });
+    };
+    update();
+    window.addEventListener("seza:device-config-changed", update);
+    return () => window.removeEventListener("seza:device-config-changed", update);
+  }, [qc]);
 
-  const connectExisting = async (
-    reader: StripeTerminalRecord,
-    requestedMethod?: "usb" | "bluetooth",
-  ) => {
-    const method = requestedMethod ?? connectionMethod(reader);
-
-    setStripeReaderConnectionMethod(reader.id, method);
-    await updateStripeTerminal("activate", reader.id);
-    setActiveTerminal(READER_DRIVER);
-    setActivePaymentProvider("stripe-terminal");
-    try {
-      const connected = await connectReader(READER_DRIVER, (message) => toast.loading(message, { id: "seza-reader" }));
-      window.dispatchEvent(new Event("seza:device-config-changed"));
-      return connected;
-    } catch (error) {
-      // Keep the reader configured when a USB/Bluetooth connection attempt is
-      // interrupted. Checkout can then retry the physical connection instead
-      // of incorrectly falling back to "No payment terminal".
-      window.dispatchEvent(new Event("seza:device-config-changed"));
-      throw error;
-    } finally {
-      toast.dismiss("seza-reader");
-    }
+  const operation = useMutation({
+    mutationFn: async (action: Action) => {
+      if (action === "forget") {
+        // Fetch current state if the initial context request failed.
+        const latest = await getStripeTerminalContext();
+        const saved = selectedStripeTerminal(latest) ?? latest.terminals.find(item => item.status === "configured");
+        await disconnect();
+        if (saved) {
+          await updateStripeTerminal("remove", saved.id);
+          clearStripeReaderConnectionMethod(saved.id);
+        }
+        localStorage.removeItem("pos.stripe.readerSelection");
+        localStorage.removeItem("pos.terminal.lastError");
+        setActiveTerminal("none");
+        setActivePaymentProvider(null);
+        window.dispatchEvent(new Event("seza:device-config-changed"));
+        return "Card reader forgotten.";
+      }
+      const transport = action === "usb" || action === "bluetooth" ? action : method;
+      // Explicit transport changes/reconnect release the current native reader.
+      if (action !== "test") await disconnect({ preserveSelection: true });
+      await connectReader(DRIVER, setStatus, { method: transport });
+      if (action === "test" && !await isReady(DRIVER)) throw new Error(READER_MESSAGES.NATIVE);
+      return action === "test" ? "Card reader is connected and ready. No payment was taken." : "Card reader connected.";
+    },
+    onSuccess: message => { setStatus(message); toast.success(message); },
+    onError: error => { const message = safeReaderMessage(error); setStatus(message); toast.error(message); },
+    onSettled: async () => { try { await refresh(); } finally { actionLock.current = false; } },
+  });
+  const run = (action: Action) => {
+    if (actionLock.current || !canEdit) return;
+    actionLock.current = true;
+    setStatus(action === "forget" ? "Forgetting card reader…" : "Checking card reader setup…");
+    operation.mutate(action);
   };
+  const disabled = operation.isPending || !canEdit;
+  const contextMessage = context.isError ? safeReaderMessage(context.error)
+    : context.data && !context.data.ready ? (context.data.terminalLocationReady ? READER_MESSAGES.MERCHANT_SETUP : READER_MESSAGES.LOCATION)
+    : context.isPending ? "Checking store payment status…" : null;
 
-  const connectNew = useMutation({
-    mutationFn: async (method: "usb" | "bluetooth") => {
-      if (!stripeReady) throw new Error(READER_MESSAGES.MERCHANT_SETUP);
-      const saved = await saveStripeTerminal({
-        label: "Card reader",
-        model: "Reader M2",
-        location: "Front counter",
-        readerType: READER_DRIVER,
-        connectionMethod: method,
-      });
-      const created = saved.terminals[saved.terminals.length - 1];
-      if (!created) throw new Error("The card reader could not be prepared.");
-      setStripeReaderConnectionMethod(created.id, method);
-      return connectExisting(created, method);
-    },
-    onSuccess: async (reader) => {
-      await refresh();
-      setReaderStatus("");
-      toast.success("Card reader connected.");
-    },
-    onError: async (error) => {
-      await refresh();
-      showReaderError(error, "Could not connect the card reader. Check the cable or reader and try again.");
-    },
-  });
-
-  const switchConnection = useMutation({
-    mutationFn: async ({ reader, method }: { reader: StripeTerminalRecord; method: "usb" | "bluetooth" }) => {
-      await disconnect();
-
-      // Connection transport belongs to this physical Android register.
-      // Keep it locally so older deployed SEZA APIs don't need a
-      // "connection_method" reader action just to switch USB/Bluetooth.
-      setStripeReaderConnectionMethod(reader.id, method);
-
-      return connectExisting(
-        {
-          ...reader,
-          status: "configured",
-          config: { ...(reader.config || {}), connection_method: method },
-        },
-        method,
-      );
-    },
-    onSuccess: async (reader) => {
-      await refresh();
-      setReaderStatus("");
-      toast.success("Card reader connected.");
-    },
-    onError: (error) => showReaderError(error, "Could not switch the card reader connection. Please try again."),
-  });
-
-  const test = useMutation({
-    mutationFn: async (reader: StripeTerminalRecord) => {
-      if (reader.status !== "active") await updateStripeTerminal("activate", reader.id);
-      setActiveTerminal(READER_DRIVER);
-      setActivePaymentProvider("stripe-terminal");
-      const connected = await connectReader(READER_DRIVER, (message) => toast.loading(message, { id: "seza-reader-test" }));
-      const ready = await isReady(READER_DRIVER);
-      if (!ready) throw new Error("The card reader did not finish connecting.");
-      return connected;
-    },
-    onSuccess: async () => {
-      toast.dismiss("seza-reader-test");
-      await refresh();
-      toast.success("Card reader is ready for payments.");
-    },
-    onError: (error) => {
-      toast.dismiss("seza-reader-test");
-      showReaderError(error, "The card reader could not be reached. Check the connection and try again.");
-    },
-  });
-
-  const disconnectReader = useMutation({
-    mutationFn: async (reader: StripeTerminalRecord) => {
-      await disconnect();
-      await updateStripeTerminal("disconnected", reader.id).catch(() => undefined);
-      setActiveTerminal("none");
-      setActivePaymentProvider(null);
-      window.dispatchEvent(new Event("seza:device-config-changed"));
-    },
-    onSuccess: async () => {
-      await refresh();
-      toast.success("Card reader disconnected.");
-    },
-    onError: (error) => toast.error(READER_CONNECTION_MESSAGE),
-  });
-
-  const forgetReader = useMutation({
-    mutationFn: async (reader: StripeTerminalRecord) => {
-      if (reader.status === "active") await disconnect();
-      await updateStripeTerminal("remove", reader.id);
-      clearStripeReaderConnectionMethod(reader.id);
-      setActiveTerminal("none");
-      setActivePaymentProvider(null);
-      window.dispatchEvent(new Event("seza:device-config-changed"));
-    },
-    onSuccess: async () => {
-      await refresh();
-      toast.success("Card reader removed.");
-    },
-    onError: (error) => toast.error(READER_CONNECTION_MESSAGE),
-  });
-
-  const busy = connectNew.isPending || switchConnection.isPending || test.isPending || disconnectReader.isPending || forgetReader.isPending;
-  if (context.isLoading) {
-    return (
-      <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Checking payment setup…
-      </div>
-    );
-  }
-
-  if (context.isError) {
-    return (
-      <div className="max-w-2xl">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><CreditCard className="size-5" /> Card reader</CardTitle>
-            <CardDescription>{READER_CONNECTION_MESSAGE}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button variant="outline" onClick={() => context.refetch()}>
-              <RefreshCw className="mr-2 size-4" /> Try again
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!stripeReady) {
-    return (
-      <div className="max-w-2xl">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><CreditCard className="size-5" /> Card reader</CardTitle>
-            <CardDescription>
-              Payment setup is completed securely on the SEZA website. After it is finished, come back here to connect the card reader.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button onClick={() => window.open(SEZA_PAYMENT_SETUP_URL, "_blank")}>
-              <ExternalLink className="mr-2 size-4" /> Finish setup on SEZA
-            </Button>
-            <div className="text-xs text-muted-foreground">dashboard.sezapos.com</div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
+  // Hardware controls remain mounted through loading, context/auth failures and
+  // missing reader rows. Only confirmed account readiness produces setup advice.
   return (
     <div className="max-w-2xl space-y-4">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><CreditCard className="size-5" /> Card reader</CardTitle>
-          <CardDescription>Connect the Reader M2 used by this register.</CardDescription>
+          <CardDescription>Set up the Stripe Reader M2 on this register. Use a USB data cable or Bluetooth.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {readerStatus && !physicallyConnected && <p role="status" className="text-sm text-destructive">{readerStatus}</p>}
-          {!terminal ? (
-            <div className="space-y-3">
-              <div className="rounded-lg border border-dashed p-5 text-sm">
-                Turn on the Reader M2 and connect it to this register.
-              </div>
-              {connectivity.data?.bluetoothSupported === false ? (
-                <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-                  This Android register does not have a Bluetooth radio. Reader M2 must use a USB data connection on this device.
-                </div>
-              ) : null}
-              {canEdit && (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Button onClick={() => connectNew.mutate("usb")} disabled={busy}>
-                    {connectNew.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Unplug className="mr-2 size-4" />}
-                    Connect with USB
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => connectNew.mutate("bluetooth")}
-                    disabled={busy || connectivity.data?.bluetoothSupported === false}
-                  >
-                    <Wifi className="mr-2 size-4" />
-                    {connectivity.data?.bluetoothSupported === false ? "Bluetooth unavailable" : "Connect with Bluetooth"}
-                  </Button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-3 rounded-lg border p-4">
-                <div>
-                  <div className="font-medium">
-                    {physicallyConnected ? readerLabel(terminal) : "No card reader connected"}
-                  </div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    {physicallyConnected
-                      ? `Connected · ${connectionMethod(terminal) === "usb" ? "USB" : "Bluetooth"}`
-                      : `Reader setup saved · ${connectionMethod(terminal) === "usb" ? "USB" : "Bluetooth"}`}
-                  </div>
-                </div>
-                {physicallyConnected && <CheckCircle2 className="size-5 text-emerald-600" />}
-              </div>
-
-              {canEdit && !physicallyConnected && (
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Choose how to connect Reader M2</div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <Button
-                      onClick={() => switchConnection.mutate({ reader: terminal, method: "usb" })}
-                      disabled={busy}
-                    >
-                      {switchConnection.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Unplug className="mr-2 size-4" />}
-                      Connect with USB
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => switchConnection.mutate({ reader: terminal, method: "bluetooth" })}
-                      disabled={busy || connectivity.data?.bluetoothSupported === false}
-                    >
-                      <Wifi className="mr-2 size-4" />
-                      {connectivity.data?.bluetoothSupported === false ? "Bluetooth unavailable" : "Connect with Bluetooth"}
-                    </Button>
-                  </div>
-                  <Button
-                    className="px-0"
-                    variant="ghost"
-                    onClick={() => forgetReader.mutate(terminal)}
-                    disabled={busy}
-                  >
-                    Forget saved reader setup
-                  </Button>
-                </div>
-              )}
-
-              {canEdit && physicallyConnected && (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Button onClick={() => test.mutate(terminal)} disabled={busy}>
-                    {test.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                    Test reader
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => disconnectReader.mutate(terminal)}
-                    disabled={busy}
-                  >
-                    <Unplug className="mr-2 size-4" /> Disconnect
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
+          <p className="text-sm">{ready.data === true ? `Connected${terminal?.serial ? ` · ${terminal.serial}` : ""}` : terminal ? "Reader configured · Disconnected" : "No card reader connected"}</p>
+          {contextMessage && <p role="status" className="text-sm text-muted-foreground">{contextMessage}</p>}
+          {status && <p role="status" className="text-sm">{status}</p>}
+          {!canEdit && <p className="text-sm text-muted-foreground">Sign in as an owner or manager on this POS to configure the reader.</p>}
+          {connectivity.data?.bluetoothSupported === false && <p className="text-sm text-muted-foreground">Bluetooth is unavailable on this register. Use a USB data cable.</p>}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button disabled={disabled} onClick={() => run("usb")}><Unplug className="mr-2 size-4" /> Connect with USB</Button>
+            <Button variant="outline" disabled={disabled || connectivity.data?.bluetoothSupported === false} onClick={() => run("bluetooth")}><Wifi className="mr-2 size-4" /> Connect with Bluetooth</Button>
+            <Button variant="outline" disabled={disabled} onClick={() => run(method)}>{operation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}Scan / connect</Button>
+            <Button variant="outline" disabled={disabled} onClick={() => run("test")}>Test reader</Button>
+            <Button variant="outline" disabled={disabled} onClick={() => run("reconnect")}><RefreshCw className="mr-2 size-4" /> Reconnect</Button>
+            <Button variant="ghost" disabled={disabled} onClick={() => run("forget")}>Forget reader</Button>
+          </div>
         </CardContent>
       </Card>
     </div>

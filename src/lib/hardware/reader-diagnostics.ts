@@ -1,6 +1,9 @@
 // Only allowlisted classifications leave the native bridge. Never copy raw errors.
 export const READER_CONNECTION_MESSAGE = "Could not connect to the card reader. Please try again.";
 export const READER_MESSAGES = {
+  SESSION: "Your POS session has expired. Sign in on this register and try again.",
+  CONTEXT: "SEZA could not check this store’s card reader setup. Check the connection and try again.",
+  CONFIGURE: "SEZA could not save this register’s reader setup. Try again.",
   USB_ABSENT: "No card reader detected. Connect and power on the Stripe Reader M2, then try again.",
   USB_PERMISSION: "Card reader detected, but USB access is blocked. Allow USB access and try again.",
   USB_NOT_ADOPTED: "Card reader detected, but SEZA could not start it. Reconnect the USB data cable and try again.",
@@ -21,7 +24,7 @@ export const READER_MESSAGES = {
   NATIVE: "Card reader detected, but the connection failed. Restart the reader and try again.",
 } as const;
 export type ReaderErrorCode = keyof typeof READER_MESSAGES;
-export const READER_STAGES = ["MERCHANT_RESET", "MERCHANT_CONTEXT", "STRIPE_INITIALIZE", "ANDROID_USB_DETECTION", "ANDROID_PERMISSION", "CONNECTION_TOKEN", "CONNECTION_TOKEN_REQUEST", "CONNECTION_TOKEN_DELIVERED", "DISCOVER_USB", "USB_DEVICE_FOUND", "STRIPE_READER_DISCOVERED", "DISCOVER_USB_EMPTY", "DISCOVER_BLUETOOTH", "CONNECT_READER_NATIVE", "READER_UPDATE", "READER_API_SAVE", "CONNECTED", "RECONNECT", "DISCONNECTED"] as const;
+export const READER_STAGES = ["MERCHANT_RESET", "POS_AUTH", "READER_API_CONFIGURE", "MERCHANT_CONTEXT", "STRIPE_INITIALIZE", "ANDROID_USB_DETECTION", "ANDROID_PERMISSION", "CONNECTION_TOKEN", "CONNECTION_TOKEN_REQUEST", "CONNECTION_TOKEN_DELIVERED", "DISCOVER_USB", "USB_DEVICE_FOUND", "STRIPE_READER_DISCOVERED", "DISCOVER_USB_EMPTY", "DISCOVER_BLUETOOTH", "CONNECT_READER_NATIVE", "READER_UPDATE", "READER_API_SAVE", "CONNECTED", "RECONNECT", "DISCONNECTED"] as const;
 export type ReaderStage = typeof READER_STAGES[number];
 type Status = "pending" | "ok" | "error";
 function errorCode(value: unknown): ReaderErrorCode | null {

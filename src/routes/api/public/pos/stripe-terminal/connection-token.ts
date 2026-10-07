@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/connection
           return json({ secret: token.secret, environment: merchant.environment });
         } catch (error) {
           const classification = readerErrorCode(error);
-          const code = classification === "LOCATION" || classification === "MERCHANT_SETUP" ? classification : "TOKEN";
+          const code = classification === "SESSION" || classification === "LOCATION" || classification === "MERCHANT_SETUP" ? classification : "TOKEN";
           return json({ error: readerMessage(code), code }, 400);
         }
       },
