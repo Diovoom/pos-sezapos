@@ -55,7 +55,7 @@ function LegalCenterPage() {
 
   return (
     <MarketingShell>
-      <div className="border-b bg-gradient-to-b from-muted/40 to-background">
+      <div className="border-b bg-background">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
           <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">
             <Scale className="h-3.5 w-3.5" /> Legal Center

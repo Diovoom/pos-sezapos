@@ -24,7 +24,7 @@ function TrainingPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-5 md:p-6">
       <PageHeader title="Support & Training" subtitle="Step-by-step guidance for running the Owner Dashboard and Android POS correctly." />
-      <div className="rounded-3xl border bg-gradient-to-br from-primary/10 via-background to-background p-5 sm:p-7">
+      <div className="rounded-xl border bg-background p-5 sm:p-7">
         <h2 className="text-2xl font-black tracking-tight">Learn SEZA before your store opens</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Follow these guides in order for a new location, then return whenever you add staff, hardware, inventory, or another register.</p>
         <div className="mt-4 flex flex-wrap gap-2">

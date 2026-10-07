@@ -1805,14 +1805,16 @@ export const adminStartSupportSession = createServerFn({ method: "POST" })
     const reason = requireReason(data.reason);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // Start from a clean state. A stale pending/active session must never block
-    // a new admin-initiated screen-share request for this register.
-    await supabaseAdmin
-      .from("admin_support_sessions")
-      .update({ status: "ended", ended_at: new Date().toISOString() })
-      .eq("admin_id", context.userId)
-      .eq("store_id", data.storeId)
-      .in("status", ["pending", "active"]);
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("admin_support_sessions").select("id,expires_at,status,reason")
+      .eq("admin_id", context.userId).eq("store_id", data.storeId)
+      .in("status", ["pending", "active"]).gt("expires_at", new Date().toISOString())
+      .order("requested_at", { ascending: false }).limit(1).maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+    if (existing) {
+      if (existing.reason !== reason) throw new Error("Another screen-share request is open for this business. Finish it before starting this case.");
+      return { ok: true, id: existing.id, expires_at: existing.expires_at, status: existing.status };
+    }
 
     const expires = new Date(Date.now() + 30 * 60_000).toISOString();
     const { data: row, error } = await supabaseAdmin

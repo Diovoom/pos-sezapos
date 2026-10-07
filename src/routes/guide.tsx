@@ -1,10 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowRight,
-  BadgeCheck,
   Banknote,
   Barcode,
-  BookOpen,
   Boxes,
   Check,
   CircleDollarSign,
@@ -49,7 +47,6 @@ export const Route = createFileRoute("/guide")({
 
 const steps = [
   {
-    number: "01",
     icon: Store,
     title: "Create and configure the store",
     description:
@@ -61,7 +58,6 @@ const steps = [
     ],
   },
   {
-    number: "02",
     icon: PackagePlus,
     title: "Build the product catalog",
     description:
@@ -73,7 +69,6 @@ const steps = [
     ],
   },
   {
-    number: "03",
     icon: Users,
     title: "Add employees and permissions",
     description:
@@ -85,7 +80,6 @@ const steps = [
     ],
   },
   {
-    number: "04",
     icon: Barcode,
     title: "Make the first sale",
     description:
@@ -97,7 +91,6 @@ const steps = [
     ],
   },
   {
-    number: "05",
     icon: ReceiptText,
     title: "Give the customer a receipt",
     description:
@@ -109,7 +102,6 @@ const steps = [
     ],
   },
   {
-    number: "06",
     icon: ClipboardCheck,
     title: "Close and review the shift",
     description:
@@ -182,9 +174,7 @@ function GuidePage() {
         <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-24">
           <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-2 text-xs font-black uppercase tracking-[0.14em] text-blue-800 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-200">
-                <BookOpen className="size-4" /> SEZA POS user guide
-              </div>
+              <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">SEZA POS user guide</p>
               <h1 className="mt-6 max-w-4xl text-balance text-4xl font-black tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl dark:text-white">
                 Learn the register, inventory, shifts and owner controls.
               </h1>
@@ -196,7 +186,7 @@ function GuidePage() {
                 <Button
                   asChild
                   size="lg"
-                  className="h-12 rounded-full bg-blue-700 px-7 hover:bg-blue-800"
+                  className="h-12 rounded-lg bg-blue-700 px-7 hover:bg-blue-800"
                 >
                   <a href={dashboardUrl("/signup")} target="_blank" rel="noopener noreferrer">
                     Start free trial <ArrowRight className="ml-2 size-4" />
@@ -206,7 +196,7 @@ function GuidePage() {
                   type="button"
                   size="lg"
                   variant="outline"
-                  className="h-12 rounded-full border-blue-200 px-7 text-blue-800"
+                  className="h-12 rounded-lg border-blue-200 px-7 text-blue-800"
                   onClick={openWebsiteLiveChat}
                 >
                   Ask support <Headphones className="ml-2 size-4" />
@@ -214,19 +204,10 @@ function GuidePage() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-blue-200 bg-blue-800 p-7 text-white shadow-[0_28px_70px_-38px_rgba(30,64,175,0.9)] sm:p-9">
-              <div className="flex items-center gap-3">
-                <span className="grid size-11 place-items-center rounded-2xl bg-white text-blue-800">
-                  <BadgeCheck className="size-6" />
-                </span>
-                <div>
-                  <div className="text-xs font-bold uppercase tracking-[0.16em] text-blue-200">
-                    What is included
-                  </div>
-                  <div className="text-xl font-black">One connected store workflow</div>
-                </div>
-              </div>
-              <div className="mt-7 space-y-3">
+            <div className="border-y border-blue-200 py-6 dark:border-blue-400/20">
+              <div className="text-sm font-semibold text-blue-800 dark:text-blue-200">What is included</div>
+              <div className="mt-1 text-xl font-black">One connected store workflow</div>
+              <div className="mt-5 divide-y divide-blue-100 dark:divide-blue-400/10">
                 {[
                   "Cashier register",
                   "Owner dashboard",
@@ -234,11 +215,8 @@ function GuidePage() {
                   "Employees and shifts",
                   "Support and device controls",
                 ].map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-center gap-3 rounded-xl border border-white/15 bg-blue-900/60 px-4 py-3 text-sm font-semibold"
-                  >
-                    <Check className="size-4 shrink-0 text-emerald-300" /> {item}
+                  <div key={item} className="flex items-center gap-3 py-3 text-sm font-semibold">
+                    <Check className="size-4 shrink-0 text-emerald-600" /> {item}
                   </div>
                 ))}
               </div>
@@ -250,7 +228,7 @@ function GuidePage() {
       <section className="bg-blue-50/70 py-20 dark:bg-blue-950/20">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="max-w-3xl">
-            <p className="text-sm font-black uppercase tracking-[0.17em] text-blue-700 dark:text-blue-300">
+            <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
               Start here
             </p>
             <h2 className="mt-3 text-3xl font-black tracking-[-0.035em] sm:text-4xl">
@@ -260,33 +238,22 @@ function GuidePage() {
               Follow these steps in order when preparing a new store or training a new merchant.
             </p>
           </div>
-          <div className="mt-10 grid gap-5 md:grid-cols-2">
+          <div className="mt-10 divide-y border-y">
             {steps.map((step) => (
-              <article
-                key={step.number}
-                className="rounded-[24px] border border-blue-100 bg-white p-6 shadow-sm dark:border-blue-400/10 dark:bg-slate-900 sm:p-7"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <span className="grid size-12 place-items-center rounded-2xl bg-blue-700 text-white">
-                    <step.icon className="size-6" />
-                  </span>
-                  <span className="text-3xl font-black text-blue-100 dark:text-blue-900">
-                    {step.number}
-                  </span>
+              <article key={step.title} className="grid gap-4 py-6 md:grid-cols-[240px_1fr]">
+                <div className="flex items-start gap-3">
+                  <step.icon className="mt-0.5 size-5 shrink-0 text-blue-700" />
+                  <h3 className="font-black">{step.title}</h3>
                 </div>
-                <h3 className="mt-5 text-xl font-black">{step.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                  {step.description}
-                </p>
-                <div className="mt-5 space-y-2">
-                  {step.checks.map((check) => (
-                    <div
-                      key={check}
-                      className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200"
-                    >
-                      <Check className="size-4 shrink-0 text-emerald-600" /> {check}
-                    </div>
-                  ))}
+                <div>
+                  <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{step.description}</p>
+                  <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                    {step.checks.map((check) => (
+                      <div key={check} className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200">
+                        <Check className="size-4 shrink-0 text-emerald-600" /> {check}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </article>
             ))}
@@ -297,24 +264,21 @@ function GuidePage() {
       <section className="py-20">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="max-w-3xl">
-            <p className="text-sm font-black uppercase tracking-[0.17em] text-blue-700 dark:text-blue-300">
+            <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
               Inside SEZA
             </p>
             <h2 className="mt-3 text-3xl font-black tracking-[-0.035em] sm:text-4xl">
               The tools merchants use throughout the day
             </h2>
           </div>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 divide-y border-y">
             {insideSeza.map((item) => (
-              <article
-                key={item.title}
-                className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"
-              >
-                <span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200">
-                  <item.icon className="size-5" />
-                </span>
-                <h3 className="mt-4 font-black">{item.title}</h3>
-                <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{item.body}</p>
+              <article key={item.title} className="flex gap-4 py-5">
+                <item.icon className="mt-0.5 size-5 shrink-0 text-blue-700 dark:text-blue-200" />
+                <div>
+                  <h3 className="font-black">{item.title}</h3>
+                  <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{item.body}</p>
+                </div>
               </article>
             ))}
           </div>
@@ -335,7 +299,7 @@ function GuidePage() {
           <Button
             type="button"
             size="lg"
-            className="h-12 shrink-0 rounded-full bg-white px-7 text-blue-800 hover:bg-blue-50"
+            className="h-12 shrink-0 rounded-lg bg-white px-7 text-blue-800 hover:bg-blue-50"
             onClick={openWebsiteLiveChat}
           >
             Start live chat <ArrowRight className="ml-2 size-4" />

@@ -134,7 +134,7 @@ function ContactPage() {
         <div className="mx-auto max-w-xl">
           {submitError && <p role="alert" className="mb-4 rounded-lg border border-destructive/30 p-3 text-sm text-destructive">{submitError}</p>}
           <div className="text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
+            <p className="text-sm font-semibold text-blue-700">
               SEZA Sales
             </p>
             <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">
@@ -145,9 +145,9 @@ function ContactPage() {
             </p>
           </div>
 
-          <div className="mt-8 overflow-hidden rounded-[28px] border bg-card shadow-[0_24px_70px_-36px_rgba(15,23,42,0.45)]">
+          <div className="mt-8 overflow-hidden rounded-xl border bg-card">
             <div className="border-b px-6 py-5">
-              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
                 <span>Step {sent ? 3 : step} of 3</span>
                 <span>
                   {sent

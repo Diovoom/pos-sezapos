@@ -119,7 +119,7 @@ function MorphingBrand({ progress }: { progress: number }) {
       className="group relative block h-12 w-[156px] self-center"
     >
       <span
-        className="absolute top-0 grid size-12 place-items-center rounded-2xl border border-blue-200 bg-blue-50 shadow-[0_10px_28px_-14px_rgba(37,99,235,0.75)] transition-transform duration-150 group-hover:scale-[1.03] dark:border-blue-400/20 dark:bg-blue-500/10"
+        className="absolute top-0 grid size-12 place-items-center"
         style={{ transform: `translateX(${54 * (1 - progress)}px)` }}
       >
         <Logo className="size-9" alt="" />
@@ -214,7 +214,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-[70] border-b border-slate-200/80 bg-white/88 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/88">
+      <header className="sticky top-0 z-[70] border-b border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950">
         <div className="mx-auto grid h-[76px] max-w-7xl grid-cols-[76px_minmax(0,1fr)_76px] items-center px-2 sm:px-6 lg:grid-cols-[1fr_auto_1fr] lg:gap-3 lg:px-8">
           <div className="flex min-w-0 items-center justify-start">
             {pathname === "/" ? (
@@ -275,7 +275,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             <Button
               asChild
               size="sm"
-              className="hidden rounded-full px-5 shadow-[0_10px_25px_-12px_rgba(37,99,235,0.8)] lg:inline-flex"
+              className="hidden rounded-lg px-5 lg:inline-flex"
             >
               <a href={dashboardUrl("/dashboard")}>Login</a>
             </Button>
@@ -297,7 +297,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           side="left"
           className="inset-0 z-[90] h-dvh w-screen max-w-none overflow-y-auto border-0 bg-white p-0 shadow-none dark:bg-slate-950 [&>button:first-of-type]:hidden"
         >
-          <SheetHeader className="sticky top-0 z-10 border-b bg-white/95 px-4 py-3 text-left backdrop-blur dark:bg-slate-950/95">
+          <SheetHeader className="sticky top-0 z-10 border-b bg-white px-4 py-3 text-left dark:bg-slate-950">
             <div className="grid grid-cols-[48px_1fr_48px] items-center gap-3">
               <button
                 type="button"
@@ -318,7 +318,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           </SheetHeader>
 
           <nav
-            className="mx-auto grid w-full max-w-xl grid-cols-2 gap-2 px-4 py-3"
+            className="mx-auto w-full max-w-xl divide-y px-4 py-3"
             aria-label="Mobile navigation"
           >
             {MOBILE_ITEMS.map((item) => (
@@ -327,7 +327,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 to={item.to}
                 resetScroll
                 onClick={() => setMobileOpen(false)}
-                className="group flex min-h-[76px] items-start justify-between rounded-xl border border-slate-200 bg-card px-3 py-3 transition-colors hover:border-primary/35 hover:bg-primary/[0.035] dark:border-white/10"
+                className="group flex min-h-[68px] items-start justify-between px-1 py-4 transition-colors hover:text-primary"
               >
                 <span className="min-w-0 pr-2">
                   <span className="block text-sm font-bold">{item.label}</span>
@@ -346,7 +346,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 setMobileOpen(false);
                 openWebsiteLiveChat();
               }}
-              className="group col-span-2 flex min-h-[70px] w-full items-center justify-between rounded-xl border border-blue-800 bg-blue-800 px-4 py-3 text-left text-white transition-colors hover:bg-blue-900"
+              className="group mt-4 flex min-h-[56px] w-full items-center justify-between rounded-lg bg-blue-800 px-4 py-3 text-left text-white transition-colors hover:bg-blue-900"
             >
               <span>
                 <span className="block text-sm font-bold">Contact SEZA</span>
@@ -358,7 +358,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             </button>
           </nav>
 
-          <div className="sticky bottom-0 border-t bg-white/95 p-5 backdrop-blur dark:bg-slate-950/95">
+          <div className="sticky bottom-0 border-t bg-white p-5 dark:bg-slate-950">
             <Button asChild className="h-14 w-full rounded-2xl text-base font-bold">
               <a href={dashboardUrl("/dashboard")}>Login to owner dashboard</a>
             </Button>
@@ -371,19 +371,14 @@ export function MarketingShell({ children }: { children: ReactNode }) {
       </main>
 
       <footer className="relative overflow-hidden border-t border-slate-200 bg-slate-950 text-white">
-        <div className="pointer-events-none absolute -right-48 -top-48 size-[420px] rounded-full bg-blue-600/15 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-52 -left-40 size-[380px] rounded-full bg-cyan-400/10 blur-3xl" />
-
         <div className="relative mx-auto max-w-7xl px-6 py-14 lg:px-8 lg:py-18">
           <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-[1.35fr_repeat(4,1fr)]">
             <div>
               <div className="flex items-center gap-3">
-                <span className="grid size-11 place-items-center rounded-2xl bg-white shadow-lg">
-                  <Logo className="size-8 rounded-lg" alt="" />
-                </span>
+                <Logo className="size-9" alt="" />
                 <div>
                   <div className="font-bold tracking-tight">SEZA POS</div>
-                  <div className="text-xs text-slate-400">Everything your store needs — working as one.</div>
+                  <div className="text-xs text-slate-400">Everything your store needs. Working as one.</div>
                 </div>
               </div>
               <p className="mt-5 max-w-sm text-sm leading-6 text-slate-400">
@@ -458,7 +453,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={openCookieSettings}
-              className="inline-flex items-center gap-2 justify-self-start rounded-full border border-white/10 px-3 py-2 transition-colors hover:border-white/25 hover:text-white md:justify-self-end"
+              className="inline-flex items-center gap-2 justify-self-start rounded-lg border border-white/10 px-3 py-2 transition-colors hover:border-white/25 hover:text-white md:justify-self-end"
             >
               <Cookie className="size-3.5" /> Cookie settings
             </button>
@@ -471,28 +466,19 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={() => setSalesOpen(true)}
-            className="fixed inset-x-3 bottom-4 z-[65] mx-auto flex h-14 max-w-xl items-center justify-between rounded-2xl border border-blue-800 bg-blue-800 px-5 text-left text-white shadow-[0_20px_50px_-18px_rgba(30,64,175,0.85)] transition-transform hover:-translate-y-0.5 sm:bottom-6"
+            className="fixed bottom-4 right-4 z-[65] inline-flex h-12 items-center gap-2 rounded-lg bg-blue-800 px-4 text-sm font-semibold text-white hover:bg-blue-900 sm:bottom-6 sm:right-6"
             aria-label="Contact SEZA sales"
           >
-            <span>
-              <span className="block text-xs font-bold uppercase tracking-[0.14em] text-blue-100">
-                Questions before you start?
-              </span>
-              <span className="block text-sm font-black">Talk with a SEZA specialist</span>
-              <span className="mt-0.5 block text-[11px] text-blue-100 underline underline-offset-2">
-                View contact options
-              </span>
-            </span>
-            <ArrowUpRight className="size-5 shrink-0" />
+            Talk with SEZA <ArrowUpRight className="size-4" />
           </button>
 
           {salesOpen && (
             <div
-              className="fixed inset-0 z-[95] flex items-end bg-slate-950/55 p-3 backdrop-blur-sm sm:items-center sm:justify-center"
+              className="fixed inset-0 z-[95] flex items-end bg-slate-950/55 p-3 sm:items-center sm:justify-center"
               onClick={() => setSalesOpen(false)}
             >
               <section
-                className="w-full max-w-lg overflow-hidden rounded-[28px] border border-blue-100 bg-white shadow-2xl dark:border-blue-400/15 dark:bg-slate-950"
+                className="w-full max-w-lg overflow-hidden rounded-xl border border-blue-100 bg-white dark:border-blue-400/15 dark:bg-slate-950"
                 role="dialog"
                 aria-modal="true"
                 aria-label="Contact SEZA sales"
@@ -501,7 +487,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 <div className="bg-blue-800 px-6 py-6 text-white">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="text-xs font-bold uppercase tracking-[0.16em] text-blue-100">
+                      <div className="text-sm font-semibold text-blue-100">
                         SEZA Sales
                       </div>
                       <h2 className="mt-2 text-2xl font-black">Let us plan the right setup.</h2>
@@ -513,7 +499,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                       type="button"
                       onClick={() => setSalesOpen(false)}
                       aria-label="Close contact sales"
-                      className="grid size-10 shrink-0 place-items-center rounded-full bg-white/15 hover:bg-white/25"
+                      className="grid size-10 shrink-0 place-items-center rounded-lg border border-white/25 hover:bg-white/10"
                     >
                       <X className="size-5" />
                     </button>
@@ -522,9 +508,9 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                 <div className="grid gap-3 p-5">
                   <a
                     href={`tel:${LEGAL_CONFIG.phone}`}
-                    className="flex min-h-16 items-center gap-4 rounded-2xl border border-slate-200 px-4 py-3 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:hover:bg-blue-500/10"
+                    className="flex min-h-16 items-center gap-4 rounded-lg border border-slate-200 px-4 py-3 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:hover:bg-blue-500/10"
                   >
-                    <span className="grid size-11 place-items-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200">
+                    <span className="grid size-8 shrink-0 place-items-center text-blue-700 dark:text-blue-200">
                       <Phone className="size-5" />
                     </span>
                     <span>
@@ -540,9 +526,9 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                       setSalesOpen(false);
                       openWebsiteLiveChat();
                     }}
-                    className="flex min-h-16 items-center gap-4 rounded-2xl border border-slate-200 px-4 py-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:hover:bg-blue-500/10"
+                    className="flex min-h-16 items-center gap-4 rounded-lg border border-slate-200 px-4 py-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:hover:bg-blue-500/10"
                   >
-                    <span className="grid size-11 place-items-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200">
+                    <span className="grid size-8 shrink-0 place-items-center text-blue-700 dark:text-blue-200">
                       <MessageCircle className="size-5" />
                     </span>
                     <span>
@@ -555,9 +541,9 @@ export function MarketingShell({ children }: { children: ReactNode }) {
                   <a
                     href="/contact#message-us"
                     onClick={() => setSalesOpen(false)}
-                    className="flex min-h-16 items-center gap-4 rounded-2xl border border-slate-200 px-4 py-3 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:hover:bg-blue-500/10"
+                    className="flex min-h-16 items-center gap-4 rounded-lg border border-slate-200 px-4 py-3 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:hover:bg-blue-500/10"
                   >
-                    <span className="grid size-11 place-items-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200">
+                    <span className="grid size-8 shrink-0 place-items-center text-blue-700 dark:text-blue-200">
                       <ArrowUpRight className="size-5" />
                     </span>
                     <span>

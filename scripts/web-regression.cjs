@@ -390,7 +390,8 @@ test('re-pairing an Android register resets Stripe merchant credentials before a
   const pair = source('capacitor-shell/screens/PairDeviceScreen.tsx');
   const terminal = source('src/lib/hardware/terminal-stripe.ts');
   const patch = source('scripts/patch-stripe-terminal.mjs');
-  assert.match(pair, /resetStripeTerminalForMerchantSwitch\(\)[\s\S]*setPairing\(/);
+  assert.match(pair, /resetStripeTerminalForMerchantSwitch\(async\s*\(\)\s*=>\s*\{[\s\S]*setPairing\(/);
+  assert.match(terminal, /await adoptMerchant\?\.\(\);[\s\S]*runtime\.resetFailed = false/);
   assert.match(terminal, /resetStripeTerminalForMerchantSwitch/);
   assert.match(terminal, /disconnectReader\(\)/);
   assert.match(terminal, /clearCachedCredentials/);
@@ -424,7 +425,9 @@ test('owner password login stays on the SEZA same-origin server path', () => {
 });
 test('credential pages identify the official SEZA portal', () => {
   const trust = source('src/components/auth/AuthTrustPanel.tsx');
-  assert.match(trust, /Official SEZA Technologies Inc/);
+  assert.match(trust, /admin\.sezapos\.com/);
+  assert.match(trust, /dashboard\.sezapos\.com/);
+  assert.match(trust, /Before entering credentials/);
   assert.match(trust, /sezapos\.com/);
   for (const file of ['src/routes/auth.tsx', 'src/routes/signup.tsx', 'src/routes/reset-password.tsx', 'src/routes/admin.auth.tsx']) {
     assert.match(source(file), /AuthTrustPanel/);

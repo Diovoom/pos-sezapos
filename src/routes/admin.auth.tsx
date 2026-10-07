@@ -137,8 +137,9 @@ function AdminAuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen bg-surface px-4 py-8 sm:py-12">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+      <Card className="w-full">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-3">
             <Logo className="h-12" alt="SEZA POS" />
@@ -150,7 +151,7 @@ function AdminAuthPage() {
           <CardDescription>
             {forgotMode
               ? "Enter your admin email to receive a password reset link."
-              : "Restricted access  -  authorized personnel only."}
+              : "Authorized SEZA personnel only."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -256,6 +257,7 @@ function AdminAuthPage() {
         </CardContent>
       </Card>
       <AuthTrustPanel portal="admin" />
+      </div>
     </div>
   );
 }

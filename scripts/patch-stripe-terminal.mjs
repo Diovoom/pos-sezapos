@@ -65,6 +65,8 @@ if (!tokenProvider.includes("SEZA_PATCH_SHARED_PENDING_CALLBACKS")) {
     }
   }
 }
+// Never log connection-token secrets, including the optional native HTTP path.
+tokenProvider = tokenProvider.replace(/^.*Log\.d\("TokenProvider", jsonObject\.getString\("secret"\)\).*\r?\n/gm, "");
 const tokenChanged = writeIfChanged(tokenProviderPath, tokenOriginal, tokenProvider);
 
 let terminal = readRequired(terminalPath);
@@ -203,6 +205,15 @@ if (!terminal.includes("SEZA_PATCH_PAYMENT_CANCEL_RACE")) {
   }
 }
 
+// Propagate native discovery failures instead of leaving JS waiting for timeout.
+if (!terminal.includes("SEZA_PATCH_DISCOVERY_FAILURE")) {
+  const failure = /override fun onFailure\(e: TerminalException\) \{\s*Log\.d\(logTag, e\.localizedMessage\)\s*\}/;
+  if (!failure.test(terminal)) throw new Error("Native discovery failure callback changed; review required.");
+  terminal = terminal.replace(failure, `override fun onFailure(e: TerminalException) {
+                        // SEZA_PATCH_DISCOVERY_FAILURE
+                        call.reject("Stripe reader discovery failed", e.errorCode.toString(), e)
+                    }`);
+}
 const terminalChanged = writeIfChanged(terminalPath, terminalOriginal, terminal);
 const pluginChanged = writeIfChanged(pluginPath, pluginOriginal, plugin);
 

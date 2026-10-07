@@ -95,7 +95,7 @@ export function CookieConsent() {
   return (
     <>
       {visible && (
-        <div className="fixed inset-x-3 bottom-3 z-[80] mx-auto max-w-5xl rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-[0_24px_80px_-24px_rgba(15,23,42,0.35)] backdrop-blur-xl sm:bottom-5 sm:p-5 dark:border-white/10 dark:bg-slate-950/95">
+        <div className="fixed inset-x-3 bottom-3 z-[80] mx-auto max-w-5xl rounded-2xl border border-slate-200/90 bg-white p-4 shadow-lg sm:bottom-5 sm:p-5 dark:border-white/10 dark:bg-slate-950">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 gap-3">
               <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
@@ -135,7 +135,7 @@ export function CookieConsent() {
 
       {preferencesOpen && (
         <div
-          className="fixed inset-0 z-[90] grid place-items-end bg-slate-950/45 p-0 backdrop-blur-sm sm:place-items-center sm:p-4"
+          className="fixed inset-0 z-[90] grid place-items-end bg-slate-950/45 p-0 sm:place-items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="cookie-settings-title"

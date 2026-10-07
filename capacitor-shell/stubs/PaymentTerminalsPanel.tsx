@@ -1,7 +1,7 @@
+import { READER_CONNECTION_MESSAGE } from "@/lib/hardware/reader-diagnostics";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, CreditCard, ExternalLink, Loader2, RefreshCw, Unplug, Wifi } from "lucide-react";
 import { toast } from "sonner";
-import { userFacingError } from "@/lib/errors/user-facing";
 import { setActiveTerminal } from "@/lib/hardware";
 import {
   clearStripeReaderConnectionMethod,
@@ -10,7 +10,6 @@ import {
   getStripeReaderConnectionMethod,
   getStripeTerminalContext,
   isReady,
-  resetStripeTerminalForMerchantSwitch,
   saveStripeTerminal,
   setStripeReaderConnectionMethod,
   updateStripeTerminal,
@@ -27,7 +26,7 @@ const READER_DRIVER = "stripe-m2" as const;
 function connectionMethod(terminal: StripeTerminalRecord): "usb" | "bluetooth" {
   return (
     getStripeReaderConnectionMethod(terminal.id) ??
-    (String(terminal.config?.connection_method || "bluetooth").toLowerCase() === "bluetooth"
+    (String(terminal.config?.connection_method || "usb").toLowerCase() === "bluetooth"
       ? "bluetooth"
       : "usb")
   );
@@ -41,7 +40,7 @@ function readerLabel(terminal: StripeTerminalRecord) {
 export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
   const qc = useQueryClient();
   const showReaderError = (error: unknown, fallback: string) => {
-    toast.error(userFacingError(error, fallback));
+    toast.error(READER_CONNECTION_MESSAGE);
   };
 
   const connectivity = useQuery({
@@ -86,21 +85,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
   ) => {
     const method = requestedMethod ?? connectionMethod(reader);
 
-    // Reader M2 is portable hardware. A USB connect is always treated as a
-    // fresh physical-reader adoption for the merchant currently paired to
-    // this POS. Disconnect any old reader and clear Stripe's cached account
-    // credentials first so a reader previously used by another SEZA merchant
-    // can immediately request a connection token for this merchant.
-    if (method === "usb") {
-      await resetStripeTerminalForMerchantSwitch();
-    }
-
     setStripeReaderConnectionMethod(reader.id, method);
-    const permission = await deviceControl.requestTerminalPermissions(method);
-    if (!permission.granted) {
-      throw new Error("Permission is required to connect the card reader. Allow the requested permission and try again.");
-    }
-
     await updateStripeTerminal("activate", reader.id);
     setActiveTerminal(READER_DRIVER);
     setActivePaymentProvider("stripe-terminal");
@@ -146,7 +131,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
 
   const switchConnection = useMutation({
     mutationFn: async ({ reader, method }: { reader: StripeTerminalRecord; method: "usb" | "bluetooth" }) => {
-      await disconnect().catch(() => undefined);
+      await disconnect();
 
       // Connection transport belongs to this physical Android register.
       // Keep it locally so older deployed SEZA APIs don't need a
@@ -202,12 +187,12 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       await refresh();
       toast.success("Card reader disconnected.");
     },
-    onError: (error) => toast.error(userFacingError(error, "Could not disconnect the card reader.")),
+    onError: (error) => toast.error(READER_CONNECTION_MESSAGE),
   });
 
   const forgetReader = useMutation({
     mutationFn: async (reader: StripeTerminalRecord) => {
-      if (reader.status === "active") await disconnect().catch(() => undefined);
+      if (reader.status === "active") await disconnect();
       await updateStripeTerminal("remove", reader.id);
       clearStripeReaderConnectionMethod(reader.id);
       setActiveTerminal("none");
@@ -218,7 +203,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
       await refresh();
       toast.success("Card reader removed.");
     },
-    onError: (error) => toast.error(userFacingError(error, "Could not remove the card reader.")),
+    onError: (error) => toast.error(READER_CONNECTION_MESSAGE),
   });
 
   if (context.isLoading) {
@@ -235,7 +220,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><CreditCard className="size-5" /> Card reader</CardTitle>
-            <CardDescription>{userFacingError(context.error, "Could not check payment setup.")}</CardDescription>
+            <CardDescription>{READER_CONNECTION_MESSAGE}</CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" onClick={() => context.refetch()}>

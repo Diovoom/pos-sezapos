@@ -261,7 +261,7 @@ function DashboardPage() {
   return (
     <>
       <div className="space-y-6 p-4 md:p-6">
-        <section className="rounded-3xl border bg-gradient-to-br from-background via-background to-primary/5 p-5 shadow-sm md:p-7">
+        <section className="rounded-xl border bg-background p-5 shadow-sm md:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-semibold text-primary">Owner overview</p>

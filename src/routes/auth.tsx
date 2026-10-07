@@ -206,9 +206,9 @@ function OwnerAuthPage() {
   }, [navigate, queryClient]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface p-4">
-      <div className="w-full max-w-md">
-        <a href={marketingUrl("/")} className="mb-6 flex items-center justify-center gap-2">
+    <div className="min-h-screen bg-surface px-4 py-8 sm:py-12">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
+        <a href={marketingUrl("/")} className="mb-5 flex items-center justify-center gap-2">
           <Logo className="size-9 rounded-lg" />
           <span className="text-lg font-semibold tracking-tight">SEZA</span>
         </a>

@@ -189,14 +189,11 @@ public class SezaDeviceControlPlugin extends Plugin {
             // surface the real USB state. The previous custom check could target
             // the wrong composite USB device and falsely report "USB access required"
             // even when Android had already granted SEZA access to the M2.
-            resolveTerminalPermissionResult(
-                call,
-                locationGranted,
-                bluetoothGranted,
-                true,
-                true,
-                true
-            );
+            UsbManager manager = (UsbManager) getContext().getSystemService(Context.USB_SERVICE);
+            UsbDevice reader = findStripeUsbReader(manager);
+            // Observation only: Stripe still owns adoption and permission requests.
+            resolveTerminalPermissionResult(call, locationGranted, bluetoothGranted,
+                reader != null, reader != null && manager != null && manager.hasPermission(reader), true);
             return;
         }
 
@@ -255,7 +252,7 @@ public class SezaDeviceControlPlugin extends Plugin {
                 fallback = device;
             }
         }
-        return fallback;
+        return null; // Never call a printer or another composite USB device an M2.
     }
 
     private void requestStripeUsbPermission(

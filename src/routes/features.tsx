@@ -23,13 +23,13 @@ import { MarketingShell } from "@/components/marketing/MarketingShell";
 export const Route = createFileRoute("/features")({
   head: () => ({
     meta: [
-      { title: "Features  -  SEZA POS" },
+      { title: "Features - SEZA POS" },
       {
         name: "description",
         content:
-          "Fast checkout, inventory tracking, employee time clock, refunds, SMS and email receipts, reports, and more  -  everything a modern retail store needs.",
+          "Fast checkout, inventory tracking, employee time clock, refunds, SMS and email receipts, reports, and more - everything a modern retail store needs.",
       },
-      { property: "og:title", content: "Features  -  SEZA POS" },
+      { property: "og:title", content: "Features - SEZA POS" },
       {
         property: "og:description",
         content: "Everything a modern retail store needs, in one cloud POS.",
@@ -54,7 +54,7 @@ const GROUPS: {
       {
         icon: ScanBarcode,
         title: "Barcode & keypad checkout",
-        body: "Scan or type  -  supports USB and Bluetooth scanners, custom items, and quick keys.",
+        body: "Scan or type - supports USB and Bluetooth scanners, custom items, and quick keys.",
       },
       {
         icon: CreditCard,
@@ -132,7 +132,7 @@ const GROUPS: {
       {
         icon: Wifi,
         title: "Cloud sync",
-        body: "Your data lives in the cloud  -  access it from any device, anywhere.",
+        body: "Your data lives in the cloud - access it from any device, anywhere.",
       },
       {
         icon: Printer,
@@ -174,12 +174,14 @@ function FeaturesPage() {
           <div className="max-w-6xl mx-auto px-6 py-14">
             <h2 className="text-2xl font-bold tracking-tight">{g.title}</h2>
             <p className="mt-2 text-muted-foreground max-w-2xl">{g.blurb}</p>
-            <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-8 divide-y border-y">
               {g.items.map((it) => (
-                <div key={it.title} className="rounded-xl border p-6">
-                  <it.icon className="h-6 w-6 text-primary" />
-                  <h3 className="mt-3 font-semibold">{it.title}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{it.body}</p>
+                <div key={it.title} className="flex gap-4 py-5">
+                  <it.icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <div>
+                    <h3 className="font-semibold">{it.title}</h3>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">{it.body}</p>
+                  </div>
                 </div>
               ))}
             </div>

@@ -40,7 +40,7 @@ function PrivacyChoicesPage() {
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:py-12">
       <div className="mx-auto max-w-3xl overflow-hidden rounded-3xl border bg-white shadow-xl">
-        <div className="bg-gradient-to-br from-blue-700 to-blue-500 p-6 text-white sm:p-8">
+        <div className="bg-blue-700 p-6 text-white sm:p-8">
           <div className="flex items-center gap-3"><ShieldCheck className="size-8" /><div><h1 className="text-2xl font-black">Your Privacy Choices</h1><p className="mt-1 text-sm text-blue-100">Choose how optional browser data may be used.</p></div></div>
         </div>
         <div className="space-y-5 p-5 sm:p-8">

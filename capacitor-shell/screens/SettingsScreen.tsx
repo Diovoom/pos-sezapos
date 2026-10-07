@@ -1,3 +1,4 @@
+import { READER_CONNECTION_MESSAGE } from "@/lib/hardware/reader-diagnostics";
 // POS-terminal Settings for the bundled Android shell.
 //
 // Intentionally scoped to what makes sense on a physical register:
@@ -421,7 +422,7 @@ function TerminalPanel() {
           <div className="flex items-center justify-between"><span className="text-muted-foreground">Capability</span><span className="font-medium">{capacityLabel}</span></div>
           <div className="flex items-center justify-between"><span className="text-muted-foreground">Connection</span>
             <span>{connected === activeId && activeId !== "none" ? <Badge variant="secondary">Connected</Badge> : <Badge variant="outline">Not connected</Badge>}</span></div>
-          {lastError ? <div className="mt-1 text-xs text-destructive">Reader status: {userFacingError(lastError, "Needs attention")}</div> : null}
+          {lastError ? <div className="mt-1 text-xs text-destructive">Reader status: {READER_CONNECTION_MESSAGE}</div> : null}
         </div>
 
         {activeId !== "none" && !pluginOk && (

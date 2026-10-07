@@ -17,7 +17,7 @@ const helpLinks = [
 
 export function OwnerDashboardFooter() {
   return (
-    <footer className="mt-8 overflow-hidden rounded-3xl border bg-gradient-to-br from-white via-white to-blue-50 text-slate-950 shadow-sm dark:from-slate-950 dark:via-slate-950 dark:to-blue-950 dark:text-white">
+    <footer className="mt-8 overflow-hidden rounded-xl border bg-white text-slate-950 shadow-sm dark:bg-slate-950 dark:text-white">
       <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[1.2fr_1fr_1fr]">
         <div>
           <div className="flex items-center gap-3">

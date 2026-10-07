@@ -29,18 +29,16 @@ function StatusPage() {
   return (
     <MarketingShell>
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-16">
-        <div className={`rounded-3xl border p-7 ${operational ? "border-emerald-300 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
-          <div className="flex items-center gap-4">
-            <div className={`grid size-12 place-items-center rounded-full ${operational ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}>
-              {health.isLoading ? <Loader2 className="size-7 animate-spin" /> : operational ? <CheckCircle2 className="size-7" /> : <AlertTriangle className="size-7" />}
-            </div>
+        <div className={`border-y py-7 ${operational ? "border-emerald-300" : "border-amber-300"}`}>
+          <div className="flex items-start gap-4">
+            {health.isLoading ? <Loader2 className="mt-0.5 size-6 animate-spin text-primary" /> : operational ? <CheckCircle2 className="mt-0.5 size-6 text-emerald-700" /> : <AlertTriangle className="mt-0.5 size-6 text-amber-700" />}
             <div>
               <h1 className="text-2xl font-bold">{health.isLoading ? "Checking SEZA POS…" : operational ? "All systems operational" : "SEZA POS is experiencing an issue"}</h1>
               <p className="mt-1 text-sm text-muted-foreground">Public service status. Refreshed automatically.</p>
             </div>
           </div>
         </div>
-        <div className="mt-8 rounded-3xl border p-7">
+        <div className="mt-8 border-t pt-7">
           <h2 className="text-xl font-bold">Need help?</h2>
           <p className="mt-2 text-muted-foreground">If your register or account is not working as expected, contact SEZA Support.</p>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row">

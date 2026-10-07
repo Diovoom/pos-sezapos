@@ -50,7 +50,7 @@ function PricingPage() {
           </h1>
           <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">
             Try SEZA for 14 days with the tools you need to test your store. No credit card
-            required. Choose the plan that best fits your business - you can change it before
+            required. Choose the plan that best fits your business; you can change it before
             billing begins.
           </p>
         </div>
@@ -63,15 +63,15 @@ function PricingPage() {
                 key={plan.id}
                 className={`rounded-xl border p-6 flex flex-col ${
                   plan.highlight
-                    ? "border-primary shadow-lg ring-1 ring-primary/20 relative"
+                    ? "border-primary relative"
                     : isSelected
-                      ? "border-primary/60 ring-1 ring-primary/10"
+                      ? "border-primary/60"
                       : ""
                 }`}
               >
                 {plan.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-medium px-3 py-1 rounded-full">
-                    Most popular
+                  <div className="mb-4 border-b border-primary pb-2 text-xs font-semibold text-primary">
+                    Recommended
                   </div>
                 )}
                 <h2 className="text-xl font-semibold">{plan.name}</h2>

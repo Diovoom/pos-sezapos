@@ -1,5 +1,6 @@
+import { READER_CONNECTION_MESSAGE } from "@/lib/hardware/reader-diagnostics";
 import { nativeFetch, userSafeNetworkMessage } from "../lib/nativeHttp";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { SEZA_LOGO_URL } from "../logo";
 import { API_BASE_URL } from "../supabase";
@@ -13,13 +14,17 @@ export function PairDeviceScreen() {
   const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
+  const pairingInFlight = useRef(false);
   const [err, setErr] = useState<string | null>(null);
 
   const submit = async () => {
     const c = code.trim().toUpperCase();
     if (!/^[A-Z2-9]{10}$/.test(c)) { setErr("Enter the full 10-character pairing code."); return; }
+    if (pairingInFlight.current) return;
+    pairingInFlight.current = true;
     setBusy(true); setErr(null);
     try {
+      await resetStripeTerminalForMerchantSwitch(async () => {
       const res = await nativeFetch(`${API_BASE_URL}/api/public/pos/pair-device`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -41,8 +46,6 @@ export function PairDeviceScreen() {
       // A physical M2 can be reused by another merchant, but Stripe Terminal
       // keeps native account credentials across WebView/store pairing changes.
       // Reset that old merchant session before this install adopts the new one.
-      await resetStripeTerminalForMerchantSwitch();
-
       await setPairing({
         deviceId: data.device_id,
         deviceSecret: data.device_secret,
@@ -74,9 +77,11 @@ export function PairDeviceScreen() {
       ]).catch((cacheError) => { if (import.meta.env.DEV) console.warn("[SEZA POS] pairing bootstrap cache warning", cacheError); });
 
       navigate({ to: "/auth", replace: true });
+      });
     } catch (e) {
-      if (import.meta.env.DEV) console.error("[SEZA POS] pairing transport error", e); setErr(userSafeNetworkMessage());
+      setErr(e instanceof Error && e.message === READER_CONNECTION_MESSAGE ? READER_CONNECTION_MESSAGE : userSafeNetworkMessage());
     } finally {
+      pairingInFlight.current = false;
       setBusy(false);
     }
   };

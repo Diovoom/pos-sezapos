@@ -238,7 +238,7 @@ export function WebsiteLiveChat() {
           const session = readSession();
           if (session) void poll(session);
         }}
-        className="fixed bottom-20 right-4 z-[75] grid size-14 place-items-center rounded-full border border-blue-600 bg-blue-700 text-white shadow-[0_18px_45px_-16px_rgba(30,64,175,0.85)] transition-all hover:-translate-y-0.5 hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 sm:bottom-6 sm:right-6"
+        className="fixed bottom-20 right-4 z-[75] grid size-12 place-items-center rounded-lg border border-blue-700 bg-blue-700 text-white transition-colors hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 sm:bottom-6 sm:right-6"
         aria-label={chat && !isEnded ? "Reopen SEZA live chat" : "Open SEZA live chat"}
         title={chat && !isEnded ? "Reopen live chat" : "Live chat"}
       >
@@ -257,7 +257,7 @@ export function WebsiteLiveChat() {
       aria-modal="true"
       aria-label="SEZA live chat"
     >
-      <section className="flex h-[min(720px,92dvh)] w-full max-w-md flex-col overflow-hidden rounded-[28px] border border-blue-200 bg-white shadow-2xl dark:border-blue-400/20 dark:bg-slate-950">
+      <section className="flex h-[min(720px,92dvh)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-blue-200 bg-white dark:border-blue-400/20 dark:bg-slate-950">
         <header className="flex items-start justify-between gap-4 border-b border-blue-800 bg-blue-800 px-5 py-4 text-white">
           <div className="flex min-w-0 items-center gap-3">
             <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white text-blue-800">

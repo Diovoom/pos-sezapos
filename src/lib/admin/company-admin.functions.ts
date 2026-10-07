@@ -140,6 +140,19 @@ async function updateSupportTicketCompat(
   throw new Error("Support case update could not be applied to the current database schema");
 }
 
+// A stale tab must not overwrite a claim or a lifecycle transition made by
+// another admin. Read markers deliberately are not part of this predicate.
+async function updateSupportCaseState(admin: any, ticket: any, patch: Record<string, unknown>) {
+  let query = admin.from("support_tickets").update(patch)
+    .eq("id", ticket.id).eq("status", ticket.status);
+  query = ticket.assigned_admin_id
+    ? query.eq("assigned_admin_id", ticket.assigned_admin_id)
+    : query.is("assigned_admin_id", null);
+  const { data, error } = await query.select("id").maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("This case changed in another window. Refresh before continuing.");
+}
+
 async function readPlatformSettingsAuditFallback(supabaseAdmin: any) {
   const { data, error } = await supabaseAdmin
     .from("audit_log")
@@ -1088,7 +1101,7 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
 
     const [
       { data: notes, error: notesError },
-      { data: events },
+      { data: events, error: eventsError },
       { data: store },
       { data: assignee },
       { data: requester },
@@ -1149,6 +1162,19 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
     ]);
 
     if (notesError) throw new Error(notesError.message);
+    let lifecycleEvents = events ?? [];
+    if (eventsError && isMissingRelationError(eventsError, "support_ticket_events")) {
+      const { data: history } = await optionalSupportRead(supabaseAdmin.from("audit_log")
+        .select("id,actor_id,actor_email,action,details,created_at")
+        .eq("entity", "ticket").eq("entity_id", data.ticketId)
+        .order("created_at", { ascending: true }), "case audit history");
+      lifecycleEvents = (history ?? []).map((event: any) => ({
+        ...event,
+        event_type: String(event.action).replace(/^admin\.ticket\./, ""),
+        from_status: event.details?.from ?? null,
+        to_status: event.details?.to ?? null,
+      }));
+    }
     const noteAuthorIds = Array.from(
       new Set((notes ?? []).map((note: any) => note.author_id).filter(Boolean)),
     );
@@ -1242,7 +1268,7 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
           .order("updated_at", { ascending: false })
           .limit(6),
         (supabaseAdmin.from as any)("admin_support_sessions")
-          .select("id,status,client_capability,requested_at,started_at,ended_at,expires_at,decision_note")
+          .select("id,status,client_capability,requested_at,started_at,ended_at,expires_at,decision_note,reason")
           .eq("store_id", ticket.store_id)
           .order("requested_at", { ascending: false })
           .limit(8),
@@ -1281,6 +1307,13 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
       const lastSeenMs = latestDevice?.last_seen_at ? new Date(latestDevice.last_seen_at).getTime() : 0;
 
       diagnostics = {
+        unavailable: [
+          ["Devices", devicesRes], ["Recent sales", recentSalesRes],
+          ["Sales totals", sales24hRes], ["Offline totals", offline24hRes],
+          ["Payment attempts", attemptsRes], ["Terminals", terminalsRes],
+          ["Register sessions", registerSessionsRes], ["Screen sharing", supportSessionsRes],
+          ["Subscription", subscriptionsRes], ["Audit history", auditRes],
+        ].filter(([, result]: any) => result.error).map(([label]) => label),
         generated_at: new Date().toISOString(),
         device_online: Boolean(lastSeenMs && Date.now() - lastSeenMs < 2 * 60 * 1000),
         latest_device: latestDevice,
@@ -1307,8 +1340,11 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
       };
     }
 
+    const previousInvestigation = [...lifecycleEvents].reverse().find((event: any) => event.event_type === "investigation_started");
     const compatibleTicket = {
       ...ticket,
+      investigation_started_at: ticket.investigation_started_at ?? previousInvestigation?.created_at ?? null,
+      investigation_started_by: ticket.investigation_started_by ?? previousInvestigation?.actor_id ?? null,
       chat_status:
         ticket.chat_status ??
         (["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active"),
@@ -1321,7 +1357,7 @@ export const adminGetSupportCase = createServerFn({ method: "POST" })
       messages: publicMessages,
       problem_message: problemMessage,
       internal_notes: enrichedNotes.filter((note: any) => note.internal),
-      events: events ?? [],
+      events: lifecycleEvents,
       store: store ?? null,
       assignee: assignee ?? null,
       requester: requester ?? null,
@@ -1345,13 +1381,14 @@ export const adminClaimSupportCase = createServerFn({ method: "POST" })
       throw new Error("This case is already claimed by another admin");
     }
 
-    await updateSupportTicketCompat(supabaseAdmin, data.ticketId, {
+    if (["resolved", "closed"].includes(ticket.status)) throw new Error("Reopen this case before claiming it");
+    if (ticket.assigned_admin_id === context.userId) return { ok: true };
+    await updateSupportCaseState(supabaseAdmin, ticket, {
       assigned_admin_id: context.userId,
       claimed_at: new Date().toISOString(),
       chat_status: "active",
       chat_ended_at: null,
       chat_ended_by: null,
-      last_admin_read_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
 
@@ -1394,7 +1431,8 @@ export const adminReleaseSupportCase = createServerFn({ method: "POST" })
     }
 
     const reason = cleanText(data.reason || "Released for another support admin.", 1000);
-    await updateSupportTicketCompat(supabaseAdmin, data.ticketId, {
+    await updateSupportCaseState(supabaseAdmin, ticket, {
+      status: ["investigating", "in_progress"].includes(ticket.status) ? "open" : ticket.status,
       assigned_admin_id: null,
       claimed_at: null,
       updated_at: new Date().toISOString(),
@@ -1442,6 +1480,11 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!ticket) throw new Error("Support case not found");
 
+    if (ticket.assigned_admin_id && ticket.assigned_admin_id !== context.userId) {
+      throw new Error("Only the assigned admin can change this case. Ask them to release it first.");
+    }
+    // Repeated clicks/replays acknowledge the already-persisted state.
+    if (ticket.status === data.status) return { ok: true };
     const currentStatus =
       (
         {
@@ -1478,6 +1521,8 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
     let eventType = "status_changed";
     if (data.status === "investigating") {
       patch.claimed_at = ticket.claimed_at ?? now;
+      patch.investigation_started_at = now;
+      patch.investigation_started_by = context.userId;
       patch.chat_status = "active";
       patch.chat_ended_at = null;
       patch.chat_ended_by = null;
@@ -1526,7 +1571,7 @@ export const adminTransitionSupportCase = createServerFn({ method: "POST" })
 
     const reason = cleanText(data.reason, 2000);
     patch.updated_at = now;
-    await updateSupportTicketCompat(supabaseAdmin, data.ticketId, patch);
+    await updateSupportCaseState(supabaseAdmin, ticket, patch);
 
     await insertCaseEvent(
       supabaseAdmin,
@@ -1616,6 +1661,12 @@ export const adminSendSupportMessage = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!ticket) throw new Error("Support case not found");
 
+    if (!data.internal && ticket.assigned_admin_id !== context.userId) {
+      throw new Error("Claim this case before replying");
+    }
+    if (!data.internal && (["resolved", "closed"].includes(ticket.status) || ticket.chat_status === "ended")) {
+      throw new Error("Reopen the case before replying");
+    }
     const enhancedMessage = await (supabaseAdmin.from as any)("support_ticket_notes").insert({
       ticket_id: data.ticketId,
       author_id: context.userId,
@@ -1625,6 +1676,9 @@ export const adminSendSupportMessage = createServerFn({ method: "POST" })
       sender_kind: "admin",
     });
     if (enhancedMessage.error) {
+      if (missingColumnName(enhancedMessage.error) !== "sender_kind") {
+        throw new Error(enhancedMessage.error.message);
+      }
       const fallbackMessage = await supabaseAdmin.from("support_ticket_notes").insert({
         ticket_id: data.ticketId,
         author_id: context.userId,
@@ -1637,7 +1691,6 @@ export const adminSendSupportMessage = createServerFn({ method: "POST" })
 
     if (!data.internal) {
       const patch: Record<string, unknown> = {
-        last_admin_read_at: new Date().toISOString(),
         chat_status: ticket.chat_status === "ended" ? "ended" : "active",
       };
       if (!ticket.first_response_at) patch.first_response_at = new Date().toISOString();
@@ -1860,7 +1913,6 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "GET" }
       storeResult,
       rolesResult,
       devicesResult,
-      diagnosticsResult,
       subscriptionsResult,
       ticketsResult,
       activityResult,
@@ -1894,15 +1946,6 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "GET" }
           )
           .eq("store_id", storeId)
           .order("paired_at", { ascending: false }),
-        emptyRows,
-        7000,
-      ),
-      withTimeout(
-        (supabaseAdmin.from as any)("admin_device_diagnostics")
-          .select(
-            "device_id,subsystem,stage,status,transport,reader_discovered,reader_serial,stripe_plugin_linked,merchant_ready,terminal_location_ready,connection_token_requested,connection_token_delivered,native_error_code,native_error,app_version,occurred_at,updated_at",
-          )
-          .eq("store_id", storeId),
         emptyRows,
         7000,
       ),
@@ -1968,13 +2011,13 @@ export const adminGetPrivateBusinessWorkspace = createServerFn({ method: "GET" }
         )
       : emptyRows;
 
-    const diagnosticByDevice = new Map<string, any>(
-      (diagnosticsResult.data ?? []).map((row: any) => [String(row.device_id), row]),
+    const { data: readerDiagnostics } = await withTimeout(
+      (supabaseAdmin.from as any)("admin_device_diagnostics")
+        .select("device_id,diagnostic,app_version,received_at").eq("store_id", storeId),
+      emptyRows, 3000,
     );
-    const devices = (devicesResult.data ?? []).map((device: any) => ({
-      ...device,
-      diagnostic: diagnosticByDevice.get(String(device.id)) ?? null,
-    }));
+    const readerDiagnosticByDevice = new Map((readerDiagnostics ?? []).map((row: any) => [row.device_id, row]));
+    const devices = (devicesResult.data ?? []).map((device: any) => ({ ...device, reader_diagnostic: readerDiagnosticByDevice.get(device.id) ?? null }));
     const tickets = (ticketsResult.data ?? []).map((ticket: any) => ({
       ...ticket,
       chat_status: ["resolved", "closed"].includes(String(ticket.status)) ? "ended" : "active",

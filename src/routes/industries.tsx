@@ -105,36 +105,36 @@ function IndustriesPage() {
         </h1>
         <p className="mt-5 text-lg text-muted-foreground">
           SEZA POS is used across convenience, liquor, grocery, café, and specialty retail. The core
-          is the same modern cloud platform - the workflows are tuned for the way your industry
+          is the same modern cloud platform; the workflows are tuned for the way your industry
           runs.
         </p>
       </section>
 
-      <section className="max-w-6xl mx-auto px-6 pb-16 grid gap-6 md:grid-cols-2">
-        {INDUSTRIES.map((i) => (
-          <div key={i.name} className="rounded-xl border p-6">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 grid place-items-center">
-                <i.icon className="h-5 w-5 text-primary" />
+      <section className="mx-auto max-w-5xl px-6 pb-16">
+        <div className="divide-y border-y">
+          {INDUSTRIES.map((i) => (
+            <div key={i.name} className="grid gap-4 py-6 md:grid-cols-[220px_1fr]">
+              <div className="flex items-start gap-3">
+                <i.icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <div>
+                  <h3 className="font-semibold">{i.name}</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{i.tagline}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold">{i.name}</h3>
-                <p className="text-xs text-muted-foreground">{i.tagline}</p>
-              </div>
+              <ul className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                {i.features.map((f) => (
+                  <li key={f}>• {f}</li>
+                ))}
+              </ul>
             </div>
-            <ul className="mt-4 space-y-1 text-sm text-muted-foreground">
-              {i.features.map((f) => (
-                <li key={f}>• {f}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
+          ))}
+        </div>
       </section>
 
       <section className="max-w-3xl mx-auto px-6 py-12 text-center">
         <h2 className="text-2xl font-bold tracking-tight">Don't see your industry?</h2>
         <p className="mt-2 text-muted-foreground">
-          SEZA's core is flexible - most retail formats work out of the box.
+          SEZA's core is flexible, and most retail formats work out of the box.
         </p>
         <div className="mt-6 flex flex-wrap gap-3 justify-center">
           <Button asChild size="lg">

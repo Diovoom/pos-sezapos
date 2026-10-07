@@ -7,13 +7,13 @@ import { Shield, Lock, Cloud, KeyRound, Eye, Server, AlertTriangle, FileCheck } 
 export const Route = createFileRoute("/security")({
   head: () => ({
     meta: [
-      { title: "Security  -  SEZA POS" },
+      { title: "Security, SEZA POS" },
       {
         name: "description",
         content:
           "How SEZA POS protects merchant data through encrypted connections, row-level authorization, role controls, audited operations, signed payment webhooks and Stripe-hosted billing.",
       },
-      { property: "og:title", content: "Security  -  SEZA POS" },
+      { property: "og:title", content: "Security, SEZA POS" },
       {
         property: "og:description",
         content:
@@ -48,7 +48,7 @@ const PILLARS = [
   {
     icon: Eye,
     title: "Audit history",
-    body: "Sensitive operations - including refunds, voids, cash movements, permission changes and admin actions - can be recorded for review.",
+    body: "Sensitive operations including refunds, voids, cash movements, permission changes and admin actions, can be recorded for review.",
   },
   {
     icon: FileCheck,
@@ -72,16 +72,18 @@ function SecurityPage() {
         </p>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-6 px-6 pb-16 md:grid-cols-2 lg:grid-cols-3">
-        {PILLARS.map((pillar) => (
-          <div key={pillar.title} className="rounded-2xl border p-6">
-            <div className="grid size-10 place-items-center rounded-lg bg-primary/10">
-              <pillar.icon className="size-5 text-primary" />
+      <section className="mx-auto max-w-5xl px-6 pb-16">
+        <div className="divide-y border-y">
+          {PILLARS.map((pillar) => (
+            <div key={pillar.title} className="flex gap-4 py-5">
+              <pillar.icon className="mt-0.5 size-5 shrink-0 text-primary" />
+              <div>
+                <h3 className="font-semibold">{pillar.title}</h3>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">{pillar.body}</p>
+              </div>
             </div>
-            <h3 className="mt-3 font-semibold">{pillar.title}</h3>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">{pillar.body}</p>
-          </div>
-        ))}
+          ))}
+        </div>
       </section>
 
       <section className="mx-auto max-w-3xl space-y-8 px-6 py-12">

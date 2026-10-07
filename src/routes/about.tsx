@@ -9,12 +9,12 @@ import { Shield, Zap, Heart, Users, Lock, Cloud } from "lucide-react";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About Us  -  SEZA POS" },
+      { title: "About Us - SEZA POS" },
       {
         name: "description",
         content: `Learn about ${LEGAL_CONFIG.companyName}, the team behind SEZA POS, our mission, values, and commitment to building reliable point-of-sale software for independent retailers.`,
       },
-      { property: "og:title", content: "About Us  -  SEZA POS" },
+      { property: "og:title", content: "About Us - SEZA POS" },
       {
         property: "og:description",
         content: "Our mission, values, and commitment to independent retailers.",
@@ -77,14 +77,13 @@ function AboutPage() {
         <p>
           Legacy POS software is expensive, slow to update, and locks merchants into hardware they
           don't need. Newer alternatives often skip the depth that real stores require: shifts,
-          refunds, purchase orders, tax rules, offline fallback. We built SEZA to close that gap -
-          modern cloud infrastructure, real depth, honest pricing.
+          refunds, purchase orders, tax rules, offline fallback. We built SEZA to close that gap: modern cloud infrastructure, real depth, honest pricing.
         </p>
       </Section>
 
       <section className="max-w-5xl mx-auto px-6 py-12">
         <h2 className="text-2xl font-bold tracking-tight text-center mb-8">Our values</h2>
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="divide-y border-y">
           {[
             {
               icon: Zap,
@@ -94,7 +93,7 @@ function AboutPage() {
             {
               icon: Shield,
               title: "Trust is earned",
-              body: "We treat merchant data with the same care we would want for our own business. Security is not a feature  -  it is the foundation.",
+              body: "We treat merchant data with the same care we would want for our own business. Security is not a feature - it is the foundation.",
             },
             {
               icon: Heart,
@@ -117,17 +116,19 @@ function AboutPage() {
               body: "Cloud software should get better every week. We release incrementally so improvements land quickly and safely.",
             },
           ].map((v) => (
-            <div key={v.title} className="rounded-xl border p-6">
-              <v.icon className="h-6 w-6 text-primary" />
-              <h3 className="mt-3 font-semibold">{v.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{v.body}</p>
+            <div key={v.title} className="flex gap-4 py-5">
+              <v.icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div>
+                <h3 className="font-semibold">{v.title}</h3>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">{v.body}</p>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
       <section className="mx-auto max-w-5xl px-6 py-12">
-        <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
           <div className="grid md:grid-cols-[0.8fr_1.2fr]">
             <img
               src="/dave-arthur-marcelin-founder.jpg"
@@ -139,7 +140,7 @@ function AboutPage() {
               className="h-full max-h-[520px] w-full object-cover object-top"
             />
             <div className="flex flex-col justify-center p-7 sm:p-10">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Founder</p>
+              <p className="text-sm font-semibold text-primary">Founder</p>
               <h2 className="mt-2 text-3xl font-bold tracking-tight">Dave Arthur Marcelin</h2>
               <p className="mt-4 leading-7 text-muted-foreground">
                 Dave leads SEZA's product vision and development, with a focus on building practical technology for independent retailers.

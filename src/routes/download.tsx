@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CheckCircle2, Download, MonitorSmartphone, RefreshCw, ShieldCheck } from "lucide-react";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { dashboardUrl } from "@/lib/host";
 
 const DOWNLOAD_TITLE = "Download SEZA POS for Android | SEZA POS";
@@ -24,13 +23,10 @@ export const Route = createFileRoute("/download")({
 function DownloadPage() {
   return (
     <MarketingShell>
-      <section className="border-b border-slate-200 bg-gradient-to-b from-blue-50/80 to-white px-5 py-16 dark:border-white/10 dark:from-blue-950/20 dark:to-slate-950 sm:py-20">
+      <section className="border-b border-slate-200 bg-white px-5 py-16 dark:border-white/10 dark:bg-slate-950 sm:py-20">
         <div className="mx-auto max-w-5xl">
           <div className="mx-auto max-w-3xl text-center">
-            <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-blue-700 text-white shadow-lg shadow-blue-700/20">
-              <Download className="size-7" />
-            </div>
-            <p className="mt-6 text-sm font-bold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
+            <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
               Official Android app
             </p>
             <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 dark:text-white sm:text-5xl">
@@ -60,35 +56,20 @@ function DownloadPage() {
       </section>
 
       <section className="px-5 py-12 sm:py-16">
-        <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <MonitorSmartphone className="size-6 text-blue-700" />
-              <CardTitle className="pt-2">Install on the register</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm leading-6 text-muted-foreground">
-              Open this page from the Android POS browser and download the official SEZA POS APK.
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <ShieldCheck className="size-6 text-blue-700" />
-              <CardTitle className="pt-2">Pair it securely</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm leading-6 text-muted-foreground">
-              After installation, use the Owner Dashboard to generate a pairing code for the correct
-              business and register.
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <RefreshCw className="size-6 text-blue-700" />
-              <CardTitle className="pt-2">Use the latest build</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm leading-6 text-muted-foreground">
-              This link always points to the current production APK published by SEZA.
-            </CardContent>
-          </Card>
+        <div className="mx-auto max-w-5xl divide-y border-y">
+          {[
+            { icon: MonitorSmartphone, title: "Install on the register", body: "Open this page from the Android POS browser and download the official SEZA POS APK." },
+            { icon: ShieldCheck, title: "Pair it securely", body: "After installation, use the Owner Dashboard to generate a pairing code for the correct business and register." },
+            { icon: RefreshCw, title: "Use the latest build", body: "This link always points to the current production APK published by SEZA." },
+          ].map((item) => (
+            <div key={item.title} className="flex gap-4 py-5">
+              <item.icon className="mt-0.5 size-5 shrink-0 text-blue-700" />
+              <div>
+                <h2 className="font-semibold">{item.title}</h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.body}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="mx-auto mt-8 max-w-5xl rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/[0.03]">

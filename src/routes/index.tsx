@@ -12,18 +12,13 @@ import {
   Cloud,
   CreditCard,
   Fingerprint,
-  Gauge,
-  HardDriveDownload,
   Headphones,
   Laptop,
-  LockKeyhole,
   MonitorSmartphone,
   Package,
   Printer,
   ReceiptText,
-  RefreshCw,
   ScanLine,
-  ShieldCheck,
   ShoppingBag,
   Smartphone,
   Sparkles,
@@ -54,7 +49,7 @@ const HOME_REPORTS_SRC = "/images/home-reports-960.webp";
 const HOME_REPORTS_SRCSET =
   "/images/home-reports-640.webp 640w, /images/home-reports-960.webp 960w, /images/home-reports-1280.webp 1280w, /images/home-reports-1536.webp 1536w";
 
-const HOME_TITLE = "SEZA POS | Everything your store needs — Working as one.";
+const HOME_TITLE = "SEZA POS | Everything your store needs. Working as one.";
 const HOME_DESCRIPTION =
   "SEZA POS is a complete retail system for independent stores, bringing register hardware, payments, inventory, cash control, employee management, receipts and reporting together.";
 
@@ -293,9 +288,6 @@ function LandingPage() {
   return (
     <MarketingShell>
       <section className="relative isolate overflow-hidden">
-        <div className="absolute left-1/2 top-[-250px] -z-10 h-[560px] w-[760px] -translate-x-1/2 rounded-full bg-blue-500/15 blur-3xl" />
-        <div className="absolute -left-24 top-1/2 -z-10 size-80 rounded-full bg-cyan-300/10 blur-3xl" />
-
         <div className="mx-auto max-w-7xl px-6 pb-20 pt-8 sm:pt-12 lg:px-8 lg:pb-28 lg:pt-16">
           <div className="mx-auto max-w-4xl text-center">
             <Reveal>
@@ -312,7 +304,7 @@ function LandingPage() {
                 <Button
                   asChild
                   size="lg"
-                  className="h-13 w-full rounded-full px-7 text-base shadow-[0_18px_45px_-18px_rgba(37,99,235,0.9)] sm:w-auto"
+                  className="h-13 w-full rounded-lg px-7 text-base sm:w-auto"
                 >
                   <a href={dashboardUrl("/signup")} target="_blank" rel="noopener noreferrer">
                     Start free trial <ArrowRight className="size-4" />
@@ -322,7 +314,7 @@ function LandingPage() {
                   asChild
                   size="lg"
                   variant="outline"
-                  className="h-13 w-full rounded-full border-slate-300 bg-white/75 px-7 text-base backdrop-blur sm:w-auto dark:border-white/15 dark:bg-white/5"
+                  className="h-13 w-full rounded-lg border-slate-300 bg-white px-7 text-base sm:w-auto dark:border-white/15 dark:bg-slate-950"
                 >
                   <a href="#inside-seza">See what is inside</a>
                 </Button>
@@ -336,8 +328,7 @@ function LandingPage() {
           </div>
 
           <Reveal className="relative mx-auto mt-14 max-w-6xl lg:mt-18" delay={120}>
-            <div className="absolute -inset-6 -z-10 rounded-[42px] bg-blue-100/80 blur-2xl dark:bg-blue-900/25" />
-            <div className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-slate-950 p-2 shadow-[0_45px_110px_-45px_rgba(15,23,42,0.7)] sm:p-3">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950 p-2 sm:p-3">
               <div className="flex items-center justify-between rounded-t-[22px] bg-slate-900 px-4 py-3 text-xs text-slate-400">
                 <div className="flex items-center gap-2">
                   <span className="size-2.5 rounded-full bg-rose-400/80" />
@@ -388,10 +379,10 @@ function LandingPage() {
         <Reveal className="mx-auto max-w-7xl">
           <Link
             to="/hardware"
-            className="group relative grid overflow-hidden rounded-[30px] border border-blue-900 bg-blue-800 px-6 py-8 text-white shadow-[0_28px_80px_-38px_rgba(30,64,175,0.9)] transition-all hover:-translate-y-0.5 hover:bg-blue-900 hover:shadow-[0_36px_90px_-38px_rgba(30,64,175,1)] sm:px-9 lg:grid-cols-[1fr_auto] lg:items-center lg:px-12"
+            className="group grid border-y border-blue-900 bg-blue-800 px-2 py-8 text-white transition-colors hover:bg-blue-900 sm:px-4 lg:grid-cols-[1fr_auto] lg:items-center"
           >
             <div className="relative">
-              <div className="text-xs font-bold uppercase tracking-[0.15em] text-blue-100">
+              <div className="text-sm font-semibold text-blue-100">
                 Hardware planning
               </div>
               <h2 className="mt-5 text-balance text-3xl font-black tracking-[-0.035em] sm:text-4xl">
@@ -403,7 +394,7 @@ function LandingPage() {
               </p>
             </div>
             <div className="relative mt-7 flex items-center gap-3 lg:mt-0 lg:pl-10">
-              <span className="inline-flex h-12 items-center rounded-full bg-white px-6 text-sm font-black text-blue-700 shadow-lg transition-transform group-hover:scale-[1.03]">
+              <span className="inline-flex h-12 items-center rounded-lg bg-white px-6 text-sm font-black text-blue-700">
                 Build your setup <ArrowRight className="ml-2 size-4" />
               </span>
             </div>
@@ -414,7 +405,7 @@ function LandingPage() {
       <section id="inside-seza" className="scroll-mt-28 bg-slate-50/75 py-24 dark:bg-slate-950/55">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <Reveal className="max-w-3xl">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">
+            <p className="text-sm font-semibold text-primary">
               One connected operating system
             </p>
             <h2 className="mt-4 text-balance text-4xl font-black tracking-[-0.035em] sm:text-5xl">
@@ -426,33 +417,28 @@ function LandingPage() {
             </p>
           </Reveal>
 
-          <div className="mt-12 grid gap-5 lg:grid-cols-2">
-            {capabilityGroups.map((group, index) => (
-              <Reveal key={group.title} delay={(index % 2) * 90}>
-                <article className="group h-full rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_12px_40px_-30px_rgba(15,23,42,0.6)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-[0_30px_70px_-35px_rgba(37,99,235,0.42)] sm:p-8 dark:border-white/10 dark:bg-slate-900/70">
-                  <div className="flex items-start gap-4">
-                    <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-105">
-                      <group.icon className="size-6" />
-                    </span>
+          <div className="mt-12 divide-y border-y">
+            {capabilityGroups.map((group) => (
+              <Reveal key={group.title}>
+                <article className="grid gap-5 py-7 lg:grid-cols-[280px_1fr]">
+                  <div className="flex items-start gap-3">
+                    <group.icon className="mt-0.5 size-5 shrink-0 text-primary" />
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
-                        {group.eyebrow}
-                      </p>
-                      <h3 className="mt-2 text-2xl font-bold tracking-tight">{group.title}</h3>
-                      <p className="mt-3 text-sm leading-6 text-muted-foreground">{group.body}</p>
+                      <p className="text-sm font-semibold text-primary">{group.eyebrow}</p>
+                      <h3 className="mt-1 text-xl font-bold tracking-tight">{group.title}</h3>
                     </div>
                   </div>
-                  <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-                    {group.items.map((item) => (
-                      <li
-                        key={item}
-                        className="flex items-start gap-2 text-sm leading-5 text-slate-700 dark:text-slate-300"
-                      >
-                        <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div>
+                    <p className="text-sm leading-6 text-muted-foreground">{group.body}</p>
+                    <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {group.items.map((item) => (
+                        <li key={item} className="flex items-start gap-2 text-sm leading-5 text-slate-700 dark:text-slate-300">
+                          <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </article>
               </Reveal>
             ))}
@@ -463,7 +449,7 @@ function LandingPage() {
       <section className="overflow-hidden py-24">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <Reveal className="mx-auto max-w-3xl text-center">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">
+            <p className="text-sm font-semibold text-primary">
               Real product views
             </p>
             <h2 className="mt-4 text-balance text-4xl font-black tracking-[-0.035em] sm:text-5xl">
@@ -485,7 +471,7 @@ function LandingPage() {
               />
             </Reveal>
             <Reveal delay={100} className="lg:pl-10">
-              <p className="text-sm font-bold uppercase tracking-[0.16em] text-primary">
+              <p className="text-sm font-semibold text-primary">
                 Inventory that follows the sale
               </p>
               <h3 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
@@ -523,7 +509,7 @@ function LandingPage() {
 
           <div className="mt-20 grid gap-8 lg:grid-cols-2 lg:items-center">
             <Reveal className="order-2 lg:order-1 lg:pr-10">
-              <p className="text-sm font-bold uppercase tracking-[0.16em] text-primary">
+              <p className="text-sm font-semibold text-primary">
                 Reports people can actually use
               </p>
               <h3 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
@@ -541,9 +527,7 @@ function LandingPage() {
                   "Find refunds, voids and cash movements",
                 ].map((item) => (
                   <li key={item} className="flex items-center gap-3 text-sm font-medium">
-                    <span className="grid size-7 place-items-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
-                      <Check className="size-4" />
-                    </span>
+                    <Check className="size-4 shrink-0 text-emerald-600" />
                     {item}
                   </li>
                 ))}
@@ -565,7 +549,7 @@ function LandingPage() {
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <Reveal className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
             <div>
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-300">
+              <p className="text-sm font-semibold text-blue-300">
                 Designed for real counters
               </p>
               <h2 className="mt-4 text-balance text-4xl font-black tracking-[-0.035em] sm:text-5xl">
@@ -594,14 +578,14 @@ function LandingPage() {
             </div>
           </Reveal>
 
-          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {hardware.map((item, index) => (
-              <Reveal key={item.title} delay={(index % 4) * 70}>
-                <div className="group h-full rounded-3xl border border-white/10 bg-white/[0.055] p-5 transition-all hover:-translate-y-1 hover:border-blue-400/35 hover:bg-white/[0.085]">
-                  <span className="grid size-11 place-items-center rounded-2xl bg-blue-500/15 text-blue-300">
-                    <item.icon className="size-5" />
-                  </span>
-                  <h3 className="mt-4 font-bold">{item.title}</h3>
+          <div className="mt-14 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+            {hardware.map((item) => (
+              <Reveal key={item.title}>
+                <div className="border-t border-white/15 pt-4">
+                  <div className="flex items-center gap-2">
+                    <item.icon className="size-5 text-blue-300" />
+                    <h3 className="font-bold">{item.title}</h3>
+                  </div>
                   <p className="mt-2 text-sm leading-6 text-slate-400">{item.body}</p>
                 </div>
               </Reveal>
@@ -613,31 +597,24 @@ function LandingPage() {
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <Reveal className="mx-auto max-w-3xl text-center">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">
+            <p className="text-sm font-semibold text-primary">
               Complete POS system for independent stores
             </p>
             <h2 className="mt-4 text-balance text-4xl font-black tracking-[-0.035em] sm:text-5xl">
               Flexible enough for the store you run today.
             </h2>
           </Reveal>
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {industries.map((industry, index) => (
-              <Reveal key={industry.title} delay={(index % 3) * 80}>
-                <Link
-                  to="/industries"
-                  className="group flex h-full items-start gap-4 rounded-3xl border border-slate-200 bg-white p-6 transition-all hover:-translate-y-1 hover:border-primary/35 hover:shadow-xl dark:border-white/10 dark:bg-slate-900/60"
-                >
-                  <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-                    <industry.icon className="size-6" />
-                  </span>
+          <div className="mt-12 divide-y border-y">
+            {industries.map((industry) => (
+              <Reveal key={industry.title}>
+                <Link to="/industries" className="group flex items-start gap-4 py-5">
+                  <industry.icon className="mt-0.5 size-5 shrink-0 text-primary" />
                   <span className="min-w-0">
                     <span className="flex items-center gap-2 text-lg font-bold">
                       {industry.title}
                       <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
                     </span>
-                    <span className="mt-2 block text-sm leading-6 text-muted-foreground">
-                      {industry.body}
-                    </span>
+                    <span className="mt-1 block text-sm leading-6 text-muted-foreground">{industry.body}</span>
                   </span>
                 </Link>
               </Reveal>
@@ -649,7 +626,7 @@ function LandingPage() {
       <section className="border-y border-slate-200 bg-blue-50/55 py-24 dark:border-white/10 dark:bg-blue-500/5">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <Reveal className="mx-auto max-w-3xl text-center">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">
+            <p className="text-sm font-semibold text-primary">
               Simple, transparent plans
             </p>
             <h2 className="mt-4 text-balance text-4xl font-black tracking-[-0.035em] sm:text-5xl">
@@ -664,12 +641,10 @@ function LandingPage() {
             {SEZA_PLANS.map((plan) => (
               <div
                 key={plan.name}
-                className={`relative rounded-[28px] border p-7 ${plan.highlight ? "border-primary bg-white shadow-[0_30px_80px_-35px_rgba(37,99,235,0.5)] dark:bg-slate-900" : "border-slate-200 bg-white/75 dark:border-white/10 dark:bg-slate-900/50"}`}
+                className={`relative rounded-xl border p-7 ${plan.highlight ? "border-primary bg-white dark:bg-slate-900" : "border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900"}`}
               >
                 {plan.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white">
-                    Most popular
-                  </div>
+                  <div className="mb-4 border-b border-primary pb-2 text-xs font-semibold text-primary">Recommended</div>
                 )}
                 <div className="text-sm font-bold text-primary">{plan.name}</div>
                 <div className="mt-3 flex items-end gap-1">
@@ -689,7 +664,7 @@ function LandingPage() {
             ))}
           </div>
           <div className="mt-8 text-center">
-            <Button asChild variant="outline" size="lg" className="rounded-full bg-white/80">
+            <Button asChild variant="outline" size="lg" className="rounded-lg bg-white">
               <Link to="/pricing">
                 Compare every plan <ArrowRight className="size-4" />
               </Link>
@@ -701,7 +676,7 @@ function LandingPage() {
       <section className="py-24">
         <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
           <Reveal>
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">
+            <p className="text-sm font-semibold text-primary">
               Questions before you begin
             </p>
             <h2 className="mt-4 text-balance text-4xl font-black tracking-[-0.035em] sm:text-5xl">
@@ -726,7 +701,7 @@ function LandingPage() {
             <Accordion
               type="single"
               collapsible
-              className="rounded-[28px] border border-slate-200 bg-white px-5 shadow-sm dark:border-white/10 dark:bg-slate-900/60 sm:px-7"
+              className="rounded-xl border border-slate-200 bg-white px-5 dark:border-white/10 dark:bg-slate-900/60 sm:px-7"
             >
               {faqs.map((faq, index) => (
                 <AccordionItem
@@ -748,12 +723,9 @@ function LandingPage() {
       </section>
 
       <section className="px-6 pb-24 lg:px-8">
-        <Reveal className="relative mx-auto max-w-7xl overflow-hidden rounded-[36px] border border-blue-900 bg-blue-800 px-6 py-16 text-center text-white shadow-[0_40px_100px_-40px_rgba(30,64,175,0.8)] sm:px-12 lg:py-20">
+        <Reveal className="mx-auto max-w-7xl border-y border-blue-900 bg-blue-800 px-6 py-16 text-center text-white sm:px-12 lg:py-20">
           <div className="relative mx-auto max-w-3xl">
-            <div className="mx-auto grid size-14 place-items-center rounded-2xl border border-white/25 bg-white/10 backdrop-blur">
-              <Store className="size-7" />
-            </div>
-            <h2 className="mt-6 text-balance text-4xl font-black tracking-[-0.035em] sm:text-5xl">
+            <h2 className=" text-balance text-4xl font-black tracking-[-0.035em] sm:text-5xl">
               Give your store a smarter operating system.
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-blue-50">
@@ -764,7 +736,7 @@ function LandingPage() {
               <Button
                 asChild
                 size="lg"
-                className="h-13 rounded-full bg-white px-7 text-blue-700 hover:bg-blue-50"
+                className="h-13 rounded-lg bg-white px-7 text-blue-700 hover:bg-blue-50"
               >
                 <a href={dashboardUrl("/signup")} target="_blank" rel="noopener noreferrer">
                   Start 14-day free trial <ArrowRight className="size-4" />
@@ -774,7 +746,7 @@ function LandingPage() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="h-13 rounded-full border-white/35 bg-transparent px-7 text-white hover:bg-white/10 hover:text-white"
+                className="h-13 rounded-lg border-white/35 bg-transparent px-7 text-white hover:bg-white/10 hover:text-white"
               >
                 <Link to="/contact">
                   <Headphones className="size-4" /> Talk to SEZA
@@ -804,18 +776,9 @@ function ProductImage({
   label: string;
 }) {
   return (
-    <div className="group relative">
-      <div className="absolute -inset-5 -z-10 rounded-[38px] bg-blue-500/12 blur-2xl transition-opacity group-hover:opacity-90" />
-      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-slate-950 p-2 shadow-[0_35px_85px_-40px_rgba(15,23,42,0.75)] dark:border-white/10">
-        <div className="flex items-center justify-between px-3 py-2 text-[11px] text-slate-400">
-          <div className="flex gap-1.5">
-            <span className="size-2 rounded-full bg-rose-400" />
-            <span className="size-2 rounded-full bg-amber-300" />
-            <span className="size-2 rounded-full bg-emerald-400" />
-          </div>
-          <span className="font-semibold uppercase tracking-[0.18em]">{label}</span>
-          <span className="w-10" />
-        </div>
+    <figure>
+      <figcaption className="mb-2 text-sm font-semibold text-muted-foreground">{label}</figcaption>
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950 p-2 dark:border-white/10">
         <img
           src={src}
           srcSet={srcSet}
@@ -825,10 +788,10 @@ function ProductImage({
           height={1024}
           loading="lazy"
           decoding="async"
-          className="block aspect-[3/2] w-full rounded-[20px] bg-white object-cover transition-transform duration-700 group-hover:scale-[1.015]"
+          className="block aspect-[3/2] w-full rounded-lg bg-white object-cover"
         />
       </div>
-    </div>
+    </figure>
   );
 }
 
@@ -842,10 +805,12 @@ function MiniPoint({
   body: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
-      <Icon className="size-5 text-primary" />
-      <div className="mt-3 text-sm font-bold">{title}</div>
-      <div className="mt-1 text-xs leading-5 text-muted-foreground">{body}</div>
+    <div className="flex gap-3 border-t pt-3">
+      <Icon className="mt-0.5 size-4 shrink-0 text-primary" />
+      <div>
+        <div className="text-sm font-bold">{title}</div>
+        <div className="mt-1 text-xs leading-5 text-muted-foreground">{body}</div>
+      </div>
     </div>
   );
 }

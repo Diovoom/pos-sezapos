@@ -96,11 +96,10 @@ const HARDWARE = [
 function HardwarePage() {
   return (
     <MarketingShell>
-      <section className="relative overflow-hidden border-b bg-slate-950 py-20 text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.32),transparent_42%)]" />
-        <div className="relative mx-auto max-w-5xl px-6 text-center">
-          <p className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-400/10 px-4 py-2 text-sm font-bold uppercase tracking-[0.16em] text-blue-200">
-            <MonitorSmartphone className="size-4" /> SEZA complete POS setup
+      <section className="border-b bg-slate-950 py-20 text-white">
+        <div className="mx-auto max-w-5xl px-6 text-center">
+          <p className="text-sm font-semibold text-blue-200">
+            SEZA complete POS setup
           </p>
           <h1 className="mt-5 text-balance text-4xl font-black tracking-[-0.04em] sm:text-6xl">
             Build the right SEZA POS setup for your store.
@@ -134,25 +133,24 @@ function HardwarePage() {
             system from checkout through close of day.
           </p>
         </div>
-        <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 divide-y border-y">
           {HARDWARE.map((item) => (
-            <article
-              key={item.title}
-              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_18px_45px_-35px_rgba(15,23,42,0.5)] dark:border-white/10 dark:bg-slate-900/60"
-            >
-              <span className="grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary">
-                <item.icon className="size-6" />
-              </span>
-              <h3 className="mt-4 text-lg font-bold">{item.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.body}</p>
-              <ul className="mt-5 space-y-2.5 text-sm">
-                {item.bullets.map((bullet) => (
-                  <li key={bullet} className="flex items-start gap-2">
-                    <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-                    <span>{bullet}</span>
-                  </li>
-                ))}
-              </ul>
+            <article key={item.title} className="grid gap-4 py-6 md:grid-cols-[220px_1fr]">
+              <div className="flex items-start gap-3">
+                <item.icon className="mt-0.5 size-5 shrink-0 text-primary" />
+                <h3 className="font-bold">{item.title}</h3>
+              </div>
+              <div>
+                <p className="text-sm leading-6 text-muted-foreground">{item.body}</p>
+                <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                  {item.bullets.map((bullet) => (
+                    <li key={bullet} className="flex items-start gap-2">
+                      <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                      <span>{bullet}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </article>
           ))}
         </div>

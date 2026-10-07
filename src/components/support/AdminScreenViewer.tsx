@@ -425,7 +425,7 @@ export function AdminScreenViewer({
         <span
           className={cn(
             "h-2 w-2 shrink-0 rounded-full",
-            status === "connected" && "animate-pulse bg-emerald-500",
+            status === "connected" && "bg-emerald-500",
             status === "connecting" && "animate-pulse bg-blue-500",
             (status === "failed" || status === "ended") && "bg-red-500",
           )}

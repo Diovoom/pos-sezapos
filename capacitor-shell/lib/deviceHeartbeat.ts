@@ -1,3 +1,4 @@
+import { getReaderDiagnostic, operationalSnapshot } from "@/lib/hardware/reader-diagnostics";
 import { nativeFetch, userSafeNetworkMessage } from "./nativeHttp";
 import { API_BASE_URL } from "../supabase";
 import { getPairing } from "./pairing";
@@ -7,11 +8,9 @@ import { loadScannerConfig } from "./scannerConfig";
 import * as escposBle from "@/lib/hardware/escpos-ble";
 import * as escposUsb from "@/lib/hardware/escpos-usb";
 import * as stripeTerminal from "@/lib/hardware/terminal-stripe";
-import { getStripeTerminalDiagnosticForHeartbeat } from "@/lib/hardware/terminal-diagnostics";
 import { refreshDeviceBootstrap } from "./deviceBootstrap";
 import { isNetworkConnectedNow } from "@/lib/offline/useOnline";
 import { cacheMeta, readMeta } from "@/lib/offline/db";
-import { deviceControl } from "@/lib/device-control";
 
 const LOCAL_CONNECTION_POLL_MS = 1_000;
 const CLOUD_KEEPALIVE_MS = 10_000;
@@ -25,6 +24,8 @@ let lastSnapshotKey = "";
 let lastLocalConnectionKey = "";
 let terminalReconnectPromise: Promise<boolean> | null = null;
 let lastTerminalReconnectAt = 0;
+let terminalReconnectFailures = 0;
+let localPollInFlight = false;
 const TERMINAL_RECONNECT_COOLDOWN_MS = 15_000;
 const TERMINAL_AUTORECONNECT_START_DELAY_MS = 12_000;
 let terminalAutoReconnectEnabledAt = 0;
@@ -80,6 +81,7 @@ async function autoReconnectSavedTerminal(): Promise<boolean> {
   if (stopped || !isNetworkConnectedNow()) return false;
   if (Date.now() < terminalAutoReconnectEnabledAt) return false;
   if (terminalReconnectPromise) return terminalReconnectPromise;
+  if (stripeTerminal.readerOperationBusy()) return false;
 
   // The native Stripe endpoints require the signed-in register employee ID.
   // After a power loss the heartbeat can start before the cashier enters a PIN.
@@ -89,37 +91,31 @@ async function autoReconnectSavedTerminal(): Promise<boolean> {
   if (!callerId) return false;
 
   const now = Date.now();
-  if (now - lastTerminalReconnectAt < TERMINAL_RECONNECT_COOLDOWN_MS) return false;
+  if (now - lastTerminalReconnectAt < Math.min(120_000, TERMINAL_RECONNECT_COOLDOWN_MS * 2 ** terminalReconnectFailures)) return false;
 
   terminalReconnectPromise = (async () => {
     if (await stripeReaderConnected()) return true;
 
+    lastTerminalReconnectAt = Date.now();
+    terminalReconnectFailures = Math.min(terminalReconnectFailures + 1, 3);
     const context = await stripeTerminal.getStripeTerminalContext().catch(() => null);
     if (!context?.ready || !context.locationId) return false;
     lastTerminalReconnectAt = Date.now();
-    const active = context.terminals.find((terminal) => terminal.status === "active");
+    const active = stripeTerminal.selectedStripeTerminal(context);
     if (!active) return false;
 
     const configuredDriver = String(active.config?.reader_type || "");
     const driver = (configuredDriver === "stripe" ? "stripe-m2" : configuredDriver) as TerminalDriverId;
     if (!driver || driver === "none") return false;
 
-    const configuredMethod = String(active.config?.connection_method || "usb").toLowerCase();
-    const method =
-      stripeTerminal.getStripeReaderConnectionMethod(active.id) ??
-      (configuredMethod === "bluetooth" ? "bluetooth" : "usb");
-
-    const permission = await deviceControl
-      .requestTerminalPermissions(method)
-      .catch(() => ({ granted: false }));
-    if (!permission.granted) return false;
-
     await stripeTerminal.restoreStripeTerminalSelection().catch(() => false);
     await stripeTerminal.connectReader(driver).catch((error) => {
-      console.warn("[SEZA POS] saved card reader auto-reconnect deferred", error);
+      // Sanitized stage evidence is published separately to SEZA Admin.
       return null;
     });
-    return stripeReaderConnected();
+    const ready = await stripeReaderConnected();
+    if (ready) terminalReconnectFailures = 0;
+    return ready;
   })().finally(() => {
     terminalReconnectPromise = null;
   });
@@ -128,7 +124,9 @@ async function autoReconnectSavedTerminal(): Promise<boolean> {
 }
 
 async function pollLocalConnections() {
-  if (stopped || typeof window === "undefined") return;
+  if (stopped || localPollInFlight || typeof window === "undefined") return;
+  localPollInFlight = true;
+  try {
 
   // USB receipt printers are local hardware and should come back without a
   // cashier visiting Settings after a power outage. Restore the saved stable
@@ -156,6 +154,7 @@ async function pollLocalConnections() {
   lastLocalConnectionKey = key;
   window.dispatchEvent(new CustomEvent("seza:connection-state", { detail }));
   void sendDeviceHeartbeat(true);
+  } finally { localPollInFlight = false; }
 }
 
 async function appVersion(): Promise<string> {
@@ -216,7 +215,7 @@ async function buildSnapshot() {
   try {
     const context = await stripeTerminal.getStripeTerminalContext();
     const configuredTerminal =
-      context.terminals.find((terminal) => terminal.status === "active") ?? context.terminals[0];
+      stripeTerminal.selectedStripeTerminal(context) ?? context.terminals[0];
     terminalSetup = {
       ready: Boolean(context.ready),
       connectStatus: context.connectStatus || "not_started",
@@ -277,11 +276,12 @@ async function buildSnapshot() {
         ? stripeTerminal.connectedReader() || "Stripe Reader M2"
         : null,
       last_connected_at: localStorage.getItem("pos.terminal.connectedAt"),
+      connected: terminalConnected,
     },
   };
 }
 
-function stableSnapshotKey(snapshot: Awaited<ReturnType<typeof buildSnapshot>>): string {
+function stableSnapshotKey(snapshot: Record<string, unknown>): string {
   const { captured_at: _capturedAt, ...stable } = snapshot;
   return JSON.stringify(stable);
 }
@@ -296,13 +296,13 @@ export async function sendDeviceHeartbeat(force = false) {
 
   sending = true;
   try {
-    const snapshot = await buildSnapshot();
+    const snapshot = operationalSnapshot(await buildSnapshot());
     const key = stableSnapshotKey(snapshot);
     const now = Date.now();
     if (!force && key === lastSnapshotKey && now - lastSentAt < MAX_SILENCE_MS) return;
 
     const version = await appVersion();
-    const deviceDiagnostic = getStripeTerminalDiagnosticForHeartbeat();
+    if (getPairing()?.deviceId !== pairing.deviceId || getPairing()?.storeId !== pairing.storeId) return;
     const response = await nativeFetch(`${API_BASE_URL}/api/public/pos/device-heartbeat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -312,10 +312,11 @@ export async function sendDeviceHeartbeat(force = false) {
         device_secret: pairing.deviceSecret,
         app_version: version,
         status_snapshot: snapshot,
-        device_diagnostic: deviceDiagnostic,
+        reader_diagnostic: getReaderDiagnostic(),
       }),
     });
     if (response.ok) {
+      if (getPairing()?.deviceId !== pairing.deviceId || getPairing()?.storeId !== pairing.storeId) return;
       publishHeartbeatState(true);
       const result = (await response.json().catch(() => ({}))) as { store_config?: any };
       lastSnapshotKey = key;
@@ -397,7 +398,7 @@ export function startDeviceHeartbeat() {
     void sendDeviceHeartbeat(true);
   };
 
-  const onOnline = refreshForegroundSnapshot;
+  const onOnline = () => { terminalReconnectFailures = 0; refreshForegroundSnapshot(); };
   const onFocus = refreshForegroundSnapshot;
   const onConfigChanged = () => void sendDeviceHeartbeat(true);
   const onHardwareChanged = () => {

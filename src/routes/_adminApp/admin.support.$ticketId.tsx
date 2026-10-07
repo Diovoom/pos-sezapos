@@ -162,6 +162,7 @@ function SupportCasePage() {
   const [internalNote, setInternalNote] = useState("");
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
+  const actionInFlight = useRef(false);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolutionSummary, setResolutionSummary] = useState("");
   const [resolutionCode, setResolutionCode] = useState("fixed");
@@ -212,12 +213,24 @@ function SupportCasePage() {
         },
         refresh,
       )
-      .subscribe();
+      .subscribe((status) => { if (status === "SUBSCRIBED") refresh(); });
     return () => {
       void supabaseAdminAuth.removeChannel(messages);
       void supabaseAdminAuth.removeChannel(ticket);
     };
   }, [ticketId]);
+
+  const storeId = query.data?.ticket?.store_id;
+  useEffect(() => {
+    if (!storeId) return;
+    const channel = supabaseAdminAuth.channel(`case-screen-${ticketId}-${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "admin_support_sessions", filter: `store_id=eq.${storeId}` }, () => {
+        void qc.invalidateQueries({ queryKey: ["admin_support_case", ticketId] });
+      }).subscribe((status) => {
+        if (status === "SUBSCRIBED") void qc.invalidateQueries({ queryKey: ["admin_support_case", ticketId] });
+      });
+    return () => { void supabaseAdminAuth.removeChannel(channel); };
+  }, [ticketId, storeId, qc]);
 
   const data = query.data;
   const problem = useMemo(
@@ -240,6 +253,8 @@ function SupportCasePage() {
   }, [data?.ticket?.id, data?.ticket?.status]);
 
   async function claim() {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
     setBusy(true);
     try {
       await claimCase({ data: { ticketId } });
@@ -248,11 +263,14 @@ function SupportCasePage() {
     } catch (error: any) {
       toast.error(error?.message ?? "Could not claim case");
     } finally {
+      actionInFlight.current = false;
       setBusy(false);
     }
   }
 
   async function release() {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
     setBusy(true);
     try {
       await releaseCase({
@@ -265,17 +283,20 @@ function SupportCasePage() {
     } catch (error: any) {
       toast.error(error?.message ?? "Could not release case");
     } finally {
+      actionInFlight.current = false;
       setBusy(false);
     }
   }
 
   async function changeStatus(status: string, extras: Record<string, unknown> = {}) {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
     setBusy(true);
     try {
       await transition({ data: { ticketId, status, reason: statusReason, ...extras } as any });
       toast.success(
         status === "investigating"
-          ? "Investigation started — live diagnostics and conversation are ready below"
+          ? "Investigation started — review the case workspace below"
           : status === "resolved"
             ? "Case resolved"
             : status === "closed"
@@ -291,10 +312,12 @@ function SupportCasePage() {
       }
       setStatusReason("");
       setResolveOpen(false);
+      await query.refetch();
       refresh();
     } catch (error: any) {
       toast.error(error?.message ?? "Could not update support case");
     } finally {
+      actionInFlight.current = false;
       setBusy(false);
     }
   }
@@ -303,7 +326,8 @@ function SupportCasePage() {
     const confirmed = window.confirm(
       "End this live chat? The case and transcript will remain available for follow-up.",
     );
-    if (!confirmed) return;
+    if (!confirmed || actionInFlight.current) return;
+    actionInFlight.current = true;
     setBusy(true);
     try {
       await endSupportChat({
@@ -316,6 +340,7 @@ function SupportCasePage() {
     } catch (error: any) {
       toast.error(error?.message ?? "Could not end live chat");
     } finally {
+      actionInFlight.current = false;
       setBusy(false);
     }
   }
@@ -339,7 +364,7 @@ function SupportCasePage() {
 
   if (query.isLoading)
     return <div className="text-sm text-muted-foreground">Loading support case…</div>;
-  if (query.isError || !data)
+  if (!data)
     return (
       <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
         <div className="text-sm font-medium text-destructive">Could not load this support case.</div>
@@ -353,6 +378,10 @@ function SupportCasePage() {
     );
 
   const { ticket, messages, internal_notes, events, store, requester, assignee, device, diagnostics } = data;
+  const caseScreenReason = `Support case #${ticket.ticket_number ?? ticket.id}:`;
+  const screenSession = diagnostics?.support_sessions?.find((session: any) => session.reason?.startsWith(caseScreenReason));
+  const screenStatus = screenSession && ["pending", "active"].includes(screenSession.status)
+    && new Date(screenSession.expires_at).getTime() <= Date.now() ? "expired" : screenSession?.status;
   const isFinal = ticket.status === "resolved" || ticket.status === "closed";
   const investigationActive = ["investigating", "waiting_support", "in_progress"].includes(
     String(ticket.status),
@@ -393,6 +422,8 @@ function SupportCasePage() {
 
   async function requestScreen() {
     if (!store?.id) return;
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
     setBusy(true);
     try {
       if (!ticket.assigned_admin_id) {
@@ -408,6 +439,7 @@ function SupportCasePage() {
     } catch (error: any) {
       toast.error(error?.message ?? "Could not request screen access");
     } finally {
+      actionInFlight.current = false;
       setBusy(false);
     }
   }
@@ -553,16 +585,17 @@ function SupportCasePage() {
               <SearchCheck className="h-4 w-4 text-blue-600" /> Investigation in progress
             </CardTitle>
             <CardDescription>
-              This state is saved. Work the case from the live diagnostics and merchant conversation below.
+              This state is saved. Review the saved diagnostics and merchant conversation below. No automatic repair or background diagnostic job is running.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {screenSession && <p className="text-sm">Screen share: {screenStatus === "pending" ? "Waiting for merchant consent" : screenStatus === "active" ? "Merchant accepted — open the support viewer in the Admin header" : screenStatus}.</p>}
             <div className="text-sm">
               <span className="font-medium">Assigned to:</span>{" "}
               {assignee?.full_name || assignee?.email || (assignedToMe ? "You" : "SEZA Support")}
-              {ticket.claimed_at ? (
+              {ticket.investigation_started_at ? (
                 <span className="text-muted-foreground">
-                  {" "}· started {formatDistanceToNow(new Date(ticket.claimed_at), { addSuffix: true })}
+                  {" "}· started {formatDistanceToNow(new Date(ticket.investigation_started_at), { addSuffix: true })}
                 </span>
               ) : null}
             </div>
@@ -629,6 +662,7 @@ function SupportCasePage() {
       </Card>
 
       <Card id="investigation-workspace" className="scroll-mt-24 border-blue-500/30">
+        {Boolean(diagnostics?.unavailable?.length) && <p role="alert" className="p-4 text-sm text-destructive">Evidence unavailable: {diagnostics.unavailable.join(", ")}. Empty metrics in those sections do not confirm normal operation.</p>}
         <CardHeader className="flex flex-row items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">

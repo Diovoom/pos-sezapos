@@ -42,9 +42,8 @@ function FriendlyState({
 }) {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 px-5 py-12 dark:bg-slate-950">
-      <div className="pointer-events-none absolute left-1/2 top-[-180px] size-[440px] -translate-x-1/2 rounded-full bg-blue-500/15 blur-3xl" />
-      <section className="relative w-full max-w-lg rounded-[32px] border border-slate-200 bg-white p-7 text-center shadow-[0_30px_90px_-45px_rgba(15,23,42,0.55)] sm:p-10 dark:border-white/10 dark:bg-slate-900">
-        <span className="mx-auto grid size-16 place-items-center rounded-3xl bg-blue-50 dark:bg-blue-500/10">
+      <section className="relative w-full max-w-lg rounded-xl border border-slate-200 bg-white p-7 text-center shadow-sm sm:p-10 dark:border-white/10 dark:bg-slate-900">
+        <span className="mx-auto grid size-14 place-items-center">
           <Logo className="size-12" alt="SEZA POS" />
         </span>
         <div className="mt-6 text-xs font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
