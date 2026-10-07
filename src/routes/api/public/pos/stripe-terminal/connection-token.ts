@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { userFacingError } from "@/lib/errors/user-facing";
+import { readerErrorCode, readerMessage } from "@/lib/hardware/reader-diagnostics";
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -10,7 +10,7 @@ const CORS: Record<string, string> = {
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json", ...CORS },
+    headers: { "content-type": "application/json", "Cache-Control": "no-store, private", ...CORS },
   });
 }
 
@@ -52,9 +52,12 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/connection
           );
           return json({ secret: token.secret, environment: merchant.environment });
         } catch (error) {
-          return json({ error: userFacingError(error, "Could not connect to the card reader.") }, 400);
+          const classification = readerErrorCode(error);
+          const code = classification === "LOCATION" || classification === "MERCHANT_SETUP" ? classification : "TOKEN";
+          return json({ error: readerMessage(code), code }, 400);
         }
       },
     },
   },
 });
+

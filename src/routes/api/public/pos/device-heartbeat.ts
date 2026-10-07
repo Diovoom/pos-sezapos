@@ -1,6 +1,9 @@
 import { operationalSnapshot, sanitizeReaderDiagnostic } from "@/lib/hardware/reader-diagnostics";
 import { createFileRoute } from "@tanstack/react-router";
 
+// Avoid repeatedly probing a relation that is awaiting an approved migration.
+let readerDiagnosticsUnavailableUntil = 0;
+
 type Body = {
   store_id?: unknown;
   device_id?: unknown;
@@ -88,16 +91,19 @@ export const Route = createFileRoute("/api/public/pos/device-heartbeat")({
         if (error) return json({ error: "SEZA could not complete this request. Please try again." }, 500);
 
         const diagnostic = sanitizeReaderDiagnostic(body.reader_diagnostic);
-        if (diagnostic) {
+        if (diagnostic && Date.now() >= readerDiagnosticsUnavailableUntil) {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 1500);
           try {
             // Credentials above bind both identity fields; client diagnostics
             // cannot choose another store/device or write operational state.
-            await admin.from("admin_device_diagnostics").upsert({
+            const { error: diagnosticError } = await admin.from("admin_device_diagnostics").upsert({
               device_id: device.id, store_id: device.store_id,
               diagnostic, app_version: appVersion, received_at: now,
             }, { onConflict: "device_id" }).abortSignal(controller.signal);
+            if (diagnosticError?.code === "PGRST205" || diagnosticError?.code === "42P01") {
+              readerDiagnosticsUnavailableUntil = Date.now() + 300_000;
+            }
           } catch {
             // Telemetry never makes a working heartbeat fail, including while
             // its migration is pending. No native error object is logged.
@@ -121,3 +127,4 @@ export const Route = createFileRoute("/api/public/pos/device-heartbeat")({
     },
   },
 });
+

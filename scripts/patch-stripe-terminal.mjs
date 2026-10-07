@@ -45,28 +45,11 @@ function insertAfterFunctionHeader(source, signatureRegex, insertion, alreadySaf
   return source.slice(0, at) + insertion + source.slice(at);
 }
 
-// 1) Keep the pending Stripe connection-token callback shared across Capacitor
-// plugin instances/WebView reloads. Older SEZA patches may already have done this
-// with slightly different whitespace, so detect behavior instead of exact text.
+// A static, request-ID-bound callback survives a new plugin instance after a
+// WebView reload. The native watchdog rejects even if JavaScript never responds.
 let tokenProvider = readRequired(tokenProviderPath);
 const tokenOriginal = tokenProvider;
-if (!tokenProvider.includes("SEZA_PATCH_SHARED_PENDING_CALLBACKS")) {
-  if (/companion\s+object\s*\{[\s\S]*pendingCallback\s*:\s*ArrayList<ConnectionTokenCallback>/m.test(tokenProvider)) {
-    console.log("[SEZA] shared pending connection-token callback already present.");
-  } else {
-    const pendingField = /^\s*private\s+var\s+pendingCallback\s*:\s*ArrayList<ConnectionTokenCallback>\s*=\s*ArrayList\(\)\s*$/m;
-    if (pendingField.test(tokenProvider)) {
-      tokenProvider = tokenProvider.replace(
-        pendingField,
-        `    // SEZA_PATCH_SHARED_PENDING_CALLBACKS\n    companion object {\n        private val pendingCallback: ArrayList<ConnectionTokenCallback> = ArrayList()\n    }`,
-      );
-    } else {
-      console.warn("[SEZA] shared token callback: no unsafe instance field found; skipping.");
-    }
-  }
-}
-// Never log connection-token secrets, including the optional native HTTP path.
-tokenProvider = tokenProvider.replace(/^.*Log\.d\("TokenProvider", jsonObject\.getString\("secret"\)\).*\r?\n/gm, "");
+tokenProvider = readRequired(path.join(process.cwd(), "scripts", "stripe-terminal", "TokenProvider.kt"));
 const tokenChanged = writeIfChanged(tokenProviderPath, tokenOriginal, tokenProvider);
 
 let terminal = readRequired(terminalPath);
@@ -214,9 +197,147 @@ if (!terminal.includes("SEZA_PATCH_DISCOVERY_FAILURE")) {
                         call.reject("Stripe reader discovery failed", e.errorCode.toString(), e)
                     }`);
 }
+// 8) Initialization must finish on the UI thread BEFORE resolving. Upstream
+// resolves while Terminal.init is still pending and drops isTest/tokenProvider
+// when a new bridge instance probes an existing singleton.
+if (!terminal.includes("SEZA_PATCH_INITIALIZE_V3")) {
+  const start = terminal.indexOf("    @Throws(TerminalException::class)\n    fun initialize(call: PluginCall)");
+  const end = terminal.indexOf("    fun setSimulatorConfiguration", start);
+  if (start < 0 || end < 0) throw new Error("Stripe initialize source changed; review required.");
+  terminal = terminal.slice(0, start) + `    // SEZA_PATCH_INITIALIZE_V3
+    fun initialize(call: PluginCall) {
+        this.isTest = call.getBoolean("isTest", false)
+        activitySupplier.get().runOnUiThread {
+            try {
+                TokenProvider.bind(this.notifyListenersFunction)
+                if (!isInitialized()) {
+                    onCreate(contextSupplier.get().applicationContext as Application)
+                    this.tokenProvider = TokenProvider(this.contextSupplier, "", this.notifyListenersFunction)
+                    val listener = object : TerminalListener {
+                        override fun onConnectionStatusChange(status: ConnectionStatus) {
+                            notifyListeners(TerminalEnumEvent.ConnectionStatusChange.webEventName, JSObject().put("status", status.toString()))
+                        }
+                        override fun onPaymentStatusChange(status: PaymentStatus) {
+                            notifyListeners(TerminalEnumEvent.PaymentStatusChange.webEventName, JSObject().put("status", status.toString()))
+                        }
+                    }
+                    init(contextSupplier.get().applicationContext, LogLevel.NONE, this.tokenProvider!!, listener, null)
+                }
+                Terminal.getInstance()
+                notifyListeners(TerminalEnumEvent.Loaded.webEventName, emptyObject)
+                call.resolve()
+            } catch (ex: Exception) {
+                call.reject("Card reader service could not start", "NATIVE")
+            }
+        }
+    }
+
+    fun setConnectionToken(call: PluginCall) {
+        TokenProvider.setConnectionToken(call)
+    }
+
+` + terminal.slice(end);
+}
+
+// 9) A Reader handle belongs to exactly one native discovery generation.
+if (!terminal.includes("SEZA_PATCH_DISCOVERY_GENERATION")) {
+  terminal = terminal.replace("    private var discoveredReadersList: List<Reader?>", `    // SEZA_PATCH_DISCOVERY_GENERATION
+    private var discoveryGeneration = 0L
+    private var discoveryActive = false
+    private var discoveredReadersList: List<Reader?>`);
+  const discoveryStart = "        this.locationId = call.getString(\"locationId\")";
+  if (!terminal.includes(discoveryStart)) throw new Error("Stripe discovery source changed.");
+  terminal = terminal.replace(discoveryStart, `        if (discoveryActive) { call.reject("Reader discovery is already running", "BUSY"); return }
+        val generation = ++discoveryGeneration
+        discoveredReadersList = emptyList()
+        discoveryActive = true
+` + discoveryStart);
+  terminal = terminal.replace(/(override fun onUpdateDiscoveredReaders\(readers: List<Reader>\) \{)/, `$1
+                        if (generation != discoveryGeneration || !discoveryActive) return
+                        discoveredReadersList = readers`);
+  terminal = terminal.replace("                        val i = 0\n                        for (reader in discoveredReadersList)", "                        var i = 0\n                        for (reader in discoveredReadersList)");
+  terminal = terminal.replace('readersJSObject.put(convertReaderInterface(reader).put("index", i.toString()))', 'readersJSObject.put(convertReaderInterface(reader).put("index", (i++).toString()).put("discoveryId", generation.toString()))');
+  terminal = terminal.replace('call.reject("Stripe reader discovery failed", e.errorCode.toString(), e)', `if (generation != discoveryGeneration) return
+                        discoveryActive = false
+                        discoveredReadersList = emptyList()
+                        call.reject("Stripe reader discovery failed", e.errorCode.toString())`);
+  const header = "    fun connectReader(call: PluginCall) {";
+  terminal = terminal.replace(header, header + `
+        val selected = call.getObject("reader")
+        if (!discoveryActive || selected?.getString("discoveryId") != discoveryGeneration.toString()) {
+            call.reject("Reader is no longer in the current discovery", "STALE_READER")
+            return
+        }
+        val currentLocation = call.getString("locationId")
+        if (currentLocation.isNullOrBlank()) { call.reject("Reader location is missing", "LOCATION"); return }
+        this.locationId = currentLocation
+`);
+  terminal = terminal.replace("    fun cancelDiscoverReaders(call: PluginCall) {", `    fun cancelDiscoverReaders(call: PluginCall) {
+        discoveryActive = false
+        discoveryGeneration++
+        discoveredReadersList = emptyList()
+`);
+  terminal = terminal.replace("    fun clearCachedCredentials(call: PluginCall) {", `    fun clearCachedCredentials(call: PluginCall) {
+        TokenProvider.rejectPending()
+        discoveryActive = false
+        discoveryGeneration++
+        discoveredReadersList = emptyList()
+`);
+  terminal = terminal.replace('Log.d(logTag, readers[0].serialNumber.toString())', '');
+  const unknownType = '            call.unimplemented(call.getString("type") + " is not support now")';
+  terminal = terminal.replace(unknownType, '            discoveryActive = false\n' + unknownType);
+}
+
+// 10) Mobile readers (USB and Bluetooth) need reconnect callbacks, too.
+if (!terminal.includes("SEZA_PATCH_MOBILE_RECONNECT")) {
+  const listener = "        return object : MobileReaderListener {";
+  if (!terminal.includes(listener)) throw new Error("MobileReaderListener source changed.");
+  terminal = terminal.replace(listener, listener + `
+            // SEZA_PATCH_MOBILE_RECONNECT
+            override fun onReaderReconnectStarted(reader: Reader, cancelReconnect: Cancelable, reason: DisconnectReason) {
+                cancelReaderConnectionCancellable = cancelReconnect
+                notifyListeners(TerminalEnumEvent.ReaderReconnectStarted.webEventName, JSObject().put("reason", reason.toString()))
+            }
+            override fun onReaderReconnectSucceeded(reader: Reader) {
+                cancelReaderConnectionCancellable = null
+                notifyListeners(TerminalEnumEvent.ReaderReconnectSucceeded.webEventName, JSObject().put("reader", convertReaderInterface(reader)))
+            }
+            override fun onReaderReconnectFailed(reader: Reader) {
+                cancelReaderConnectionCancellable = null
+                notifyListeners(TerminalEnumEvent.ReaderReconnectFailed.webEventName, emptyObject)
+            }
+`);
+  terminal = terminal.replace(/e\.printStackTrace\(\)\s+call\.reject\(e\.localizedMessage, e\)/, 'call.reject("Card reader connection failed", e.errorCode.toString())');
+  terminal = terminal.replace('eventObject.put("error", e.localizedMessage)', 'eventObject.put("error", e.errorCode.toString())');
+}
+
+// 11) Stripe 5.x returns a result when credential clearing fails; it does
+// not always throw. Never adopt the next merchant after a failed clear.
+if (!terminal.includes("SEZA_PATCH_CLEAR_RESULT")) {
+  terminal = terminal.replace(`            Terminal.getInstance().clearCachedCredentials()
+            call.resolve()`, `            // SEZA_PATCH_CLEAR_RESULT
+            val result = Terminal.getInstance().clearCachedCredentials()
+            if (result.error != null) { call.reject("Reader credentials could not be reset", "RESET"); return }
+            call.resolve()`);
+}
+// Keep mobile callbacks bound to the current bridge across WebView reloads,
+// and discard callbacks from a merchant whose native credentials were cleared.
+if (!terminal.includes("SEZA_PATCH_MOBILE_EVENT_EPOCH")) {
+  const start = terminal.indexOf("    private fun readerListener(): MobileReaderListener {");
+  const end = terminal.indexOf("    fun setTapToPayUxConfiguration", start);
+  if (start < 0 || end < 0) throw new Error("Mobile listener source changed.");
+  let mobile = terminal.slice(start, end);
+  mobile = mobile.replace("        return object : MobileReaderListener {", `        // SEZA_PATCH_MOBILE_EVENT_EPOCH
+        val merchantEpoch = TokenProvider.merchantEpoch
+        return object : MobileReaderListener {`);
+  mobile = mobile.replaceAll("notifyListeners(", "TokenProvider.notifyReaderEvent(merchantEpoch, ");
+  terminal = terminal.slice(0, start) + mobile + terminal.slice(end);
+}
+
 const terminalChanged = writeIfChanged(terminalPath, terminalOriginal, terminal);
 const pluginChanged = writeIfChanged(pluginPath, pluginOriginal, plugin);
 
 console.log(
   `[SEZA] Stripe Terminal Android safety patch ${tokenChanged || terminalChanged || pluginChanged ? "applied" : "already satisfied"}.`,
 );
+

@@ -1,3 +1,4 @@
+import { readerFailure } from "@/lib/hardware/reader-diagnostics";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { createStripeClient, getStripeMode, type StripeEnv } from "@/lib/stripe.server";
 import { verifyDeviceSecret } from "@/lib/pos/device.server";
@@ -39,7 +40,7 @@ export async function resolveStripeTerminalCaller(input: {
   const bearerToken = value(input.bearerToken);
   const admin: any = supabaseAdmin;
 
-  if (bearerToken) {
+  if (bearerToken && !input.nativeAuth) {
     const { data, error } = await supabaseAdmin.auth.getUser(bearerToken);
     if (error || !data.user) throw new Error("Unauthorized");
     const { data: profile, error: profileError } = await admin
@@ -165,9 +166,9 @@ export async function resolveStripeTerminalMerchant(input: {
 }): Promise<StripeTerminalMerchantContext> {
   const caller = await resolveStripeTerminalCaller(input);
   const state = await loadStripeTerminalStore(caller);
-  if (!state.ready) {
-    throw new Error("Stripe setup is not complete for this store. Finish merchant verification and payout setup first.");
-  }
+  if (!/^acct_[A-Za-z0-9]+$/.test(state.accountId) || !["active", "enabled"].includes(state.cardStatus)) throw readerFailure("MERCHANT_SETUP");
+  if (!state.locationId) throw readerFailure("LOCATION");
+  if (!state.ready) throw readerFailure("MERCHANT_SETUP");
 
   let terminalId: string | null = null;
   if (input.requireActiveTerminal) {
@@ -189,3 +190,4 @@ export async function resolveStripeTerminalMerchant(input: {
     testMode: state.environment === "sandbox",
   };
 }
+

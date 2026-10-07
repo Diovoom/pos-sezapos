@@ -12,6 +12,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.content.pm.PackageManager;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
@@ -179,21 +181,15 @@ public class SezaDeviceControlPlugin extends Plugin {
         boolean bluetoothGranted = !needsBluetooth || getPermissionState("terminalBluetooth") == PermissionState.GRANTED;
 
         if (!locationGranted || !bluetoothGranted) {
-            resolveTerminalPermissionResult(call, locationGranted, bluetoothGranted, false, false, false);
+            UsbManager manager = (UsbManager) getContext().getSystemService(Context.USB_SERVICE);
+            UsbDevice reader = "usb".equalsIgnoreCase(method) ? findStripeUsbReader(manager) : null;
+            resolveTerminalPermissionResult(call, locationGranted, bluetoothGranted,
+                reader != null, reader != null && manager != null && manager.hasPermission(reader), false);
             return;
         }
 
         if ("usb".equalsIgnoreCase(method)) {
-            // Do not pre-gate Stripe USB with a second UsbManager permission check.
-            // Stripe Terminal's native SDK owns USB discovery/connection and will
-            // surface the real USB state. The previous custom check could target
-            // the wrong composite USB device and falsely report "USB access required"
-            // even when Android had already granted SEZA access to the M2.
-            UsbManager manager = (UsbManager) getContext().getSystemService(Context.USB_SERVICE);
-            UsbDevice reader = findStripeUsbReader(manager);
-            // Observation only: Stripe still owns adoption and permission requests.
-            resolveTerminalPermissionResult(call, locationGranted, bluetoothGranted,
-                reader != null, reader != null && manager != null && manager.hasPermission(reader), true);
+            requestStripeUsbPermission(call, locationGranted, bluetoothGranted);
             return;
         }
 
@@ -220,7 +216,6 @@ public class SezaDeviceControlPlugin extends Plugin {
     private UsbDevice findStripeUsbReader(UsbManager usbManager) {
         if (usbManager == null) return null;
 
-        UsbDevice fallback = null;
         for (Map.Entry<String, UsbDevice> entry : usbManager.getDeviceList().entrySet()) {
             UsbDevice device = entry.getValue();
             if (device == null) continue;
@@ -239,6 +234,8 @@ public class SezaDeviceControlPlugin extends Plugin {
             } catch (Exception ignored) {}
 
             if (
+                // M2 USB identity also works when Android hides descriptors until permission.
+                (device.getVendorId() == 0x15a2 && device.getProductId() == 0x0101) ||
                 manufacturer.contains("BBPOS") ||
                 manufacturer.contains("STRIPE") ||
                 product.contains("STRIPE") ||
@@ -248,9 +245,6 @@ public class SezaDeviceControlPlugin extends Plugin {
                 return device;
             }
 
-            if (fallback == null && device.getDeviceClass() == 0) {
-                fallback = device;
-            }
         }
         return null; // Never call a printer or another composite USB device an M2.
     }
@@ -287,61 +281,70 @@ public class SezaDeviceControlPlugin extends Plugin {
             return;
         }
 
+        // Only one bounded request can own this permission prompt.
+        if (stripeUsbPermissionCleanup != null) {
+            call.reject("A card reader operation is already running.", "BUSY");
+            return;
+        }
         final String action = getContext().getPackageName() + ".SEZA_STRIPE_USB_PERMISSION";
         Intent permissionIntent = new Intent(action).setPackage(getContext().getPackageName());
-
         int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            pendingFlags |= PendingIntent.FLAG_MUTABLE;
-        }
-
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-            getContext(),
-            reader.getDeviceId(),
-            permissionIntent,
-            pendingFlags
-        );
-
-        BroadcastReceiver receiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) pendingFlags |= PendingIntent.FLAG_MUTABLE;
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(getContext(), reader.getDeviceId(), permissionIntent, pendingFlags);
+        final Handler handler = new Handler(Looper.getMainLooper());
+        final boolean[] completed = { false };
+        final BroadcastReceiver[] receiver = new BroadcastReceiver[1];
+        final Runnable[] timeout = new Runnable[1];
+        final Runnable finish = () -> {
+            if (completed[0]) return;
+            completed[0] = true;
+            handler.removeCallbacks(timeout[0]);
+            try { getContext().unregisterReceiver(receiver[0]); } catch (Exception ignored) {}
+            pendingIntent.cancel();
+            stripeUsbPermissionCleanup = null;
+            boolean present = usbManager.getDeviceList().containsKey(reader.getDeviceName());
+            boolean granted = present && usbManager.hasPermission(reader);
+            resolveTerminalPermissionResult(call, locationGranted, bluetoothGranted, present, granted, granted);
+        };
+        receiver[0] = new BroadcastReceiver() {
+            @Override public void onReceive(Context context, Intent intent) {
                 if (!action.equals(intent.getAction())) return;
-
-                boolean granted = intent.getBooleanExtra(
-                    UsbManager.EXTRA_PERMISSION_GRANTED,
-                    false
-                );
-
-                try {
-                    context.unregisterReceiver(this);
-                } catch (Exception ignored) {}
-
-                resolveTerminalPermissionResult(
-                    call,
-                    locationGranted,
-                    bluetoothGranted,
-                    true,
-                    granted,
-                    granted
-                );
+                UsbDevice returned = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                if (returned == null || returned.getDeviceId() != reader.getDeviceId()) return;
+                finish.run();
             }
         };
-
-        IntentFilter filter = new IntentFilter(action);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            getContext().registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            getContext().registerReceiver(receiver, filter);
-        }
-
+        timeout[0] = finish;
+        stripeUsbPermissionCleanup = finish;
         try {
+            IntentFilter filter = new IntentFilter(action);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                getContext().registerReceiver(receiver[0], filter, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                getContext().registerReceiver(receiver[0], filter);
+            }
+            handler.postDelayed(finish, 30_000);
             usbManager.requestPermission(reader, pendingIntent);
-        } catch (Exception error) {
-            try {
-                getContext().unregisterReceiver(receiver);
-            } catch (Exception ignored) {}
-            call.reject("Unable to request USB access for Reader M2", error);
+        } catch (Exception ignored) {
+            finish.run();
         }
+    }
+
+    private Runnable stripeUsbPermissionCleanup;
+
+    @Override protected void handleOnDestroy() {
+        if (stripeUsbPermissionCleanup != null) stripeUsbPermissionCleanup.run();
+        super.handleOnDestroy();
+    }
+
+    @PluginMethod
+    public void getTerminalUsbState(PluginCall call) {
+        UsbManager manager = (UsbManager) getContext().getSystemService(Context.USB_SERVICE);
+        UsbDevice reader = findStripeUsbReader(manager);
+        JSObject result = new JSObject();
+        result.put("usbDeviceFound", reader != null);
+        result.put("usbGranted", reader != null && manager != null && manager.hasPermission(reader));
+        call.resolve(result);
     }
 
     @PluginMethod
@@ -463,3 +466,4 @@ public class SezaDeviceControlPlugin extends Plugin {
         return false;
     }
 }
+

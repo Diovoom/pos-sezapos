@@ -35,6 +35,7 @@ type DeviceControlPlugin = {
   getConnectivityState(): Promise<ConnectivityState>;
   openWifiSettings(): Promise<void>;
   openBluetoothSettings(): Promise<void>;
+  getTerminalUsbState(): Promise<{ usbDeviceFound: boolean; usbGranted: boolean }>;
   requestTerminalPermissions(options: { method: "usb" | "bluetooth" }): Promise<TerminalPermissionState>;
   startKiosk(): Promise<void>;
   stopKiosk(): Promise<void>;
@@ -55,6 +56,7 @@ export const deviceControl = {
   getConnectivityState: () => NativeDeviceControl.getConnectivityState(),
   openWifiSettings: () => NativeDeviceControl.openWifiSettings(),
   openBluetoothSettings: () => NativeDeviceControl.openBluetoothSettings(),
+  getTerminalUsbState: () => NativeDeviceControl.getTerminalUsbState(),
   requestTerminalPermissions: (method: "usb" | "bluetooth") =>
     NativeDeviceControl.requestTerminalPermissions({ method }),
   startKiosk: () => NativeDeviceControl.startKiosk(),
@@ -62,3 +64,4 @@ export const deviceControl = {
   relaunch: () => NativeDeviceControl.relaunch(),
   exitToLauncher: () => NativeDeviceControl.exitToLauncher(),
 };
+

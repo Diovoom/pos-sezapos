@@ -1,4 +1,5 @@
-import { READER_CONNECTION_MESSAGE } from "@/lib/hardware/reader-diagnostics";
+import { READER_CONNECTION_MESSAGE, safeReaderMessage, READER_MESSAGES } from "@/lib/hardware/reader-diagnostics";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, CreditCard, ExternalLink, Loader2, RefreshCw, Unplug, Wifi } from "lucide-react";
 import { toast } from "sonner";
@@ -39,8 +40,17 @@ function readerLabel(terminal: StripeTerminalRecord) {
 
 export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
   const qc = useQueryClient();
+  const [readerStatus, setReaderStatus] = useState(() => localStorage.getItem("pos.terminal.lastError") ? safeReaderMessage(localStorage.getItem("pos.terminal.lastError")) : "");
+  useEffect(() => {
+    const update = () => setReaderStatus(localStorage.getItem("pos.terminal.lastError") ? safeReaderMessage(localStorage.getItem("pos.terminal.lastError")) : "");
+    update();
+    window.addEventListener("seza:device-config-changed", update);
+    return () => window.removeEventListener("seza:device-config-changed", update);
+  }, []);
   const showReaderError = (error: unknown, fallback: string) => {
-    toast.error(READER_CONNECTION_MESSAGE);
+    const message = safeReaderMessage(error);
+    setReaderStatus(message);
+    toast.error(message);
   };
 
   const connectivity = useQuery({
@@ -106,7 +116,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
 
   const connectNew = useMutation({
     mutationFn: async (method: "usb" | "bluetooth") => {
-      if (!stripeReady) throw new Error("Finish payment setup on SEZA before connecting a card reader.");
+      if (!stripeReady) throw new Error(READER_MESSAGES.MERCHANT_SETUP);
       const saved = await saveStripeTerminal({
         label: "Card reader",
         model: "Reader M2",
@@ -121,7 +131,8 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     },
     onSuccess: async (reader) => {
       await refresh();
-      toast.success(`${reader.label || reader.serialNumber} is connected.`);
+      setReaderStatus("");
+      toast.success("Card reader connected.");
     },
     onError: async (error) => {
       await refresh();
@@ -149,7 +160,8 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     },
     onSuccess: async (reader) => {
       await refresh();
-      toast.success(`${reader.label || reader.serialNumber} is connected.`);
+      setReaderStatus("");
+      toast.success("Card reader connected.");
     },
     onError: (error) => showReaderError(error, "Could not switch the card reader connection. Please try again."),
   });
@@ -206,6 +218,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
     onError: (error) => toast.error(READER_CONNECTION_MESSAGE),
   });
 
+  const busy = connectNew.isPending || switchConnection.isPending || test.isPending || disconnectReader.isPending || forgetReader.isPending;
   if (context.isLoading) {
     return (
       <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -261,7 +274,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
           <CardDescription>Connect the Reader M2 used by this register.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-
+          {readerStatus && !physicallyConnected && <p role="status" className="text-sm text-destructive">{readerStatus}</p>}
           {!terminal ? (
             <div className="space-y-3">
               <div className="rounded-lg border border-dashed p-5 text-sm">
@@ -274,14 +287,14 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
               ) : null}
               {canEdit && (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <Button onClick={() => connectNew.mutate("usb")} disabled={connectNew.isPending}>
+                  <Button onClick={() => connectNew.mutate("usb")} disabled={busy}>
                     {connectNew.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Unplug className="mr-2 size-4" />}
                     Connect with USB
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => connectNew.mutate("bluetooth")}
-                    disabled={connectNew.isPending || connectivity.data?.bluetoothSupported === false}
+                    disabled={busy || connectivity.data?.bluetoothSupported === false}
                   >
                     <Wifi className="mr-2 size-4" />
                     {connectivity.data?.bluetoothSupported === false ? "Bluetooth unavailable" : "Connect with Bluetooth"}
@@ -311,7 +324,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                   <div className="grid gap-2 sm:grid-cols-2">
                     <Button
                       onClick={() => switchConnection.mutate({ reader: terminal, method: "usb" })}
-                      disabled={switchConnection.isPending}
+                      disabled={busy}
                     >
                       {switchConnection.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Unplug className="mr-2 size-4" />}
                       Connect with USB
@@ -319,7 +332,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                     <Button
                       variant="outline"
                       onClick={() => switchConnection.mutate({ reader: terminal, method: "bluetooth" })}
-                      disabled={switchConnection.isPending || connectivity.data?.bluetoothSupported === false}
+                      disabled={busy || connectivity.data?.bluetoothSupported === false}
                     >
                       <Wifi className="mr-2 size-4" />
                       {connectivity.data?.bluetoothSupported === false ? "Bluetooth unavailable" : "Connect with Bluetooth"}
@@ -329,7 +342,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
                     className="px-0"
                     variant="ghost"
                     onClick={() => forgetReader.mutate(terminal)}
-                    disabled={forgetReader.isPending}
+                    disabled={busy}
                   >
                     Forget saved reader setup
                   </Button>
@@ -338,14 +351,14 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
 
               {canEdit && physicallyConnected && (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <Button onClick={() => test.mutate(terminal)} disabled={test.isPending}>
+                  <Button onClick={() => test.mutate(terminal)} disabled={busy}>
                     {test.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                     Test reader
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => disconnectReader.mutate(terminal)}
-                    disabled={disconnectReader.isPending}
+                    disabled={busy}
                   >
                     <Unplug className="mr-2 size-4" /> Disconnect
                   </Button>

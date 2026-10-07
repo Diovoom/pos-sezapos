@@ -1,4 +1,4 @@
-import { READER_CONNECTION_MESSAGE } from "@/lib/hardware/reader-diagnostics";
+import { READER_CONNECTION_MESSAGE, safeReaderMessage } from "@/lib/hardware/reader-diagnostics";
 // POS-terminal Settings for the bundled Android shell.
 //
 // Intentionally scoped to what makes sense on a physical register:
@@ -360,7 +360,7 @@ function TerminalPanel() {
       setReaders(list);
       if (list.length === 0) toast.info("No readers found on this network.");
     } catch (e) {
-      const msg = userFacingError(e, "Could not discover a card reader. Please try again.");
+      const msg = safeReaderMessage(e);
       setLastError(msg); window.localStorage.setItem(LS.terminalLastError, msg);
       toast.error(msg);
     } finally { setDiscovering(false); }
@@ -422,7 +422,7 @@ function TerminalPanel() {
           <div className="flex items-center justify-between"><span className="text-muted-foreground">Capability</span><span className="font-medium">{capacityLabel}</span></div>
           <div className="flex items-center justify-between"><span className="text-muted-foreground">Connection</span>
             <span>{connected === activeId && activeId !== "none" ? <Badge variant="secondary">Connected</Badge> : <Badge variant="outline">Not connected</Badge>}</span></div>
-          {lastError ? <div className="mt-1 text-xs text-destructive">Reader status: {READER_CONNECTION_MESSAGE}</div> : null}
+          {lastError ? <div className="mt-1 text-xs text-destructive">Reader status: {safeReaderMessage(lastError)}</div> : null}
         </div>
 
         {activeId !== "none" && !pluginOk && (

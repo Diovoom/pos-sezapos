@@ -4,4 +4,7 @@
     <usb-device class="7" />
     <!-- Current SEZA test receipt-printer controller (VID/PID from Android). -->
     <usb-device vendor-id="4070" product-id="33054" />
+    <!-- Stripe Reader M2: enables Android attach/permission handling after reboot. -->
+    <usb-device vendor-id="5538" product-id="257" />
 </resources>
+

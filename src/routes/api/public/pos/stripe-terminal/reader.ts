@@ -1,3 +1,4 @@
+import { readerMessage, READER_CONNECTION_MESSAGE } from "@/lib/hardware/reader-diagnostics";
 import { createFileRoute } from "@tanstack/react-router";
 
 const CORS: Record<string, string> = {
@@ -117,17 +118,29 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/reader")({
             if (!data) throw new Error("Reader not found.");
           } else if (action === "connected") {
             if (!terminalId) throw new Error("Reader not found.");
-            const { error } = await admin
+            const serial = clean(body.serial, 100);
+            if (!serial) throw new Error("Discovered reader serial is required.");
+            const { data: existing, error: lookupError } = await admin.from("payment_terminals")
+              .select("id,config").eq("id", terminalId).eq("store_id", caller.storeId).eq("provider", "stripe").maybeSingle();
+            if (lookupError || !existing) throw new Error("Reader not found.");
+            if (caller.deviceId && existing.config?.device_id && existing.config.device_id !== caller.deviceId) throw new Error("Reader belongs to another register.");
+            const now = new Date().toISOString();
+            const { data: saved, error } = await admin
               .from("payment_terminals")
               .update({
                 status: "active",
-                serial: clean(body.serial, 100) || null,
-                last_seen_at: new Date().toISOString(),
+                setup_status: "verified",
+                serial,
+                last_seen_at: now,
+                stripe_connected_account_id: state.accountId,
+                stripe_terminal_location_id: state.locationId,
+                config: { ...(existing.config || {}), device_id: caller.deviceId || existing.config?.device_id,
+                  connected: true, last_connection_error: null },
               })
               .eq("id", terminalId)
               .eq("store_id", caller.storeId)
-              .eq("provider", "stripe");
-            if (error) throw error;
+              .eq("provider", "stripe").select("id").maybeSingle();
+            if (error || !saved) throw new Error("Reader save failed.");
           } else if (action === "disconnected") {
             if (!terminalId) throw new Error("Reader not found.");
             const { error } = await admin
@@ -153,9 +166,12 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/reader")({
           const terminals = await listStripeTerminals(caller.storeId);
           return json({ ok: true, terminals });
         } catch (error) {
-          return json({ error: "Reader update failed" }, 400);
+          return body.action === "connected"
+            ? json({ error: readerMessage("SAVE"), code: "SAVE" }, 400)
+            : json({ error: READER_CONNECTION_MESSAGE }, 400);
         }
       },
     },
   },
 });
+
