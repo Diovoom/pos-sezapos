@@ -72,24 +72,6 @@ if (!plugin.includes("SEZA_PATCH_CLEAR_CACHED_CREDENTIALS")) {
   }
 }
 
-
-// 2b) Expose the one-shot connection-token callback through the Capacitor
-// plugin bridge. The implementation method alone is not callable from JS:
-// Capacitor only exposes @PluginMethod methods on StripeTerminalPlugin.
-// Without this wrapper, Stripe can discover the physical M2 and request a
-// token, but JS cannot deliver that token back to the pending native callback.
-if (!plugin.includes("SEZA_PATCH_SET_CONNECTION_TOKEN")) {
-  const wrapper = /(\n\s*@PluginMethod\s*\n\s*fun\s+disconnectReader\s*\(call:\s*PluginCall\)\s*\{\s*\n\s*implementation\.disconnectReader\(call\)\s*\n\s*\}\s*\n)/m;
-  if (wrapper.test(plugin)) {
-    plugin = plugin.replace(
-      wrapper,
-      `$1\n    // SEZA_PATCH_SET_CONNECTION_TOKEN\n    @PluginMethod\n    fun setConnectionToken(call: PluginCall) {\n        implementation.setConnectionToken(call)\n    }\n`,
-    );
-  } else {
-    throw new Error("Stripe Terminal plugin wrapper changed; setConnectionToken could not be exposed safely.");
-  }
-}
-
 if (!terminal.includes("SEZA_PATCH_CLEAR_CACHED_CREDENTIALS")) {
   const beforeReaderConnectors = /\n\s*private\s+fun\s+connectTapToPayReader\s*\(call:\s*PluginCall\)\s*\{/m;
   if (beforeReaderConnectors.test(terminal)) {
@@ -350,13 +332,6 @@ if (!terminal.includes("SEZA_PATCH_MOBILE_EVENT_EPOCH")) {
         return object : MobileReaderListener {`);
   mobile = mobile.replaceAll("notifyListeners(", "TokenProvider.notifyReaderEvent(merchantEpoch, ");
   terminal = terminal.slice(0, start) + mobile + terminal.slice(end);
-}
-
-if (!/@PluginMethod\s+fun\s+setConnectionToken\s*\(call:\s*PluginCall\)/m.test(plugin)) {
-  throw new Error("SEZA Stripe Terminal token bridge is missing @PluginMethod setConnectionToken.");
-}
-if (!/fun\s+setConnectionToken\s*\(call:\s*PluginCall\)\s*\{\s*TokenProvider\.setConnectionToken\(call\)/m.test(terminal)) {
-  throw new Error("SEZA Stripe Terminal token implementation is missing.");
 }
 
 const terminalChanged = writeIfChanged(terminalPath, terminalOriginal, terminal);

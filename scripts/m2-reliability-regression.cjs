@@ -34,7 +34,7 @@ function fixture() {
   };
   const mod={StripeTerminal:sdk,TerminalEventsEnum:events,TerminalConnectTypes:{Usb:'usb',Bluetooth:'bluetooth',Simulated:'simulated'}};
   const mocks={
-    './reader-diagnostics':d,'@/lib/native':{isNativeMode:()=>true},'@/integrations/supabase/client':{supabase:{auth:{getSession:async()=>({data:{session:state.session||null}})}}},
+    './reader-diagnostics':d,'./terminal-context':load('src/lib/hardware/terminal-context.ts'),'@/lib/native':{isNativeMode:()=>true},'@/integrations/supabase/client':{supabase:{auth:{getSession:async()=>({data:{session:state.session||null}})}}},
     '@/lib/offline/db':{readMeta:async()=> 'employee'},'@/lib/errors/user-facing':{userFacingError:e=>e.message},
     '../../../capacitor-shell/lib/pairing':{getPairing:()=>({storeId:state.store,deviceId:'device',deviceSecret:'fixture'})},
     '../../../capacitor-shell/lib/nativeHttp':{nativeFetch:async(url,opts)=>{
@@ -42,6 +42,7 @@ function fixture() {
       let result={},status=200;
       if(url.endsWith('/context'))result={ready:state.merchantReady,connectStatus:state.merchantReady?'ready':'pending',cardPaymentsStatus:'active',terminalLocationReady:state.locationReady,locationId:state.locationReady?`location-${state.store}`:null,terminals:[{id:`terminal-${state.store}`,store_id:state.store,status:state.configured?'configured':'active',serial:state.savedSerial||null,config:{device_id:'device',reader_type:'stripe-m2',connection_method:'usb'}}]};
       if(url.endsWith('/context')&&state.fresh)result.terminals=[];
+      if(url.endsWith('/context')&&state.rateLimited){state.rateLimited--;status=429;result={retry_after_seconds:1}}
       if(url.endsWith('/context')&&state.contextError){status=503;result={code:'CONTEXT'}}
       if(url.endsWith('/reader')&&body.action==='save'){state.fresh=false;state.configured=true;result={ok:true,terminals:[{id:'terminal-A',store_id:'A',status:'configured',serial:null,config:{device_id:'device',reader_type:'stripe-m2'}}]}}
       if(url.endsWith('/connection-token')){if(state.holdToken)await state.holdToken.promise;if(state.failToken){status=503;result={error:'network secret fixture'}}else result={secret:`token-${body.nativeAuth.store_id}`}}
@@ -321,7 +322,7 @@ test('context failure is distinct from incomplete Stripe onboarding and stops be
 test('matching POS session is sent alongside pairing; stale different actor session is not sent',async()=>{
   const f=fixture();f.state.session={user:{id:'employee'},access_token:'session-fixture'};
   await f.api.getStripeTerminalContext();assert.equal(f.state.requests.at(-1).headers.authorization,'Bearer session-fixture');
-  f.state.session.user.id='old-merchant';await f.api.getStripeTerminalContext();assert.equal(f.state.requests.at(-1).headers.authorization,undefined);
+  f.state.session.user.id='old-merchant';await f.api.getStripeTerminalContext({fresh:true});assert.equal(f.state.requests.at(-1).headers.authorization,undefined);
 });
 for(const role of ['owner','manager'])test(`expired PIN grant accepts independently verified same-actor ${role} session`,async()=>{
   const f=merchantServerFixture();f.state.expired=true;f.state.browserId='employee-A';f.state.roles=[role];
@@ -407,6 +408,82 @@ test('explicit reconnect preserves the selected configured reader for fresh disc
   const f=fixture();await f.api.connectReader('stripe-m2');f.state.configured=true;
   await f.api.disconnect({preserveSelection:true});assert.equal(f.api.selectedStripeTerminal({terminals:[{id:'terminal-A',store_id:'A',status:'configured'}]}).id,'terminal-A');
   await f.api.connectReader('stripe-m2');assert.equal(f.state.discoveries,2);
+});
+test('many overlapping UI, heartbeat and reconnect reads use one context request',async()=>{
+  const f=fixture();await Promise.all(Array.from({length:80},()=>f.api.getStripeTerminalContext()));
+  assert.equal(f.state.requests.filter(x=>x.url.endsWith('/context')).length,1);
+  await f.api.getStripeTerminalContext();assert.equal(f.state.requests.length,1);
+});
+test('context cache cannot survive a merchant switch and reader writes invalidate it',async()=>{
+  const f=fixture();await f.api.getStripeTerminalContext();f.state.store='B';
+  assert.equal((await f.api.getStripeTerminalContext()).locationId,'location-B');
+  await f.api.updateStripeTerminal('disconnected','terminal-B');await f.api.getStripeTerminalContext();
+  assert.equal(f.state.requests.filter(x=>x.url.endsWith('/context')).length,3);
+});
+test('background context failure cannot overwrite a native connection diagnostic',async()=>{
+  const f=fixture();f.d.beginReaderAttempt();f.d.recordReaderDiagnostic('CONNECT_READER_NATIVE','error',{native_error_code:'TOKEN'});f.state.contextError=true;
+  await assert.rejects(f.api.getStripeTerminalContext());assert.equal(f.d.getReaderDiagnostic().stage,'CONNECT_READER_NATIVE');assert.equal(f.d.getReaderDiagnostic().native_error_code,'TOKEN');
+});
+test('429 resumes the same Connect attempt through token, discovery, native connect and save',async()=>{
+  const f=fixture();f.state.rateLimited=1;f.state.tokenOnDiscovery=true;
+  const messages=[];await f.api.connectReader('stripe-m2',s=>messages.push(s),{method:'usb'});
+  assert.equal(f.state.requests.filter(x=>x.url.endsWith('/context')).length,2);
+  assert.equal(f.state.connects,1);assert.equal(f.d.getReaderDiagnostic().stage,'CONNECTED');assert.equal(f.state.tokens.length,1);
+  assert.ok(messages.some(s=>s.includes('continue automatically')));
+  assert.ok(f.state.requests.some(x=>x.body.action==='connected'));
+});
+test('repeated rate limit stops after one retry without initializing Stripe',async()=>{
+  const f=fixture();f.state.rateLimited=3;
+  await assert.rejects(f.api.connectReader('stripe-m2',undefined,{method:'usb'}),e=>e.code==='CONTEXT_RATE_LIMIT');
+  assert.equal(f.state.requests.length,2);assert.equal(f.state.initializes,0);
+  assert.equal(f.d.getReaderDiagnostic().context_http_status,429);assert.equal(f.d.getReaderDiagnostic().context_step,'RATE_LIMIT');
+});
+test('context coordinator enforces TTL, failed-read backoff and mutation invalidation',async()=>{
+  let now=1000,calls=0;const reads=load('src/lib/hardware/terminal-context.ts').createTerminalContextReads(()=>now);
+  const fetcher=async()=>{calls++;return {ready:true}};
+  await reads.read('A',fetcher);now+=9000;await reads.read('A',fetcher);assert.equal(calls,1);
+  now+=1001;await reads.read('A',fetcher);assert.equal(calls,2);
+  const blocked=Object.assign(Error('rate'),{retryAfterSeconds:30});reads.invalidate();
+  const fail=async()=>{calls++;throw blocked};await assert.rejects(reads.read('A',fail));
+  for(let n=0;n<50;n++)await assert.rejects(reads.read('A',fail,true));assert.equal(calls,3);
+  now+=30001;await reads.read('A',fetcher);assert.equal(calls,4);
+  reads.invalidate();await reads.read('A',fetcher);assert.equal(calls,5);
+});
+test('a late pre-mutation context result never repopulates the cache',async()=>{
+  const reads=load('src/lib/hardware/terminal-context.ts').createTerminalContextReads();const wait=deferred();
+  const old=reads.read('A',()=>wait.promise);reads.invalidate();await reads.read('A',async()=> 'new');wait.resolve('old');await old;
+  assert.equal(await reads.read('A',async()=> 'unexpected'),'new');
+});
+function contextRouteFixture(failAt) {
+  const steps=[];let guardOptions;const d=load('src/lib/hardware/reader-diagnostics.ts');
+  const route=load('src/routes/api/public/pos/stripe-terminal/context.ts',{
+    '@tanstack/react-router':{createFileRoute:()=>x=>x},'@/lib/hardware/reader-diagnostics':d,
+    '@/lib/security/api-security.server':{guardApiRequest:async(_,options)=>{guardOptions=options;return failAt==='RATE_LIMIT'?new Response('{}',{status:429,headers:{'retry-after':'2'}}):null}},
+    '@/lib/stripe-terminal.server':{
+      resolveStripeTerminalCaller:async()=>{steps.push('auth');if(failAt==='CALLER_AUTH')throw d.readerFailure('SESSION');return {storeId:'A',deviceId:'device'}},
+      loadStripeTerminalStore:async()=>{steps.push('store');if(failAt==='MERCHANT_STORE')throw Error('sk_live_private');return {ready:true,store:{stripe_connect_status:'ready'},cardStatus:'active',locationId:'tml_A',environment:'live'}},
+      listStripeTerminals:async()=>{steps.push('readers');if(failAt==='READER_LIST')throw Error('secret SQL');return [{id:'mine',config:{device_id:'device'}},{id:'other',config:{device_id:'other'}}]},
+    },
+  }).Route;
+  return {steps,options:()=>guardOptions,send:()=>route.server.handlers.POST({request:new Request('https://fixture.invalid/context',{method:'POST',body:'{}'})})};
+}
+test('context route sequences auth, store and reader list, returning only this register',async()=>{
+  const f=contextRouteFixture();const response=await f.send(),body=await response.json();
+  assert.deepEqual(f.steps,['auth','store','readers']);assert.equal(body.ready,true);assert.deepEqual(body.terminals.map(x=>x.id),['mine']);
+  assert.equal(response.headers.get('cache-control'),'no-store, private');assert.equal(response.headers.get('x-seza-terminal-api'),body.api_revision);
+  assert.equal(f.options().blockSeconds,0);assert.equal(f.options().limit,60);
+});
+test('context rate guard keeps CORS and Retry-After, identifies 429 before database access',async()=>{
+  const f=contextRouteFixture('RATE_LIMIT');const response=await f.send(),body=await response.json();
+  assert.equal(response.status,429);assert.equal(body.code,'CONTEXT_RATE_LIMIT');assert.equal(body.context_step,'RATE_LIMIT');
+  assert.equal(response.headers.get('retry-after'),'2');assert.equal(response.headers.get('access-control-allow-origin'),'*');assert.deepEqual(f.steps,[]);
+});
+test('context response classifies auth, merchant query and reader query failures without secrets',async()=>{
+  for(const step of ['CALLER_AUTH','MERCHANT_STORE','READER_LIST']){
+    const f=contextRouteFixture(step),response=await f.send(),body=await response.json();
+    assert.equal(body.context_step,step);assert.equal(body.code,step==='CALLER_AUTH'?'SESSION':'CONTEXT');
+    assert.ok(!JSON.stringify(body).match(/sk_live|secret SQL/));assert.equal(response.status,step==='CALLER_AUTH'?401:503);
+  }
 });
 test('native patch forwards discovery failures and removes token logging',()=>{
   const base=path.join(root,'node_modules/@capacitor-community/stripe-terminal/android/src/main/java/com/getcapacitor/community/stripe/terminal');

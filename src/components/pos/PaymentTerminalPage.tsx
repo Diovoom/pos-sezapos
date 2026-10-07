@@ -25,15 +25,14 @@ export function PaymentTerminalPage() {
   const readerConnected = readerReady.data === true;
 
   const stripeSetup = useQuery({
-    queryKey: ["payment-terminal-stripe-setup-ready"],
-    queryFn: async () => {
-      const context = await getStripeTerminalContext();
-      return Boolean(context.ready && context.terminalLocationReady);
-    },
+    queryKey: ["stripe-terminal-context"],
+    queryFn: () => getStripeTerminalContext(),
+    staleTime: 10_000,
     retry: false,
-    refetchInterval: 5_000,
+    refetchInterval: 15_000,
   });
-  const merchantSetupReady = stripeSetup.data === true;
+  const merchantSetupReady = stripeSetup.data?.ready === true;
+  const merchantSetupIncomplete = !stripeSetup.isError && stripeSetup.data?.ready === false;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
@@ -64,7 +63,7 @@ export function PaymentTerminalPage() {
                   </div>
                 </div>
 
-                {!merchantSetupReady && (
+                {merchantSetupIncomplete && (
                   <div className="flex gap-2.5">
                     <ExternalLink className="mt-0.5 size-4 shrink-0 text-primary" />
                     <div className="space-y-2">

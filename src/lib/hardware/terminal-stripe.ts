@@ -1,3 +1,4 @@
+import { createTerminalContextReads } from "./terminal-context";
 import { READER_CONNECTION_MESSAGE, recordReaderDiagnostic, readerErrorCode, getReaderDiagnostic, clearReaderDiagnostic, beginReaderAttempt, readerFailure, readerMessage, type ReaderErrorCode } from "./reader-diagnostics";
 import type { TerminalDriverId } from "./index";
 import { isNativeMode } from "@/lib/native";
@@ -84,6 +85,8 @@ type StripeTerminalRuntimeState = {
   paymentSettledPromise: Promise<void> | null;
   resolvePaymentSettled: (() => void) | null;
 };
+
+const contextReads = createTerminalContextReads<StripeTerminalContext>();
 
 const STRIPE_RUNTIME_KEY = "__sezaStripeTerminalRuntime";
 
@@ -172,6 +175,7 @@ export async function resetStripeTerminalForMerchantSwitch(adoptMerchant?: () =>
   if (runtime.resetPromise) return runtime.resetPromise;
   if (runtime.paymentInFlight) throw new Error(READER_CONNECTION_MESSAGE);
   runtime.epoch += 1; // Invalidate callbacks before the first await.
+  contextReads.invalidate();
   runtime.resetFailed = true; // Fail closed until native credentials are cleared.
   beginReaderAttempt();
   recordReaderDiagnostic("MERCHANT_RESET", "pending");
@@ -282,7 +286,16 @@ async function callApi<T>(path: string, body: Record<string, unknown> = {}): Pro
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
     const code = (result as any)?.code;
-    if (["TOKEN", "MERCHANT_SETUP", "LOCATION", "SAVE", "SESSION", "CONTEXT", "CONFIGURE"].includes(code)) throw readerFailure(code);
+    if (path.endsWith("/context") && response.status === 429) {
+      const retry = Number(response.headers.get("retry-after") || (result as any)?.retry_after_seconds || 1);
+      throw Object.assign(readerFailure("CONTEXT_RATE_LIMIT"), {
+        retryAfterSeconds: Number.isFinite(retry) ? Math.max(1, Math.min(300, retry)) : 1,
+        httpStatus: 429, contextStep: "RATE_LIMIT",
+      });
+    }
+    if (["TOKEN", "MERCHANT_SETUP", "LOCATION", "SAVE", "SESSION", "CONTEXT", "CONFIGURE"].includes(code)) {
+      throw Object.assign(readerFailure(code), { httpStatus: response.status, contextStep: (result as any)?.context_step });
+    }
     if (response.status === 401) throw readerFailure("SESSION");
     if (path.endsWith("/context")) throw readerFailure("CONTEXT");
     throw new Error(String((result as any)?.error || `SEZA payment service error ${response.status}`));
@@ -296,13 +309,45 @@ export function recoverStripeCheckout(action: "recover" | "acknowledge" | "aband
     "/api/public/pos/stripe-terminal/payment-result",{action,checkoutId});
 }
 
-export async function getStripeTerminalContext(): Promise<StripeTerminalContext> {
+export async function getStripeTerminalContext(options?: { fresh?: boolean; attempt?: boolean }): Promise<StripeTerminalContext> {
+  const epoch = stripeRuntime().epoch;
   try {
-    return await readerDeadline(callApi<StripeTerminalContext>("/api/public/pos/stripe-terminal/context"), 15_000, "CONTEXT");
+    const auth = await nativeAuth();
+    const actor = auth ? `${auth.store_id}:${auth.device_id}:${auth.caller_id}` : (await supabase.auth.getSession()).data.session?.user.id ?? "signed-out";
+    const context = await contextReads.read(`${epoch}:${actor}`, async () => {
+      const value = await readerDeadline(callApi<StripeTerminalContext>("/api/public/pos/stripe-terminal/context"), 15_000, "CONTEXT");
+      if (!value || typeof value.ready !== "boolean" || !Array.isArray(value.terminals)) throw readerFailure("CONTEXT");
+      return value;
+    }, options?.fresh === true);
+    assertReaderEpoch(epoch);
+    return context;
   } catch (error) {
-    const code = (error as { code?: string })?.code === "SESSION" ? "SESSION" : "CONTEXT";
-    recordReaderDiagnostic(code === "SESSION" ? "POS_AUTH" : "MERCHANT_CONTEXT", "error", { native_error_code: code });
-    throw readerFailure(code);
+    if (stripeRuntime().epoch !== epoch) throw readerFailure("RESET");
+    const e = error as { code?: string; retryAfterSeconds?: number; httpStatus?: number; contextStep?: string };
+    const code = e?.code === "SESSION" ? "SESSION" : e?.code === "CONTEXT_RATE_LIMIT" ? "CONTEXT_RATE_LIMIT" : "CONTEXT";
+    // A heartbeat read must never replace the last real connect/discovery failure.
+    if (options?.attempt) recordReaderDiagnostic(code === "SESSION" ? "POS_AUTH" : "MERCHANT_CONTEXT", "error", {
+      native_error_code: code, context_http_status: e.httpStatus, context_step: e.contextStep,
+    });
+    throw Object.assign(readerFailure(code), { retryAfterSeconds: e.retryAfterSeconds, httpStatus: e.httpStatus, contextStep: e.contextStep });
+  }
+}
+
+async function connectionContext(onStatus?: (message: string) => void) {
+  const epoch = stripeRuntime().epoch;
+  try { return await getStripeTerminalContext({ fresh: true, attempt: true }); }
+  catch (error) {
+    const e = error as { code?: string; retryAfterSeconds?: number };
+    if (e.code !== "CONTEXT_RATE_LIMIT") throw error;
+    const seconds = Math.max(1, Math.min(300, e.retryAfterSeconds ?? 1));
+    onStatus?.("SEZA is waiting for the reader service. Connection will continue automatically.");
+    const until = Date.now() + seconds * 1000;
+    while (Date.now() < until) {
+      await new Promise(resolve => setTimeout(resolve, Math.min(1000, until - Date.now())));
+      assertReaderEpoch(epoch);
+    }
+    // One bounded retry keeps the same Connect attempt and native continuation.
+    return getStripeTerminalContext({ fresh: true, attempt: true });
   }
 }
 
@@ -314,10 +359,11 @@ export async function saveStripeTerminal(input: {
   readerType: TerminalDriverId;
   connectionMethod?: "usb" | "bluetooth";
 }) {
-  return callApi<{ ok: true; terminals: StripeTerminalRecord[] }>(
-    "/api/public/pos/stripe-terminal/reader",
-    { action: "save", ...input },
-  );
+  try {
+    return await callApi<{ ok: true; terminals: StripeTerminalRecord[] }>(
+      "/api/public/pos/stripe-terminal/reader", { action: "save", ...input },
+    );
+  } finally { contextReads.invalidate(); }
 }
 
 export async function updateStripeTerminal(
@@ -331,7 +377,7 @@ export async function updateStripeTerminal(
     assertReaderEpoch(epoch);
     return callApi<{ ok: true; terminals: StripeTerminalRecord[] }>(
       "/api/public/pos/stripe-terminal/reader", { action, terminalId, ...extra },
-    );
+    ).finally(() => contextReads.invalidate());
   };
   if (action !== "connected" && action !== "disconnected") return write();
   // Preserve native event order when a disconnect request is slow in transit.
@@ -500,12 +546,12 @@ async function ensureCurrentMerchant() {
   return auth;
 }
 
-async function activeConfiguration(preferred?: TerminalDriverId): Promise<TerminalConfiguration> {
+async function activeConfiguration(preferred?: TerminalDriverId, preparedContext?: StripeTerminalContext): Promise<TerminalConfiguration> {
   const auth = await ensureCurrentMerchant();
   const epoch = stripeRuntime().epoch;
   assertReaderEpoch(epoch);
   recordReaderDiagnostic("MERCHANT_CONTEXT", "pending");
-  const context = await getStripeTerminalContext();
+  const context = preparedContext ?? await connectionContext(stripeRuntime().onReaderStatus ?? undefined);
   assertReaderEpoch(epoch);
   const merchantReady = context.connectStatus === "ready" && ["active", "enabled"].includes(context.cardPaymentsStatus ?? "");
   recordReaderDiagnostic("MERCHANT_CONTEXT", "ok", { merchant_ready: merchantReady, terminal_location_ready: Boolean(context.locationId && context.terminalLocationReady) });
@@ -1018,11 +1064,13 @@ export async function connectReader(driver: TerminalDriverId, onStatus?: (messag
     beginReaderAttempt();
     runtime.onReaderStatus = onStatus ?? null;
     let configuration: TerminalConfiguration | null = null;
+    let preparedContext: StripeTerminalContext | undefined;
     try {
       if (setup) {
         await ensureCurrentMerchant();
         const epoch = runtime.epoch;
-        const context = await getStripeTerminalContext();
+        const context = await connectionContext(onStatus);
+        preparedContext = context;
         assertReaderEpoch(epoch);
         if (!context.ready) throw readerFailure(context.terminalLocationReady ? "MERCHANT_SETUP" : "LOCATION");
         let terminal = selectedStripeTerminal(context) ?? context.terminals.find(item => item.status === "configured");
@@ -1031,6 +1079,7 @@ export async function connectReader(driver: TerminalDriverId, onStatus?: (messag
           const result = await saveStripeTerminal({ label: "Card reader", model: "Reader M2", location: "Front counter", readerType: driver, connectionMethod: setup.method });
           assertReaderEpoch(epoch);
           const auth = await nativeAuth();
+          preparedContext = { ...context, terminals: result.terminals.filter(item => !auth || !item.config?.device_id || item.config.device_id === auth.device_id) };
           terminal = result.terminals.find(item => item.status === "configured" && (!auth || item.config?.device_id === auth.device_id));
           if (!terminal) throw readerFailure("CONFIGURE");
         }
@@ -1043,7 +1092,7 @@ export async function connectReader(driver: TerminalDriverId, onStatus?: (messag
         setActivePaymentProvider("stripe-terminal");
         recordReaderDiagnostic("READER_API_CONFIGURE", "ok");
       }
-      configuration = await activeConfiguration(driver);
+      configuration = await activeConfiguration(driver, preparedContext);
       const { reader } = await ensureReader(configuration, onStatus);
       onStatus?.("Card reader connected.");
       return { terminalId: configuration.terminalId, serialNumber: reader.serialNumber, label: reader.label || reader.serialNumber };

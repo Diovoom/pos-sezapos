@@ -21,7 +21,7 @@ export function PaymentTerminalsPanel({ canEdit }: { canEdit: boolean }) {
   const qc = useQueryClient();
   const actionLock = useRef(false);
   const [status, setStatus] = useState("");
-  const context = useQuery({ queryKey: ["stripe-terminal-context"], queryFn: getStripeTerminalContext, retry: false, refetchOnWindowFocus: true });
+  const context = useQuery({ queryKey: ["stripe-terminal-context"], queryFn: () => getStripeTerminalContext(), staleTime: 10_000, retry: false, refetchOnWindowFocus: true });
   const connectivity = useQuery({ queryKey: ["android-connectivity"], queryFn: () => deviceControl.getConnectivityState(), retry: false, staleTime: 5_000 });
   const terminal = context.data && (selectedStripeTerminal(context.data) ?? context.data.terminals.find(item => item.status === "configured"));
   const ready = useQuery({ queryKey: ["stripe-reader-ready", terminal?.id], queryFn: () => isReady(DRIVER), retry: false, refetchInterval: 10_000 });

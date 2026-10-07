@@ -2,6 +2,7 @@
 export const READER_CONNECTION_MESSAGE = "Could not connect to the card reader. Please try again.";
 export const READER_MESSAGES = {
   SESSION: "Your POS session has expired. Sign in on this register and try again.",
+  CONTEXT_RATE_LIMIT: "SEZA is receiving too many reader setup requests. Wait a moment and try again.",
   CONTEXT: "SEZA could not check this store’s card reader setup. Check the connection and try again.",
   CONFIGURE: "SEZA could not save this register’s reader setup. Try again.",
   USB_ABSENT: "No card reader detected. Connect and power on the Stripe Reader M2, then try again.",
@@ -92,6 +93,8 @@ export function sanitizeReaderDiagnostic(input: unknown) {
     // Android enumeration alone must never supply a serial to diagnostics.
     reader_serial: d.reader_discovered === true && typeof d.reader_serial === "string" && /^STRM2[A-Z0-9]{1,28}$/i.test(d.reader_serial) ? d.reader_serial : null,
     ...Object.fromEntries(flags.map(key => [key, typeof d[key] === "boolean" ? d[key] : null])) as Record<typeof flags[number], boolean | null>,
+    context_http_status: typeof d.context_http_status === "number" && Number.isInteger(d.context_http_status) && d.context_http_status >= 100 && d.context_http_status <= 599 ? d.context_http_status : null,
+    context_step: ["RATE_LIMIT", "REQUEST_GUARD", "CALLER_AUTH", "MERCHANT_STORE", "READER_LIST", "RESPONSE"].includes(String(d.context_step)) ? d.context_step : null,
     native_error_code: code,
     native_error: code ? readerMessage(code) : null,
     timestamp: timestamp(d.timestamp),
