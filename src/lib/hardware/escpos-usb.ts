@@ -85,7 +85,9 @@ function profileMatches(device: UsbPrinterDevice, profile: UsbPrinterProfile): b
 }
 
 export function selectedUsbDeviceId(): number | null {
-  const value = Number(localGet(KEY));
+  const raw = localGet(KEY);
+  if (raw == null || raw.trim() === "") return null;
+  const value = Number(raw);
   return Number.isInteger(value) && value >= 0 ? value : null;
 }
 

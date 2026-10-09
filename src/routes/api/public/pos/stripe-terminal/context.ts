@@ -56,6 +56,11 @@ export const Route = createFileRoute("/api/public/pos/stripe-terminal/context")(
             listStripeTerminals,
           } = await import("@/lib/stripe-terminal.server");
           const caller = await resolveStripeTerminalCaller({ bearerToken, nativeAuth: body.nativeAuth });
+          if (body.setup === true) {
+            step = "SETUP_REQUIREMENTS";
+            const { loadReaderSetup } = await import("@/lib/stripe-reader-setup.server");
+            return json({ setup: await loadReaderSetup(caller), api_revision: CONTEXT_REVISION });
+          }
           step = "MERCHANT_STORE";
           const state = await loadStripeTerminalStore(caller);
           step = "READER_LIST";

@@ -89,8 +89,8 @@ export const Route = createFileRoute("/api/sms/send")({
           return jsonResponse({ error: "Invalid JSON body" }, { status: 400 });
         }
 
-        const to = (payload.to ?? "").trim();
-        const body = (payload.body ?? "").trim();
+        const to = typeof payload?.to === "string" ? payload.to.trim() : "";
+        const body = typeof payload?.body === "string" ? payload.body.trim() : "";
         if (!/^\+[1-9]\d{6,14}$/.test(to)) {
           return jsonResponse(
             { error: "Recipient phone must be in E.164 format" },
@@ -104,13 +104,34 @@ export const Route = createFileRoute("/api/sms/send")({
         // Resolve caller's store
         const { data: profile, error: profErr } = await admin
           .from("profiles")
-          .select("store_id")
+          .select("store_id,status")
           .eq("id", user.id)
           .maybeSingle();
         if (profErr || !profile?.store_id) {
           return jsonResponse({ error: "No store linked to this account" }, { status: 400 });
         }
+        if (profile.status !== "active") {
+          return jsonResponse({ error: "This employee account is inactive." }, { status: 403 });
+        }
         const storeId = profile.store_id as string;
+        if (payload.test === true) {
+          const { data: roles, error: roleError } = await admin.from("user_roles")
+            .select("role").eq("user_id", user.id).eq("store_id", storeId);
+          if (roleError || !roles?.some((row: { role: string }) => ["owner", "admin", "manager"].includes(row.role))) {
+            return jsonResponse({ error: "Only an owner or manager can test SMS settings." }, { status: 403 });
+          }
+        } else {
+          // The service-role sender must independently scope the sale; a client
+          // cannot attach another merchant's sale to this store's SMS account.
+          if (typeof payload.saleId !== "string" || !/^[0-9a-f-]{36}$/i.test(payload.saleId)) {
+            return jsonResponse({ error: "A valid sale is required to send a text receipt." }, { status: 400 });
+          }
+          const { data: sale, error: saleError } = await admin.from("sales")
+            .select("id").eq("id", payload.saleId).eq("store_id", storeId).maybeSingle();
+          if (saleError) return jsonResponse({ error: "Could not verify this receipt. Try again." }, { status: 503 });
+          if (!sale) return jsonResponse({ error: "Sale not found for this store." }, { status: 404 });
+        }
+
 
         // SMS receipts are a Pro+ entitlement. Keep this check server-side so
         // a Starter merchant cannot bypass the UI and call the endpoint directly.
@@ -154,7 +175,7 @@ export const Route = createFileRoute("/api/sms/send")({
             { status: 400 },
           );
         }
-        if (!settings.enabled && !payload.test) {
+        if (!settings.enabled && payload.test !== true) {
           return jsonResponse(
             { error: "SMS delivery is disabled. Enable it in Settings → SMS Setup." },
             { status: 400 },
@@ -183,7 +204,7 @@ export const Route = createFileRoute("/api/sms/send")({
           idempotency_key: payload.idempotencyKey ?? null,
         });
 
-        if (payload.test) {
+        if (payload.test === true) {
           await admin
             .from("sms_settings")
             .update({

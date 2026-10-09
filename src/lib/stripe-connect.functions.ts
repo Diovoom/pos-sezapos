@@ -216,41 +216,14 @@ async function createPlatformManagedAccount(stripe: any, store: any, profile: an
 }
 
 function hasTerminalAddress(store: any) {
-  return Boolean(store.address && store.city && store.state && store.zip && store.country);
+  return [store.address, store.city, store.state, store.zip, store.country].every(value => typeof value === "string" && value.trim().length > 0);
 }
 
 async function ensureTerminalLocation(stripe: any, accountId: string, store: any) {
-  const existingLocationId = String(store.stripe_terminal_location_id || "").trim();
-  if (existingLocationId) {
-    try {
-      const existing = await stripe.terminal.locations.retrieve(existingLocationId, {
-        stripeAccount: accountId,
-      });
-      if (existing?.id) return existing.id as string;
-    } catch (error: any) {
-      const status = Number(error?.statusCode || error?.status || 0);
-      const code = String(error?.code || error?.raw?.code || "");
-      if (status !== 404 && code !== "resource_missing") throw error;
-    }
-  }
-
-  if (!hasTerminalAddress(store)) return null;
-
-  const location = await stripe.terminal.locations.create(
-    {
-      display_name: String(store.name || "SEZA POS Store").slice(0, 100),
-      address: {
-        line1: String(store.address),
-        city: String(store.city),
-        state: String(store.state),
-        postal_code: String(store.zip),
-        country: String(store.country || "US").toUpperCase(),
-      },
-      metadata: { seza_store_id: String(store.id) },
-    },
-    { stripeAccount: accountId },
-  );
-  return location.id as string;
+  // Owner completion and POS polling may race. Share recovery and the same
+  // idempotency key so both paths save one location for this merchant.
+  const { ensureReaderLocation } = await import("@/lib/stripe-reader-setup.server");
+  return ensureReaderLocation(stripe, accountId, store);
 }
 
 async function refreshConnectedAccount(userId: string) {

@@ -1,5 +1,6 @@
+import { parseReaderSetupReturn } from "@/lib/hardware/reader-setup-return";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CheckCircle2,
@@ -263,6 +264,21 @@ export function PaymentTerminalsPanel({
     queryFn: () => getStripeStatus({}),
     retry: false,
   });
+
+  const setupHandoff = typeof window !== "undefined" ? parseReaderSetupReturn(window.location.search) : null;
+  const openedHandoff = useRef(false);
+  useEffect(() => {
+    if (openedHandoff.current || !setupHandoff || !storeId) return;
+    if (setupHandoff.readerStore !== storeId) {
+      openedHandoff.current = true;
+      toast.error("This setup request is for another store. Sign in with that store’s owner account.");
+      return;
+    }
+    if (isOwner && stripeStore.data?.stripe_connected_account_id && ["bank", "verification"].includes(setupHandoff.readerSetup)) {
+      openedHandoff.current = true;
+      setPayoutManagerOpen(true);
+    }
+  }, [storeId, isOwner, stripeStore.data?.stripe_connected_account_id, setupHandoff?.readerSetup, setupHandoff?.readerStore]);
 
   const connectStripe = useMutation({
     mutationFn: () => beginStripeOnboarding({}),

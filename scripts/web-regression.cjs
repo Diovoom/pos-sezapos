@@ -381,7 +381,8 @@ test('Quick Keys are owner-managed products, first on POS, ordered, offline-cach
   assert.match(cache, /is_quick_key\?: boolean/);
   assert.match(cache, /quick_key_order\?: number/);
   assert.match(drafts, /is_quick_key: Boolean\(base\.is_quick_key\)/);
-  assert.match(bootstrap, /is_quick_key,quick_key_order,track_inventory/);
+  assert.match(bootstrap, /loadDeviceBootstrap/);
+  assert.match(source("src/lib/pos/device-bootstrap.server.ts"), /is_quick_key,quick_key_order,track_inventory/);
   assert.match(migration, /ADD COLUMN IF NOT EXISTS is_quick_key boolean NOT NULL DEFAULT false/);
   assert.match(migration, /idx_products_store_quick_keys/);
 });
@@ -427,7 +428,7 @@ test('credential pages identify the official SEZA portal', () => {
   const trust = source('src/components/auth/AuthTrustPanel.tsx');
   assert.match(trust, /admin\.sezapos\.com/);
   assert.match(trust, /dashboard\.sezapos\.com/);
-  assert.match(trust, /Before entering credentials/);
+  assert.match(trust, /Official SEZA Technologies sign-in/);
   assert.match(trust, /sezapos\.com/);
   for (const file of ['src/routes/auth.tsx', 'src/routes/signup.tsx', 'src/routes/reset-password.tsx', 'src/routes/admin.auth.tsx']) {
     assert.match(source(file), /AuthTrustPanel/);

@@ -19,6 +19,7 @@
     "lint:fix": "eslint src --cache --cache-location .eslintcache --fix",
     "format:check": "prettier --check src",
     "typecheck": "tsc --noEmit",
+    "test:regression": "node scripts/patch-stripe-terminal.mjs && node scripts/run-regressions.mjs",
     "android:debug": "npm run android:sync && cd android && gradlew.bat assembleDebug",
     "android:release": "npm run android:sync && cd android && gradlew.bat assembleRelease",
     "android:verify-native": "node scripts/verify-android-native-transport.mjs"

@@ -68,32 +68,23 @@ export const Route = createFileRoute("/api/public/pos/device-bootstrap")({
           return json({ error: "Device is not paired to this store" }, 401);
         }
 
-        const [storeResult, productsResult, categoriesResult, employeesResult, permissionsResult] = await Promise.all([
-          admin.from("stores").select("*").eq("id", storeId).maybeSingle(),
-          admin
-            .from("products")
-            .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,is_quick_key,quick_key_order,track_inventory,store_id,image_url,age_restricted,min_age,age_category,status")
-            .eq("store_id", storeId)
-            .eq("status", "active")
-            .order("name"),
-          admin.from("categories").select("id,name,sort_order").eq("store_id", storeId).order("sort_order"),
-          admin
-            .from("profiles")
-            .select("id,first_name,last_name,full_name,email,phone,employee_id,status,hire_date,must_change_password,photo_url,store_id")
-            .eq("store_id", storeId)
-            .eq("status", "active"),
-          admin.from("role_permissions").select("role,permission").eq("store_id", storeId),
-        ]);
-
-        if (!storeResult.data) return json({ error: "Store configuration is unavailable" }, 503);
+        let snapshot;
+        try {
+          const { loadDeviceBootstrap } = await import("@/lib/pos/device-bootstrap.server");
+          snapshot = await loadDeviceBootstrap(admin, storeId);
+        } catch {
+          return json({ error: "Store configuration could not be refreshed. Cached data has been preserved." }, 503);
+        }
 
         let profile: any = null;
         let roles: string[] = [];
         if (userId) {
-          const [{ data: p }, { data: r }] = await Promise.all([
+          const [profileResult, rolesResult] = await Promise.all([
             admin.from("profiles").select("*").eq("id", userId).eq("store_id", storeId).maybeSingle(),
-            admin.from("user_roles").select("role").eq("user_id", userId),
+            admin.from("user_roles").select("role").eq("user_id", userId).eq("store_id", storeId),
           ]);
+          if (profileResult.error || rolesResult.error) return json({ error: "Employee configuration could not be refreshed." }, 503);
+          const p = profileResult.data, r = rolesResult.data;
           if (p?.status === "active") {
             const { pin_hash: _hash, pin_fingerprint: _fingerprint, ...safeProfile } = p;
             profile = safeProfile;
@@ -110,13 +101,8 @@ export const Route = createFileRoute("/api/public/pos/device-bootstrap")({
           /* heartbeat is best-effort */
         }
 
-        const { admin_notes: _notes, ...safeStore } = storeResult.data;
         return json({
-          store: safeStore,
-          products: productsResult.data ?? [],
-          categories: categoriesResult.data ?? [],
-          employees: employeesResult.data ?? [],
-          role_permissions: permissionsResult.data ?? [],
+          ...snapshot,
           profile,
           roles,
           device: { id: dev.id, label: dev.label, store_id: dev.store_id },

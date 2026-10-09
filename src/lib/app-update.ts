@@ -1,7 +1,7 @@
 import { isNativeMode } from "@/lib/native";
 
-export const SEZA_APP_VERSION = "1.3.4";
-export const SEZA_APP_BUILD = 9;
+export const SEZA_APP_VERSION = "1.3.3";
+export const SEZA_APP_BUILD = 10;
 export const SEZA_APP_UPDATE_EVENT = "seza-app-update-available";
 
 export type SezaVersionManifest = {
@@ -27,6 +27,13 @@ export function isNewerVersion(candidate: string, current: string) {
   return false;
 }
 
+export function isNewerAppRelease(manifest: SezaVersionManifest, currentVersion: string, currentBuild: string | number) {
+  if (isNewerVersion(manifest.version, currentVersion)) return true;
+  if (isNewerVersion(currentVersion, manifest.version)) return false;
+  const build = Number(currentBuild);
+  return Number.isSafeInteger(manifest.build) && Number.isSafeInteger(build) && manifest.build > build;
+}
+
 export async function initializeAppUpdateWorkflow() {
   if (!isNativeMode()) return;
   try {
@@ -39,12 +46,13 @@ export async function initializeAppUpdateWorkflow() {
   try {
     const { App } = await import("@capacitor/app");
     const info = await App.getInfo();
-    const response = await fetch(`https://sezapos.com/version.json?t=${Date.now()}`, {
+    const { nativeFetch } = await import("../../capacitor-shell/lib/nativeHttp");
+    const response = await nativeFetch(`https://sezapos.com/version.json?t=${Date.now()}`, {
       cache: "no-store",
     });
     if (!response.ok) return;
     const manifest = (await response.json()) as SezaVersionManifest;
-    if (!isNewerVersion(manifest.version, info.version || SEZA_APP_VERSION)) return;
+    if (!isNewerAppRelease(manifest, info.version || SEZA_APP_VERSION, info.build || SEZA_APP_BUILD)) return;
     window.dispatchEvent(new CustomEvent(SEZA_APP_UPDATE_EVENT, { detail: manifest }));
   } catch (error) {
     console.warn("[SEZA update] version check failed", error);

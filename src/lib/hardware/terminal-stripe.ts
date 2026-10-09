@@ -333,6 +333,17 @@ export async function getStripeTerminalContext(options?: { fresh?: boolean; atte
   }
 }
 
+// Isolated from heartbeat/payment context: setup checks cannot interrupt a
+// working reader and never cache a token or an onboarding link.
+export async function getStripeReaderSetup() {
+  const { setup } = await readerDeadline(callApi<{ setup: import("./reader-setup").ReaderSetup }>(
+    "/api/public/pos/stripe-terminal/context", { setup: true }), 30_000, "CONTEXT");
+  if (!setup || !["connect_stripe", "verification", "bank", "review", "address", "location", "retry", "reader"].includes(setup.step)) throw readerFailure("CONTEXT");
+  // A successful setup check may have recovered/saved a Terminal location.
+  if (setup.step === "reader") contextReads.invalidate();
+  return setup;
+}
+
 async function connectionContext(onStatus?: (message: string) => void) {
   const epoch = stripeRuntime().epoch;
   try { return await getStripeTerminalContext({ fresh: true, attempt: true }); }
@@ -1072,7 +1083,7 @@ export async function connectReader(driver: TerminalDriverId, onStatus?: (messag
         const context = await connectionContext(onStatus);
         preparedContext = context;
         assertReaderEpoch(epoch);
-        if (!context.ready) throw readerFailure(context.terminalLocationReady ? "MERCHANT_SETUP" : "LOCATION");
+        if (!context.ready) throw readerFailure(!["active", "enabled"].includes(context.cardPaymentsStatus ?? "") ? "MERCHANT_SETUP" : "LOCATION");
         let terminal = selectedStripeTerminal(context) ?? context.terminals.find(item => item.status === "configured");
         recordReaderDiagnostic("READER_API_CONFIGURE", "pending");
         if (!terminal) {

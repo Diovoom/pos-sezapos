@@ -66,7 +66,10 @@ export async function sendSms(
   if (!token) return { ok: false, error: "You must be signed in." };
 
   try {
-    const res = await fetch(sendUrl(), {
+    const request = isNativeMode()
+      ? (await import("../../../capacitor-shell/lib/nativeHttp")).nativeFetch
+      : fetch;
+    const res = await request(sendUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(args),

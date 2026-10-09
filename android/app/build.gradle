@@ -17,8 +17,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            // Supplied only by the manually approved release workflow.
+            if (System.getenv('SEZA_ANDROID_KEYSTORE_PATH')) {
+                storeFile file(System.getenv('SEZA_ANDROID_KEYSTORE_PATH'))
+                storePassword System.getenv('SEZA_ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('SEZA_ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('SEZA_ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            debuggable false
+            if (System.getenv('SEZA_ANDROID_KEYSTORE_PATH')) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

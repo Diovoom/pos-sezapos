@@ -1,3 +1,4 @@
+import { consumeReaderSetupReturn } from "@/lib/hardware/reader-setup-return";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
@@ -179,7 +180,8 @@ function OwnerAuthPage() {
         }
         rememberOwnerSessionIdentity(verified.user);
         clearOwnerLoginIntent();
-        navigate({ to: "/dashboard", replace: true });
+        const readerSetup = consumeReaderSetupReturn();
+        navigate(readerSetup ? { to: "/settings", search: readerSetup, replace: true } : { to: "/dashboard", replace: true });
         return;
       }
 
@@ -257,7 +259,8 @@ function OwnerEmailLogin() {
     void import("@/lib/audit-log").then((module) =>
       module.logAudit({ action: "login", details: { method: "password" } }),
     );
-    navigate({ to: "/dashboard", replace: true });
+    const readerSetup = consumeReaderSetupReturn();
+    navigate(readerSetup ? { to: "/settings", search: readerSetup, replace: true } : { to: "/dashboard", replace: true });
   };
 
   const submit = async (event: React.FormEvent) => {
@@ -371,7 +374,8 @@ function OwnerEmailLogin() {
       if (!(await ensureOwnerWebsiteAccess(data.user.id))) return;
       rememberOwnerSessionIdentity(data.user);
       clearOwnerLoginIntent();
-      navigate({ to: "/dashboard", replace: true });
+      const readerSetup = consumeReaderSetupReturn();
+      navigate(readerSetup ? { to: "/settings", search: readerSetup, replace: true } : { to: "/dashboard", replace: true });
     } catch (error: any) {
       await supabase.auth.signOut({ scope: "local" } as any).catch(() => undefined);
       await clearOwnerBrowserIdentity(queryClient).catch(() => undefined);

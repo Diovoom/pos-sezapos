@@ -39,6 +39,10 @@ jobs:
         run: npm run verify:production
       - name: Verify security contracts
         run: npm run verify:security
+      - name: Regression tests
+        run: npm run test:regression
+      - name: Type check
+        run: npm run typecheck
       - name: Lint
         run: npm run lint
       - name: Build hosted website

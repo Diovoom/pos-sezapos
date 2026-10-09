@@ -1,3 +1,5 @@
+import { loadOwnerReport, reportBounds, type ReportRange } from "@/lib/web/owner-reports";
+import { useMe } from "@/hooks/useMe";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -47,7 +49,6 @@ import {
   Cell,
 } from "recharts";
 
-const sb = supabase as any;
 
 export const Route = createFileRoute("/_dashboard/reports")({
   head: () => ({
@@ -61,28 +62,6 @@ export const Route = createFileRoute("/_dashboard/reports")({
   }),
   component: ReportsPage,
 });
-
-type RangeKey = "today" | "7d" | "30d" | "mtd";
-
-function rangeBounds(key: RangeKey): { from: Date; to: Date; label: string } {
-  const now = new Date();
-  const to = new Date(now);
-  to.setHours(23, 59, 59, 999);
-  const from = new Date(now);
-  from.setHours(0, 0, 0, 0);
-  if (key === "7d") from.setDate(from.getDate() - 6);
-  else if (key === "30d") from.setDate(from.getDate() - 29);
-  else if (key === "mtd") from.setDate(1);
-  const label =
-    key === "today"
-      ? "Today"
-      : key === "7d"
-        ? "Last 7 days"
-        : key === "30d"
-          ? "Last 30 days"
-          : "Month to date";
-  return { from, to, label };
-}
 
 const PAY_COLORS: Record<string, string> = {
   cash: "#10b981",
@@ -138,104 +117,24 @@ const QUICK_LINKS = [
     desc: "Live overview of today",
     icon: LayoutDashboard,
   },
-  { to: "/register", label: "Register", desc: "Open / close the register", icon: Wallet },
+  { to: "/devices", label: "POS Devices", desc: "Register status and pairing", icon: Wallet },
   { to: "/sales", label: "Sales History", desc: "Every completed sale", icon: FileBarChart },
 ] as const;
 
 function ReportsPage() {
-  const [range, setRange] = useState<RangeKey>("30d");
-  const bounds = useMemo(() => rangeBounds(range), [range]);
-
-  const { data: store } = useQuery({
-    queryKey: ["store"],
-    queryFn: async () =>
-      (await supabase.from("stores").select("id,currency").limit(1).maybeSingle()).data,
-  });
+  const [range, setRange] = useState<ReportRange>("30d");
+  const me = useMe();
+  const store = me.data?.store;
+  const timeZone = store?.time_zone || "America/New_York";
+  const day = new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
+  const bounds = useMemo(() => reportBounds(range, timeZone), [range, timeZone, day]);
   const currency = store?.currency ?? "USD";
-
-  const { data } = useQuery({
-    queryKey: ["reports", range],
-    queryFn: async () => {
-      const [salesRes] = await Promise.all([
-        sb
-          .from("sales")
-          .select("id,total,subtotal,tax,discount,cost,created_at,payment_method,status")
-          .gte("created_at", bounds.from.toISOString())
-          .lte("created_at", bounds.to.toISOString())
-          .order("created_at"),
-      ]);
-
-      const allSales = (salesRes.data ?? []) as any[];
-      const completed = allSales.filter((s) => s.status === "completed");
-
-      const totalSales = completed.reduce((a, s) => a + Number(s.total || 0), 0);
-      const totalTax = completed.reduce((a, s) => a + Number(s.tax || 0), 0);
-      const totalDiscount = completed.reduce((a, s) => a + Number(s.discount || 0), 0);
-      const totalCost = completed.reduce((a, s) => a + Number(s.cost || 0), 0);
-      const txCount = completed.length;
-      const avgSale = txCount > 0 ? totalSales / txCount : 0;
-      const grossProfit = totalSales - totalTax - totalCost;
-
-      // Payment breakdown
-      const payments = new Map<string, number>();
-      for (const s of completed) {
-        const key = (s.payment_method ?? "other").toString();
-        payments.set(key, (payments.get(key) ?? 0) + Number(s.total || 0));
-      }
-      const paymentBreakdown = Array.from(payments.entries())
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
-
-      // Sales over time (by day)
-      const days = new Map<string, number>();
-      const start = new Date(bounds.from);
-      const end = new Date(bounds.to);
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        days.set(d.toISOString().slice(0, 10), 0);
-      }
-      for (const s of completed) {
-        const k = new Date(s.created_at).toISOString().slice(0, 10);
-        if (days.has(k)) days.set(k, days.get(k)! + Number(s.total || 0));
-      }
-      const timeline = Array.from(days.entries()).map(([date, total]) => ({
-        date: new Date(date).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-        total: Math.round(total * 100) / 100,
-      }));
-
-      // Top selling products
-      const saleIds = completed.map((s) => s.id);
-      const items = saleIds.length
-        ? ((
-            await sb
-              .from("sale_items")
-              .select("product_name,quantity,line_total")
-              .in("sale_id", saleIds)
-          ).data ?? [])
-        : [];
-      const perProduct = new Map<string, { name: string; qty: number; revenue: number }>();
-
-      for (const it of items as any[]) {
-        const e = perProduct.get(it.product_name) ?? { name: it.product_name, qty: 0, revenue: 0 };
-        e.qty += Number(it.quantity || 0);
-        e.revenue += Number(it.line_total || 0);
-        perProduct.set(it.product_name, e);
-      }
-      const topProducts = Array.from(perProduct.values())
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5);
-
-      return {
-        totalSales,
-        totalTax,
-        totalDiscount,
-        txCount,
-        avgSale,
-        grossProfit,
-        paymentBreakdown,
-        timeline,
-        topProducts,
-      };
-    },
+  const { data, isPending, isError, refetch } = useQuery({
+    queryKey: ["reports", store?.id, range, bounds.from.toISOString(), timeZone],
+    enabled: !!store?.id,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    queryFn: () => loadOwnerReport(supabase, store!.id, bounds, timeZone),
   });
 
   const exportCsv = () => {
@@ -245,9 +144,10 @@ function ReportsPage() {
       `Total Sales,${data.totalSales.toFixed(2)}`,
       `Transactions,${data.txCount}`,
       `Average Sale,${data.avgSale.toFixed(2)}`,
-      `Gross Profit,${data.grossProfit.toFixed(2)}`,
+      "Gross Profit,Not available - historical cost was not recorded",
       `Discounts,${data.totalDiscount.toFixed(2)}`,
       `Tax Collected,${data.totalTax.toFixed(2)}`,
+      `Refunds Against These Sales,${data.refundedAmount.toFixed(2)}`,
     ];
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -267,7 +167,7 @@ function ReportsPage() {
         subtitle="Review sales, payments, and performance for your business."
         actions={
           <>
-            <Select value={range} onValueChange={(v) => setRange(v as RangeKey)}>
+            <Select value={range} onValueChange={(v) => setRange(v as ReportRange)}>
               <SelectTrigger className="h-9 w-40 rounded-lg">
                 <SelectValue />
               </SelectTrigger>
@@ -278,7 +178,7 @@ function ReportsPage() {
                 <SelectItem value="mtd">Month to date</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={exportCsv}>
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={!data || isError}>
               <Download className="size-4 mr-1.5" /> Export
             </Button>
           </>
@@ -286,6 +186,10 @@ function ReportsPage() {
       />
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {isError ? <div role="alert" className="space-y-3">
+          <p>Reports could not be loaded. Try again; no totals have been substituted.</p>
+          <Button onClick={() => void refetch()}>Try again</Button>
+        </div> : isPending ? <p role="status">Loading reports…</p> : <>
         {/* Summary cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <SummaryCard
@@ -309,7 +213,7 @@ function ReportsPage() {
           <SummaryCard
             icon={DollarSign}
             label="Gross Profit"
-            value={fmtCurrency(data?.grossProfit ?? 0, currency)}
+            value="Not available"
             tone="success"
           />
           <SummaryCard
@@ -475,7 +379,7 @@ function ReportsPage() {
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <SummaryRow
-                label="Gross Sales"
+                label="Sales including tax"
                 value={fmtCurrency(data?.totalSales ?? 0, currency)}
               />
               <SummaryRow
@@ -494,13 +398,15 @@ function ReportsPage() {
               <div className="pt-3 border-t rounded-lg bg-success/10 p-3 -mx-1 flex items-center justify-between">
                 <span className="font-semibold text-success">Gross Profit</span>
                 <span className="font-mono font-bold text-lg text-success">
-                  {fmtCurrency(data?.grossProfit ?? 0, currency)}
+                  Not available
                 </span>
               </div>
             </CardContent>
           </Card>
         </div>
 
+        <p className="text-xs text-muted-foreground">Amounts are before refunds. Refunds against sales in this range: {fmtCurrency(data?.refundedAmount ?? 0, currency)}. Historical product costs were not recorded, so gross profit is unavailable.</p>
+        </>}
         {/* Quick links */}
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">

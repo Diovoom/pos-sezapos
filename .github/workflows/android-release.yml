@@ -1,0 +1,88 @@
+name: Publish signed SEZA POS APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: seza-android-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: android-production
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: false
+      - run: npm ci
+      - run: npm run test:regression
+      - run: npm run typecheck
+      - run: npm run verify:production
+      - run: npm run android:sync
+      - name: Build with the approved production signing identity
+        env:
+          SEZA_ANDROID_KEYSTORE_BASE64: ${{ secrets.SEZA_ANDROID_KEYSTORE_BASE64 }}
+          SEZA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SEZA_ANDROID_KEYSTORE_PASSWORD }}
+          SEZA_ANDROID_KEY_ALIAS: ${{ secrets.SEZA_ANDROID_KEY_ALIAS }}
+          SEZA_ANDROID_KEY_PASSWORD: ${{ secrets.SEZA_ANDROID_KEY_PASSWORD }}
+          SEZA_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/seza-release.jks
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${SEZA_ANDROID_KEYSTORE_BASE64:?Configure the approved production signing keystore}"
+          : "${SEZA_ANDROID_KEYSTORE_PASSWORD:?Missing keystore password}"
+          : "${SEZA_ANDROID_KEY_ALIAS:?Missing key alias}"
+          : "${SEZA_ANDROID_KEY_PASSWORD:?Missing key password}"
+          umask 077
+          printf '%s' "$SEZA_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$SEZA_ANDROID_KEYSTORE_PATH"
+          trap 'rm -f "$SEZA_ANDROID_KEYSTORE_PATH"' EXIT
+          chmod +x android/gradlew
+          cd android
+          ./gradlew :app:assembleRelease --no-daemon --max-workers=1
+      - name: Verify signature, release flag and hardware permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > "$RUNNER_TEMP/seza-badging.txt"
+          if grep -q 'application-debuggable' "$RUNNER_TEMP/seza-badging.txt"; then
+            echo 'Refusing to publish a debuggable APK'
+            exit 1
+          fi
+          for permission in ACCESS_FINE_LOCATION BLUETOOTH_SCAN BLUETOOTH_CONNECT; do
+            grep -Fq "android.permission.$permission" "$RUNNER_TEMP/seza-badging.txt"
+          done
+          cp "$APK" SEZA-POS-latest.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SEZA-POS-signed-release
+          path: SEZA-POS-latest.apk
+          if-no-files-found: error
+      - name: Publish approved APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view seza-pos-latest >/dev/null 2>&1; then
+            gh release upload seza-pos-latest SEZA-POS-latest.apk --clobber
+          else
+            gh release create seza-pos-latest SEZA-POS-latest.apk --target "$GITHUB_SHA" --title "SEZA POS Latest" --notes "Signed production Android release."
+          fi

@@ -1,3 +1,4 @@
+import { rememberReaderSetupReturn } from "@/lib/hardware/reader-setup-return";
 import { collectExportRows } from "@/lib/paginated-export";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -96,8 +97,10 @@ export const Route = createFileRoute("/_dashboard/settings")({
       },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>): { section?: string; checkout?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { section?: string; checkout?: string; readerSetup?: string; readerStore?: string } => ({
     section: typeof search.section === "string" ? search.section : undefined,
+    readerSetup: typeof search.readerSetup === "string" ? search.readerSetup : undefined,
+    readerStore: typeof search.readerStore === "string" ? search.readerStore : undefined,
     checkout: typeof search.checkout === "string" ? search.checkout : undefined,
   }),
   component: SettingsPage,
@@ -163,6 +166,9 @@ const GROUPS: Group[] = [
 export function SettingsPage() {
   const { t } = useTranslation();
   const search = Route.useSearch();
+  useEffect(() => {
+    if (search.readerSetup && search.readerStore) rememberReaderSetupReturn(new URLSearchParams({ readerSetup: search.readerSetup, readerStore: search.readerStore }).toString());
+  }, [search.readerSetup, search.readerStore]);
   const requestedSection = search.section === "terminal" ? "payments" : search.section;
   const [tab, setTab] = useState(requestedSection ?? "general");
   useEffect(() => {
@@ -197,9 +203,20 @@ export function SettingsPage() {
     if (!allowedTabs.has(tab)) setTab(nativeRegister ? "support_contact" : "appearance");
   }, [me.isLoading, tab, nativeRegister, isManagerLike]);
 
+  if (search.readerSetup && search.readerStore) {
+    if (!me.data?.store?.id) return <p className="p-4 text-sm">Checking store access…</p>;
+    if (search.readerStore !== me.data.store.id) return (
+      <div className="space-y-3 p-4">
+        <p className="text-sm">This reader setup is for another store. Sign in with that store’s owner account.</p>
+        <Button asChild><a href="/auth">Sign in to the correct store</a></Button>
+      </div>
+    );
+  }
+
   return (
     <>
       <PageHeader title={t("settings.title")} subtitle={t("settings.subtitle")} />
+      {search.readerSetup && <p className="px-4 pb-3 text-sm text-muted-foreground">When finished, return to the POS. SEZA checks your progress automatically.</p>}
       <div className="flex min-w-0 flex-col md:flex-row">
         <Tabs
           value={tab}

@@ -105,63 +105,48 @@ export const Route = createFileRoute("/api/public/pos/pair-device")({
         }
 
         const secret = generateDeviceSecret();
-        const { data: dev, error: devErr } = await admin
-          .from("device_registrations")
-          .insert({
-            store_id: pc.store_id,
-            label: pc.label || label,
-            secret_hash: hashDeviceSecret(secret),
-            platform,
-            status: "active",
-          })
-          .select("id, store_id, label")
-          .single();
-        if (devErr || !dev)
-          return json({ error: userFacingError(devErr, "Could not register this POS device. Please try again.") }, 500);
-
-        await admin
-          .from("device_pairing_codes")
-          .update({ consumed_at: new Date().toISOString(), consumed_device_id: dev.id })
-          .eq("id", pc.id);
-
-        try {
-          await admin.from("audit_log").insert({
-            action: "device.pair",
-            entity: "device",
-            entity_id: dev.id,
-            details: { store_id: pc.store_id, label: dev.label, platform },
-          });
-        } catch {
-          /* ignore */
+        // The deployed RPC locks and consumes the code in the same transaction
+        // as registration. Separate INSERT/UPDATE requests allow duplicate pairing.
+        const { data: paired, error: pairError } = await admin.rpc("consume_pos_pairing_code", {
+          _code_hash: codeHash,
+          _secret_hash: hashDeviceSecret(secret),
+          _fallback_label: label,
+          _platform: platform,
+        });
+        if (pairError) {
+          const known: Record<string, [string, number]> = {
+            PAIRING_CODE_UNKNOWN: ["Unknown or expired pairing code", 404],
+            PAIRING_CODE_USED: ["Pairing code already used", 409],
+            PAIRING_CODE_EXPIRED: ["Pairing code has expired", 410],
+          };
+          const safe = known[pairError.message];
+          return json({ error: safe?.[0] ?? "Could not register this POS device. Please try again." }, safe?.[1] ?? 503);
         }
+        const row = Array.isArray(paired) ? paired[0] : paired;
+        if (!row?.device_id || row.store_id !== pc.store_id) {
+          return json({ error: "Could not confirm this POS device. Generate a new pairing code." }, 503);
+        }
+        const dev = { id: row.device_id, store_id: row.store_id, label: row.label };
 
         // Provision the non-sensitive store snapshot immediately. This makes
         // the terminal useful even before the first employee PIN creates a
         // cloud session and removes one more round-trip from first boot.
-        const [storeResult, productsResult, categoriesResult, permissionsResult] = await Promise.all([
-          admin.from("stores").select("*").eq("id", dev.store_id).maybeSingle(),
-          admin
-            .from("products")
-            .select("id,name,price,cost,sku,barcode,stock,taxable,category_id,is_favorite,is_quick_key,quick_key_order,track_inventory,store_id,image_url,age_restricted,min_age,age_category,status")
-            .eq("store_id", dev.store_id)
-            .eq("status", "active")
-            .order("name"),
-          admin.from("categories").select("id,name,sort_order").eq("store_id", dev.store_id).order("sort_order"),
-          admin.from("role_permissions").select("role,permission").eq("store_id", dev.store_id),
-        ]);
+        let bootstrap;
+        try {
+          const { loadDeviceBootstrap } = await import("@/lib/pos/device-bootstrap.server");
+          bootstrap = await loadDeviceBootstrap(admin, dev.store_id);
+        } catch {
+          // Pairing already committed. Always return its one-time secret;
+          // the ordinary bootstrap refresh can recover the catalog later.
+          bootstrap = undefined;
+        }
 
         return json({
           device_id: dev.id,
           device_secret: secret,
           store_id: dev.store_id,
           label: dev.label,
-          bootstrap: {
-            store: storeResult.data ?? { id: dev.store_id },
-            products: productsResult.data ?? [],
-            categories: categoriesResult.data ?? [],
-            role_permissions: permissionsResult.data ?? [],
-            prepared_at: new Date().toISOString(),
-          },
+          bootstrap,
         });
       },
     },

@@ -1,3 +1,4 @@
+import { collectExportRows } from "./paginated-export";
 // Shift summary aggregator. Given a register_session_id, fetch and compute
 // every metric the end-of-shift report needs. Pure data - no UI.
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +51,21 @@ function bucketList(map: Map<string, CategoryBucket>) {
   });
 }
 
+async function reportRows(build: () => any) {
+  const data = await collectExportRows<any>(after => {
+    let query = build().order("id").limit(500);
+    if (after) query = query.gt("id", after);
+    return query;
+  });
+  return { data };
+}
+async function relatedRows(table: string, columns: string, key: string, ids: string[]) {
+  const data: any[] = [];
+  for (let offset = 0; offset < ids.length; offset += 100) {
+    data.push(...(await reportRows(() => sb.from(table).select(columns).in(key, ids.slice(offset, offset + 100)))).data);
+  }
+  return { data };
+}
 export async function fetchShiftSummary(sessionId: string) {
   const { data: session } = await sb
     .from("register_sessions")
@@ -66,20 +82,18 @@ export async function fetchShiftSummary(sessionId: string) {
         .select("id, full_name, first_name, last_name, email, employee_id")
         .eq("id", session.opened_by)
         .maybeSingle(),
-      sb
+      reportRows(() => sb
         .from("sales")
         .select(
           "id, receipt_number, cashier_id, subtotal, tax, discount, total, card_price_adjustment, payment_method, amount_tendered, change_due, status, created_at, refunded_amount",
         )
-        .eq("register_session_id", sessionId)
-        .order("created_at"),
-      sb
+        .eq("register_session_id", sessionId)),
+      reportRows(() => sb
         .from("refunds")
         .select(
           "id, sale_id, cashier_id, approver_id, refund_type, reason, notes, total, payment_method, status, created_at, sales!inner(receipt_number, register_session_id)",
         )
-        .eq("sales.register_session_id", sessionId)
-        .order("created_at"),
+        .eq("sales.register_session_id", sessionId)),
       session.opened_by
         ? sb
             .from("time_entries")
@@ -93,17 +107,15 @@ export async function fetchShiftSummary(sessionId: string) {
       session.terminal_id
         ? sb.from("payment_terminals").select("*").eq("id", session.terminal_id).maybeSingle()
         : Promise.resolve({ data: null }),
-      sb
+      reportRows(() => sb
         .from("cash_movements")
         .select("id, type, amount, reason, notes, created_at, user_id")
-        .eq("register_session_id", sessionId)
-        .order("created_at"),
-      sb
+        .eq("register_session_id", sessionId)),
+      reportRows(() => sb
         .from("audit_log")
         .select("id, actor_id, actor_email, details, created_at")
         .eq("action", "drawer.no_sale_open")
-        .eq("entity_id", sessionId)
-        .order("created_at"),
+        .eq("entity_id", sessionId)),
       session.approver_id
         ? sb
             .from("profiles")
@@ -117,30 +129,25 @@ export async function fetchShiftSummary(sessionId: string) {
   const r = (refunds.data ?? []) as any[];
   const saleIds = s.map((sale: { id: string }) => sale.id);
 
-  const [itemsResult, paymentsResult] = saleIds.length
-    ? await Promise.all([
-        sb.from("sale_items").select("*").in("sale_id", saleIds),
-        sb
-          .from("sale_payments")
-          .select("sale_id, amount, method, provider, metadata, status")
-          .in("sale_id", saleIds),
-      ])
-    : [{ data: [] }, { data: [] }];
+  // Do not silently print partial financial reports after a query error.
+  for (const result of [store, cashier, timeEntry, terminal, approver]) {
+    if (result.error) throw result.error;
+  }
+  const [itemsResult, paymentsResult] = await Promise.all([
+    relatedRows("sale_items", "*", "sale_id", saleIds),
+    relatedRows("sale_payments", "id,sale_id,amount,method,provider,metadata,status", "sale_id", saleIds),
+  ]);
 
   const it = (itemsResult.data ?? []) as any[];
   const paymentRows = (paymentsResult.data ?? []) as any[];
   const productIds = Array.from(
     new Set(it.map((item) => item.product_id).filter((value): value is string => Boolean(value))),
   );
-  const productRows = productIds.length
-    ? (((await sb.from("products").select("id, category_id, name").in("id", productIds)).data ?? []) as any[])
-    : [];
+  const productRows = (await relatedRows("products", "id,category_id,name", "id", productIds)).data;
   const categoryIds = Array.from(
     new Set(productRows.map((product) => product.category_id).filter((value): value is string => Boolean(value))),
   );
-  const categoryRows = categoryIds.length
-    ? (((await sb.from("categories").select("id, name").in("id", categoryIds)).data ?? []) as any[])
-    : [];
+  const categoryRows = (await relatedRows("categories", "id,name", "id", categoryIds)).data;
   const categoryById = new Map(categoryRows.map((category) => [category.id, category.name]));
   const categoryByProduct = new Map(
     productRows.map((product) => [product.id, readableCategory(categoryById.get(product.category_id))]),

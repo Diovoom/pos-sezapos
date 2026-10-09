@@ -1,3 +1,4 @@
+import { rememberReaderSetupReturn } from "@/lib/hardware/reader-setup-return";
 import {
   createFileRoute,
   Outlet,
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/_dashboard")({
   ssr: false,
   head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   beforeLoad: async () => {
+    if (typeof window !== "undefined") rememberReaderSetupReturn(window.location.search);
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
 

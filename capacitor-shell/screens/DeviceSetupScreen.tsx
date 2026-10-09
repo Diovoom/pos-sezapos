@@ -105,17 +105,9 @@ export function DeviceSetupScreen() {
               <NativeScannerPanel />
               <NativeDrawerPanel />
             </div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment terminal</CardTitle>
-                <CardDescription>
-                  Discover, pair, reconnect, and test the physical card reader from this register.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <PaymentTerminalsPanel canEdit={canConfigure} canOperate />
-              </CardContent>
-            </Card>
+            <section className="border-t pt-4">
+              <PaymentTerminalsPanel canEdit={canConfigure} canOperate />
+            </section>
           </>
         ) : (
           <Card>

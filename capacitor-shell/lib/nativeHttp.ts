@@ -35,8 +35,11 @@ export async function nativeFetch(
     try { body = JSON.parse(body); } catch { /* keep string */ }
   }
 
+  const signal = init.signal ?? request?.signal;
+  if (signal?.aborted) throw signal.reason ?? new DOMException("Request aborted", "AbortError");
+  let removeAbort = () => {};
   try {
-    const result = await CapacitorHttp.request({
+    const operation = CapacitorHttp.request({
       url,
       method,
       headers: nativeHeaders,
@@ -46,6 +49,18 @@ export async function nativeFetch(
       responseType: "text",
     });
 
+    // Capacitor has no cancellation API. Stop waiting on a canceled request,
+    // without retrying it: a write may still have committed on the server.
+    const result = signal ? await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        const abort = () => reject(signal.reason ?? new DOMException("Request aborted", "AbortError"));
+        signal.addEventListener("abort", abort, { once: true });
+        removeAbort = () => signal.removeEventListener("abort", abort);
+        if (signal.aborted) abort();
+      }),
+    ]) : await operation;
+
     // Any HTTP response proves the network path exists. 4xx/5xx is an app or
     // server response, not an Android transport failure.
     setBackendReachable(true);
@@ -54,10 +69,15 @@ export async function nativeFetch(
       if (value != null) responseHeaders.set(key, String(value));
     });
     const text = typeof result.data === "string" ? result.data : JSON.stringify(result.data ?? null);
-    return new Response(text, { status: result.status, headers: responseHeaders });
+    // Fetch forbids a body on these statuses, including the empty string.
+    // Supabase minimal INSERT/UPDATE/DELETE responses commonly use 204.
+    const noBody = method === "HEAD" || [204, 205, 304].includes(result.status);
+    return new Response(noBody ? null : text, { status: result.status, headers: responseHeaders });
   } catch (error) {
-    setBackendReachable(false);
+    if (!signal?.aborted) setBackendReachable(false);
     throw error;
+  } finally {
+    removeAbort();
   }
 }
 

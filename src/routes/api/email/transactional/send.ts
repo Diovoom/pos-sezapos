@@ -454,7 +454,7 @@ export const Route = createFileRoute("/api/email/transactional/send")({
             recipient_redacted: redactEmail(effectiveRecipient),
             error: message,
           });
-          return jsonResponse({ error: message }, { status: 502 });
+          return jsonResponse({ error: "The email receipt could not be sent. Please try again." }, { status: 502 });
         }
       },
     },

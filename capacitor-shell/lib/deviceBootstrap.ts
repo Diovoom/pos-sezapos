@@ -1,24 +1,32 @@
 import { nativeFetch } from "./nativeHttp";
-import { API_BASE_URL } from "../supabase";
+import { API_BASE_URL, supabase } from "../supabase";
 import { getPairing } from "./pairing";
 import {
   cacheEmployees,
   cacheMeta,
   cacheProducts,
   readMeta,
+  deleteMeta,
 } from "@/lib/offline/db";
 
 let running: Promise<boolean> | null = null;
 let lastCompletedAt = 0;
+let lastScope = "";
+let runningScope = "";
 
 export async function refreshDeviceBootstrap(force = false): Promise<boolean> {
-  if (!force && Date.now() - lastCompletedAt < 5 * 60_000) return true;
-  if (running) return running;
-
+  const pairing = getPairing();
+  if (!pairing) return false;
+  const userId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+  const scope = `${pairing.storeId}:${pairing.deviceId}:${userId ?? ""}`;
+  if (!force && scope === lastScope && Date.now() - lastCompletedAt < 5 * 60_000) return true;
+  if (running) {
+    if (scope === runningScope) return running;
+    await running;
+    return refreshDeviceBootstrap(force);
+  }
+  runningScope = scope;
   running = (async () => {
-    const pairing = getPairing();
-    if (!pairing) return false;
-    const userId = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
 
     const response = await nativeFetch(`${API_BASE_URL}/api/public/pos/device-bootstrap`, {
       method: "POST",
@@ -31,6 +39,11 @@ export async function refreshDeviceBootstrap(force = false): Promise<boolean> {
       }),
     });
     const data = (await response.json().catch(() => ({}))) as any;
+    // A late old-store/old-employee response must not replace current caches
+    // or revoke a newly paired device.
+    const current = getPairing();
+    const currentUser = await readMeta<string>("authenticated_me_current_user").catch(() => undefined);
+    if (current?.storeId !== pairing.storeId || current?.deviceId !== pairing.deviceId || currentUser !== userId) return false;
     if (!response.ok) {
       if (response.status === 401) window.dispatchEvent(new Event("seza:device-revoked"));
       return false;
@@ -54,6 +67,18 @@ export async function refreshDeviceBootstrap(force = false): Promise<boolean> {
       cacheMeta("device_bootstrap_at", data.prepared_at ?? new Date().toISOString()),
     ]);
 
+    if (userId && data.profile === null) {
+      // A successful authoritative refresh confirmed this employee is no
+      // longer active in the paired store. Keep queued records and pairing,
+      // but prevent the cached identity from reopening the register.
+      localStorage.setItem("seza.employee_select_required", "1");
+      await Promise.all([
+        deleteMeta("authenticated_me_current_user"),
+        deleteMeta(`authenticated_me:${userId}`),
+        deleteMeta("profile"),
+      ]);
+      await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+    }
     if (userId && data.profile) {
       const me = {
         user: { id: userId, email: data.profile.email ?? undefined },
@@ -68,6 +93,7 @@ export async function refreshDeviceBootstrap(force = false): Promise<boolean> {
       ]);
     }
 
+    lastScope = scope;
     lastCompletedAt = Date.now();
     window.dispatchEvent(new Event("seza:bootstrap-updated"));
     return true;

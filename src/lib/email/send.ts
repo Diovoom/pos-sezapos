@@ -132,6 +132,11 @@ export async function sendTransactionalEmail(
     });
 
     const body = await res.json().catch(() => ({}) as any);
+    if (body?.success === false) {
+      return { ok: false, error: body.reason === "email_suppressed"
+        ? "This email address cannot receive receipts. Use another address or print the receipt."
+        : "The email receipt could not be sent. Please try again." };
+    }
     if (!res.ok) {
       return { ok: false, error: body?.error || `Send failed (${res.status})` };
     }

@@ -10,7 +10,7 @@ export const READER_MESSAGES = {
   USB_NOT_ADOPTED: "Card reader detected, but SEZA could not start it. Reconnect the USB data cable and try again.",
   TOKEN: "SEZA could not authorize this card reader with Stripe. Check the store’s Stripe connection and try again.",
   MERCHANT_SETUP: "Card payments are not ready for this store. Finish Stripe setup in the Owner Dashboard.",
-  LOCATION: "This store’s card reader location is not ready. Check the store address and Stripe setup.",
+  LOCATION: "This store’s card reader location is not ready. Try again or contact SEZA Support.",
   READER_IN_USE: "This card reader is connected to another device. Disconnect it there and try again.",
   BATTERY: "Charge the card reader above 50%, then try again.",
   UPDATE: "The card reader needs an update. Keep it powered and connected, then try again.",

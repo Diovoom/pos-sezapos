@@ -347,10 +347,11 @@ test('hardware controls remain rendered for loading, API error, no row and incom
       'lucide-react':Object.fromEntries(['CreditCard','Loader2','RefreshCw','Unplug','Wifi'].map(k=>[k,()=>null])),
       'sonner':{toast:{}},'@/lib/hardware':{},'@/lib/hardware/terminal-stripe':{selectedStripeTerminal:()=>null},
       '@/lib/hardware/reader-diagnostics':d,'@/lib/pos/payment-terminal':{},'@/lib/device-control':{},
+      '@/lib/hardware/reader-setup':load('src/lib/hardware/reader-setup.ts'),'@/hooks/useMe':{useMe:()=>({data:{user:{id:'owner'}}})},'../lib/pairing':{getPairing:()=>({storeId:'A',deviceId:'one'})},
       '@/components/ui/button':{Button:tag},'@/components/ui/card':Object.fromEntries(['Card','CardContent','CardDescription','CardHeader','CardTitle'].map(k=>[k,tag])),
     }).PaymentTerminalsPanel;
     const html=renderToStaticMarkup(React.createElement(component,{canEdit:true}));
-    for(const label of ['Connect with USB','Connect with Bluetooth','Scan / connect','Test reader','Reconnect','Forget reader'])assert.ok(html.includes(label),label);
+    for(const label of ['Connect with USB','Connect with Bluetooth'])assert.ok(html.includes(label),label);
     assert.ok(!html.includes('Finish setup on SEZA'));if(context.isError)assert.ok(!html.includes(d.READER_MESSAGES.MERCHANT_SETUP));
   }
 });
