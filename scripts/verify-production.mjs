@@ -163,10 +163,27 @@ forbidText(
 );
 requireText("src/routes/_dashboard/setup.tsx", 'to="/legal/$slug"', "working legal policy links");
 forbidText("src/routes/_dashboard/setup.tsx", 'href="#"', "placeholder legal links");
+// Legal acceptance now runs once on Finish in the authenticated server handler.
+// Keep checking the actual RPC and policy versions rather than its old UI location.
 requireText(
-  "src/routes/_dashboard/setup.tsx",
-  '"record_legal_acceptance"',
-  "versioned legal acceptance RPC",
+  "src/lib/setup/setup.server.ts",
+  'context.supabase.rpc("record_legal_acceptance"',
+  "versioned legal acceptance RPC at setup completion",
+);
+requireText(
+  "src/lib/setup/setup.server.ts",
+  "p_terms_version: LEGAL_CONFIG.termsVersion",
+  "current Terms version in legal acceptance",
+);
+requireText(
+  "src/lib/setup/setup.server.ts",
+  "p_privacy_version: LEGAL_CONFIG.privacyVersion",
+  "current Privacy version in legal acceptance",
+);
+requireText(
+  "src/lib/setup/setup.server.ts",
+  "if (!(await legalAccepted(profile.id, store.id)))",
+  "legal acceptance only when not previously recorded",
 );
 requireText(
   "src/routes/signup.tsx",
