@@ -5,6 +5,7 @@ const suites = [
   "remaining-merchant-regression.cjs", "remaining-merchant-db.mjs", "prelaunch-db.mjs",
   "support-lifecycle-regression.cjs", "android-lifecycle-regression.cjs",
   "web-regression.cjs", "device-diagnostics-regression.cjs", "prelaunch-regression.cjs",
+  "signup-trigger-regression.cjs",
 ];
 for (const suite of suites) {
   const result = spawnSync(process.execPath, [`scripts/${suite}`], { stdio: "inherit" });
