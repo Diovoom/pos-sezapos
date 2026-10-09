@@ -235,7 +235,10 @@ export const createEmployee = createServerFn({ method: "POST" })
       hire_date?: string;
     }) => data,
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }) => createEmployeeForOwner(data, context));
+
+export async function createEmployeeForOwner(data: { expectedActorId?: string; expectedStoreId?: string | null; first_name: string; last_name: string; email: string; phone?: string; role: "manager" | "cashier"; hire_date?: string }, context: any, setupRetry = false) {
+
     await assertOwner(context as unknown as { supabase: SupabaseCtx; userId: string });
     if (data.role !== "manager" && data.role !== "cashier") {
       throw new Error("Employees can only be created as manager or cashier.");
@@ -254,6 +257,15 @@ export const createEmployee = createServerFn({ method: "POST" })
     if ((data.expectedActorId && data.expectedActorId !== (context as { userId: string }).userId) || (data.expectedStoreId && data.expectedStoreId !== ownerProfile.store_id)) throw new Error("Employee session changed. Sign in as the owner who queued this invitation.");
 
     const admin: any = supabaseAdmin;
+    if (setupRetry) {
+      const { data: existing, error } = await admin.from("profiles").select("id,store_id,employee_id,email,status")
+        .eq("email", data.email.trim().toLowerCase()).maybeSingle();
+      if (error) throw new Error("Employee invitation could not be checked. Try again.");
+      if (existing) {
+        if (existing.store_id !== ownerProfile.store_id || existing.status !== "active") throw new Error("An employee with this email already has an account. Manage the invitation from Employees.");
+        return { user_id: existing.id, email: existing.email, employee_id: existing.employee_id, invite_sent: false };
+      }
+    }
     const { assertStoreResourceLimit, getStorePlanUsage } = await import(
       "@/lib/billing/plan-entitlements.server"
     );
@@ -313,7 +325,8 @@ export const createEmployee = createServerFn({ method: "POST" })
       employee_id: profile?.employee_id as string,
       invite_sent: true,
     };
-  });
+}
+
 
 /* -------------------- toggle status / reset password ------------------- */
 

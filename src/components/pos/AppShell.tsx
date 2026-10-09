@@ -59,14 +59,22 @@ const MORE_NAV = [
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { panelRef: supportBubbleRef, floatingStyle: supportBubbleStyle, dragHandleProps: supportDragHandleProps } =
-    useFloatingPosition("seza-owner-support-bubble-position");
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: me } = useMe();
   const role = me?.roles?.[0];
   const storeId = me?.store?.id as string | undefined;
+  const supportScope = `seza.owner.support:${me?.user.id ?? "signed-out"}:${storeId ?? "no-store"}`;
+  const { panelRef: supportBubbleRef, floatingStyle: supportBubbleStyle, dragHandleProps: supportDragHandleProps } = useFloatingPosition(`${supportScope}:position`);
+  const [dismissedScope, setDismissedScope] = useState<string | null>(null);
+  let supportBubbleDismissed = dismissedScope === supportScope;
+  try { supportBubbleDismissed ||= localStorage.getItem(`${supportScope}:dismissed`) === "1"; } catch { /* private browser */ }
+  const dismissSupport = () => {
+    setDismissedScope(supportScope);
+    try { localStorage.setItem(`${supportScope}:dismissed`, "1"); } catch { /* retain in this shell */ }
+  };
+
 
   useEffect(() => {
     if (!storeId) return;
@@ -179,9 +187,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const activeMobileIndex = pathname === "/dashboard" ? 0 : pathname.startsWith("/employees") ? 1 : 2;
   const [dragMobileIndex, setDragMobileIndex] = useState<number | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
-  // Dismiss for the lifetime of this dashboard shell. Client-side navigation
-  // keeps the bubble hidden; a hard reload/new dashboard session brings it back.
-  const [supportBubbleDismissed, setSupportBubbleDismissed] = useState(false);
+  // Support dismissal and position are scoped to this owner and merchant.
+
   const mobileNavRef = useRef<HTMLElement>(null);
 
   const mobileIndexFromPointer = (event: PointerEvent<HTMLElement>) => {
@@ -235,7 +242,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="flex h-dvh min-h-0 w-full overflow-hidden bg-background text-foreground">
+    <div data-owner-dashboard className="flex h-dvh min-h-0 w-full overflow-hidden bg-background text-foreground">
       <aside className="hidden w-16 shrink-0 flex-col border-r bg-surface/60 md:flex lg:w-60">
         <div className="flex h-16 items-center justify-center border-b px-3">
           <Link to="/dashboard" aria-label="SEZA dashboard" title="SEZA POS">
@@ -389,7 +396,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </DropdownMenu>
         </nav>
 
-        {!supportBubbleDismissed && (
+        {me?.user.id && storeId && pathname !== "/setup" && !pathname.startsWith("/setup/") && !supportBubbleDismissed && (
           <div
             ref={supportBubbleRef}
             style={supportBubbleStyle}
@@ -418,10 +425,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
             <button
               type="button"
-              onClick={() => setSupportBubbleDismissed(true)}
+              onClick={dismissSupport}
               className="grid min-h-11 w-9 shrink-0 place-items-center rounded-r-full border-l border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label="Hide support button until reload"
-              title="Hide until reload"
+              aria-label="Hide support button"
+              title="Hide support button"
             >
               <X className="size-4" />
             </button>

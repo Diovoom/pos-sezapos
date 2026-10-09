@@ -1,15 +1,25 @@
+import { useServerFn } from "@tanstack/react-start";
+import {
+  DEFAULT_STATE,
+  cleanSetup,
+  parseSetupCsv,
+  setupProducts,
+  validateSetup,
+  validateSetupStep,
+  setupError,
+  type WizardState,
+} from "@/lib/setup/model";
+import { getOwnerSetup, saveOwnerSetup, finishOwnerSetup } from "@/lib/setup/setup.functions";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -79,75 +89,6 @@ export const Route = createFileRoute("/_dashboard/setup")({
   component: SetupWizardPage,
 });
 
-type WizardState = {
-  step: number;
-  owner: {
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone: string;
-    accepted_terms: boolean;
-    legal_accepted_at: string | null;
-    terms_version: string | null;
-    privacy_version: string | null;
-  };
-  store: {
-    name: string;
-    business_type: string;
-    tax_id: string;
-    address: string;
-    city: string;
-    state: string;
-    zip: string;
-    country: string;
-    phone: string;
-    email: string;
-    website: string;
-    logo_url: string;
-    hours: string;
-  };
-  tax: {
-    rate: number;
-    inclusive: boolean;
-    currency: string;
-    currency_symbol: string;
-    time_zone: string;
-    date_format: string;
-    language: string;
-  };
-  receipt: {
-    header: string;
-    footer: string;
-    return_policy: string;
-    thank_you: string;
-    qr_url: string;
-    website: string;
-    social: { facebook: string; instagram: string; twitter: string };
-  };
-  employee: {
-    skip: boolean;
-    first_name: string;
-    last_name: string;
-    role: "cashier" | "manager" | "admin";
-    email: string;
-    phone: string;
-  };
-  products: {
-    mode: "manual" | "import" | "skip";
-    items: { name: string; price: number; sku: string; stock: number }[];
-    csv: string;
-  };
-  hardware: {
-    printer: boolean;
-    scanner: boolean;
-    drawer: boolean;
-    display: boolean;
-    terminal: boolean;
-  };
-  payments: { provider: "cash_only" | "stripe" | "square" | "clover" };
-  test_sale: { added: boolean; scanned: boolean; paid: boolean; printed: boolean };
-};
-
 const STEPS = [
   { id: 0, label: "Welcome", icon: Rocket },
   { id: 1, label: "Owner", icon: User },
@@ -163,126 +104,139 @@ const STEPS = [
   { id: 11, label: "Finish", icon: PartyPopper },
 ];
 
-const DEFAULT_STATE = (): WizardState => ({
-  step: 0,
-  owner: {
-    first_name: "",
-    last_name: "",
-    email: "",
-    phone: "",
-    accepted_terms: false,
-    legal_accepted_at: null,
-    terms_version: null,
-    privacy_version: null,
-  },
-  store: {
-    name: "",
-    business_type: "convenience",
-    tax_id: "",
-    address: "",
-    city: "",
-    state: "",
-    zip: "",
-    country: "US",
-    phone: "",
-    email: "",
-    website: "",
-    logo_url: "",
-    hours: "Mon–Sun 8:00–22:00",
-  },
-  tax: {
-    rate: 8.25,
-    inclusive: false,
-    currency: "USD",
-    currency_symbol: "$",
-    time_zone: "America/New_York",
-    date_format: "MM/DD/YYYY",
-    language: "en",
-  },
-  receipt: {
-    header: "",
-    footer: "Thank you for shopping with us!",
-    return_policy: "Returns accepted within 14 days with receipt.",
-    thank_you: "Have a great day!",
-    qr_url: "",
-    website: "",
-    social: { facebook: "", instagram: "", twitter: "" },
-  },
-  employee: { skip: true, first_name: "", last_name: "", role: "cashier", email: "", phone: "" },
-  products: { mode: "skip", items: [], csv: "" },
-  hardware: { printer: false, scanner: false, drawer: false, display: false, terminal: false },
-  payments: { provider: "cash_only" },
-  test_sale: { added: false, scanned: false, paid: false, printed: false },
-});
-
 function SetupWizardPage() {
+  const me = useMe();
+  const scope = `${me.data?.user.id ?? ""}:${me.data?.store?.id ?? ""}`;
+  if (me.isLoading) return <p className="p-4">Loading your store…</p>;
+  if (!me.data?.store?.id || !me.data.roles.includes("owner"))
+    return <p className="p-4">Sign in with your store’s owner account to continue setup.</p>;
+  return <ScopedSetup key={scope} actorId={me.data.user.id} storeId={me.data.store.id} />;
+}
+const contentKey = (s: WizardState) => JSON.stringify({ ...s, step: 0 });
+function ScopedSetup({ actorId, storeId }: { actorId: string; storeId: string }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const me = useMe();
+  const getSetup = useServerFn(getOwnerSetup),
+    saveSetup = useServerFn(saveOwnerSetup),
+    finishSetup = useServerFn(finishOwnerSetup);
+  const scope = { actorId, storeId };
+  const store = { id: storeId };
+  const draftKey = `seza.setup.draft.v2:${actorId}:${storeId}`;
   const [state, setState] = useState<WizardState>(DEFAULT_STATE);
-  const [loaded, setLoaded] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [finishing, setFinishing] = useState(false);
-
-  const store = me.data?.store as ({
-    id?: string;
-    name?: string | null;
-    tax_rate?: number | string | null;
-    currency?: string | null;
-    time_zone?: string | null;
-    date_format?: string | null;
-    language?: string | null;
-    setup_state?: WizardState | null;
-    setup_completed_at?: string | null;
-  } | null);
-  const isOwner = (me.data?.roles ?? []).includes("owner");
-
+  const [loaded, setLoaded] = useState(false),
+    [saving, setSaving] = useState(false),
+    [finishing, setFinishing] = useState(false);
+  const [error, setError] = useState(""),
+    [saveStatus, setSaveStatus] = useState("Loading…"),
+    [conflict, setConflict] = useState(false);
+  const revision = useRef<string | null>(null),
+    savedContent = useRef("");
+  const latest = useRef(state);
+  latest.current = state;
+  const pending = useRef<Promise<void> | null>(null),
+    finishLock = useRef(false),
+    disposed = useRef(false);
+  const remote = useQuery({
+    queryKey: ["owner-setup", actorId, storeId],
+    queryFn: () => getSetup({ data: scope }),
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
   useEffect(() => {
-    if (!me.data || loaded) return;
-    if (!isOwner) {
-      toast.error("Only the Owner can run setup.");
-      navigate({ to: "/pos", replace: true });
-      return;
+    disposed.current = false;
+    return () => {
+      disposed.current = true;
+    };
+  }, []);
+  const keepLocal = (next: WizardState, dirty: boolean) => {
+    try {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({ state: next, revision: revision.current, dirty }),
+      );
+    } catch {
+      setSaveStatus("Device storage unavailable. Use Save draft before leaving.");
     }
-    const saved = (store?.setup_state as Partial<WizardState> | undefined) ?? {};
-    setState((s) => ({
-      ...s,
-      ...saved,
-      owner: {
-        ...s.owner,
-        first_name: me.data?.profile?.first_name ?? saved.owner?.first_name ?? "",
-        last_name: me.data?.profile?.last_name ?? saved.owner?.last_name ?? "",
-        email: me.data?.user.email ?? saved.owner?.email ?? "",
-        phone: me.data?.profile?.phone ?? saved.owner?.phone ?? "",
-        accepted_terms: saved.owner?.accepted_terms ?? false,
-        legal_accepted_at: saved.owner?.legal_accepted_at ?? null,
-        terms_version: saved.owner?.terms_version ?? null,
-        privacy_version: saved.owner?.privacy_version ?? null,
-      },
-      store: {
-        ...s.store,
-        ...(saved.store ?? {}),
-        name: saved.store?.name ?? store?.name ?? s.store.name,
-      },
-      tax: {
-        ...s.tax,
-        ...(saved.tax ?? {}),
-        rate:
-          saved.tax?.rate ??
-          (store?.tax_rate != null ? Number(store.tax_rate) * 100 : s.tax.rate),
-        currency: saved.tax?.currency ?? store?.currency ?? s.tax.currency,
-        time_zone: saved.tax?.time_zone ?? store?.time_zone ?? s.tax.time_zone,
-        date_format: saved.tax?.date_format ?? store?.date_format ?? s.tax.date_format,
-        language: saved.tax?.language ?? store?.language ?? s.tax.language,
-      },
-      payments: {
-        provider: saved.payments?.provider === "stripe" ? "stripe" : "cash_only",
-      },
-      step: saved.step ?? 0,
-    }));
+  };
+  useEffect(() => {
+    if (!remote.data || loaded) return;
+    const result = remote.data;
+    revision.current = result.revision;
+    savedContent.current = contentKey(result.state);
+    let initial = result.state;
+    try {
+      const cached = JSON.parse(localStorage.getItem(draftKey) ?? "null");
+      if (!result.completed && cached?.state) {
+        const local = cleanSetup(cached.state);
+        if (cached.revision === result.revision || contentKey(local) === savedContent.current)
+          initial = local;
+        else if (cached.dirty) {
+          initial = local;
+          setConflict(true);
+          setError(
+            "Your saved setup changed in another tab. Review this device’s draft, then choose which version to keep.",
+          );
+        }
+      }
+    } catch {
+      /* malformed/old browser draft cannot replace server data */
+    }
+    setState(initial);
+    latest.current = initial;
     setLoaded(true);
-  }, [me.data, loaded, isOwner, navigate, store]);
-
+    setSaveStatus("Draft loaded");
+  }, [remote.data, loaded, draftKey]);
+  const flush = async () => {
+    if (conflict) throw new Error("SETUP_CONFLICT");
+    while (pending.current) await pending.current;
+    if (
+      disposed.current ||
+      latest.current.step === 11 ||
+      contentKey(latest.current) === savedContent.current
+    )
+      return;
+    const snapshot = latest.current;
+    setSaving(true);
+    const request = (async () => {
+      const result = await saveSetup({
+        data: { ...scope, revision: revision.current, state: snapshot },
+      });
+      if (disposed.current) return;
+      revision.current = result.revision;
+      savedContent.current = contentKey(snapshot);
+      if (result.completed) {
+        setState((s) => ({ ...s, step: 11 }));
+        return;
+      }
+      keepLocal(latest.current, contentKey(latest.current) !== savedContent.current);
+      setSaveStatus("Draft saved");
+      setError("");
+    })();
+    pending.current = request;
+    try {
+      await request;
+    } finally {
+      if (pending.current === request) pending.current = null;
+      if (!disposed.current) setSaving(false);
+    }
+  };
+  useEffect(() => {
+    if (!loaded || state.step === 11) return;
+    const dirty = contentKey(state) !== savedContent.current;
+    keepLocal(state, dirty);
+    if (!dirty || finishing || conflict) return;
+    setSaveStatus("Draft kept on this device");
+    // Navigation changes only the local step. Only edited content is saved.
+    const timer = setTimeout(() => {
+      void flush().catch((e) => {
+        if (!disposed.current) {
+          setError(setupError(e));
+          setSaveStatus("Not saved online");
+        }
+      });
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, [state, loaded, finishing, conflict]);
   const patch = (p: Partial<WizardState>) => setState((s) => ({ ...s, ...p }));
   const patchStore = (p: Partial<WizardState["store"]>) =>
     setState((s) => ({ ...s, store: { ...s.store, ...p } }));
@@ -292,172 +246,110 @@ function SetupWizardPage() {
     setState((s) => ({ ...s, tax: { ...s.tax, ...p } }));
   const patchReceipt = (p: Partial<WizardState["receipt"]>) =>
     setState((s) => ({ ...s, receipt: { ...s.receipt, ...p } }));
-
-  const persist = async (next: WizardState, opts?: { complete?: boolean }): Promise<boolean> => {
-    if (!store?.id) return false;
-    setSaving(true);
-    try {
-      const patch: Record<string, unknown> = {
-        setup_state: next as unknown as Record<string, unknown>,
-      };
-      // Reflect key fields into their real columns as we go so they take effect immediately.
-      if (next.store.name) patch.name = next.store.name;
-      Object.assign(patch, {
-        address: next.store.address || null,
-        city: next.store.city || null,
-        state: next.store.state || null,
-        zip: next.store.zip || null,
-        country: next.store.country || null,
-        phone: next.store.phone || null,
-        email: next.store.email || null,
-        website: next.store.website || null,
-        tax_id: next.store.tax_id || null,
-        business_type: next.store.business_type || null,
-        logo_url: next.store.logo_url || null,
-        tax_rate: next.tax.rate / 100,
-        tax_inclusive: next.tax.inclusive,
-        currency: next.tax.currency,
-        currency_symbol: next.tax.currency_symbol,
-        time_zone: next.tax.time_zone,
-        date_format: next.tax.date_format,
-        language: next.tax.language,
-        receipt_header: next.receipt.header || null,
-        receipt_footer: next.receipt.footer || null,
-        return_policy: next.receipt.return_policy || null,
-        thank_you_message: next.receipt.thank_you || null,
-        social_links: next.receipt.social as unknown as Record<string, unknown>,
-        business_hours: { text: next.store.hours } as unknown as Record<string, unknown>,
-      });
-      if (opts?.complete) patch.setup_completed_at = new Date().toISOString();
-
-      const { error } = await (supabase.from("stores") as any).update(patch).eq("id", store.id);
-      if (error) throw error;
-      // Owner profile
-      if (me.data?.user.id) {
-        await supabase
-          .from("profiles")
-          .update({
-            first_name: next.owner.first_name || null,
-            last_name: next.owner.last_name || null,
-            phone: next.owner.phone || null,
-          })
-          .eq("id", me.data.user.id);
-      }
-
-      if (
-        next.owner.accepted_terms &&
-        next.owner.legal_accepted_at &&
-        next.owner.terms_version &&
-        next.owner.privacy_version
-      ) {
-        // The RPC derives user/store from the authenticated session and is idempotent by policy version.
-
-        const { error: legalError } = await (supabase.rpc as any)("record_legal_acceptance", {
-          p_terms_version: next.owner.terms_version,
-          p_privacy_version: next.owner.privacy_version,
-          p_accepted_at: next.owner.legal_accepted_at,
-          p_source: "setup_wizard",
-        });
-        if (legalError) throw legalError;
-      }
-      return true;
-    } catch (err) {
-      toast.error(userFacingError(err, "Your setup could not be saved. Please try again."));
-      return false;
-    } finally {
-      setSaving(false);
-    }
+  const goTo = (step: number) => {
+    if (finishLock.current || state.step === 11) return;
+    setError("");
+    setState((s) => ({ ...s, step: Math.max(0, Math.min(10, step)) }));
   };
-
-  const goTo = async (step: number) => {
-    const nextState = { ...state, step };
-    const saved = await persist(nextState);
-    if (saved) setState(nextState);
-  };
-  const next = () => goTo(Math.min(state.step + 1, STEPS.length - 1));
-  const back = () => goTo(Math.max(state.step - 1, 0));
-
-  const canContinue = useMemo(() => {
-    switch (state.step) {
-      case 1:
-        return (
-          !!state.owner.first_name &&
-          !!state.owner.last_name &&
-          !!state.owner.email &&
-          !isDisposableEmail(state.owner.email) &&
-          state.owner.accepted_terms
-        );
-      case 2:
-        return !!state.store.name;
-      case 3:
-        return state.tax.rate >= 0 && !!state.tax.currency;
-      default:
-        return true;
+  const next = () => {
+    const message = validateSetupStep(state, state.step);
+    if (message) {
+      setError(message);
+      return;
     }
-  }, [state]);
-
+    goTo(state.step + 1);
+  };
+  const back = () => goTo(state.step - 1);
+  const skip = () => {
+    if (finishLock.current) return;
+    setError("");
+    setState((s) => ({
+      ...s,
+      step: s.step + 1,
+      ...(s.step === 5 ? { employee: { ...s.employee, skip: true } } : {}),
+      ...(s.step === 6 ? { products: { ...s.products, mode: "skip" as const } } : {}),
+    }));
+  };
+  const uploads = useRef(0);
+  const [uploading, setUploading] = useState(false);
+  const canContinue = !uploading;
   const finish = async () => {
+    if (finishLock.current) return;
+    if (uploads.current > 0) {
+      setError("Wait for the logo upload to finish, then try again.");
+      return;
+    }
+    const invalid = validateSetup(state);
+    if (invalid) {
+      setState((s) => ({ ...s, step: invalid.step }));
+      setError(invalid.message);
+      return;
+    }
+    finishLock.current = true;
     setFinishing(true);
+    setError("");
     try {
-      // Add employee if provided
-      if (!state.employee.skip && state.employee.first_name && state.employee.email) {
-        // Create as a profile row with a random employee_id (owner can invite later)
-        toast.info("Employee will be created from Employees page  -  settings saved.");
+      await flush();
+      if (disposed.current) return;
+      await finishSetup({ data: { ...scope, revision: revision.current, state: latest.current } });
+      if (disposed.current) return;
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        /* Completed server state wins on return. */
       }
-      // Add products if manual entries provided
-      if (state.products.mode === "manual" && state.products.items.length && store?.id) {
-        const rows = state.products.items
-          .filter((p) => p.name)
-          .map((p) => ({
-            store_id: store.id!,
-            name: p.name,
-            sku: p.sku || null,
-            price: Number(p.price) || 0,
-            stock: Number(p.stock) || 0,
-            taxable: true,
-          }));
-        if (rows.length) {
-          const { error } = await supabase.from("products").insert(rows);
-          if (error)
-            toast.error(
-              userFacingError(error, "Some products could not be added. You can add them later."),
-            );
-        }
-      }
-      const saved = await persist(state, { complete: true });
-      if (!saved) return false;
+      setState((s) => ({ ...s, step: 11 }));
       await qc.invalidateQueries({ queryKey: ["me"] });
-      toast.success("Setup complete!");
-      return true;
-    } catch (error) {
-      toast.error(userFacingError(error, "Setup could not be completed"));
-      return false;
+    } catch (e) {
+      if (!disposed.current) setError(setupError(e));
     } finally {
-      setFinishing(false);
+      finishLock.current = false;
+      if (!disposed.current) setFinishing(false);
     }
   };
 
   const uploadLogo = async (file: File, field: "logo_url" | "receipt_logo_url") => {
     if (!store?.id) return;
+    if (
+      !["image/png", "image/jpeg", "image/webp"].includes(file.type) ||
+      file.size > 2 * 1024 * 1024
+    ) {
+      setError("Use a PNG, JPEG or WebP logo smaller than 2 MB.");
+      return;
+    }
+    uploads.current++;
+    setUploading(true);
     try {
       const path = `${store.id}/${field}-${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
       const { error } = await supabase.storage
         .from("product-images")
         .upload(path, file, { upsert: true });
       if (error) throw error;
-      const { data } = await supabase.storage
+      const { data, error: urlError } = await supabase.storage
         .from("product-images")
         .createSignedUrl(path, 60 * 60 * 24 * 365);
-      const url = data?.signedUrl ?? "";
+      if (urlError || !data?.signedUrl) throw urlError ?? new Error("Upload failed");
+      if (disposed.current) return;
+      const url = data.signedUrl;
       if (field === "logo_url") patchStore({ logo_url: url });
-      else await supabase.from("stores").update({ receipt_logo_url: url }).eq("id", store.id);
+      else patchReceipt({ logo_url: url });
       toast.success("Logo uploaded");
     } catch (e) {
       toast.error(userFacingError(e, "Upload failed"));
+    } finally {
+      uploads.current--;
+      if (!disposed.current) setUploading(uploads.current > 0);
     }
   };
 
-  if (!loaded || me.isLoading) {
+  if (remote.isError && !loaded)
+    return (
+      <div className="space-y-3 p-4">
+        <p>{setupError(remote.error)}</p>
+        <Button onClick={() => remote.refetch()}>Try again</Button>
+      </div>
+    );
+  if (!loaded) {
     return (
       <div className="p-10 grid place-items-center">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -465,17 +357,11 @@ function SetupWizardPage() {
     );
   }
 
-  const progress = ((state.step + 1) / STEPS.length) * 100;
-  const StepIcon = STEPS[state.step].icon;
-
   return (
-    <div className="flex-1 overflow-y-auto bg-surface">
-      <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-6">
+    <div className="owner-setup min-w-0 max-w-full flex-1 overflow-y-auto bg-background">
+      <div className="max-w-4xl min-w-0 mx-auto p-4 pb-24 md:p-8 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-lg bg-primary/10 grid place-items-center text-primary">
-              <StepIcon className="size-5" />
-            </div>
             <div>
               <div className="text-xs uppercase tracking-wider text-muted-foreground">
                 Step {state.step + 1} of {STEPS.length}
@@ -484,42 +370,93 @@ function SetupWizardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            {saving ? (
+            {uploading ? (
+              "Uploading logo…"
+            ) : saving ? (
               <>
                 <Loader2 className="size-3 animate-spin" /> Saving…
               </>
             ) : (
-              <>
-                <Check className="size-3 text-emerald-500" /> Saved
-              </>
+              <>{saveStatus}</>
             )}
           </div>
         </div>
 
-        <Progress value={progress} />
-
-        <div className="hidden md:flex items-center gap-1 overflow-x-auto text-xs">
-          {STEPS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => goTo(s.id)}
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md whitespace-nowrap transition-colors",
-                s.id === state.step
-                  ? "bg-primary text-primary-foreground"
-                  : s.id < state.step
-                    ? "text-foreground hover:bg-accent"
-                    : "text-muted-foreground hover:bg-accent",
-              )}
+        {state.step < 11 && (
+          <p className="text-sm text-muted-foreground">
+            Changes stay in your draft until you finish. Back and Continue do not create records.
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        {conflict && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setState(remote.data!.state);
+                savedContent.current = contentKey(remote.data!.state);
+                setConflict(false);
+                setError("");
+              }}
             >
-              {s.id < state.step ? <Check className="size-3" /> : <s.icon className="size-3" />}
-              {s.label}
-            </button>
-          ))}
-        </div>
+              Use saved setup
+            </Button>
+            <Button
+              onClick={() => {
+                setConflict(false);
+                setError("");
+              }}
+            >
+              Keep this device’s draft
+            </Button>
+          </div>
+        )}
+        {state.step < 11 && (
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={saving || finishing || conflict}
+              onClick={() => {
+                void flush().catch((e) => setError(setupError(e)));
+              }}
+            >
+              Save draft
+            </Button>
+            <Link to="/help" className="self-center text-sm underline">
+              Open Support
+            </Link>
+          </div>
+        )}
 
-        <Card>
-          <CardContent className="pt-6">
+        {state.step < 11 && (
+          <div className="hidden md:flex items-center gap-1 overflow-x-auto text-xs">
+            {STEPS.filter((s) => s.id < 11).map((s) => (
+              <button
+                key={s.id}
+                onClick={() => goTo(s.id)}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md whitespace-nowrap transition-colors",
+                  s.id === state.step
+                    ? "bg-primary text-primary-foreground"
+                    : s.id < state.step
+                      ? "text-foreground hover:bg-accent"
+                      : "text-muted-foreground hover:bg-accent",
+                )}
+              >
+                {s.id < state.step ? <Check className="size-3" /> : <s.icon className="size-3" />}
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <section className="min-w-0 border-t pt-5" aria-label={STEPS[state.step].label}>
+          <fieldset disabled={finishing || uploading} className="min-w-0">
             {state.step === 0 && (
               <StepWelcome onStart={() => goTo(1)} onExit={() => navigate({ to: "/dashboard" })} />
             )}
@@ -576,32 +513,27 @@ function SetupWizardPage() {
                 onSettings={() => navigate({ to: "/settings" })}
               />
             )}
-          </CardContent>
-        </Card>
+          </fieldset>
+        </section>
 
         {state.step > 0 && state.step < 11 && (
-          <div className="flex items-center justify-between gap-2">
-            <Button variant="outline" onClick={back} disabled={state.step === 0}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button variant="outline" onClick={back} disabled={finishing}>
               <ChevronLeft className="size-4" /> Back
             </Button>
             <div className="flex items-center gap-2">
-              {[5, 6, 7, 8, 9].includes(state.step) && (
-                <Button variant="ghost" onClick={next}>
+              {[5, 6].includes(state.step) && (
+                <Button variant="ghost" onClick={skip} disabled={finishing}>
                   <SkipForward className="size-4" /> Skip
                 </Button>
               )}
               {state.step < 10 && (
-                <Button onClick={next} disabled={!canContinue}>
-                  Save & Continue <ChevronRight className="size-4" />
+                <Button onClick={next} disabled={!canContinue || finishing}>
+                  Continue <ChevronRight className="size-4" />
                 </Button>
               )}
               {state.step === 10 && (
-                <Button
-                  onClick={async () => {
-                    if (await finish()) await goTo(11);
-                  }}
-                  disabled={finishing}
-                >
+                <Button onClick={finish} disabled={finishing}>
                   {finishing && <Loader2 className="size-4 animate-spin" />} Finish Setup
                 </Button>
               )}
@@ -618,15 +550,12 @@ function SetupWizardPage() {
 function StepWelcome({ onStart, onExit }: { onStart: () => void; onExit: () => void }) {
   return (
     <div className="text-center py-10 space-y-6">
-      <div className="size-16 rounded-2xl bg-primary/10 text-primary grid place-items-center mx-auto">
-        <Rocket className="size-8" />
-      </div>
       <div className="space-y-2">
-        <h2 className="text-3xl font-bold">Welcome to SEZA POS</h2>
+        <h2 className="text-xl font-semibold">Welcome to SEZA POS</h2>
         <p className="text-muted-foreground max-w-xl mx-auto">
           Let's get your business up and running. This wizard walks you through everything you need
           - owner account, store details, taxes, receipts, employees, products, hardware, and
-          payments. It takes about 5 minutes.
+          payments. You can save a draft and return later.
         </p>
       </div>
       <div className="flex items-center justify-center gap-2">
@@ -826,6 +755,8 @@ function StepTaxes({
         <Field label="Default tax rate (%)" required>
           <Input
             type="number"
+            min="0"
+            max="100"
             step="0.001"
             value={t.rate}
             onChange={(e) => patch({ rate: Number(e.target.value) || 0 })}
@@ -836,7 +767,11 @@ function StepTaxes({
             <div className="text-sm font-medium">Tax inclusive pricing</div>
             <div className="text-xs text-muted-foreground">Prices already include tax</div>
           </div>
-          <Switch checked={t.inclusive} onCheckedChange={(v) => patch({ inclusive: v })} />
+          <Switch
+            aria-label="Tax inclusive pricing"
+            checked={t.inclusive}
+            onCheckedChange={(v) => patch({ inclusive: v })}
+          />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Currency">
@@ -857,7 +792,20 @@ function StepTaxes({
         </Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Date format">
-            <Input value={t.date_format} onChange={(e) => patch({ date_format: e.target.value })} />
+            <Select value={t.date_format} onValueChange={(date_format) => patch({ date_format })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from(new Set([t.date_format, "MM/DD/YYYY", "DD/MM/YYYY", "YYYY-MM-DD"])).map(
+                  (format) => (
+                    <SelectItem key={format} value={format}>
+                      {format}
+                    </SelectItem>
+                  ),
+                )}
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="Language">
             <Input value={t.language} onChange={(e) => patch({ language: e.target.value })} />
@@ -912,14 +860,7 @@ function StepReceipt({
         <Field label="Thank-you message">
           <Input value={r.thank_you} onChange={(e) => patch({ thank_you: e.target.value })} />
         </Field>
-        <Field label="QR code URL">
-          <Input
-            value={r.qr_url}
-            onChange={(e) => patch({ qr_url: e.target.value })}
-            placeholder="https://"
-          />
-        </Field>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <Field label="Facebook">
             <Input
               value={r.social.facebook}
@@ -960,7 +901,11 @@ function StepEmployee({
           <div className="text-sm font-medium">I'll be the only user for now</div>
           <div className="text-xs text-muted-foreground">Skip and add employees later</div>
         </div>
-        <Switch checked={e.skip} onCheckedChange={(v) => patch({ skip: v })} />
+        <Switch
+          aria-label="Only user for now"
+          checked={e.skip}
+          onCheckedChange={(v) => patch({ skip: v })}
+        />
       </div>
       {!e.skip && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -981,7 +926,6 @@ function StepEmployee({
               <SelectContent>
                 <SelectItem value="cashier">Cashier</SelectItem>
                 <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -998,7 +942,8 @@ function StepEmployee({
         </div>
       )}
       <p className="text-xs text-muted-foreground">
-        A unique 6-digit Employee ID is generated automatically for every user.
+        When you finish, SEZA emails a secure invitation. The employee chooses their own password.
+        Existing employees are not invited again.
       </p>
     </div>
   );
@@ -1012,28 +957,15 @@ function StepProducts({
   patch: (p: Partial<WizardState["products"]>) => void;
 }) {
   const p = state.products;
-  const parseCsv = (csv: string) => {
-    const lines = csv.trim().split(/\r?\n/).filter(Boolean);
-    if (!lines.length) return [];
-    const header = lines[0]
-      .toLowerCase()
-      .split(",")
-      .map((h) => h.trim());
-    const idx = (k: string) => header.indexOf(k);
-    return lines
-      .slice(1)
-      .map((line) => {
-        const c = line.split(",");
-        return {
-          name: (c[idx("name")] ?? "").trim(),
-          price: Number(c[idx("price")] ?? 0),
-          sku: (c[idx("sku")] ?? "").trim(),
-          stock: Number(c[idx("stock")] ?? 0),
-        };
-      })
-      .filter((r) => r.name);
-  };
-  const parsed = p.mode === "import" ? parseCsv(p.csv) : [];
+  const [fileError, setFileError] = useState("");
+  let parsed: ReturnType<typeof parseSetupCsv> = [];
+  let csvError = "";
+  if (p.mode === "import" && p.csv.trim())
+    try {
+      parsed = setupProducts(state);
+    } catch (e) {
+      csvError = (e as Error).message;
+    }
 
   return (
     <div className="space-y-4">
@@ -1049,9 +981,10 @@ function StepProducts({
 
         <TabsContent value="manual" className="space-y-3">
           {p.items.map((it, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2">
+            <div key={i} className="grid grid-cols-2 gap-2 border-b pb-3 sm:grid-cols-12">
               <Input
-                className="col-span-5"
+                aria-label={`Product ${i + 1} name`}
+                className="col-span-2 sm:col-span-5"
                 placeholder="Name"
                 value={it.name}
                 onChange={(e) => {
@@ -1061,7 +994,8 @@ function StepProducts({
                 }}
               />
               <Input
-                className="col-span-3"
+                aria-label={`Product ${i + 1} SKU`}
+                className="col-span-2 sm:col-span-3"
                 placeholder="SKU"
                 value={it.sku}
                 onChange={(e) => {
@@ -1071,8 +1005,11 @@ function StepProducts({
                 }}
               />
               <Input
-                className="col-span-2"
+                className="col-span-1 sm:col-span-2"
                 type="number"
+                aria-label={`Product ${i + 1} price`}
+                min="0"
+                step="0.01"
                 placeholder="Price"
                 value={it.price}
                 onChange={(e) => {
@@ -1082,8 +1019,11 @@ function StepProducts({
                 }}
               />
               <Input
-                className="col-span-2"
+                className="col-span-1 sm:col-span-2"
                 type="number"
+                aria-label={`Product ${i + 1} stock`}
+                min="0"
+                step="0.001"
                 placeholder="Stock"
                 value={it.stock}
                 onChange={(e) => {
@@ -1092,6 +1032,14 @@ function StepProducts({
                   patch({ items });
                 }}
               />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="col-span-2 sm:col-span-12 justify-self-end"
+                onClick={() => patch({ items: p.items.filter((_, index) => index !== i) })}
+              >
+                Remove product {i + 1}
+              </Button>
             </div>
           ))}
           <Button
@@ -1106,27 +1054,69 @@ function StepProducts({
         </TabsContent>
 
         <TabsContent value="import" className="space-y-3">
+          <Field label="CSV file">
+            <Input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.size > 300_000) {
+                  setFileError("Use a CSV smaller than 300 KB.");
+                  return;
+                }
+                try {
+                  const csv = await file.text();
+                  patch({ csv });
+                  setFileError("");
+                } catch {
+                  setFileError(
+                    "The CSV could not be opened. Try another file or paste its contents.",
+                  );
+                }
+              }}
+            />
+          </Field>
+          {fileError && (
+            <p role="alert" className="text-sm text-destructive">
+              {fileError}
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
-            Paste CSV with headers: <code className="font-mono">name,sku,price,stock</code>
+            Upload or paste CSV with headers:{" "}
+            <code className="font-mono">name,sku,price,stock</code>
           </p>
           <Textarea
             rows={8}
+            aria-label="CSV contents"
             placeholder="name,sku,price,stock&#10;Coca-Cola 12oz,COKE-12,1.99,50"
             value={p.csv}
             onChange={(e) => patch({ csv: e.target.value })}
             className="font-mono text-xs"
           />
+          {csvError && (
+            <p role="alert" className="text-sm text-destructive">
+              {csvError}
+            </p>
+          )}
           {parsed.length > 0 && (
             <div className="rounded-md border overflow-hidden">
               <div className="px-3 py-2 bg-muted text-xs font-medium">
-                Preview: {parsed.length} product{parsed.length !== 1 ? "s" : ""}
+                Ready to import when you finish: {parsed.length} product
+                {parsed.length !== 1 ? "s" : ""}
               </div>
               <div className="max-h-48 overflow-y-auto text-xs">
                 {parsed.slice(0, 20).map((r, i) => (
-                  <div key={i} className="grid grid-cols-4 gap-2 px-3 py-1.5 border-t">
+                  <div
+                    key={i}
+                    className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-3 py-1.5 border-t break-words"
+                  >
                     <span>{r.name}</span>
                     <span className="text-muted-foreground">{r.sku}</span>
-                    <span>${r.price.toFixed(2)}</span>
+                    <span>
+                      {state.tax.currency_symbol}
+                      {r.price.toFixed(2)}
+                    </span>
                     <span>{r.stock}</span>
                   </div>
                 ))}
@@ -1137,7 +1127,8 @@ function StepProducts({
 
         <TabsContent value="skip">
           <p className="text-sm text-muted-foreground py-4">
-            You can add products anytime from the Products page.
+            You can add products anytime from the Products page. Existing products are preserved;
+            matching SKUs (or names without a SKU) are skipped on import.
           </p>
         </TabsContent>
       </Tabs>
@@ -1145,18 +1136,21 @@ function StepProducts({
   );
 }
 
-function StepHardware({ state: _state, patch: _patch }: {
+function StepHardware({
+  state: _state,
+  patch: _patch,
+}: {
   state: WizardState;
   patch: (p: Partial<WizardState["hardware"]>) => void;
 }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border bg-primary/5 p-4">
+      <div className="border-b pb-4">
         <div className="font-semibold">Physical hardware is configured on the Android register</div>
         <p className="mt-1 text-sm text-muted-foreground">
           After you pair a POS with its 10-character code and sign in with a manager or owner PIN,
-          SEZA opens the register hardware setup on that device. This website does not try to connect
-          USB or Bluetooth hardware from your phone or laptop.
+          SEZA opens the register hardware setup on that device. This website does not try to
+          connect USB or Bluetooth hardware from your phone or laptop.
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
@@ -1166,17 +1160,18 @@ function StepHardware({ state: _state, patch: _patch }: {
           ["Cash drawer", "Configure the printer kick-out on the POS."],
           ["Payment terminal", "Pair and test the certified reader on the POS."],
         ].map(([label, desc]) => (
-          <div key={label} className="rounded-lg border p-4">
+          <div key={label} className="border-b py-3">
             <div className="text-sm font-semibold">{label}</div>
             <div className="mt-1 text-xs text-muted-foreground">{desc}</div>
           </div>
         ))}
       </div>
-      <div className="rounded-lg border p-4">
+      <div className="border-b py-3">
         <div className="text-sm font-semibold">Customer display</div>
         <div className="mt-1 text-xs text-muted-foreground">
-          No manual connection step is required. On supported dual-screen SEZA hardware, the customer
-          display starts automatically. You can customize its idle message and text size later from the POS.
+          No manual connection step is required. On supported dual-screen SEZA hardware, the
+          customer display starts automatically. You can customize its idle message and text size
+          later from the POS.
         </div>
       </div>
     </div>
@@ -1210,8 +1205,10 @@ function StepPayments({
           type="button"
           onClick={() => patch({ provider: provider.id })}
           className={cn(
-            "w-full text-left flex items-start gap-3 rounded-lg border p-4 transition-colors",
-            state.payments.provider === provider.id ? "border-primary bg-primary/5" : "hover:bg-accent",
+            "w-full text-left flex items-start gap-3 border-b py-3 transition-colors",
+            state.payments.provider === provider.id
+              ? "border-primary bg-primary/5"
+              : "hover:bg-accent",
           )}
         >
           <div
@@ -1229,22 +1226,41 @@ function StepPayments({
           </div>
         </button>
       ))}
-      <div className="text-xs rounded-md border bg-muted/30 p-3 text-muted-foreground">
+      <div className="text-sm text-muted-foreground">
         Merchant verification and payout information stay in the Owner Dashboard. Reader discovery,
         pairing, reconnecting, and testing happen only on the physical Android register.
       </div>
+      <p className="text-sm">
+        Choosing Stripe here saves your preference. After finishing this wizard, open Payments in
+        Settings for verification and payouts.
+      </p>
     </div>
   );
 }
 
-function StepTestSale({ state, patch: _patch }: {
+function StepTestSale({
+  state,
+  patch: _patch,
+}: {
   state: WizardState;
   patch: (p: Partial<WizardState["test_sale"]>) => void;
 }) {
-  const sampleSubtotal = state.products.items[0]?.price || 10;
-  const sampleTax = Math.round(sampleSubtotal * (state.tax.rate / 100) * 100) / 100;
+  let items: WizardState["products"]["items"] = [];
+  try {
+    items = setupProducts(state);
+  } catch {
+    /* sample while draft is invalid */
+  }
+  const price = items[0]?.price ?? 10;
+  const sampleTax =
+    Math.round(
+      (state.tax.inclusive
+        ? price - price / (1 + state.tax.rate / 100)
+        : (price * state.tax.rate) / 100) * 100,
+    ) / 100;
+  const sampleSubtotal = state.tax.inclusive ? price - sampleTax : price;
   const sampleTotal = sampleSubtotal + sampleTax;
-  const itemName = state.products.items[0]?.name || "Sample item";
+  const itemName = items[0]?.name || "Sample item";
   const money = (value: number) => `${state.tax.currency_symbol || "$"}${value.toFixed(2)}`;
 
   return (
@@ -1252,8 +1268,8 @@ function StepTestSale({ state, patch: _patch }: {
       <div>
         <div className="text-sm font-semibold">Read-only POS preview</div>
         <p className="mt-1 text-sm text-muted-foreground">
-          This preview shows how the core store settings will appear. Real checkout and hardware testing
-          happen on the paired Android POS.
+          This preview shows how the core store settings will appear. Real checkout and hardware
+          testing happen on the paired Android POS.
         </p>
       </div>
       <div className="overflow-hidden rounded-xl border bg-background">
@@ -1262,21 +1278,27 @@ function StepTestSale({ state, patch: _patch }: {
           <div className="text-xs text-muted-foreground">SEZA POS preview</div>
         </div>
         <div className="grid gap-3 p-4 md:grid-cols-[1fr_260px]">
-          <div className="rounded-lg border p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Catalog</div>
+          <div className="border-b py-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Catalog
+            </div>
             <div className="mt-3 flex items-center justify-between rounded-md bg-muted/40 p-3">
               <span className="font-medium">{itemName}</span>
               <span>{money(sampleSubtotal)}</span>
             </div>
           </div>
-          <div className="rounded-lg border p-4 text-sm">
-            <div className="flex justify-between"><span>Subtotal</span><span>{money(sampleSubtotal)}</span></div>
+          <div className="border-b py-3 text-sm">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{money(sampleSubtotal)}</span>
+            </div>
             <div className="mt-2 flex justify-between text-muted-foreground">
               <span>Tax ({state.tax.rate.toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}%)</span>
               <span>{money(sampleTax)}</span>
             </div>
             <div className="mt-3 flex justify-between border-t pt-3 text-lg font-bold">
-              <span>Total</span><span>{money(sampleTotal)}</span>
+              <span>Total</span>
+              <span>{money(sampleTotal)}</span>
             </div>
           </div>
         </div>
@@ -1356,16 +1378,17 @@ function StepReview({ state, goTo }: { state: WizardState; goTo: (n: number) => 
 function StepFinish({ onDone, onSettings }: { onDone: () => void; onSettings: () => void }) {
   return (
     <div className="text-center py-10 space-y-6">
-      <div className="size-16 rounded-2xl bg-emerald-500/10 text-emerald-600 grid place-items-center mx-auto">
-        <PartyPopper className="size-8" />
-      </div>
       <div>
-        <h2 className="text-3xl font-bold">Congratulations!</h2>
+        <h2 className="text-xl font-semibold">Store setup complete</h2>
         <p className="text-muted-foreground mt-2">
-          Your store setup is saved. Pair an Android register to finish physical hardware setup and start selling.
+          Your store setup is saved. Pair an Android register to finish physical hardware setup and
+          start selling.
         </p>
       </div>
       <div className="flex items-center justify-center gap-2 flex-wrap">
+        <Button size="lg" asChild>
+          <Link to="/devices">Pair an Android register</Link>
+        </Button>
         <Button size="lg" onClick={onDone}>
           Go to Dashboard
         </Button>
@@ -1396,13 +1419,13 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn("space-y-1.5", className)}>
-      <Label className="text-xs">
+    <label className={cn("block min-w-0 space-y-1.5", className)}>
+      <span className="text-sm">
         {label}
         {required && <span className="text-destructive ml-1">*</span>}
-      </Label>
+      </span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -1415,11 +1438,18 @@ function ReceiptPreview({ state }: { state: WizardState }) {
     { name: "Snickers Bar", qty: 1, price: 1.49 },
   ];
   const subtotal = items.reduce((a, i) => a + i.qty * i.price, 0);
-  const tax = t.inclusive ? 0 : subtotal * (t.rate / 100);
-  const total = subtotal + tax;
+  const tax = t.inclusive ? subtotal - subtotal / (1 + t.rate / 100) : subtotal * (t.rate / 100);
+  const total = t.inclusive ? subtotal : subtotal + tax;
   return (
     <div className="rounded-md border bg-white text-black font-mono text-xs p-4 shadow-inner">
-      <div className="text-center space-y-0.5 pb-2 border-b border-dashed border-gray-300">
+      <div className="text-center space-y-0.5 pb-2 border-b border-dashed border-gray-300 break-words">
+        {(r.logo_url || s.logo_url) && (
+          <img
+            src={r.logo_url || s.logo_url}
+            alt="Receipt logo"
+            className="mx-auto max-h-16 max-w-32 object-contain"
+          />
+        )}
         <div className="font-bold text-sm">{s.name || "Your Store"}</div>
         {s.address && <div>{s.address}</div>}
         {(s.city || s.state) && (
@@ -1445,7 +1475,10 @@ function ReceiptPreview({ state }: { state: WizardState }) {
         ))}
       </div>
       <div className="border-t border-dashed border-gray-300 pt-2 space-y-0.5">
-        <Row k="Subtotal" v={`${t.currency_symbol}${subtotal.toFixed(2)}`} />
+        <Row
+          k="Subtotal"
+          v={`${t.currency_symbol}${(t.inclusive ? subtotal - tax : subtotal).toFixed(2)}`}
+        />
         <Row
           k={`Tax (${t.rate}%${t.inclusive ? " incl." : ""})`}
           v={`${t.currency_symbol}${tax.toFixed(2)}`}

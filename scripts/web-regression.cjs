@@ -317,12 +317,12 @@ test('owner support badge refreshes immediately after a conversation is read', (
   assert.match(shared, /merchant_mark_support_read/);
   assert.match(shared, /invalidateQueries\(\{ queryKey: \["owner-support-unread"\] \}\)/);
 });
-test('owner support bubble stays hidden across dashboard navigation until a hard reload', () => {
+test('owner support bubble stays hidden across navigation and reload for that account', () => {
   const shell = source('src/components/pos/AppShell.tsx');
-  assert.match(shell, /supportBubbleDismissed, setSupportBubbleDismissed/);
+  assert.match(shell, /dismissedScope, setDismissedScope/);
   assert.match(shell, /!supportBubbleDismissed &&/);
-  assert.match(shell, /setSupportBubbleDismissed\(true\)/);
-  assert.match(shell, /Hide support button until reload/);
+  assert.match(shell, /setDismissedScope\(supportScope\)/);
+  assert.match(shell, /localStorage.setItem\(`\$\{supportScope\}:dismissed`, "1"\)/);
   assert.doesNotMatch(shell, /supportBubbleDismissedPath/);
   assert.doesNotMatch(shell, /setSupportBubbleDismissed\(false\)/);
 });

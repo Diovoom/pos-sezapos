@@ -93,8 +93,10 @@ export function useFloatingPosition(storageKey: string): {
 
   useEffect(() => {
     const stored = readStoredPosition(storageKey);
-    if (!stored) return;
+    dragRef.current = null;
+    setDragging(false);
     updatePosition(stored);
+    if (!stored) return;
     const frame = window.requestAnimationFrame(() => {
       const element = panelRef.current;
       if (!element) return;

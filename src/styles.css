@@ -324,3 +324,19 @@ html.owner-dashboard-web [role="alertdialog"] {
   background: color-mix(in oklab, var(--primary) 3.5%, var(--background));
 }
 
+
+/* iOS focuses small text fields by zooming. Keep touch inputs readable without
+   changing the viewport scale or disabling the user's accessibility zoom. */
+@media (pointer: coarse) {
+  [data-owner-dashboard] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  [data-owner-dashboard] textarea,
+  [data-owner-dashboard] select,
+  [data-owner-dashboard] [role="combobox"],
+  [data-radix-popper-content-wrapper] input,
+  [role="dialog"] input,
+  [role="dialog"] textarea,
+  [role="dialog"] select { font-size: 16px !important; }
+}
+.owner-setup input, .owner-setup textarea, .owner-setup [role="combobox"] { min-width: 0; max-width: 100%; }
+.owner-setup p, .owner-setup button, .owner-setup span { overflow-wrap: anywhere; }
+.owner-setup button { white-space: normal; }
